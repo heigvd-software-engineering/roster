@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.wrangler/
+.dev.vars
+.env
+.pnpm-store/
+*.local
+.DS_Store
+.superpowers/
