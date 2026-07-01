@@ -18,12 +18,22 @@ export function useApi<
   E extends { $get: (...args: never[]) => unknown; $url: () => URL },
 >(endpoint: E, config?: SWRConfiguration<InferResponseType<E["$get"]>>) {
   type Data = InferResponseType<E["$get"]>;
+  const path = endpoint.$url().pathname;
   return useSWR<Data>(
-    endpoint.$url().pathname,
-    async () =>
-      (
-        await (endpoint.$get() as Promise<{ json: () => Promise<Data> }>)
-      ).json(),
+    path,
+    async () => {
+      const res = (await endpoint.$get()) as {
+        ok: boolean;
+        status: number;
+        json: () => Promise<Data>;
+      };
+      // Throw non-2xx so SWR routes it to `error` instead of parsing the
+      // error body as valid `Data`.
+      if (!res.ok) {
+        throw new Error(`GET ${path} failed (${res.status})`);
+      }
+      return res.json();
+    },
     config,
   );
 }

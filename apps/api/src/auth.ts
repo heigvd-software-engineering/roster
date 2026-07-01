@@ -40,6 +40,8 @@ export function createAuth(env: AuthEnv) {
               "email",
               `${env.EDUID_ISSUER}/authz/User.Read`,
             ],
+            // SWITCH edu-ID advertises code_challenge_methods_supported: ["S256"].
+            pkce: true,
           },
         ],
       }),
