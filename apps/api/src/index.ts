@@ -1,5 +1,8 @@
 import { Hono } from "hono";
 import type { Env } from "./auth";
+
+export type { Auth } from "./auth";
+
 import { authRoutes } from "./routes/auth";
 import { healthRoutes } from "./routes/health";
 import { meRoutes } from "./routes/me";

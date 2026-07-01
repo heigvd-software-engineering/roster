@@ -594,7 +594,14 @@ edu-ID login → Tasks 3+5. Authed home + sign out → Task 4. Persistence (Bett
 
 # Features 2–10 — outlines (expanded when reached)
 
-Each is a single feature: smallest schema + code, no commits, auto + human gate per task.
+Each is a single feature: smallest schema + code, auto + human gate per task.
+
+> **Decided — auth middleware (lands with its first consumer, F3+):** protected
+> data endpoints use a `requireAuth` Hono middleware + an `AuthedEnv` type
+> (`Bindings` + `Variables { user, session }`), applied **per route module** via
+> `.use(requireAuth)` (colocated, type-visible). Handlers read `c.get("user")`
+> (typed, non-null; 401 otherwise). `/api/me` stays **session-optional** (no
+> `requireAuth`). Not built ahead of need.
 
 - **F2 — Mandatory GitHub linking.** Add the GitHub link provider to `createAuth`; add `customSession` exposing `githubLinked` (a `github` `account` row exists); add `/onboarding/github` + a route guard (authed & unlinked & not onboarding → redirect). UI gains the onboarding gate. *Schema: none.* *(Flows §3.1, §6 onboarding gate.)* 🔴 real GitHub link.
 - **F3 — Teacher connects a class.** Add `classes` (id, orgId unique, installationId, connectedByUserId, status) — *only these columns*. Octokit App client; `GET /user/installations`; install callback writes the row; set base permission `No access` (`PATCH /orgs/{org}`) + confirm. *(Flows §3.4.)* 🔴 GitHub App.

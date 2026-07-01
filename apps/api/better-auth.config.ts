@@ -11,4 +11,6 @@ export const auth = createAuth({
   EDUID_ISSUER: "http://localhost",
   EDUID_CLIENT_ID: "x",
   EDUID_CLIENT_SECRET: "x",
+  GITHUB_CLIENT_ID: "x",
+  GITHUB_CLIENT_SECRET: "x",
 });

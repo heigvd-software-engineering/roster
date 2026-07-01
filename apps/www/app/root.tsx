@@ -8,6 +8,7 @@ import {
 } from "react-router";
 
 import { AppLayout } from "~/components/custom/app-layout";
+import { OnboardingGate } from "~/components/custom/onboarding-gate";
 import type { Route } from "./+types/root";
 import "./app.css";
 
@@ -32,7 +33,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <AppLayout>
-      <Outlet />
+      <OnboardingGate>
+        <Outlet />
+      </OnboardingGate>
     </AppLayout>
   );
 }
