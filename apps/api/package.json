@@ -1,0 +1,31 @@
+{
+  "name": "@labs/api",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "types": "./src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev --local-protocol https --port 3000",
+    "deploy": "wrangler deploy --minify",
+    "cf-typegen": "wrangler types --env-interface CloudflareBindings",
+    "auth:schema": "better-auth generate --config better-auth.config.ts --output ../../packages/db/src/auth-schema.ts --yes",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "build": "wrangler deploy --dry-run --outdir dist"
+  },
+  "dependencies": {
+    "@labs/db": "workspace:*",
+    "better-auth": "^1.6.23",
+    "drizzle-orm": "^0.45.2",
+    "hono": "^4.12.27"
+  },
+  "devDependencies": {
+    "@better-auth/cli": "^1.4.21",
+    "@cloudflare/vitest-pool-workers": "^0.16.20",
+    "@cloudflare/workers-types": "^4.20260630.1",
+    "@types/node": "^26.0.1",
+    "vitest": "^4.1.9",
+    "wrangler": "^4.105.0"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "labs",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-06-30",
+  "compatibility_flags": ["nodejs_compat"],
+  "vars": {
+    "BETTER_AUTH_URL": "https://localhost:3000",
+    "EDUID_ISSUER": "https://login.eduid.ch"
+  },
+  "assets": {
+    "directory": "../www/build/client",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    // API routes must hit the Worker first. Without this, browser *navigations*
+    // (Sec-Fetch-Mode: navigate) to /api/* are short-circuited by the SPA
+    // not_found_handling and never reach Hono/Better Auth (breaks OAuth callback).
+    "run_worker_first": ["/api/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "labs",
+      // Local-dev placeholder. Replace with the real id from
+      // `wrangler d1 create labs` before deploying to Cloudflare.
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "../../packages/db/migrations"
+    }
+  ]
+}

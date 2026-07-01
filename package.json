@@ -1,0 +1,24 @@
+{
+  "name": "labs",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "biome": "biome check .",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "build": "pnpm --filter @labs/www build && pnpm --filter @labs/api build"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "^11.1.2",
+      "onFail": "download"
+    }
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.1",
+    "@tsconfig/strictest": "^2.0.8",
+    "typescript": "^6.0.3"
+  }
+}

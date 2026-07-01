@@ -1,0 +1,14 @@
+packages:
+  - "packages/*"
+  - "apps/*"
+allowBuilds:
+  esbuild: true
+  workerd: true
+  sharp: false
+  "@prisma/client": false
+  better-sqlite3: false
+# Dedupe better-call to the version better-auth@1.6.22 core needs; the lagging
+# @better-auth/cli@1.4.21 otherwise pulls an older better-call (1.1.8) that
+# breaks schema generation. Remove once the CLI catches up to core.
+overrides:
+  better-call: "1.3.7"
