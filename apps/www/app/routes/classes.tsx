@@ -1,6 +1,11 @@
+import { Auth } from "~/components/custom/shell/auth";
 import { ClassesPage } from "~/pages/classes-page";
 
-/** /classes — the teacher hub (access gated by the OnboardingGate in root). */
+/** /classes — the teacher hub. */
 export default function Classes() {
-  return <ClassesPage />;
+  return (
+    <Auth>
+      <ClassesPage />
+    </Auth>
+  );
 }

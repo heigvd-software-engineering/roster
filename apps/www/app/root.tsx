@@ -8,7 +8,6 @@ import {
 } from "react-router";
 
 import { AppLayout } from "~/components/custom/shell/app-layout";
-import { OnboardingGate } from "~/components/custom/shell/onboarding-gate";
 import { AuthProvider } from "~/lib/auth-context";
 import type { Route } from "./+types/root";
 import "./app.css";
@@ -35,9 +34,7 @@ export default function App() {
   return (
     <AuthProvider>
       <AppLayout>
-        <OnboardingGate>
-          <Outlet />
-        </OnboardingGate>
+        <Outlet />
       </AppLayout>
     </AuthProvider>
   );

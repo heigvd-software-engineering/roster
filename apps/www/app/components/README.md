@@ -13,7 +13,7 @@ app/components/
    │              #   hand-writing flex/gap/max-width. Grown as needed (YAGNI).
    ├─ typography/ # text.tsx (<Text variant>) + brand-header.tsx (the branded
    │              #   eyebrow/title/red-rule heading block).
-   ├─ shell/      # app chrome + gating: app-layout, app-header, onboarding-gate.
+   ├─ shell/      # app chrome + gating: app-layout, app-header, auth (route guard).
    ├─ identity/   # who-is-this components: user-avatar, user-identity,
    │              #   switch-identity (account menu), github-identity.
    └─ classes/    # classes-domain components: class-card, lab-row, deadline-chip.

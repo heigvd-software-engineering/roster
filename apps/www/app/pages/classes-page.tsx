@@ -1,6 +1,7 @@
 import { ClassCard } from "~/components/custom/classes/class-card";
 import { Row } from "~/components/custom/layout/row";
 import { Stack } from "~/components/custom/layout/stack";
+import { Loading } from "~/components/custom/loading";
 import { Text } from "~/components/custom/typography/text";
 import { Button } from "~/components/ui/button";
 import { api, useApi } from "~/lib/api";
@@ -25,21 +26,21 @@ export function ClassesPage() {
           Connect an organization
         </Button>
       </Row>
-      <Stack gap="md" className="w-full">
-        {isLoading ? (
-          <Text variant="body2">Loading classes…</Text>
-        ) : error ? (
-          <Text variant="body2">
-            Couldn't load your classes — refresh to retry.
-          </Text>
-        ) : classes.length === 0 ? (
-          <Text variant="body2">
-            Connect a GitHub organization to start a class.
-          </Text>
-        ) : (
-          classes.map((cls) => <ClassCard key={cls.id} {...cls} />)
-        )}
-      </Stack>
+      <Loading loading={isLoading} label="Loading classes…">
+        <Stack gap="md" className="w-full">
+          {error ? (
+            <Text variant="body2">
+              Couldn't load your classes — refresh to retry.
+            </Text>
+          ) : classes.length === 0 ? (
+            <Text variant="body2">
+              Connect a GitHub organization to start a class.
+            </Text>
+          ) : (
+            classes.map((cls) => <ClassCard key={cls.id} {...cls} />)
+          )}
+        </Stack>
+      </Loading>
     </Stack>
   );
 }

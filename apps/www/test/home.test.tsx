@@ -32,8 +32,10 @@ function authValue(o: Partial<ReturnType<typeof useAuth>>) {
 }
 
 describe("Home (index)", () => {
-  it("redirects to /classes when signed in", () => {
-    vi.mocked(useAuth).mockReturnValue(authValue({ authed: true }));
+  it("redirects to /classes when signed in and linked", () => {
+    vi.mocked(useAuth).mockReturnValue(
+      authValue({ authed: true, githubLinked: true }),
+    );
     render(<Home />);
     expect(navigateSpy).toHaveBeenCalledWith("/classes");
   });

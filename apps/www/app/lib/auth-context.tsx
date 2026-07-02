@@ -66,7 +66,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       github: data?.github ?? null,
       githubLinked: Boolean(data?.githubLinked),
       signIn: () => {
-        authSignIn.oauth2({ providerId: "switch", callbackURL: "/" });
+        // Return to the page the user was on — the login renders in place
+        // (Auth guard), so deep links (e.g. a class join link) survive.
+        authSignIn.oauth2({
+          providerId: "switch",
+          callbackURL: window.location.pathname,
+        });
       },
       signOut: async () => {
         await authSignOut();

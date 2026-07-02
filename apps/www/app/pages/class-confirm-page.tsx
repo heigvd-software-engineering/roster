@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { Stack } from "~/components/custom/layout/stack";
+import { Loading } from "~/components/custom/loading";
 import { BrandHeader } from "~/components/custom/typography/brand-header";
 import { Text } from "~/components/custom/typography/text";
 import { Button } from "~/components/ui/button";
@@ -10,7 +11,7 @@ import { api, useApi } from "~/lib/api";
 export function ClassConfirmPage() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
-  const { data } = useApi(api.api.classes);
+  const { data, isLoading } = useApi(api.api.classes);
   const cls = data?.classes.find((c) => c.id === id);
   const orgName = cls?.name ?? cls?.login ?? "this organization";
 
@@ -42,16 +43,19 @@ export function ClassConfirmPage() {
   }
 
   return (
-    <Stack gap="lg" align="start" justify="center" className="flex-1">
-      <BrandHeader title={`Connect ${orgName}`} />
-      <Text variant="subtitle" className="max-w-md">
-        labs will set this organization's base repository permission to{" "}
-        <strong>No access</strong>, so students only see repos they're granted.
-      </Text>
-      <Button size="lg" onClick={handleConfirm} disabled={submitting}>
-        Set up & continue
-      </Button>
-      {error ? <Text variant="body2">{error}</Text> : null}
-    </Stack>
+    <Loading loading={isLoading} className="flex-1">
+      <Stack gap="lg" align="start" justify="center" className="flex-1">
+        <BrandHeader title={`Connect ${orgName}`} />
+        <Text variant="subtitle" className="max-w-md">
+          labs will set this organization's base repository permission to{" "}
+          <strong>No access</strong>, so students only see repos they're
+          granted.
+        </Text>
+        <Button size="lg" onClick={handleConfirm} disabled={submitting}>
+          Set up & continue
+        </Button>
+        {error ? <Text variant="body2">{error}</Text> : null}
+      </Stack>
+    </Loading>
   );
 }

@@ -134,6 +134,22 @@
   }
 }
 
+/* Loader: three staggered bars (Swiss equalizer pulse). */
+@keyframes loader-bar {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+    opacity: 0.45;
+  }
+  50% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+.loader-bar {
+  animation: loader-bar 0.9s ease-in-out infinite;
+}
+
 /* Signature: faint engineering graph-paper grid (Swiss grid + lab notebook). */
 .graph-paper {
   background-image:

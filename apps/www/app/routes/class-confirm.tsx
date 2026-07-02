@@ -1,6 +1,11 @@
+import { Auth } from "~/components/custom/shell/auth";
 import { ClassConfirmPage } from "~/pages/class-confirm-page";
 
-/** /classes/:id/confirm — set the org's base repo permission to No access. */
+/** /classes/:id/confirm — finish connecting a class. */
 export default function ClassConfirm() {
-  return <ClassConfirmPage />;
+  return (
+    <Auth>
+      <ClassConfirmPage />
+    </Auth>
+  );
 }
