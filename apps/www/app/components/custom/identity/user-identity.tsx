@@ -1,7 +1,7 @@
+import { UserAvatar } from "~/components/custom/identity/user-avatar";
 import { Row } from "~/components/custom/layout/row";
 import { Stack } from "~/components/custom/layout/stack";
 import { Text } from "~/components/custom/typography/text";
-import { UserAvatar } from "~/components/custom/user-avatar";
 
 type UserIdentityProps = {
   name: string;
@@ -16,8 +16,12 @@ export function UserIdentity({ name, subtitle, avatarUrl }: UserIdentityProps) {
     <Row gap="sm" align="center">
       <UserAvatar name={name} src={avatarUrl} size="lg" />
       <Stack gap="none">
-        <Text variant="body1">{name}</Text>
-        <Text variant="body2">{subtitle}</Text>
+        <Text variant="label" as="span">
+          {name}
+        </Text>
+        <Text variant="caption" as="span">
+          {subtitle}
+        </Text>
       </Stack>
     </Row>
   );

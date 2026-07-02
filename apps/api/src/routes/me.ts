@@ -1,67 +1,52 @@
 import { getDb } from "@labs/db";
 import { Hono } from "hono";
-import { createAuth, type Env } from "../auth";
-
-type GithubProfile = {
-  login: string;
-  id: number;
-  name: string | null;
-  avatarUrl: string;
-};
-
-/** Fetch the linked user's live GitHub profile with their stored token. */
-async function fetchGithubProfile(
-  token: string,
-): Promise<GithubProfile | null> {
-  const res = await fetch("https://api.github.com/user", {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/vnd.github+json",
-      "User-Agent": "labs",
-    },
-  });
-  if (!res.ok) {
-    return null;
-  }
-  const gh = (await res.json()) as {
-    login: string;
-    id: number;
-    name: string | null;
-    avatar_url: string;
-  };
-  return {
-    login: gh.login,
-    id: gh.id,
-    name: gh.name,
-    avatarUrl: gh.avatar_url,
-  };
-}
+import { createAuth, type Env } from "../auth/config";
+import { fetchGithubProfile } from "../github/profile";
+import { githubUserToken } from "../github/user-token";
+import { readAffiliationEmails } from "../switch/claims";
 
 /**
- * Current user (Drizzle-inferred `User`) + their linked GitHub profile, both
- * flowing to the frontend via hc<AppType> with no hand-written shape.
+ * Current user (Drizzle-inferred `User`) + their linked GitHub profile + edu-ID
+ * affiliation emails, flowing to the frontend via hc<AppType> (no hand shape).
  */
 export const meRoutes = new Hono<Env>().get("/me", async (c) => {
   const session = await createAuth(c.env).api.getSession({
     headers: c.req.raw.headers,
   });
   if (!session) {
-    return c.json({ user: null, github: null });
+    return c.json({
+      user: null,
+      github: null,
+      githubLinked: false,
+      affiliations: [] as string[],
+    });
   }
 
   const db = getDb(c.env.DB);
   const user = await db.query.user.findFirst({
     where: (u, { eq }) => eq(u.id, session.user.id),
   });
-  const githubAccount = await db.query.account.findFirst({
+  const token = await githubUserToken(db, session.user.id);
+  const switchAccount = await db.query.account.findFirst({
     where: (a, { and, eq }) =>
-      and(eq(a.userId, session.user.id), eq(a.providerId, "github")),
-    columns: { accessToken: true },
+      and(eq(a.userId, session.user.id), eq(a.providerId, "switch")),
+    columns: { idToken: true },
   });
 
-  const github = githubAccount?.accessToken
-    ? await fetchGithubProfile(githubAccount.accessToken)
-    : null;
+  const github = token ? await fetchGithubProfile(token) : null;
+  const affiliations = switchAccount?.idToken
+    ? readAffiliationEmails(switchAccount.idToken)
+    : [];
 
-  return c.json({ user: user ?? null, github });
+  // `githubLinked` = GitHub is USABLE right now (we read the profile with the
+  // stored token). A null profile — no link at all, or a dead/expired token —
+  // reports false, so the onboarding gate sends the user to (re)link, for
+  // whatever reason it isn't working. Step 2 will refresh an expired token
+  // first, so an expired-but-refreshable link self-heals instead of onboarding.
+  return c.json({
+    user: user ?? null,
+    github,
+    githubLinked: github !== null,
+    affiliations,
+  });
 });

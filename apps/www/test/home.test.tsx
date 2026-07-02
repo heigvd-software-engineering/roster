@@ -1,45 +1,48 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-
-import { useApi } from "~/lib/api";
-import { useSession } from "~/lib/auth";
+import { useAuth } from "~/lib/auth-context";
 import Home from "~/routes/home";
 
-vi.mock("~/lib/auth", () => ({
-  useSession: vi.fn(),
-  signIn: { oauth2: vi.fn() },
-  signOut: vi.fn(),
-}));
-vi.mock("~/lib/api", () => ({
-  api: { api: { me: {} } },
-  useApi: vi.fn(),
-}));
+vi.mock("~/lib/auth-context", () => ({ useAuth: vi.fn() }));
+const navigateSpy = vi.fn();
+vi.mock("react-router", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("react-router")>();
+  return {
+    ...actual,
+    Navigate: (props: { to: string }) => {
+      navigateSpy(props.to);
+      return null;
+    },
+  };
+});
 
-describe("Home", () => {
-  it("shows the DB user's name and email when signed in", () => {
-    // The route only checks the session to gate; the page gathers its own data.
-    vi.mocked(useSession).mockReturnValue({
-      data: { user: { id: "u1" } },
-      isPending: false,
-    } as ReturnType<typeof useSession>);
-    vi.mocked(useApi).mockReturnValue({
-      data: { user: { name: "Alice", email: "alice@example.ch" } },
-    } as unknown as ReturnType<typeof useApi>);
+function authValue(o: Partial<ReturnType<typeof useAuth>>) {
+  return {
+    isLoading: false,
+    authed: false,
+    account: null,
+    github: null,
+    githubLinked: false,
+    signIn: vi.fn(),
+    signOut: vi.fn(),
+    linkGithub: vi.fn(),
+    unlinkGithub: vi.fn(),
+    ...o,
+  } as unknown as ReturnType<typeof useAuth>;
+}
 
+describe("Home (index)", () => {
+  it("redirects to /classes when signed in and linked", () => {
+    vi.mocked(useAuth).mockReturnValue(
+      authValue({ authed: true, githubLinked: true }),
+    );
     render(<Home />);
-
-    expect(screen.getByText("Alice")).toBeInTheDocument();
-    expect(screen.getByText(/alice@example\.ch/)).toBeInTheDocument();
+    expect(navigateSpy).toHaveBeenCalledWith("/classes");
   });
 
   it("shows the sign-in button when signed out", () => {
-    vi.mocked(useSession).mockReturnValue({
-      data: null,
-      isPending: false,
-    } as ReturnType<typeof useSession>);
-
+    vi.mocked(useAuth).mockReturnValue(authValue({ authed: false }));
     render(<Home />);
-
     expect(screen.getByText("Sign in with SWITCH edu-ID")).toBeInTheDocument();
   });
 });

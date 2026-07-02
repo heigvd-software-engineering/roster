@@ -1,17 +1,11 @@
-import { useSession } from "~/lib/auth";
-import { HomePage } from "~/pages/home-page";
-import { LoginPage } from "~/pages/login-page";
+import { Navigate } from "react-router";
+import { Auth } from "~/components/custom/shell/auth";
 
-/**
- * Index route. Routing/session glue only — it picks which page to render.
- * (A real route guard / separate authed routes arrive with GitHub onboarding.)
- */
+/** / — login when signed out (rendered in place), else the classes hub. */
 export default function Home() {
-  const { data, isPending } = useSession();
-
-  if (isPending) {
-    return null;
-  }
-
-  return data?.user ? <HomePage /> : <LoginPage />;
+  return (
+    <Auth>
+      <Navigate to="/classes" replace />
+    </Auth>
+  );
 }

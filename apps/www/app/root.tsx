@@ -7,8 +7,12 @@ import {
   ScrollRestoration,
 } from "react-router";
 
-import { AppLayout } from "~/components/custom/app-layout";
-import { OnboardingGate } from "~/components/custom/onboarding-gate";
+import { Container } from "~/components/custom/layout/container";
+import { Stack } from "~/components/custom/layout/stack";
+import { AppLayout } from "~/components/custom/shell/app-layout";
+import { BrandHeader } from "~/components/custom/typography/brand-header";
+import { Text } from "~/components/custom/typography/text";
+import { AuthProvider } from "~/lib/auth-context";
 import type { Route } from "./+types/root";
 import "./app.css";
 
@@ -32,11 +36,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <AppLayout>
-      <OnboardingGate>
+    <AuthProvider>
+      <AppLayout>
         <Outlet />
-      </OnboardingGate>
-    </AppLayout>
+      </AppLayout>
+    </AuthProvider>
   );
 }
 
@@ -57,14 +61,18 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   }
 
   return (
-    <main className="pt-16 p-4 container mx-auto">
-      <h1>{message}</h1>
-      <p>{details}</p>
-      {stack && (
-        <pre className="w-full p-4 overflow-x-auto">
-          <code>{stack}</code>
-        </pre>
-      )}
+    <main className="pt-16">
+      <Container>
+        <Stack gap="lg" align="start">
+          <BrandHeader title={message} />
+          <Text variant="subtitle">{details}</Text>
+          {stack && (
+            <pre className="w-full overflow-x-auto rounded-lg border border-border p-4">
+              <code>{stack}</code>
+            </pre>
+          )}
+        </Stack>
+      </Container>
     </main>
   );
 }

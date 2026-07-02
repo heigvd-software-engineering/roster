@@ -5,6 +5,20 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { customSession } from "better-auth/plugins";
 import { genericOAuth } from "better-auth/plugins/generic-oauth";
 
+// SWITCH edu-ID claims to request so the affiliation emails are released
+// (parity with the opendidac NextAuth provider). Requested for both `userinfo`
+// (Better Auth reads the userinfo endpoint) and `id_token`.
+const SWITCH_CLAIMS = {
+  name: { essential: true },
+  email: { essential: true },
+  swissEduIDLinkedAffiliation: { essential: true },
+  swissEduIDAssociatedMail: { essential: true },
+  swissEduIDLinkedAffiliationMail: { essential: true },
+  swissEduID: { essential: true },
+  eduPersonEntitlement: { essential: true },
+  eduPersonAffiliation: { essential: true },
+} as const;
+
 // Exactly what Better Auth needs — the D1 binding + config/secrets (secrets come
 // from .dev.vars / `wrangler secret`, not wrangler.jsonc). Kept independent of
 // the full CloudflareBindings so unrelated bindings (e.g. ASSETS) don't leak in.
@@ -17,6 +31,8 @@ export type AuthEnv = {
   EDUID_CLIENT_SECRET: string;
   GITHUB_CLIENT_ID: string;
   GITHUB_CLIENT_SECRET: string;
+  GITHUB_APP_ID: string;
+  GITHUB_APP_PRIVATE_KEY: string;
 };
 
 /** The Hono env for our Worker: `new Hono<Env>()` → `c.env` is AuthEnv. */
@@ -67,6 +83,14 @@ export function createAuth(env: AuthEnv) {
             ],
             // SWITCH edu-ID advertises code_challenge_methods_supported: ["S256"].
             pkce: true,
+            // Ask SWITCH to release the affiliation claims into the id_token
+            // (opendidac parity) — /api/me decodes them from the stored token.
+            authorizationUrlParams: {
+              claims: JSON.stringify({
+                userinfo: SWITCH_CLAIMS,
+                id_token: SWITCH_CLAIMS,
+              }),
+            },
           },
         ],
       }),

@@ -75,7 +75,8 @@
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
+  /* Lowered from shadcn's 0.625rem default — sharper corners, Swiss look. */
+  --radius: 0.375rem;
   --brand: oklch(0.55 0.22 27);
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
@@ -87,6 +88,9 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
+/* Dark palette is deliberately dormant — no toggle wires `.dark` yet. Keep it
+   in sync with `:root` if you touch tokens, but don't build partial dark-mode
+   support (e.g. a toggle) around it until that's actually planned. */
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
@@ -131,6 +135,22 @@
   html {
     @apply font-sans;
   }
+}
+
+/* Loader: three staggered bars (Swiss equalizer pulse). */
+@keyframes loader-bar {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+    opacity: 0.45;
+  }
+  50% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+.loader-bar {
+  animation: loader-bar 0.9s ease-in-out infinite;
 }
 
 /* Signature: faint engineering graph-paper grid (Swiss grid + lab notebook). */
