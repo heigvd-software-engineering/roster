@@ -8,7 +8,7 @@ import { githubAppInstallUrl } from "~/lib/config";
 
 /** The teacher hub: connect orgs + the live list of connected classes. */
 export function ClassesPage() {
-  const { data } = useApi(api.api.classes);
+  const { data, isLoading, error } = useApi(api.api.classes);
   const classes = data?.classes ?? [];
 
   return (
@@ -26,7 +26,13 @@ export function ClassesPage() {
         </Button>
       </Row>
       <Stack gap="md" className="w-full">
-        {classes.length === 0 ? (
+        {isLoading ? (
+          <Text variant="body2">Loading classes…</Text>
+        ) : error ? (
+          <Text variant="body2">
+            Couldn't load your classes — refresh to retry.
+          </Text>
+        ) : classes.length === 0 ? (
           <Text variant="body2">
             Connect a GitHub organization to start a class.
           </Text>

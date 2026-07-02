@@ -14,6 +14,7 @@ const state = vi.hoisted(() => ({
     account: { id: number; login: string };
   }>,
   org: { login: "acme", name: "Acme", avatar_url: "http://a" },
+  failInstallationIds: [] as number[],
 }));
 
 vi.mock("../src/auth", () => ({
@@ -28,9 +29,12 @@ vi.mock("../src/github", () => ({
       throw new Error(`unexpected app-jwt request ${route}`);
     },
   }),
-  installationOctokit: async () => ({
+  installationOctokit: async (_env: unknown, installationId: number) => ({
     request: async (route: string, _params: unknown) => {
       if (route === "GET /orgs/{org}") {
+        if (state.failInstallationIds.includes(installationId)) {
+          throw new Error("simulated GitHub failure");
+        }
         return { data: state.org };
       }
       throw new Error(`unexpected installation request ${route}`);
@@ -81,6 +85,7 @@ beforeEach(() => {
   state.refreshCalls = [];
   state.installations = [{ id: 200, account: { id: 42, login: "acme" } }];
   state.org = { login: "acme", name: "Acme", avatar_url: "http://a" };
+  state.failInstallationIds = [];
   octokitRequestMock.mockClear();
 });
 
@@ -121,4 +126,30 @@ test("does not refresh when installationId is unchanged", async () => {
   const res = await app.request("/api/classes", {}, env);
   expect(res.status).toBe(200);
   expect(state.refreshCalls).toHaveLength(0);
+});
+
+test("skips a class whose live-enrich call fails, without 500ing the rest", async () => {
+  state.rows = [
+    { id: "c1", orgId: 42, installationId: 100 },
+    { id: "c2", orgId: 43, installationId: 101 },
+  ];
+  state.installations = [
+    { id: 100, account: { id: 42, login: "acme" } },
+    { id: 101, account: { id: 43, login: "beta" } },
+  ];
+  state.failInstallationIds = [100];
+  const res = await app.request("/api/classes", {}, env);
+  expect(res.status).toBe(200);
+  const body = await res.json();
+  expect(body).toEqual({
+    classes: [
+      {
+        id: "c2",
+        orgId: 43,
+        login: "acme",
+        name: "Acme",
+        avatarUrl: "http://a",
+      },
+    ],
+  });
 });

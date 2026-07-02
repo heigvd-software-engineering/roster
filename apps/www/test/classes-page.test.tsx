@@ -35,4 +35,26 @@ describe("ClassesPage", () => {
       screen.getByText(/Connect a GitHub organization to start a class/),
     ).toBeInTheDocument();
   });
+
+  it("shows a loading state while classes are being fetched", () => {
+    vi.mocked(useApi).mockReturnValue({
+      isLoading: true,
+    } as unknown as ReturnType<typeof useApi>);
+
+    render(<ClassesPage />);
+
+    expect(screen.getByText("Loading classes…")).toBeInTheDocument();
+  });
+
+  it("shows an error state when the classes fetch fails", () => {
+    vi.mocked(useApi).mockReturnValue({
+      error: new Error("x"),
+    } as unknown as ReturnType<typeof useApi>);
+
+    render(<ClassesPage />);
+
+    expect(
+      screen.getByText(/Couldn't load your classes — refresh to retry/),
+    ).toBeInTheDocument();
+  });
 });

@@ -60,4 +60,18 @@ describe("ClassConfirmPage", () => {
       ),
     ).toBeInTheDocument();
   });
+
+  it("shows an error and re-enables the button when the confirm call rejects", async () => {
+    confirmPost.mockRejectedValue(new Error("network down"));
+    render(<ClassConfirmPage />);
+    const button = screen.getByText("Set up & continue");
+    fireEvent.click(button);
+
+    expect(
+      await screen.findByText(
+        "Something went wrong — check your connection and try again.",
+      ),
+    ).toBeInTheDocument();
+    expect(button).not.toBeDisabled();
+  });
 });

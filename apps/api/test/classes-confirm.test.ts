@@ -3,8 +3,18 @@ import { beforeEach, expect, test, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
   session: { user: { id: "u1" } } as { user: { id: string } } | null,
-  cls: { id: "c1", orgId: 42, installationId: 100 } as
-    | { id: string; orgId: number; installationId: number }
+  cls: {
+    id: "c1",
+    orgId: 42,
+    installationId: 100,
+    connectedByUserId: "u1",
+  } as
+    | {
+        id: string;
+        orgId: number;
+        installationId: number;
+        connectedByUserId: string;
+      }
     | undefined,
   defaultRepositoryPermission: "none" as string,
   patchCalls: [] as unknown[],
@@ -55,7 +65,12 @@ const env = { DB: {} };
 
 beforeEach(() => {
   state.session = { user: { id: "u1" } };
-  state.cls = { id: "c1", orgId: 42, installationId: 100 };
+  state.cls = {
+    id: "c1",
+    orgId: 42,
+    installationId: 100,
+    connectedByUserId: "u1",
+  };
   state.defaultRepositoryPermission = "none";
   state.patchCalls = [];
 });
@@ -92,4 +107,21 @@ test("unknown class id returns 404", async () => {
     env,
   );
   expect(res.status).toBe(404);
+});
+
+test("class connected by a different user returns 404 and makes no GitHub requests", async () => {
+  state.cls = {
+    id: "c1",
+    orgId: 42,
+    installationId: 100,
+    connectedByUserId: "someone-else",
+  };
+  const res = await app.request(
+    "/api/classes/c1/confirm",
+    { method: "POST" },
+    env,
+  );
+  expect(res.status).toBe(404);
+  expect(await res.json()).toEqual({ error: "not_found" });
+  expect(state.patchCalls).toEqual([]);
 });

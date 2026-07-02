@@ -25,10 +25,15 @@ async function orgLogin(env: AuthedEnv["Bindings"], installationId: number) {
 }
 
 export const classesRoutes = new Hono<AuthedEnv>()
-  .use(requireAuth)
+  .use("/classes", requireAuth)
+  .use("/classes/*", requireAuth)
   .post("/classes/:id/confirm", async (c) => {
     const cls = await getClassById(getDb(c.env.DB), c.req.param("id"));
     if (!cls) return c.json({ error: "not_found" }, 404);
+    if (cls.connectedByUserId !== c.get("user").id) {
+      // 404, not 403 — don't confirm existence of a class the caller can't see.
+      return c.json({ error: "not_found" }, 404);
+    }
 
     const login = await orgLogin(c.env, cls.installationId);
     const gh = await installationOctokit(c.env, cls.installationId);
@@ -85,17 +90,22 @@ export const classesRoutes = new Hono<AuthedEnv>()
           new Date(),
         );
       }
-      const gh = await installationOctokit(c.env, live.installationId);
-      const { data: org } = await gh.request("GET /orgs/{org}", {
-        org: live.login,
-      });
-      out.push({
-        id: cls.id,
-        orgId: cls.orgId,
-        login: org.login,
-        name: org.name ?? null,
-        avatarUrl: org.avatar_url,
-      });
+      try {
+        const gh = await installationOctokit(c.env, live.installationId);
+        const { data: org } = await gh.request("GET /orgs/{org}", {
+          org: live.login,
+        });
+        out.push({
+          id: cls.id,
+          orgId: cls.orgId,
+          login: org.login,
+          name: org.name ?? null,
+          avatarUrl: org.avatar_url,
+        });
+      } catch {
+        // A single org's live enrich failing (rate limit, transient GitHub
+        // error) shouldn't 500 the whole list — skip that class, keep going.
+      }
     }
     return c.json({ classes: out });
   });

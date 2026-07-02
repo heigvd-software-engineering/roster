@@ -34,6 +34,8 @@ export function ClassConfirmPage() {
       setError(
         "Couldn't set the permission — check the App has Administration access.",
       );
+    } catch {
+      setError("Something went wrong — check your connection and try again.");
     } finally {
       setSubmitting(false);
     }

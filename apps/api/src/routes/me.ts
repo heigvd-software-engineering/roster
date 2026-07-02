@@ -18,28 +18,34 @@ type GithubProfile = {
 async function fetchGithubProfile(
   token: string,
 ): Promise<GithubProfile | null> {
-  const res = await fetch("https://api.github.com/user", {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/vnd.github+json",
-      "User-Agent": "labs",
-    },
-  });
-  if (!res.ok) {
+  try {
+    const res = await fetch("https://api.github.com/user", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.github+json",
+        "User-Agent": "labs",
+      },
+    });
+    if (!res.ok) {
+      return null;
+    }
+    const gh = (await res.json()) as {
+      login: string;
+      id: number;
+      name: string | null;
+      avatar_url: string;
+    };
+    return {
+      login: gh.login,
+      id: gh.id,
+      name: gh.name,
+      avatarUrl: gh.avatar_url,
+    };
+  } catch {
+    // Network error, GitHub outage, malformed JSON, etc. — same contract as
+    // an HTTP error response: null, not a thrown exception into /api/me.
     return null;
   }
-  const gh = (await res.json()) as {
-    login: string;
-    id: number;
-    name: string | null;
-    avatar_url: string;
-  };
-  return {
-    login: gh.login,
-    id: gh.id,
-    name: gh.name,
-    avatarUrl: gh.avatar_url,
-  };
 }
 
 /** Decode a JWT payload (no verification — it's our own stored id_token). */

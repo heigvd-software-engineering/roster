@@ -159,3 +159,19 @@ per-route on the protected class endpoints. `/api/me` stays session-optional.
 - Connect entry point on the **home** page (no separate teacher dashboard yet —
   that's F10).
 - `hc<AppType>` client + `requireAuth` middleware **land in F3** (first need).
+
+## Post-review decisions (2026-07-02)
+
+- The spec's `state` CSRF param on the install kickoff is **superseded** by a
+  server-side installation-ownership check in the setup callback: before
+  upserting, the callback fetches the signed-in user's own `GET
+  /user/installations` (with their linked GitHub token) and requires the
+  callback's `installation_id` to be among them. This is **stronger** than a
+  `state` CSRF token — it binds the callback's caller directly to the
+  installation being claimed, rather than merely proving the install kickoff
+  and callback are the same browser session.
+- On an `orgId` conflict, the upsert **keeps the first connector**
+  (`connectedByUserId` is not overwritten on re-install by a different user).
+  `connectedByUserId` is **provenance** (who connected the class), not an
+  access-control list — multi-teacher visibility/access to the same class is
+  deferred to **F5** (people/roles).
