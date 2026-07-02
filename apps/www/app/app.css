@@ -88,6 +88,9 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
+/* Dark palette is deliberately dormant — no toggle wires `.dark` yet. Keep it
+   in sync with `:root` if you touch tokens, but don't build partial dark-mode
+   support (e.g. a toggle) around it until that's actually planned. */
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);

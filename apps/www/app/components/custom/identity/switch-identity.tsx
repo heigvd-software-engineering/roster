@@ -1,5 +1,5 @@
 import { LogOut, Unlink } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { GithubIdentity } from "~/components/custom/identity/github-identity";
 import { UserIdentity } from "~/components/custom/identity/user-identity";
 import { Stack } from "~/components/custom/layout/stack";
@@ -38,6 +38,17 @@ export function SwitchIdentity() {
   const closeSoon = () => {
     closeTimer.current = setTimeout(() => setOpen(false), 120);
   };
+
+  // Clear a pending close on unmount — otherwise it fires setOpen after the
+  // component (and its state) is gone.
+  useEffect(
+    () => () => {
+      if (closeTimer.current) {
+        clearTimeout(closeTimer.current);
+      }
+    },
+    [],
+  );
 
   if (!account) {
     return null;

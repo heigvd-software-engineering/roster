@@ -34,7 +34,7 @@ describe("ClassConfirmPage", () => {
     expect(screen.getByText("Connect Acme")).toBeInTheDocument();
   });
 
-  it("navigates home when the confirm call succeeds", async () => {
+  it("navigates to the classes hub when the confirm call succeeds", async () => {
     confirmPost.mockResolvedValue({
       status: 200,
       json: () => Promise.resolve({ ok: true, org: { login: "acme" } }),
@@ -43,7 +43,7 @@ describe("ClassConfirmPage", () => {
     fireEvent.click(screen.getByText("Set up & continue"));
 
     expect(confirmPost).toHaveBeenCalledWith({ param: { id: "c1" } });
-    await waitFor(() => expect(navigate).toHaveBeenCalledWith("/"));
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith("/classes"));
   });
 
   it("shows an error when the confirm call reports ok:false", async () => {

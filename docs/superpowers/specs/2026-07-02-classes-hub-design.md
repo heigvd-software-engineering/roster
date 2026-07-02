@@ -143,3 +143,12 @@ Reuse existing layout primitives (`Stack`, `Row`, `Container`) + `Text`.
 Per-lab management (student repos, groups view) = F8/F10. Student home (role
 split at `/`) = F9. This spec covers the teacher hub's structure + the F6
 new-lab surface; features fill the designed slots as they're built.
+
+## Post-review note (2026-07-02)
+
+During the review/visual pass, the hub header was intentionally reduced to a
+compact heading with no rule/divider under it — this **supersedes** the
+"Header: title + the brand-red rule" line above. `BrandHeader` (eyebrow +
+title + red rule) stays reserved for the login/landing and confirm screens;
+in-app section headings (e.g. `/classes`) use the plain `Text variant="heading"`
+scale instead.

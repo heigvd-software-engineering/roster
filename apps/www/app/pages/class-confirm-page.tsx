@@ -11,16 +11,16 @@ import { api, useApi } from "~/lib/api";
 export function ClassConfirmPage() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
-  const { data, isLoading } = useApi(api.api.classes);
+  const { data, isLoading, error } = useApi(api.api.classes);
   const cls = data?.classes.find((c) => c.id === id);
   const orgName = cls?.name ?? cls?.login ?? "this organization";
 
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   async function handleConfirm() {
     setSubmitting(true);
-    setError(null);
+    setSubmitError(null);
     try {
       const res = await api.api.classes[":id"].confirm.$post({
         param: { id },
@@ -28,15 +28,17 @@ export function ClassConfirmPage() {
       if (res.status === 200) {
         const body = await res.json();
         if (body.ok) {
-          navigate("/");
+          navigate("/classes");
           return;
         }
       }
-      setError(
+      setSubmitError(
         "Couldn't set the permission — check the App has Administration access.",
       );
     } catch {
-      setError("Something went wrong — check your connection and try again.");
+      setSubmitError(
+        "Something went wrong — check your connection and try again.",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -44,18 +46,26 @@ export function ClassConfirmPage() {
 
   return (
     <Loading loading={isLoading} className="flex-1">
-      <Stack gap="lg" align="start" justify="center" className="flex-1">
-        <BrandHeader title={`Connect ${orgName}`} />
-        <Text variant="subtitle" className="max-w-md">
-          labs will set this organization's base repository permission to{" "}
-          <strong>No access</strong>, so students only see repos they're
-          granted.
-        </Text>
-        <Button size="lg" onClick={handleConfirm} disabled={submitting}>
-          Set up & continue
-        </Button>
-        {error ? <Text variant="body2">{error}</Text> : null}
-      </Stack>
+      {error ? (
+        <Stack gap="lg" align="start" justify="center" className="flex-1">
+          <Text variant="error">
+            Couldn't load this class — refresh to retry.
+          </Text>
+        </Stack>
+      ) : (
+        <Stack gap="lg" align="start" justify="center" className="flex-1">
+          <BrandHeader title={`Connect ${orgName}`} />
+          <Text variant="subtitle" className="max-w-md">
+            labs will set this organization's base repository permission to{" "}
+            <strong>No access</strong>, so students only see repos they're
+            granted.
+          </Text>
+          <Button size="lg" onClick={handleConfirm} disabled={submitting}>
+            Set up & continue
+          </Button>
+          {submitError ? <Text variant="error">{submitError}</Text> : null}
+        </Stack>
+      )}
     </Loading>
   );
 }

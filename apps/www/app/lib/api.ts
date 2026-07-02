@@ -1,5 +1,5 @@
 import type { AppType } from "@labs/api";
-import { hc, type InferResponseType } from "hono/client";
+import { type ClientResponse, hc, type InferResponseType } from "hono/client";
 import useSWR, { type SWRConfiguration } from "swr";
 
 /**
@@ -20,24 +20,28 @@ export const api = hc<AppType>(
  * response (`data`, `error`, `isLoading`, `mutate`, …).
  */
 export function useApi<
-  E extends { $get: (...args: never[]) => unknown; $url: () => URL },
->(endpoint: E, config?: SWRConfiguration<InferResponseType<E["$get"]>>) {
-  type Data = InferResponseType<E["$get"]>;
+  E extends { $get: () => Promise<ClientResponse<unknown>>; $url: () => URL },
+>(endpoint: E, config?: SWRConfiguration<InferResponseType<E["$get"], 200>>) {
+  type Data = InferResponseType<E["$get"], 200>;
   const path = endpoint.$url().pathname;
   return useSWR<Data>(
     path,
     async () => {
-      const res = (await endpoint.$get()) as {
-        ok: boolean;
-        status: number;
-        json: () => Promise<Data>;
-      };
+      const res = await endpoint.$get();
       // Throw non-2xx so SWR routes it to `error` instead of parsing the
       // error body as valid `Data`.
       if (!res.ok) {
         throw new Error(`GET ${path} failed (${res.status})`);
       }
-      return res.json();
+      // `res` itself is fully typed off the real, narrowed `E` here (no cast
+      // needed for `.ok`/`.status`). `.json()`'s return type doesn't survive
+      // that narrowing though: inside a generic function body, TS can only
+      // see `endpoint.$get()` through the *constraint's* declared shape
+      // (`ClientResponse<unknown>`), so `.json()` resolves to `Promise<unknown>`
+      // regardless of the caller's concrete endpoint. This one cast is the
+      // unavoidable seam between "generic over any hc endpoint" and "typed
+      // per-call" — `Data` is exactly what the real `res.json()` returns.
+      return (await res.json()) as Data;
     },
     config,
   );

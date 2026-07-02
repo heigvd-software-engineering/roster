@@ -42,7 +42,7 @@ app/
 ├─ root.tsx      # document + app-wide background; wraps every page in <AppLayout>
 ├─ components/   # ui/ (generated) + custom/ (reusable, this folder)
 ├─ pages/        # PAGE components — one per screen (login-page, home-page, …).
-│                #   DATA GATHERERS: they call hooks (useSession, useMe, …) and
+│                #   DATA GATHERERS: they call hooks (useAuth, useApi, …) and
 │                #   take NO data props. Composed from components/. Run by routes.
 ├─ routes/       # React Router route modules — thin auth/routing glue that
 │                #   gates + picks which page to render (home.tsx → Login vs Home).
