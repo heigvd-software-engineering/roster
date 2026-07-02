@@ -7,6 +7,7 @@ import {
 import { Hono } from "hono";
 import { Octokit } from "octokit";
 import { appJwtOctokit, installationOctokit } from "../github";
+import { callerGithubId, isOrgAdmin } from "../github-teacher";
 import { githubUserToken } from "../github-user";
 import { type AuthedEnv, requireAuth } from "../require-auth";
 
@@ -28,14 +29,22 @@ export const classesRoutes = new Hono<AuthedEnv>()
   .use("/classes", requireAuth)
   .use("/classes/*", requireAuth)
   .post("/classes/:id/confirm", async (c) => {
-    const cls = await getClassById(getDb(c.env.DB), c.req.param("id"));
+    const db = getDb(c.env.DB);
+    const cls = await getClassById(db, c.req.param("id"));
     if (!cls) return c.json({ error: "not_found" }, 404);
-    if (cls.connectedByUserId !== c.get("user").id) {
-      // 404, not 403 — don't confirm existence of a class the caller can't see.
+
+    const login = await orgLogin(c.env, cls.installationId);
+
+    // Teacher check: live org Owner. 404 (not 403) — don't confirm existence
+    // of a class the caller can't see. `connectedByUserId` is provenance only.
+    const ghId = await callerGithubId(db, c.get("user").id);
+    if (
+      ghId === null ||
+      !(await isOrgAdmin(c.env, cls.installationId, login, ghId))
+    ) {
       return c.json({ error: "not_found" }, 404);
     }
 
-    const login = await orgLogin(c.env, cls.installationId);
     const gh = await installationOctokit(c.env, cls.installationId);
     await gh.request("PATCH /orgs/{org}", {
       org: login,

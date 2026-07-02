@@ -58,7 +58,13 @@ vi.mock("@labs/db", () => ({
   getClassById: async (_db: unknown, _id: string) => state.cls,
 }));
 
+vi.mock("../src/github-teacher", () => ({
+  callerGithubId: vi.fn(async () => 111),
+  isOrgAdmin: vi.fn(async () => true),
+}));
+
 const { classesRoutes } = await import("../src/routes/classes");
+const { callerGithubId, isOrgAdmin } = await import("../src/github-teacher");
 
 const app = new Hono().route("/api", classesRoutes);
 const env = { DB: {} };
@@ -109,13 +115,40 @@ test("unknown class id returns 404", async () => {
   expect(res.status).toBe(404);
 });
 
-test("class connected by a different user returns 404 and makes no GitHub requests", async () => {
+test("confirms for a co-owner (admin) even if they didn't connect it", async () => {
   state.cls = {
     id: "c1",
     orgId: 42,
     installationId: 100,
     connectedByUserId: "someone-else",
   };
+  // default mocks: callerGithubId 111, isOrgAdmin true → 200 path
+  const res = await app.request(
+    "/api/classes/c1/confirm",
+    { method: "POST" },
+    env,
+  );
+  expect(res.status).toBe(200);
+  expect(await res.json()).toEqual({ ok: true, org: { login: "acme" } });
+  expect(state.patchCalls).toEqual([
+    { org: "acme", default_repository_permission: "none" },
+  ]);
+});
+
+test("returns 404 and makes no org writes for a non-admin", async () => {
+  vi.mocked(isOrgAdmin).mockResolvedValueOnce(false);
+  const res = await app.request(
+    "/api/classes/c1/confirm",
+    { method: "POST" },
+    env,
+  );
+  expect(res.status).toBe(404);
+  expect(await res.json()).toEqual({ error: "not_found" });
+  expect(state.patchCalls).toEqual([]);
+});
+
+test("returns 404 when the caller has no linked GitHub id", async () => {
+  vi.mocked(callerGithubId).mockResolvedValueOnce(null);
   const res = await app.request(
     "/api/classes/c1/confirm",
     { method: "POST" },
