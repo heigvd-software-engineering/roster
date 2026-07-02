@@ -31,6 +31,8 @@ export type AuthEnv = {
   EDUID_CLIENT_SECRET: string;
   GITHUB_CLIENT_ID: string;
   GITHUB_CLIENT_SECRET: string;
+  GITHUB_APP_ID: string;
+  GITHUB_APP_PRIVATE_KEY: string;
 };
 
 /** The Hono env for our Worker: `new Hono<Env>()` → `c.env` is AuthEnv. */

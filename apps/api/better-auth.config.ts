@@ -13,4 +13,6 @@ export const auth = createAuth({
   EDUID_CLIENT_SECRET: "x",
   GITHUB_CLIENT_ID: "x",
   GITHUB_CLIENT_SECRET: "x",
+  GITHUB_APP_ID: "x",
+  GITHUB_APP_PRIVATE_KEY: "x",
 });
