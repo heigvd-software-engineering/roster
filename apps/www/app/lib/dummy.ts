@@ -6,7 +6,7 @@
  *   - progress       → F8 (accepted repos / groups)
  */
 
-export type LabMode =
+type LabMode =
   | { kind: "individual" }
   | { kind: "group"; min: number; max: number };
 
@@ -19,7 +19,7 @@ export type DummyLab = {
   progress: string;
 };
 
-export type ClassMeta = {
+type ClassMeta = {
   students: number;
   teachers: number;
   labs: DummyLab[];

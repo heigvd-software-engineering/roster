@@ -1,6 +1,6 @@
 import { Octokit } from "octokit";
 
-export type UserInstallation = { installationId: number; login: string };
+type UserInstallation = { installationId: number; login: string };
 
 /**
  * The App installations accessible to a user token, keyed by org account id.

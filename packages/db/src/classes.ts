@@ -37,10 +37,6 @@ export async function upsertClassByOrgId(
   return row;
 }
 
-export async function listClassesByUser(db: Db, userId: string) {
-  return db.select().from(classes).where(eq(classes.connectedByUserId, userId));
-}
-
 export async function listClassesByOrgIds(db: Db, orgIds: number[]) {
   if (orgIds.length === 0) {
     return [];

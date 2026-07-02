@@ -1,10 +1,6 @@
 import { env } from "cloudflare:test";
 import { beforeEach, expect, test } from "vitest";
-import {
-  listClassesByOrgIds,
-  listClassesByUser,
-  upsertClassByOrgId,
-} from "../src/classes";
+import { listClassesByOrgIds, upsertClassByOrgId } from "../src/classes";
 import { classes, getDb, user } from "../src/index";
 
 const db = getDb(env.DB);
@@ -37,33 +33,11 @@ test("upsert is keyed on orgId (reinstall updates, no duplicate)", async () => {
     now,
   });
 
-  const rows = await listClassesByUser(db, "u1");
+  const rows = await listClassesByOrgIds(db, [42]);
   expect(rows).toHaveLength(1);
   const [row] = rows;
   expect(row?.id).toBe("c1");
   expect(row?.installationId).toBe(200);
-});
-
-test("listClassesByUser filters by user", async () => {
-  const now = new Date(0);
-  await upsertClassByOrgId(db, {
-    id: "c1",
-    orgId: 1,
-    installationId: 10,
-    connectedByUserId: "u1",
-    now,
-  });
-  await upsertClassByOrgId(db, {
-    id: "c2",
-    orgId: 2,
-    installationId: 20,
-    connectedByUserId: "u2",
-    now,
-  });
-
-  const rows = await listClassesByUser(db, "u1");
-  expect(rows).toHaveLength(1);
-  expect(rows[0]?.orgId).toBe(1);
 });
 
 test("listClassesByOrgIds returns rows matching any given orgId", async () => {
