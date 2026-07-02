@@ -16,8 +16,12 @@ export function UserIdentity({ name, subtitle, avatarUrl }: UserIdentityProps) {
     <Row gap="sm" align="center">
       <UserAvatar name={name} src={avatarUrl} size="lg" />
       <Stack gap="none">
-        <Text variant="body1">{name}</Text>
-        <Text variant="body2">{subtitle}</Text>
+        <Text variant="body1" className="text-sm">
+          {name}
+        </Text>
+        <Text variant="body2" className="text-xs">
+          {subtitle}
+        </Text>
       </Stack>
     </Row>
   );

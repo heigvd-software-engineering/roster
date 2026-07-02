@@ -19,5 +19,6 @@ export type Align = keyof typeof ALIGN;
 
 export const JUSTIFY = {
   center: "justify-center",
+  between: "justify-between",
 } as const;
 export type Justify = keyof typeof JUSTIFY;

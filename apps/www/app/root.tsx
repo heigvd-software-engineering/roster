@@ -9,6 +9,7 @@ import {
 
 import { AppLayout } from "~/components/custom/app-layout";
 import { OnboardingGate } from "~/components/custom/onboarding-gate";
+import { AuthProvider } from "~/lib/auth-context";
 import type { Route } from "./+types/root";
 import "./app.css";
 
@@ -32,11 +33,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <AppLayout>
-      <OnboardingGate>
-        <Outlet />
-      </OnboardingGate>
-    </AppLayout>
+    <AuthProvider>
+      <AppLayout>
+        <OnboardingGate>
+          <Outlet />
+        </OnboardingGate>
+      </AppLayout>
+    </AuthProvider>
   );
 }
 

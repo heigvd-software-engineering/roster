@@ -1,23 +1,23 @@
 import type { ReactNode } from "react";
 import { Navigate, useLocation } from "react-router";
-import { useSession } from "~/lib/auth";
+import { useAuth } from "~/lib/auth-context";
 
 const ONBOARDING = "/onboarding/github";
 
 /**
- * App-wide gate: a signed-in user must link GitHub before reaching any other
- * screen. Keeps the redirect logic in one place so routes stay dumb.
+ * App-wide gate: a signed-in user must have a WORKING GitHub link before
+ * reaching any other screen. `githubLinked` is liveness (a dead/unusable link
+ * reports false), so a broken link bounces the user back to onboarding to
+ * re-link — the app self-heals. Redirect logic lives here so routes stay dumb.
  */
 export function OnboardingGate({ children }: { children: ReactNode }) {
-  const { data, isPending } = useSession();
+  const { isLoading, authed, githubLinked: linked } = useAuth();
   const { pathname } = useLocation();
 
-  if (isPending) {
+  if (isLoading) {
     return null;
   }
 
-  const authed = Boolean(data?.user);
-  const linked = Boolean(data?.githubLinked);
   const onOnboarding = pathname === ONBOARDING;
 
   // Onboarding requires a session.

@@ -1,42 +1,47 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { useApi } from "~/lib/api";
-import { useSession } from "~/lib/auth";
+import { useAuth } from "~/lib/auth-context";
 import Home from "~/routes/home";
 
-vi.mock("~/lib/auth", () => ({
-  useSession: vi.fn(),
-  signIn: { oauth2: vi.fn() },
-  signOut: vi.fn(),
-}));
-vi.mock("~/lib/api", () => ({
-  api: { api: { me: {} } },
-  useApi: vi.fn(),
-}));
+vi.mock("~/lib/auth-context", () => ({ useAuth: vi.fn() }));
+
+/** Minimal useAuth value; override per test. */
+function authValue(overrides: Partial<ReturnType<typeof useAuth>>) {
+  return {
+    isLoading: false,
+    authed: false,
+    account: null,
+    github: null,
+    githubLinked: false,
+    signIn: vi.fn(),
+    signOut: vi.fn(),
+    linkGithub: vi.fn(),
+    unlinkGithub: vi.fn(),
+    ...overrides,
+  } as unknown as ReturnType<typeof useAuth>;
+}
 
 describe("Home", () => {
-  it("shows the DB user's name and email when signed in", () => {
-    // The route only checks the session to gate; the page gathers its own data.
-    vi.mocked(useSession).mockReturnValue({
-      data: { user: { id: "u1" } },
-      isPending: false,
-    } as ReturnType<typeof useSession>);
-    vi.mocked(useApi).mockReturnValue({
-      data: { user: { name: "Alice", email: "alice@example.ch" } },
-    } as unknown as ReturnType<typeof useApi>);
+  it("welcomes the signed-in user by first name", () => {
+    vi.mocked(useAuth).mockReturnValue(
+      authValue({
+        authed: true,
+        account: {
+          name: "Alice Example",
+          email: "alice@example.ch",
+          affiliations: [],
+        },
+      }),
+    );
 
     render(<Home />);
 
-    expect(screen.getByText("Alice")).toBeInTheDocument();
-    expect(screen.getByText(/alice@example\.ch/)).toBeInTheDocument();
+    expect(screen.getByText("Welcome, Alice")).toBeInTheDocument();
   });
 
   it("shows the sign-in button when signed out", () => {
-    vi.mocked(useSession).mockReturnValue({
-      data: null,
-      isPending: false,
-    } as ReturnType<typeof useSession>);
+    vi.mocked(useAuth).mockReturnValue(authValue({ authed: false }));
 
     render(<Home />);
 

@@ -1,17 +1,17 @@
-import { useSession } from "~/lib/auth";
+import { useAuth } from "~/lib/auth-context";
 import { HomePage } from "~/pages/home-page";
 import { LoginPage } from "~/pages/login-page";
 
 /**
- * Index route. Routing/session glue only — it picks which page to render.
- * (A real route guard / separate authed routes arrive with GitHub onboarding.)
+ * Index route. Picks which page to render based on the shared auth state.
+ * (The OnboardingGate handles the authed-but-unlinked → onboarding redirect.)
  */
 export default function Home() {
-  const { data, isPending } = useSession();
+  const { isLoading, authed } = useAuth();
 
-  if (isPending) {
+  if (isLoading) {
     return null;
   }
 
-  return data?.user ? <HomePage /> : <LoginPage />;
+  return authed ? <HomePage /> : <LoginPage />;
 }
