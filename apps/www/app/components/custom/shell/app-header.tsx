@@ -1,7 +1,7 @@
 import { Link } from "react-router";
+import { SwitchIdentity } from "~/components/custom/identity/switch-identity";
 import { Container } from "~/components/custom/layout/container";
 import { Row } from "~/components/custom/layout/row";
-import { SwitchIdentity } from "~/components/custom/switch-identity";
 import { useAuth } from "~/lib/auth-context";
 
 /**

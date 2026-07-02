@@ -1,7 +1,7 @@
+import { UserAvatar } from "~/components/custom/identity/user-avatar";
 import { Row } from "~/components/custom/layout/row";
 import { Stack } from "~/components/custom/layout/stack";
 import { Text } from "~/components/custom/typography/text";
-import { UserAvatar } from "~/components/custom/user-avatar";
 
 type UserIdentityProps = {
   name: string;

@@ -1,4 +1,5 @@
-import { ClassCard } from "~/components/custom/class-card";
+import { ClassCard } from "~/components/custom/classes/class-card";
+import { Row } from "~/components/custom/layout/row";
 import { Stack } from "~/components/custom/layout/stack";
 import { Text } from "~/components/custom/typography/text";
 import { Button } from "~/components/ui/button";
@@ -12,18 +13,18 @@ export function ClassesPage() {
 
   return (
     <Stack gap="lg" align="start" className="flex-1 pt-2">
-      <Stack gap="sm" align="start">
-        <Text variant="title">Classes</Text>
-        <div className="h-1 w-16 bg-brand" />
-      </Stack>
-      <Button
-        size="lg"
-        onClick={() => {
-          window.location.href = githubAppInstallUrl;
-        }}
-      >
-        Connect an organization
-      </Button>
+      <Row justify="between" className="w-full">
+        <Text variant="title" className="text-2xl md:text-3xl">
+          Classes
+        </Text>
+        <Button
+          onClick={() => {
+            window.location.href = githubAppInstallUrl;
+          }}
+        >
+          Connect an organization
+        </Button>
+      </Row>
       <Stack gap="md" className="w-full">
         {classes.length === 0 ? (
           <Text variant="body2">

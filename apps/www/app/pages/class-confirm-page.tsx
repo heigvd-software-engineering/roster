@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router";
-import { BrandHeader } from "~/components/custom/brand-header";
 import { Stack } from "~/components/custom/layout/stack";
+import { BrandHeader } from "~/components/custom/typography/brand-header";
 import { Text } from "~/components/custom/typography/text";
 import { Button } from "~/components/ui/button";
 import { api, useApi } from "~/lib/api";

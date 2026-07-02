@@ -1,5 +1,5 @@
-import { AppHeader } from "~/components/custom/app-header";
 import { Container } from "~/components/custom/layout/container";
+import { AppHeader } from "~/components/custom/shell/app-header";
 
 /**
  * AppLayout — the frame shared by every page. Fills the viewport height and

@@ -1,5 +1,5 @@
+import { UserIdentity } from "~/components/custom/identity/user-identity";
 import { Text } from "~/components/custom/typography/text";
-import { UserIdentity } from "~/components/custom/user-identity";
 import { useAuth } from "~/lib/auth-context";
 
 /**

@@ -1,9 +1,9 @@
 import { LogOut, Unlink } from "lucide-react";
 import { useRef, useState } from "react";
-import { GithubIdentity } from "~/components/custom/github-identity";
+import { GithubIdentity } from "~/components/custom/identity/github-identity";
+import { UserIdentity } from "~/components/custom/identity/user-identity";
 import { Stack } from "~/components/custom/layout/stack";
 import { Text } from "~/components/custom/typography/text";
-import { UserIdentity } from "~/components/custom/user-identity";
 import {
   DropdownMenu,
   DropdownMenuContent,
