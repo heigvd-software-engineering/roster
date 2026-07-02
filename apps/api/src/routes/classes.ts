@@ -1,7 +1,7 @@
 import {
   getClassById,
   getDb,
-  listClassesByUser,
+  listClassesByOrgIds,
   refreshInstallationId,
 } from "@labs/db";
 import { Hono } from "hono";
@@ -59,13 +59,16 @@ export const classesRoutes = new Hono<AuthedEnv>()
   .get("/classes", async (c) => {
     const db = getDb(c.env.DB);
     const user = c.get("user");
-    const rows = await listClassesByUser(db, user.id);
-    if (rows.length === 0) return c.json({ classes: [] });
+
+    // Identity first: no GitHub id or no user token means no installations
+    // call is even worth making.
+    const ghId = await callerGithubId(db, user.id);
+    const token = await githubUserToken(db, user.id);
+    if (ghId === null || !token) return c.json({ classes: [] });
 
     // Reconcile against the user's LIVE installations — the installationId we
     // stored can go stale on reinstall, and an org the user uninstalled the
     // App from must be dropped (its class row is skipped, not deleted).
-    const token = await githubUserToken(db, user.id);
     const userGh = new Octokit({ auth: token });
     const { data: insts } = await userGh.request("GET /user/installations");
     const byOrgId = new Map<
@@ -81,6 +84,8 @@ export const classesRoutes = new Hono<AuthedEnv>()
       }
     }
 
+    const rows = await listClassesByOrgIds(db, [...byOrgId.keys()]);
+
     const out: Array<{
       id: string;
       orgId: number;
@@ -91,15 +96,20 @@ export const classesRoutes = new Hono<AuthedEnv>()
     for (const cls of rows) {
       const live = byOrgId.get(cls.orgId);
       if (!live) continue; // App uninstalled from this org — skip.
-      if (live.installationId !== cls.installationId) {
-        await refreshInstallationId(
-          db,
-          cls.orgId,
-          live.installationId,
-          new Date(),
-        );
-      }
       try {
+        // Teacher check: only live org Owners see the class (installation
+        // access alone is NOT enough — students gain it in F8).
+        if (!(await isOrgAdmin(c.env, live.installationId, live.login, ghId))) {
+          continue;
+        }
+        if (live.installationId !== cls.installationId) {
+          await refreshInstallationId(
+            db,
+            cls.orgId,
+            live.installationId,
+            new Date(),
+          );
+        }
         const gh = await installationOctokit(c.env, live.installationId);
         const { data: org } = await gh.request("GET /orgs/{org}", {
           org: live.login,
@@ -112,8 +122,8 @@ export const classesRoutes = new Hono<AuthedEnv>()
           avatarUrl: org.avatar_url,
         });
       } catch {
-        // A single org's live enrich failing (rate limit, transient GitHub
-        // error) shouldn't 500 the whole list — skip that class, keep going.
+        // One org's failure (rate limit, revoked install, admin-check error)
+        // must not 500 the whole list — skip this class, keep going.
       }
     }
     return c.json({ classes: out });
