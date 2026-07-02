@@ -20,13 +20,13 @@ const state = vi.hoisted(() => ({
   patchCalls: [] as unknown[],
 }));
 
-vi.mock("../src/auth", () => ({
+vi.mock("../src/auth/config", () => ({
   createAuth: () => ({
     api: { getSession: async () => state.session },
   }),
 }));
 
-vi.mock("../src/github", () => ({
+vi.mock("../src/github/clients", () => ({
   appJwtOctokit: () => ({
     request: async (route: string) => {
       if (route === "GET /app/installations/{installation_id}") {
@@ -58,13 +58,13 @@ vi.mock("@labs/db", () => ({
   getClassById: async (_db: unknown, _id: string) => state.cls,
 }));
 
-vi.mock("../src/github-teacher", () => ({
+vi.mock("../src/github/teacher", () => ({
   callerGithubId: vi.fn(async () => 111),
   isOrgAdmin: vi.fn(async () => true),
 }));
 
 const { classesRoutes } = await import("../src/routes/classes");
-const { callerGithubId, isOrgAdmin } = await import("../src/github-teacher");
+const { callerGithubId, isOrgAdmin } = await import("../src/github/teacher");
 
 const app = new Hono().route("/api", classesRoutes);
 const env = { DB: {} };

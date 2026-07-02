@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import { callerGithubId, isOrgAdmin } from "../src/github-teacher";
+import { callerGithubId, isOrgAdmin } from "../src/github/teacher";
 
-vi.mock("../src/github", () => ({
+vi.mock("../src/github/clients", () => ({
   installationOctokit: vi.fn(async () => ({
     request: vi.fn(async () => ({
       data: [{ id: 111 }, { id: 222 }],

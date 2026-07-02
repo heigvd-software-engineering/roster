@@ -20,13 +20,13 @@ const state = vi.hoisted(() => ({
   failInstallationIds: [] as number[],
 }));
 
-vi.mock("../src/auth", () => ({
+vi.mock("../src/auth/config", () => ({
   createAuth: () => ({
     api: { getSession: async () => state.session },
   }),
 }));
 
-vi.mock("../src/github", () => ({
+vi.mock("../src/github/clients", () => ({
   appJwtOctokit: () => ({
     request: async (route: string) => {
       throw new Error(`unexpected app-jwt request ${route}`);
@@ -45,28 +45,35 @@ vi.mock("../src/github", () => ({
   }),
 }));
 
-vi.mock("../src/github-user", () => ({
+vi.mock("../src/github/user-token", () => ({
   githubUserToken: async () => "tok",
 }));
 
-vi.mock("../src/github-teacher", () => ({
+vi.mock("../src/github/teacher", () => ({
   callerGithubId: vi.fn(async () => 111),
   isOrgAdmin: vi.fn(async () => true),
 }));
 
-const octokitRequestMock = vi.hoisted(() =>
-  vi.fn(async (route: string) => {
-    if (route === "GET /user/installations") {
-      return { data: { installations: state.installations } };
+const userInstallationsByOrgIdMock = vi.hoisted(() =>
+  vi.fn(async (_token: string) => {
+    const byOrgId = new Map<
+      number,
+      { installationId: number; login: string }
+    >();
+    for (const inst of state.installations) {
+      if (inst.account) {
+        byOrgId.set(inst.account.id, {
+          installationId: inst.id,
+          login: inst.account.login,
+        });
+      }
     }
-    throw new Error(`unexpected user-octokit request ${route}`);
+    return byOrgId;
   }),
 );
 
-vi.mock("octokit", () => ({
-  Octokit: vi.fn().mockImplementation(function Octokit() {
-    return { request: octokitRequestMock };
-  }),
+vi.mock("../src/github/user-installations", () => ({
+  userInstallationsByOrgId: userInstallationsByOrgIdMock,
 }));
 
 vi.mock("@labs/db", () => ({
@@ -83,7 +90,7 @@ vi.mock("@labs/db", () => ({
 }));
 
 const { classesRoutes } = await import("../src/routes/classes");
-const { callerGithubId, isOrgAdmin } = await import("../src/github-teacher");
+const { callerGithubId, isOrgAdmin } = await import("../src/github/teacher");
 
 const app = new Hono().route("/api", classesRoutes);
 const env = { DB: {} };
@@ -97,7 +104,7 @@ beforeEach(() => {
   state.installations = [{ id: 200, account: { id: 42, login: "acme" } }];
   state.org = { login: "acme", name: "Acme", avatar_url: "http://a" };
   state.failInstallationIds = [];
-  octokitRequestMock.mockClear();
+  userInstallationsByOrgIdMock.mockClear();
 });
 
 test("lists classes, reconciles stale installationId, enriches with live org", async () => {
@@ -204,5 +211,5 @@ test("returns [] when the caller has no linked GitHub id", async () => {
   const res = await app.request("/api/classes", {}, env);
   expect(res.status).toBe(200);
   expect(await res.json()).toEqual({ classes: [] });
-  expect(octokitRequestMock).not.toHaveBeenCalled();
+  expect(userInstallationsByOrgIdMock).not.toHaveBeenCalled();
 });

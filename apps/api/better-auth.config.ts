@@ -2,7 +2,7 @@
 // Schema generation reads the auth OPTIONS only — it never connects to the DB
 // or the IdP — so placeholder env values are safe here. The runtime uses
 // `createAuth(env)` with the real Cloudflare bindings.
-import { createAuth } from "./src/auth";
+import { createAuth } from "./src/auth/config";
 
 export const auth = createAuth({
   DB: {} as D1Database,

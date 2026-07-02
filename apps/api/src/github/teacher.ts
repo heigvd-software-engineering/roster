@@ -1,6 +1,6 @@
 import type { getDb } from "@labs/db";
-import type { AuthEnv } from "./auth";
-import { installationOctokit } from "./github";
+import type { AuthEnv } from "../auth/config";
+import { installationOctokit } from "./clients";
 
 type Db = ReturnType<typeof getDb>;
 

@@ -5,11 +5,11 @@ import {
   refreshInstallationId,
 } from "@labs/db";
 import { Hono } from "hono";
-import { Octokit } from "octokit";
-import { appJwtOctokit, installationOctokit } from "../github";
-import { callerGithubId, isOrgAdmin } from "../github-teacher";
-import { githubUserToken } from "../github-user";
-import { type AuthedEnv, requireAuth } from "../require-auth";
+import { type AuthedEnv, requireAuth } from "../auth/require-auth";
+import { appJwtOctokit, installationOctokit } from "../github/clients";
+import { callerGithubId, isOrgAdmin } from "../github/teacher";
+import { userInstallationsByOrgId } from "../github/user-installations";
+import { githubUserToken } from "../github/user-token";
 
 /** Resolves the org login for an installation via the App JWT. The `account`
  *  union includes the (rarer) enterprise-account shape, which has no `login`
@@ -69,20 +69,7 @@ export const classesRoutes = new Hono<AuthedEnv>()
     // Reconcile against the user's LIVE installations — the installationId we
     // stored can go stale on reinstall, and an org the user uninstalled the
     // App from must be dropped (its class row is skipped, not deleted).
-    const userGh = new Octokit({ auth: token });
-    const { data: insts } = await userGh.request("GET /user/installations");
-    const byOrgId = new Map<
-      number,
-      { installationId: number; login: string }
-    >();
-    for (const inst of insts.installations) {
-      if (inst.account && "login" in inst.account) {
-        byOrgId.set(inst.account.id, {
-          installationId: inst.id,
-          login: inst.account.login,
-        });
-      }
-    }
+    const byOrgId = await userInstallationsByOrgId(token);
 
     const rows = await listClassesByOrgIds(db, [...byOrgId.keys()]);
 

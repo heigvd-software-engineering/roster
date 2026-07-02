@@ -15,35 +15,30 @@ const state = vi.hoisted(() => ({
   })),
 }));
 
-vi.mock("../src/auth", () => ({
+vi.mock("../src/auth/config", () => ({
   createAuth: () => ({
     api: { getSession: async () => state.session },
   }),
 }));
 
-vi.mock("../src/github", () => ({
+vi.mock("../src/github/clients", () => ({
   appJwtOctokit: () => ({
     request: async () => ({ data: { account: state.account } }),
   }),
 }));
 
-vi.mock("../src/github-user", () => ({
+vi.mock("../src/github/user-token", () => ({
   githubUserToken: async () => state.token,
 }));
 
-const octokitRequestMock = vi.hoisted(() =>
-  vi.fn(async (route: string) => {
-    if (route === "GET /user/installations") {
-      return { data: { installations: state.installations } };
-    }
-    throw new Error(`unexpected user-octokit request ${route}`);
-  }),
+const userHasInstallationMock = vi.hoisted(() =>
+  vi.fn(async (_token: string, installationId: number) =>
+    state.installations.some((i) => i.id === installationId),
+  ),
 );
 
-vi.mock("octokit", () => ({
-  Octokit: vi.fn().mockImplementation(function Octokit() {
-    return { request: octokitRequestMock };
-  }),
+vi.mock("../src/github/user-installations", () => ({
+  userHasInstallation: userHasInstallationMock,
 }));
 
 vi.mock("@labs/db", () => ({
@@ -63,7 +58,7 @@ beforeEach(() => {
   state.token = "tok";
   state.installations = [{ id: 100 }];
   state.upsertClassByOrgId.mockClear();
-  octokitRequestMock.mockClear();
+  userHasInstallationMock.mockClear();
 });
 
 test("with a session, redirects to the confirm page and upserts the class", async () => {

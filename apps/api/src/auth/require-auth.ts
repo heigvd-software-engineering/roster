@@ -1,7 +1,7 @@
 import type { User } from "@labs/db";
 import { createMiddleware } from "hono/factory";
-import type { AuthEnv } from "./auth";
-import { createAuth } from "./auth";
+import type { AuthEnv } from "./config";
+import { createAuth } from "./config";
 
 export type AuthedEnv = { Bindings: AuthEnv; Variables: { user: User } };
 

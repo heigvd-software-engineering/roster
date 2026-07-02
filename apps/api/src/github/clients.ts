@@ -1,5 +1,5 @@
 import { App } from "@octokit/app";
-import type { AuthEnv } from "./auth";
+import type { AuthEnv } from "../auth/config";
 
 /**
  * The GitHub App (server-to-server). Workers-compatible: @octokit/app signs the

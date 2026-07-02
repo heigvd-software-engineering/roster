@@ -1,9 +1,9 @@
 import { getDb, upsertClassByOrgId } from "@labs/db";
 import { Hono } from "hono";
-import { Octokit } from "octokit";
-import { createAuth, type Env } from "../auth";
-import { appJwtOctokit } from "../github";
-import { githubUserToken } from "../github-user";
+import { createAuth, type Env } from "../auth/config";
+import { appJwtOctokit } from "../github/clients";
+import { userHasInstallation } from "../github/user-installations";
+import { githubUserToken } from "../github/user-token";
 
 /**
  * The GitHub App install Setup URL callback. Attributes the new class to the
@@ -29,11 +29,7 @@ export const setupRoutes = new Hono<Env>().get("/github/setup", async (c) => {
   const token = await githubUserToken(db, session.user.id);
   if (!token) return c.redirect("/?error=github_not_linked");
 
-  const userGh = new Octokit({ auth: token });
-  const { data: userInstallations } = await userGh.request(
-    "GET /user/installations",
-  );
-  if (!userInstallations.installations.some((i) => i.id === installationId)) {
+  if (!(await userHasInstallation(token, installationId))) {
     return c.redirect("/?error=not_your_installation");
   }
 

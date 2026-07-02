@@ -1,83 +1,9 @@
 import { getDb } from "@labs/db";
 import { Hono } from "hono";
-import { createAuth, type Env } from "../auth";
-import { githubUserToken } from "../github-user";
-
-type GithubProfile = {
-  login: string;
-  id: number;
-  name: string | null;
-  avatarUrl: string;
-};
-
-/**
- * Fetch the linked user's live GitHub profile with their stored token. Returns
- * null on ANY failure (expired token, rate limit, outage) — a null profile is
- * NOT the same as being unlinked; the link status is tracked separately.
- */
-async function fetchGithubProfile(
-  token: string,
-): Promise<GithubProfile | null> {
-  try {
-    const res = await fetch("https://api.github.com/user", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: "application/vnd.github+json",
-        "User-Agent": "labs",
-      },
-    });
-    if (!res.ok) {
-      return null;
-    }
-    const gh = (await res.json()) as {
-      login: string;
-      id: number;
-      name: string | null;
-      avatar_url: string;
-    };
-    return {
-      login: gh.login,
-      id: gh.id,
-      name: gh.name,
-      avatarUrl: gh.avatar_url,
-    };
-  } catch {
-    // Network error, GitHub outage, malformed JSON, etc. — same contract as
-    // an HTTP error response: null, not a thrown exception into /api/me.
-    return null;
-  }
-}
-
-/** Decode a JWT payload (no verification — it's our own stored id_token). */
-function decodeJwtPayload(jwt: string): Record<string, unknown> | null {
-  const part = jwt.split(".")[1];
-  if (!part) {
-    return null;
-  }
-  try {
-    const bytes = Uint8Array.from(
-      atob(part.replace(/-/g, "+").replace(/_/g, "/")),
-      (ch) => ch.charCodeAt(0),
-    );
-    return JSON.parse(new TextDecoder().decode(bytes));
-  } catch {
-    return null;
-  }
-}
-
-/**
- * The user's institutional affiliation emails, from the SWITCH id_token's
- * `swissEduIDLinkedAffiliationMail` claim. Static profile data, so we read it
- * from the stored token — no live call, no token-expiry concern. (The personal
- * `swissEduIDAssociatedMail` is intentionally excluded — it's not an affiliation.)
- */
-function readAffiliationEmails(idToken: string): string[] {
-  const p = decodeJwtPayload(idToken) as {
-    swissEduIDLinkedAffiliationMail?: unknown;
-  } | null;
-  const linked = p?.swissEduIDLinkedAffiliationMail;
-  return Array.isArray(linked) ? (linked as string[]) : [];
-}
+import { createAuth, type Env } from "../auth/config";
+import { fetchGithubProfile } from "../github/profile";
+import { githubUserToken } from "../github/user-token";
+import { readAffiliationEmails } from "../switch/claims";
 
 /**
  * Current user (Drizzle-inferred `User`) + their linked GitHub profile + edu-ID
