@@ -1,6 +1,13 @@
-import { getClassById, getDb } from "@labs/db";
+import {
+  getClassById,
+  getDb,
+  listClassesByUser,
+  refreshInstallationId,
+} from "@labs/db";
 import { Hono } from "hono";
+import { Octokit } from "octokit";
 import { appJwtOctokit, installationOctokit } from "../github";
+import { githubUserToken } from "../github-user";
 import { type AuthedEnv, requireAuth } from "../require-auth";
 
 /** Resolves the org login for an installation via the App JWT. The `account`
@@ -34,4 +41,61 @@ export const classesRoutes = new Hono<AuthedEnv>()
       ok: data.default_repository_permission === "none",
       org: { login },
     });
+  })
+  .get("/classes", async (c) => {
+    const db = getDb(c.env.DB);
+    const user = c.get("user");
+    const rows = await listClassesByUser(db, user.id);
+    if (rows.length === 0) return c.json({ classes: [] });
+
+    // Reconcile against the user's LIVE installations — the installationId we
+    // stored can go stale on reinstall, and an org the user uninstalled the
+    // App from must be dropped (its class row is skipped, not deleted).
+    const token = await githubUserToken(db, user.id);
+    const userGh = new Octokit({ auth: token });
+    const { data: insts } = await userGh.request("GET /user/installations");
+    const byOrgId = new Map<
+      number,
+      { installationId: number; login: string }
+    >();
+    for (const inst of insts.installations) {
+      if (inst.account && "login" in inst.account) {
+        byOrgId.set(inst.account.id, {
+          installationId: inst.id,
+          login: inst.account.login,
+        });
+      }
+    }
+
+    const out: Array<{
+      id: string;
+      orgId: number;
+      login: string;
+      name: string | null;
+      avatarUrl: string;
+    }> = [];
+    for (const cls of rows) {
+      const live = byOrgId.get(cls.orgId);
+      if (!live) continue; // App uninstalled from this org — skip.
+      if (live.installationId !== cls.installationId) {
+        await refreshInstallationId(
+          db,
+          cls.orgId,
+          live.installationId,
+          new Date(),
+        );
+      }
+      const gh = await installationOctokit(c.env, live.installationId);
+      const { data: org } = await gh.request("GET /orgs/{org}", {
+        org: live.login,
+      });
+      out.push({
+        id: cls.id,
+        orgId: cls.orgId,
+        login: org.login,
+        name: org.name ?? null,
+        avatarUrl: org.avatar_url,
+      });
+    }
+    return c.json({ classes: out });
   });

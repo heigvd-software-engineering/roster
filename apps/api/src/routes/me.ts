@@ -1,6 +1,7 @@
 import { getDb } from "@labs/db";
 import { Hono } from "hono";
 import { createAuth, type Env } from "../auth";
+import { githubUserToken } from "../github-user";
 
 type GithubProfile = {
   login: string;
@@ -93,20 +94,14 @@ export const meRoutes = new Hono<Env>().get("/me", async (c) => {
   const user = await db.query.user.findFirst({
     where: (u, { eq }) => eq(u.id, session.user.id),
   });
-  const githubAccount = await db.query.account.findFirst({
-    where: (a, { and, eq }) =>
-      and(eq(a.userId, session.user.id), eq(a.providerId, "github")),
-    columns: { accessToken: true },
-  });
+  const token = await githubUserToken(db, session.user.id);
   const switchAccount = await db.query.account.findFirst({
     where: (a, { and, eq }) =>
       and(eq(a.userId, session.user.id), eq(a.providerId, "switch")),
     columns: { idToken: true },
   });
 
-  const github = githubAccount?.accessToken
-    ? await fetchGithubProfile(githubAccount.accessToken)
-    : null;
+  const github = token ? await fetchGithubProfile(token) : null;
   const affiliations = switchAccount?.idToken
     ? readAffiliationEmails(switchAccount.idToken)
     : [];
