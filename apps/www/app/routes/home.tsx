@@ -1,17 +1,13 @@
+import { Navigate } from "react-router";
 import { useAuth } from "~/lib/auth-context";
-import { HomePage } from "~/pages/home-page";
 import { LoginPage } from "~/pages/login-page";
 
-/**
- * Index route. Picks which page to render based on the shared auth state.
- * (The OnboardingGate handles the authed-but-unlinked → onboarding redirect.)
- */
+/** Index route: login when signed out, else send to the classes hub. */
 export default function Home() {
   const { isLoading, authed } = useAuth();
 
   if (isLoading) {
     return null;
   }
-
-  return authed ? <HomePage /> : <LoginPage />;
+  return authed ? <Navigate to="/classes" replace /> : <LoginPage />;
 }

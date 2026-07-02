@@ -1,3 +1,4 @@
+import { Link } from "react-router";
 import { Container } from "~/components/custom/layout/container";
 import { Row } from "~/components/custom/layout/row";
 import { SwitchIdentity } from "~/components/custom/switch-identity";
@@ -19,7 +20,9 @@ export function AppHeader() {
     <header className="w-full border-b border-border bg-background">
       <Container className="py-3">
         <Row justify="between">
-          <span className="font-bold tracking-tight">labs</span>
+          <Link to="/classes" className="font-bold tracking-tight">
+            labs
+          </Link>
           <SwitchIdentity />
         </Row>
       </Container>
