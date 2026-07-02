@@ -4,6 +4,7 @@ import type { Env } from "./auth";
 export type { Auth } from "./auth";
 
 import { authRoutes } from "./routes/auth";
+import { classesRoutes } from "./routes/classes";
 import { healthRoutes } from "./routes/health";
 import { meRoutes } from "./routes/me";
 import { setupRoutes } from "./routes/setup";
@@ -17,6 +18,7 @@ const app = new Hono<Env>()
   .route("/api", healthRoutes)
   .route("/api", meRoutes)
   .route("/api", setupRoutes)
+  .route("/api", classesRoutes)
   // Unknown API routes return JSON 404s (registered last, so it only catches
   // paths no module above matched).
   .all("/api/*", (c) => c.json({ error: "Not found" }, 404));

@@ -1,0 +1,95 @@
+import { Hono } from "hono";
+import { beforeEach, expect, test, vi } from "vitest";
+
+const state = vi.hoisted(() => ({
+  session: { user: { id: "u1" } } as { user: { id: string } } | null,
+  cls: { id: "c1", orgId: 42, installationId: 100 } as
+    | { id: string; orgId: number; installationId: number }
+    | undefined,
+  defaultRepositoryPermission: "none" as string,
+  patchCalls: [] as unknown[],
+}));
+
+vi.mock("../src/auth", () => ({
+  createAuth: () => ({
+    api: { getSession: async () => state.session },
+  }),
+}));
+
+vi.mock("../src/github", () => ({
+  appJwtOctokit: () => ({
+    request: async (route: string) => {
+      if (route === "GET /app/installations/{installation_id}") {
+        return { data: { account: { login: "acme" } } };
+      }
+      throw new Error(`unexpected app-jwt request ${route}`);
+    },
+  }),
+  installationOctokit: async () => ({
+    request: async (route: string, params: unknown) => {
+      if (route === "PATCH /orgs/{org}") {
+        state.patchCalls.push(params);
+        return { data: {} };
+      }
+      if (route === "GET /orgs/{org}") {
+        return {
+          data: {
+            default_repository_permission: state.defaultRepositoryPermission,
+          },
+        };
+      }
+      throw new Error(`unexpected installation request ${route}`);
+    },
+  }),
+}));
+
+vi.mock("@labs/db", () => ({
+  getDb: () => ({}),
+  getClassById: async (_db: unknown, _id: string) => state.cls,
+}));
+
+const { classesRoutes } = await import("../src/routes/classes");
+
+const app = new Hono().route("/api", classesRoutes);
+const env = { DB: {} };
+
+beforeEach(() => {
+  state.session = { user: { id: "u1" } };
+  state.cls = { id: "c1", orgId: 42, installationId: 100 };
+  state.defaultRepositoryPermission = "none";
+  state.patchCalls = [];
+});
+
+test("sets the org base permission to none and returns ok:true", async () => {
+  const res = await app.request(
+    "/api/classes/c1/confirm",
+    { method: "POST" },
+    env,
+  );
+  expect(res.status).toBe(200);
+  expect(await res.json()).toEqual({ ok: true, org: { login: "acme" } });
+  expect(state.patchCalls).toEqual([
+    { org: "acme", default_repository_permission: "none" },
+  ]);
+});
+
+test("returns ok:false when the re-GET doesn't confirm none", async () => {
+  state.defaultRepositoryPermission = "read";
+  const res = await app.request(
+    "/api/classes/c1/confirm",
+    { method: "POST" },
+    env,
+  );
+  expect(res.status).toBe(200);
+  expect(await res.json()).toEqual({ ok: false, org: { login: "acme" } });
+});
+
+test("unknown class id returns 404", async () => {
+  state.cls = undefined;
+  const res = await app.request(
+    "/api/classes/c1/confirm",
+    { method: "POST" },
+    env,
+  );
+  expect(res.status).toBe(404);
+});
