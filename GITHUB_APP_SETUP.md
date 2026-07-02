@@ -70,6 +70,11 @@ org-owned App: `https://github.com/organizations/<org>/settings/apps`).
 After a user installs (or updates) the App on an org, GitHub redirects here with
 `installation_id` + `setup_action`; the server creates/updates the class.
 
+> **⚠️ Don't leave this blank — and click Save.** If the Setup URL is empty, the
+> install *silently succeeds on GitHub but never calls back*, so no class is
+> created and the connect flow appears to do nothing. Verify the field shows the
+> value after saving (a blank field is the #1 setup mistake).
+
 ### 4. Webhook
 
 **Not required for F3.** Uncheck **Active** (or leave the URL empty). labs
@@ -98,6 +103,15 @@ Read is implied). Add more only when a feature needs it.
 installed on an organization** (orgs are separate accounts), so it must be public
 to connect org-classes. (An org-owned App can stay "Only on this account" if all
 target orgs are under that account.)
+
+> **Where this setting lives:** for a personal-account App there's no radio on
+> the General page — it's under the **Advanced** tab as **"Make public"**. Click
+> that. Until you do, the install page only offers your personal account (no org
+> selector), and the Organization permissions never come into play (the personal
+> view just says "read access to public resources").
+
+You also need a **GitHub organization you own** to install onto — create a
+dedicated classroom org if you don't have one.
 
 ### 7. Generate a private key
 
