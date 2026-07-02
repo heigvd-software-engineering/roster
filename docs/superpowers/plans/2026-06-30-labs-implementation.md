@@ -67,7 +67,7 @@ After green, the agent presents: the change summary + new test output; anything 
 
 ## Progress Tracker
 
-**▶ Active cursor:** _Feature 1 · Tasks 2, 3, 4 **DONE**; Task 5 **automated gate ✅** (same-origin Worker wired — ASSETS binding + SPA fallback; verified live via `wrangler dev`: `/api/health`→ok, `/`→SPA, `/onboarding`→SPA fallback, `/api/unknown`→JSON 404). **Only Task 5's 🔴 human gate remains, BLOCKED** on SWITCH edu-ID creds (need issuer/client-id/secret in `.dev.vars`) + a real D1 (`wrangler d1 create labs` → set `database_id`). Resume → once creds arrive: provision D1, add `.dev.vars`, `wrangler dev`, do the live edu-ID login→home→sign-out walk. That closes Feature 1. See ledger `.superpowers/sdd/progress.md`._
+**▶ Active cursor:** _**Feature 1 DONE + committed** (live edu-ID walk passed; creds arrived). **Feature 2 DONE + committed** (mandatory GitHub linking: onboarding gate + route guard, GitHub OAuth link via `trustedProviders`, `/api/me` returns GitHub profile, home shows it as auth proof; UserIdentity/UserAvatar/Row components). **Mode changed: now commit-per-milestone** (no co-author trailer) — the earlier "no commits" rule is superseded. Branch `milestone-1-foundation`; HEAD `154b3bb`; working tree clean; full automated gate green (2026-07-02). **Next: Feature 3 — Teacher connects a class** (still only OUTLINED below — must be expanded into detailed tasks before execution; 🔴 needs GitHub App setup + live creds). See ledger `.superpowers/sdd/progress.md`._
 
 `[ ]` pending → `[x]` passed. **Auto** = automated gate green. **Human** = your approval (🔴 = needs real edu-ID/GitHub flow first; 🟢 routine). **Done** = both gates passed (uncommitted increment in the tree).
 
@@ -88,17 +88,17 @@ After green, the agent presents: the change summary + new test output; anything 
 | 2. Scaffold `apps/api` (Hono creator) + Better Auth (edu-ID) config | [x] | [x] 🟢 | [x] |
 | 3. Generate Better Auth schema via CLI → `packages/db` + migration | [x] | [x] 🟢 | [x] |
 | 4. Scaffold `apps/www` (React Router SPA) + login/home/sign out | [x] | [x] 🟢 | [x] |
-| 5. Same-origin Worker + live edu-ID smoke | [x] | [ ] 🔴 | [ ] |
+| 5. Same-origin Worker + live edu-ID smoke | [x] | [x] 🔴 | [x] |
 
 > **Superseded:** the earlier hand-written `packages/db` (old Task 2) is replaced — its `getDb`/config may be reused, but `schema.ts` is **regenerated** by the Better Auth CLI in Task 3.
 
-**Feature 1 gate:** [ ] all tasks done · [ ] live walk passed (edu-ID login → home → sign out).
+**Feature 1 gate:** [x] all tasks done · [x] live walk passed (edu-ID login → home → sign out). **COMPLETE + committed.**
 
 ### Features 2–10 (one feature each; outlined until reached)
 
 | # | Feature | New schema (minimal) | Status |
 |---|---|---|---|
-| F2 | Mandatory GitHub linking (onboarding gate + route guard) | none (uses `account` github row) | [ ] |
+| F2 | Mandatory GitHub linking (onboarding gate + route guard) | none (uses `account` github row) | [x] DONE + committed (`154b3bb`) |
 | F3 | Teacher connects a class (org → class, base permission `No access`) | `classes` (id, orgId, installationId, connectedByUserId, status) | [ ] |
 | F4 | Class join link + student enrollment | `classes.joinToken` | [ ] |
 | F5 | View class people (live Owners/Members) | none (read live) | [ ] |
@@ -136,6 +136,7 @@ Multi-session, **and nothing is committed** — so resume relies on this file + 
 | 2026-06-30 | Cleaned slate; rebuilt root + apps/api + packages/db **tooling-driven** (latest deps). Better Auth edu-ID config + CLI-generated auth schema (isolated in `auth-schema.ts`, barrel in `schema.ts`) + migration + health test. **Tasks 2+3 green, human gate pending.** | F1 · Task 4 (apps/www) | ⛔ **SWITCH edu-ID access not yet approved** → Task 5 blocked. `better-call@1.3.7` override + `allowBuilds` in pnpm-workspace.yaml. Workers-pool tests deferred (vitest-4 churn). Everything UNCOMMITTED. |
 | 2026-07-01 | Audited 2+3 (found + fixed missing `@labs/db` type exports; reverted an over-eager db shape-test — CLI-generated code needs no test). **Approved Tasks 2, 3, 4.** Built `apps/www` (React Router **8.1** framework-mode SPA, `ssr:false`) subagent-driven: login/home/sign-out, better-auth/react client, 2 tests; task review clean. Upgraded www stragglers to latest (TS 6.0.3, RR 8.1, @types/node 26, better-auth 1.6.23); fixed RR 8.1 `AppLoadContext` removal in `entry.server.tsx`. **Kept framework mode** (deliberate — typed routes + loaders for F5+ + monorepo consistency). Full gate green; login screen visually confirmed. | F1 · Task 5 (BLOCKED) | ⛔ Still waiting on SWITCH edu-ID creds for Task 5. Everything UNCOMMITTED. |
 | 2026-07-01 (cont.) | **UI foundations:** shadcn init (Base UI `base-nova`, matches monorepo); styled login screen (Swiss-precision: graph-paper bg, Geist, brand-red, mono eyebrow) — visually approved. Component conventions: `components/ui` (generated) vs `custom/` (ours) + READMEs; `pages/` + `routes/` split. **Styling policy:** wrap Tailwind into named components — `custom/layout/` (Stack, Container + tokens) + `custom/typography/` (Title, Lead, Eyebrow); strict YAGNI (only used variants). Added **👁 visual gate** to plan (run dev server for every viewable change). **Task 5 automated gate ✅** (same-origin Worker + ASSETS SPA fallback; verified via wrangler dev; wrangler→4.105). | F1 · Task 5 human gate (BLOCKED) | ⛔ Only the 🔴 live edu-ID walk remains for F1 (needs creds + real D1). Everything UNCOMMITTED. |
+| 2026-07-01 (F1 close + F2) | **edu-ID creds arrived → F1 Task 5 🔴 live walk PASSED → Feature 1 COMPLETE.** **Mode change: started committing per-milestone** (no co-author trailer) — `d47dcfb` Milestone 1 foundation, `00d7398` milestone-review fixes. Then **built Feature 2 — mandatory GitHub linking** (committed `154b3bb`): GitHub OAuth link provider + `trustedProviders` fix, `customSession`/`/api/me` returning GitHub profile, onboarding gate + route guard (`OnboardingGate`), home shows GitHub profile as auth proof; new UI: `UserAvatar`/`UserIdentity`/`Row` (+ shadcn avatar), layout token additions. SSR-safety fixes: dropped `window.location.origin` from auth client, `typeof window` guard on API client. All gates green; SPA prod build OK. | **F3 — Teacher connects a class** (needs task expansion + GitHub App creds) | Branch `milestone-1-foundation`, HEAD `154b3bb`, tree clean. Docs (this tracker + ledger) had drifted behind git — reconciled 2026-07-02. |
 
 ---
 
