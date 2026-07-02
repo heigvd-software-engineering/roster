@@ -105,6 +105,20 @@ target orgs are under that account.)
 the **App ID** (top of the General page). The private key signs the App JWT used
 to mint installation tokens.
 
+> **⚠️ Convert the key to PKCS#8.** GitHub issues the key as **PKCS#1**
+> (`-----BEGIN RSA PRIVATE KEY-----`), but the App JWT is signed with **Web
+> Crypto** (both on Node and on Cloudflare Workers), which only accepts
+> **PKCS#8** (`-----BEGIN PRIVATE KEY-----`). Using the raw PKCS#1 key fails with
+> `error:1E08010C:DECODER routines::unsupported`. Convert it once:
+>
+> ```bash
+> openssl pkcs8 -topk8 -inform PEM -outform PEM -nocrypt \
+>   -in downloaded.pem -out app-key-pkcs8.pem
+> ```
+>
+> Store the **PKCS#8** output. `createAppClient` (`apps/api/src/github.ts`)
+> normalizes the `\n`, so store it single-line with `\n` (see below).
+
 ## Wire the secrets
 
 The Worker reads these as **secrets** — never commit them.
@@ -118,9 +132,11 @@ GITHUB_CLIENT_SECRET=...
 
 # App / installation auth (connect a class)
 GITHUB_APP_ID=4194411
-# Single line; \n replaces the PEM newlines (Octokit normalizes them):
-GITHUB_APP_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----\n"
+# PKCS#8 key (step 7), single line; \n replaces the real newlines
+# (createAppClient normalizes \n -> newlines):
+GITHUB_APP_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"
 ```
+Turn a PEM into that single line: `awk 'NF{printf "%s\\n",$0}' app-key-pkcs8.pem`.
 
 **Production** — set them as Worker secrets instead of `.dev.vars`:
 
