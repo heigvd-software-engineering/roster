@@ -1,6 +1,10 @@
 import { env } from "cloudflare:test";
 import { beforeEach, expect, test } from "vitest";
-import { listClassesByUser, upsertClassByOrgId } from "../src/classes";
+import {
+  listClassesByOrgIds,
+  listClassesByUser,
+  upsertClassByOrgId,
+} from "../src/classes";
 import { classes, getDb, user } from "../src/index";
 
 const db = getDb(env.DB);
@@ -60,4 +64,27 @@ test("listClassesByUser filters by user", async () => {
   const rows = await listClassesByUser(db, "u1");
   expect(rows).toHaveLength(1);
   expect(rows[0]?.orgId).toBe(1);
+});
+
+test("listClassesByOrgIds returns rows matching any given orgId", async () => {
+  const now = new Date(0);
+  await upsertClassByOrgId(db, {
+    id: "c1",
+    orgId: 42,
+    installationId: 1,
+    connectedByUserId: "u1",
+    now,
+  });
+  await upsertClassByOrgId(db, {
+    id: "c2",
+    orgId: 43,
+    installationId: 2,
+    connectedByUserId: "u1",
+    now,
+  });
+
+  const hit = await listClassesByOrgIds(db, [42, 99]);
+  expect(hit.map((c) => c.orgId)).toEqual([42]);
+
+  expect(await listClassesByOrgIds(db, [])).toEqual([]);
 });

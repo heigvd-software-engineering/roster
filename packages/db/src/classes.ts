@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import type { getDb } from "./index";
 import { classes } from "./schema";
 
@@ -39,6 +39,13 @@ export async function upsertClassByOrgId(
 
 export async function listClassesByUser(db: Db, userId: string) {
   return db.select().from(classes).where(eq(classes.connectedByUserId, userId));
+}
+
+export async function listClassesByOrgIds(db: Db, orgIds: number[]) {
+  if (orgIds.length === 0) {
+    return [];
+  }
+  return db.select().from(classes).where(inArray(classes.orgId, orgIds));
 }
 
 export async function getClassById(db: Db, id: string) {
