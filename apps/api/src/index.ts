@@ -6,6 +6,7 @@ export type { Auth } from "./auth";
 import { authRoutes } from "./routes/auth";
 import { healthRoutes } from "./routes/health";
 import { meRoutes } from "./routes/me";
+import { setupRoutes } from "./routes/setup";
 
 // The Worker only handles /api/* (wrangler.jsonc `run_worker_first`). The SPA
 // and static assets are served by Cloudflare's Assets layer, so the Worker
@@ -15,6 +16,7 @@ const app = new Hono<Env>()
   .route("/api/auth", authRoutes)
   .route("/api", healthRoutes)
   .route("/api", meRoutes)
+  .route("/api", setupRoutes)
   // Unknown API routes return JSON 404s (registered last, so it only catches
   // paths no module above matched).
   .all("/api/*", (c) => c.json({ error: "Not found" }, 404));
