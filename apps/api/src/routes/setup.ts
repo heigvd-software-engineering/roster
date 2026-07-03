@@ -1,9 +1,9 @@
-import { getDb, upsertClassByOrgId } from "@labs/db";
+import { classes, getDb } from "@labs/db";
 import { Hono } from "hono";
 import { createAuth, type Env } from "../auth/config";
-import { appJwtOctokit } from "../github/clients";
-import { userHasInstallation } from "../github/user-installations";
-import { githubUserToken } from "../github/user-token";
+import { installationAccount } from "../github/app";
+import { userHasInstallation } from "../github/user";
+import { mintJoinToken } from "../join-token";
 
 /**
  * The GitHub App install Setup URL callback. Attributes the new class to the
@@ -26,37 +26,47 @@ export const setupRoutes = new Hono<Env>().get("/github/setup", async (c) => {
   if (!installationId) return c.redirect("/?error=no_installation");
 
   const db = getDb(c.env.DB);
-  const token = await githubUserToken(db, session.user.id);
+  const ghAccount = await db.query.account.findFirst({
+    where: (a, op) =>
+      op.and(op.eq(a.userId, session.user.id), op.eq(a.providerId, "github")),
+    columns: { accessToken: true },
+  });
+  const token = ghAccount?.accessToken;
   if (!token) return c.redirect("/?error=github_not_linked");
 
   if (!(await userHasInstallation(token, installationId))) {
     return c.redirect("/?error=not_your_installation");
   }
 
-  const { data } = await appJwtOctokit(c.env).request(
-    "GET /app/installations/{installation_id}",
-    { installation_id: installationId },
-  );
-  // The `account` union includes the (rarer) enterprise-account shape, which
-  // has no `type` field — narrow with `in` rather than assuming `simple-user`.
-  if (
-    !data.account ||
-    !("type" in data.account) ||
-    data.account.type !== "Organization"
-  ) {
+  const installAccount = await installationAccount(c.env, installationId);
+  if (!installAccount?.isOrganization) {
     return c.redirect("/?error=not_an_org");
   }
 
-  const cls = await upsertClassByOrgId(db, {
-    id: crypto.randomUUID(),
-    orgId: data.account.id,
-    installationId,
-    connectedByUserId: session.user.id,
-    now: new Date(),
-  });
+  // Upsert keyed on the stable org id: a reinstall refreshes the
+  // installation id but must NOT rotate joinToken (the cohort's link) or
+  // reassign provenance.
+  const now = new Date();
+  const [cls] = await db
+    .insert(classes)
+    .values({
+      id: crypto.randomUUID(),
+      orgId: installAccount.id,
+      installationId,
+      connectedByUserId: session.user.id,
+      joinToken: mintJoinToken(),
+      status: "active",
+      createdAt: now,
+      updatedAt: now,
+    })
+    .onConflictDoUpdate({
+      target: classes.orgId,
+      set: { installationId, status: "active", updatedAt: now },
+    })
+    .returning();
   if (!cls) {
     // `.returning()` after an insert/upsert always yields one row.
-    throw new Error("upsertClassByOrgId returned no row");
+    throw new Error("class upsert returned no row");
   }
   return c.redirect(`/classes/${cls.id}/confirm`);
 });

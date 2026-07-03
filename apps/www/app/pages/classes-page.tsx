@@ -1,11 +1,10 @@
 import { ClassCard } from "~/components/custom/classes/class-card";
+import { NewClassDialog } from "~/components/custom/classes/new-class-dialog";
 import { Row } from "~/components/custom/layout/row";
 import { Stack } from "~/components/custom/layout/stack";
 import { Loading } from "~/components/custom/loading";
 import { Text } from "~/components/custom/typography/text";
-import { Button } from "~/components/ui/button";
 import { api, useApi } from "~/lib/api";
-import { githubAppInstallUrl } from "~/lib/config";
 import { dummyClassMeta } from "~/lib/dummy";
 
 /** The teacher hub: connect orgs + the live list of connected classes. */
@@ -17,9 +16,7 @@ export function ClassesPage() {
     <Stack gap="lg" align="start" className="flex-1 pt-2">
       <Row justify="between" className="w-full">
         <Text variant="heading">Classes</Text>
-        <Button render={<a href={githubAppInstallUrl} />}>
-          Connect an organization
-        </Button>
+        <NewClassDialog />
       </Row>
       <Loading loading={isLoading} label="Loading classes…">
         <Stack gap="md" className="w-full">

@@ -1,9 +1,9 @@
 /**
  * PLACEHOLDER data so the classes hub renders at full fidelity before the
  * backend exists. Replace as features land:
- *   - member counts  → F5 (live org members)
  *   - labs           → F6 (labs table + New-lab)
  *   - progress       → F8 (accepted repos / groups)
+ * (member counts went live in F5b — org people ride on /api/classes.)
  */
 
 type LabMode =
@@ -20,8 +20,6 @@ export type DummyLab = {
 };
 
 type ClassMeta = {
-  students: number;
-  teachers: number;
   labs: DummyLab[];
 };
 
@@ -30,8 +28,6 @@ const DAY = 86_400_000;
 /** Dummy per-class metadata, keyed loosely on the org login. */
 export function dummyClassMeta(login: string): ClassMeta {
   return {
-    students: 24,
-    teachers: 2,
     labs: [
       {
         id: `${login}-l1`,

@@ -1,8 +1,28 @@
+import path from "node:path";
+import {
+  cloudflareTest,
+  readD1Migrations,
+} from "@cloudflare/vitest-pool-workers";
 import { defineConfig } from "vitest/config";
 
-// `/api/health` uses no Cloudflare bindings, so a plain node test suffices.
-// The Workers pool (@cloudflare/vitest-pool-workers) is adopted later, when a
-// test exercises D1 / auth behavior that needs the real runtime bindings.
+// Real D1 (Miniflare) via the Workers pool — route tests seed real rows and
+// exercise the endpoints' INLINE Drizzle queries (there is no query-helper
+// layer to mock; see packages/db/README.md). GitHub/auth stay module-mocked.
 export default defineConfig({
-  test: { environment: "node" },
+  plugins: [
+    cloudflareTest(async () => {
+      const migrations = await readD1Migrations(
+        path.join(__dirname, "../../packages/db/migrations"),
+      );
+      return {
+        miniflare: {
+          d1Databases: ["DB"],
+          bindings: { TEST_MIGRATIONS: migrations },
+        },
+      };
+    }),
+  ],
+  test: {
+    setupFiles: ["./test/apply-migrations.ts"],
+  },
 });

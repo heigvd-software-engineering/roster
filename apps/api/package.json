@@ -16,7 +16,6 @@
   },
   "dependencies": {
     "@labs/db": "workspace:*",
-    "@octokit/app": "^16.1.2",
     "better-auth": "^1.6.23",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.12.27",
@@ -24,7 +23,7 @@
   },
   "devDependencies": {
     "@better-auth/cli": "^1.4.21",
-    "@cloudflare/vitest-pool-workers": "^0.16.20",
+    "@cloudflare/vitest-pool-workers": "^0.17.0",
     "@cloudflare/workers-types": "^4.20260630.1",
     "@types/node": "^26.0.1",
     "vitest": "^4.1.9",

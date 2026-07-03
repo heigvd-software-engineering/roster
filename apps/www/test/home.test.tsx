@@ -13,6 +13,7 @@ vi.mock("react-router", async (importOriginal) => {
       navigateSpy(props.to);
       return null;
     },
+    useLocation: () => ({ pathname: "/", search: "" }),
   };
 });
 
@@ -20,7 +21,8 @@ function authValue(o: Partial<ReturnType<typeof useAuth>>) {
   return {
     isLoading: false,
     authed: false,
-    account: null,
+    user: null,
+    affiliations: [],
     github: null,
     githubLinked: false,
     signIn: vi.fn(),

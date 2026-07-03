@@ -13,14 +13,25 @@ describe("ClassesPage", () => {
     vi.mocked(useApi).mockReturnValue({
       data: {
         classes: [
-          { id: "c1", orgId: 1, login: "acme", name: "Acme", avatarUrl: "" },
+          {
+            id: "c1",
+            orgId: 1,
+            login: "acme",
+            name: "Acme",
+            avatarUrl: "",
+            joinToken: "tok123",
+            teachers: [],
+            students: [],
+            pending: [],
+            users: [],
+          },
         ],
       },
     } as unknown as ReturnType<typeof useApi>);
 
     render(<ClassesPage />);
 
-    expect(screen.getByText("Connect an organization")).toBeInTheDocument();
+    expect(screen.getByText("Create a new class")).toBeInTheDocument();
     expect(screen.getByText("Acme")).toBeInTheDocument();
   });
 

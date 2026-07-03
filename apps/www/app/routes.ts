@@ -5,4 +5,5 @@ export default [
   route("classes", "routes/classes.tsx"),
   route("onboarding/github", "routes/onboarding.tsx"),
   route("classes/:id/confirm", "routes/class-confirm.tsx"),
+  route("join/:token", "routes/join.tsx"),
 ] satisfies RouteConfig;

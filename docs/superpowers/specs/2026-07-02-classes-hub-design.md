@@ -14,11 +14,11 @@ built from shadcn primitives wrapped into named components (per
 
 ## Decisions (locked in the visual brainstorm)
 
-- **Layout = master–detail (GitHub-Classroom-like), refined so labs are listed
-  inside each class card.** No "Welcome"; the page is top-aligned.
-- **Class detail = single scroll + right rail** (labs are the main column;
-  People + Settings glanceable in a rail — no tab switching).
-- **New lab = centered Dialog** (opens over the detail page, no navigation).
+- **Layout = one hub, no class detail page** *(revised 2026-07-03 — see the
+  revision note at the bottom)*: labs are listed inside each class card, and
+  the card carries all class-level surfaces (people popovers, join link,
+  add-lab). The drill-down unit is the **lab**, not the class.
+- **New lab = centered Dialog** (opens over the hub, no navigation).
 - **Routing:** `/classes` is the hub; signed-in users **land there** (`/`
   redirects to `/classes` for now; a role-split student home is F9). The `labs`
   wordmark links to `/classes`. The onboarding gate (GitHub linked) still gates
@@ -30,11 +30,11 @@ built from shadcn primitives wrapped into named components (per
 |---|---|---|
 | `/` | redirect → `/classes` (signed in) / login (signed out) | **now** |
 | `/classes` | the hub: list of class cards, each listing its labs | **now** (shell); labs rows fill in F6 |
-| `/classes/:id` | class detail (labs table + People + Settings rail) | F5/F6 (shell stub now optional) |
 | `/classes/:id/confirm` | existing F3 confirm page (unchanged) | done |
+| `/classes/:id/labs/:labId` (or `/labs/:id`) | **lab detail** — the per-lab management view (roster of accepted student lab repos, groups, deadline) | F6/F8 |
 
-`/classes/:id/labs/new` is **not** a route — New-lab is a Dialog over the detail
-page.
+There is **no `/classes/:id` class-detail route** (dropped 2026-07-03) and no
+new-lab route — New-lab is a Dialog opened from the card.
 
 ## `/classes` — the list page
 
@@ -42,15 +42,20 @@ page.
   organization"** action (the F3 install button, moved here from the old home).
 - **Class card** (one shadcn `Card` per connected org), each showing:
   - **Identity:** org avatar + name + `@login` (live from GitHub).
-  - **State chips:** `N students`, `N teachers` (live org members split by role),
-    and a **base-permission health** chip (`No access ✓` / `⚠ needs fixing`).
+  - **State chips:** `N students · P pending`, `N teachers` (live org members
+    split by role) — **clickable**, opening a popover table of the people
+    (SWITCH identity primary, GitHub login secondary; built in F5b). A
+    **base-permission health** chip (`No access ✓` / `⚠ needs fixing`) is
+    still planned.
   - **Labs listed inside** — a compact row per lab (see "lab row" below), capped
     (e.g. first 3–4) with a "+ N more" affordance; **+ Add a lab** at the end.
-  - **Card actions:** **Copy join link** (F4), **Open ›** → `/classes/:id`.
+  - **Card actions:** **Copy join link** (F4). Class settings (regenerate
+    join link, archive, re-apply base permission) land later as a small `⋯`
+    menu on the card — not a page.
 - **Empty states:** no classes → "Connect a GitHub organization to start a
   class."; a class with no labs → "No labs yet — add the first one."
 
-### Lab row (used in the card list and the detail table)
+### Lab row (in the card list; each row links to the lab detail page)
 
 Signals, in priority order (this is the "state overview"):
 
@@ -62,22 +67,17 @@ Signals, in priority order (this is the "state overview"):
 - **Progress** — `X / Y accepted` (individual) or `N groups` (group). Live from
   GitHub + `student_lab_repos` (F8); shows `—` until acceptance exists.
 
-## `/classes/:id` — the class detail
+## Lab detail page (F6/F8 — replaces the dropped class detail)
 
-Single scroll, two columns:
+The per-lab management view a teacher reaches by clicking a lab row:
 
-- **Main column:**
-  - Back link `‹ Classes`; header = org avatar + name (red rule).
-  - **Labs** section: **+ New lab** button + a shadcn **Table** of labs
-    (`Lab · Mode · Deadline · Progress`), each row → the lab's own view (F8/F10)
-    later. Same lab-row signals as above.
-- **Right rail (glanceable, read-mostly):**
-  - **People** — student count (Members) + teacher count (Owners), a few live
-    avatars, "managed on GitHub" note. (Full roster = F5.)
-  - **Settings** — base-permission status (`No access ✓`), **Copy join link** +
-    **Regenerate** (F4).
+- Header: lab title + class identity, back link to the hub.
+- **Roster table**: who accepted / who hasn't, per-student-or-group **student
+  lab repo** links, group composition (F7/F8), live from GitHub +
+  `student_lab_repos`.
+- Lab settings: deadline, template, mode (edit affordances TBD with F6).
 
-People are **read live** and edited on GitHub — the hub shows roster + counts,
+People are **read live** and edited on GitHub — labs shows rosters + counts,
 not member CRUD.
 
 ## New-lab Dialog (F6)
@@ -100,7 +100,7 @@ Add via `shadcn add` as needed: `card`, `table`, `dialog`, `badge`, `combobox`
 (or `command` + `popover`), `calendar` + `popover`, `toggle-group`, existing
 `button`/`dropdown-menu`. Wrap into named components under
 `app/components/custom/` per the styling convention — e.g. `ClassCard`,
-`LabRow`, `DeadlineChip`, `NewLabDialog`, `PeopleRail`, `ClassSettingsRail`.
+`LabRow`, `DeadlineChip`, `NewLabDialog`, `PeopleChip` (built, F5b).
 Reuse existing layout primitives (`Stack`, `Row`, `Container`) + `Text`.
 
 ## Data flow
@@ -118,11 +118,14 @@ Reuse existing layout primitives (`Stack`, `Row`, `Container`) + `Text`.
    move "Connect an organization" here; **remove the Welcome**; render class
    cards (identity + connect + empty "No labs yet"); extract `ClassCard`. Uses
    only what `GET /api/classes` returns today.
-2. **F4:** Copy-join-link / Regenerate on the card + Settings rail.
-3. **F5:** People counts/roster (rail + card chips); base-permission health chip.
-4. **F6:** Labs — `labs` table, `New lab` Dialog, `LabRow`/`DeadlineChip`, the
-   `/classes/:id` detail page + labs Table.
-5. **F8:** per-lab **Progress** (accepted counts / groups).
+2. **F4:** Copy-join-link on the card. **DONE** (regenerate deferred to the
+   card `⋯` menu).
+3. **F5:** People chips + popover roster. **DONE (F5b)**; base-permission
+   health chip still open.
+4. **F6:** Labs — `labs` table, `New lab` Dialog, real `LabRow`/`DeadlineChip`
+   data, the **lab detail page** shell.
+5. **F8:** per-lab **Progress** (accepted counts / groups) + roster on the lab
+   detail page.
 
 ## Error & empty states
 
@@ -152,3 +155,17 @@ compact heading with no rule/divider under it — this **supersedes** the
 title + red rule) stays reserved for the login/landing and confirm screens;
 in-app section headings (e.g. `/classes`) use the plain `Text variant="heading"`
 scale instead.
+
+## Revision note (2026-07-03)
+
+**The class detail page (`/classes/:id`) is dropped.** By F5b the class card
+had absorbed everything the detail page was designed for: the labs list is
+inline, People became clickable chip popovers (richer than the planned rail —
+SWITCH identity + GitHub login per person), Copy join link and + Add a lab sit
+on the card, and New-lab was always a Dialog. What remained (regenerate link,
+archive, re-apply base permission) fits a small `⋯` menu on the card.
+
+The navigation model is now: **hub card = the class; lab row = the
+drill-down** to a per-lab detail page (F6/F8), where the real management data
+lives (acceptance roster, student lab repos, groups). The "Open ›" card action
+was removed accordingly.

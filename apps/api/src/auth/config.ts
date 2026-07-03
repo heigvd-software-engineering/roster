@@ -10,6 +10,8 @@ import { genericOAuth } from "better-auth/plugins/generic-oauth";
 // (Better Auth reads the userinfo endpoint) and `id_token`.
 const SWITCH_CLAIMS = {
   name: { essential: true },
+  given_name: { essential: true },
+  family_name: { essential: true },
   email: { essential: true },
   swissEduIDLinkedAffiliation: { essential: true },
   swissEduIDAssociatedMail: { essential: true },
@@ -47,6 +49,14 @@ export function createAuth(env: AuthEnv) {
     baseURL: env.BETTER_AUTH_URL,
     secret: env.BETTER_AUTH_SECRET,
     database: drizzleAdapter(getDb(env.DB), { provider: "sqlite" }),
+    // True SWITCH edu-ID identity, stored on the user row at sign-in (mapped
+    // from `given_name`/`family_name` in mapProfileToUser below).
+    user: {
+      additionalFields: {
+        firstName: { type: "string", required: false },
+        lastName: { type: "string", required: false },
+      },
+    },
     // GitHub is linked to an existing (edu-ID) user via `authClient.linkSocial`.
     socialProviders: {
       github: {
@@ -91,6 +101,23 @@ export function createAuth(env: AuthEnv) {
                 id_token: SWITCH_CLAIMS,
               }),
             },
+            // Persist the true edu-ID names on the user row; re-applied on
+            // every sign-in (overrideUserInfo) so existing users pick the
+            // new fields up at their next login.
+            mapProfileToUser: (profile) => {
+              const { given_name: givenName, family_name: familyName } =
+                profile as { given_name?: unknown; family_name?: unknown };
+              // Cast: genericOAuth types the return against the BASE user
+              // fields only — `user.additionalFields` (firstName/lastName)
+              // are accepted at runtime but invisible to this signature.
+              return {
+                firstName:
+                  typeof givenName === "string" ? givenName : undefined,
+                lastName:
+                  typeof familyName === "string" ? familyName : undefined,
+              } as { name?: string };
+            },
+            overrideUserInfo: true,
           },
         ],
       }),

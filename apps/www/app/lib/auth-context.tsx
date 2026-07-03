@@ -1,3 +1,4 @@
+import type { InferResponseType } from "hono/client";
 import { createContext, type ReactNode, useContext, useMemo } from "react";
 import { api, useApi } from "~/lib/api";
 import {
@@ -7,28 +8,15 @@ import {
   unlinkAccount,
 } from "~/lib/auth";
 
-/** The SWITCH/edu-ID identity. */
-type Account = {
-  name: string;
-  email: string;
-  /** All edu-ID emails: institutional affiliations + personal. */
-  affiliations: string[];
-};
+// The /api/me response, inferred — the context re-exposes its fields raw
+// (user = the Drizzle user row; github = the live GitHub profile).
+type Me = InferResponseType<typeof api.api.me.$get, 200>;
 
-/** The linked GitHub identity (live profile). */
-type Github = {
-  login: string;
-  name: string | null;
-  avatarUrl: string;
-};
-
-type AuthValue = {
+type AuthValue = Pick<Me, "user" | "github" | "affiliations"> & {
   /** True until the first /api/me resolves. */
   isLoading: boolean;
   /** A session exists (signed in). */
   authed: boolean;
-  account: Account | null;
-  github: Github | null;
   /** GitHub is usable right now (drives the onboarding gate). */
   githubLinked: boolean;
   /** Start edu-ID (SWITCH) sign-in. */
@@ -36,7 +24,7 @@ type AuthValue = {
   /** Sign out, then revalidate /api/me so the UI reflects it immediately. */
   signOut: () => Promise<void>;
   /** Start GitHub account linking (redirects to GitHub). */
-  linkGithub: () => void;
+  linkGithub: (callbackURL?: string) => void;
   /** Unlink GitHub, then revalidate — the gate then routes to onboarding. */
   unlinkGithub: () => Promise<void>;
 };
@@ -50,20 +38,14 @@ const AuthContext = createContext<AuthValue | null>(null);
  */
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { data, isLoading, mutate } = useApi(api.api.me);
-  const me = data?.user ?? null;
 
   const value = useMemo<AuthValue>(
     () => ({
       isLoading,
-      authed: me !== null,
-      account: me
-        ? {
-            name: me.name,
-            email: me.email,
-            affiliations: data?.affiliations ?? [],
-          }
-        : null,
+      authed: (data?.user ?? null) !== null,
+      user: data?.user ?? null,
       github: data?.github ?? null,
+      affiliations: data?.affiliations ?? [],
       githubLinked: Boolean(data?.githubLinked),
       signIn: () => {
         // Return to the page the user was on — the login renders in place
@@ -81,15 +63,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await authSignOut();
         await mutate();
       },
-      linkGithub: () => {
-        authLinkSocial({ provider: "github", callbackURL: "/" });
+      linkGithub: (callbackURL = "/") => {
+        authLinkSocial({ provider: "github", callbackURL });
       },
       unlinkGithub: async () => {
         await unlinkAccount({ providerId: "github" });
         await mutate();
       },
     }),
-    [data, me, isLoading, mutate],
+    [data, isLoading, mutate],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

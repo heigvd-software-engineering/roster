@@ -6,7 +6,7 @@
 
 **Architecture:** A pnpm monorepo. One Cloudflare Worker (`apps/api`, Hono) serves the React Router 7 SPA (`apps/www`) static assets **and** `/api/*` — same origin, first-party cookies. Better Auth (edu-ID OIDC, later GitHub linking) persists to Drizzle/D1. Types flow Drizzle `$infer*` → (zod inputs when a feature needs them) → Hono RPC client, no codegen. Domain state delegates to GitHub; the DB stores only what GitHub can't express, **and only once a feature requires it**.
 
-**Tech Stack:** pnpm workspaces, TypeScript, Hono on Cloudflare Workers, Better Auth, Drizzle ORM + Cloudflare D1, Octokit (GitHub App), React Router 7 (SPA, `ssr:false`), Tailwind 4, shadcn/ui, Biome, Vitest (`@cloudflare/vitest-pool-workers` + `@testing-library/react`), lefthook, Wrangler.
+**Tech Stack:** pnpm workspaces, TypeScript, Hono on Cloudflare Workers, Better Auth, Drizzle ORM + Cloudflare D1, Octokit (GitHub App), React Router 7 (SPA, `ssr:false`), Tailwind 4, shadcn/ui, Biome, Vitest (`@cloudflare/vitest-pool-workers` + `@testing-library/react`), Wrangler. (lefthook dropped 2026-07-03 — no git hooks; gates run manually.)
 
 ## Working Mode (read first)
 
@@ -109,8 +109,8 @@ After green, the agent presents: the change summary + new test output; anything 
 |---|---|---|---|
 | F2 | Mandatory GitHub linking (onboarding gate + route guard) | none (uses `account` github row) | [x] DONE (merged `154b3bb`); **hardened** on `milestone-2-classes` (liveness gate → self-re-link, unlink) |
 | F3 | Teacher connects a class (org → class, base permission `No access`) | `classes` (id, orgId, installationId, connectedByUserId, status) | [x] **DONE + live 🔴 walk PASSED** (2026-07-02) — see `plans/2026-07-02-f3-connect-class.md` + `specs/2026-07-02-f3-connect-class-design.md`; on `milestone-2-classes`, uncommitted-merge pending. Octokit App, setup callback, confirm→base-permission, list+reconcile. |
-| F4 | Class join link + student enrollment | `classes.joinToken` | [ ] |
-| F5 | View class people (live Owners/Members) | none (read live) | **F5a (teacher access model) [x] DONE + live 🔴 PASSED** (2026-07-02, pulled ahead of F4): teacher = live org `admin`; list = installations ∩ rows + admin filter; writes 404 for non-admins; co-owner + demote both live-verified. See `specs/2026-07-02-f5a-teacher-access-design.md`. F5b (people UI, health chip) [ ] |
+| F4 | Class join link + student enrollment | `classes.joinToken` | [x] **DONE + live 🔴 walk PASSED** (2026-07-03) — spec/plan `2026-07-03-f4-join-enrollment*`; landing page → invite → native accept → check-enrollment; owner short-circuit; returnTo through onboarding (+ backslash open-redirect fix from final review). UNCOMMITTED on `milestone-3-enrollment`; remote D1 migration pending (needs wrangler auth). |
+| F5 | View class people (live Owners/Members) | none (read live) | **F5a (teacher access model) [x] DONE + live 🔴 PASSED** (2026-07-02, pulled ahead of F4): teacher = live org `admin`; list = installations ∩ rows + admin filter; writes 404 for non-admins; co-owner + demote both live-verified. See `specs/2026-07-02-f5a-teacher-access-design.md`. F5b people chips [x] **DONE** (2026-07-03, spec `2026-07-03-f5b-class-people-design.md`): live teachers/students/pending on /api/classes (orgPeople, one fetch also drives the F5a check), clickable PeopleChip popovers. Health chip still open (class detail page dropped 2026-07-03; it lands on the card). UNCOMMITTED. |
 | F6 | Create a lab | `labs` (minimal) | [ ] |
 | F7 | Groups (create/join/leave/remove/delete) | `groups` | [ ] |
 | F8 | Accept a lab → student lab repo (solo = team of one) | `student_lab_repos` | [ ] |

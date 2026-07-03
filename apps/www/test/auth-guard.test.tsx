@@ -14,6 +14,7 @@ vi.mock("react-router", async (importOriginal) => {
       navigateSpy(props.to);
       return null;
     },
+    useLocation: () => ({ pathname: "/join/tok123", search: "" }),
   };
 });
 
@@ -21,7 +22,8 @@ function authValue(o: Partial<ReturnType<typeof useAuth>>) {
   return {
     isLoading: false,
     authed: false,
-    account: null,
+    user: null,
+    affiliations: [],
     github: null,
     githubLinked: false,
     signIn: vi.fn(),
@@ -52,7 +54,9 @@ describe("Auth guard", () => {
 
     render(<Auth>secret</Auth>);
 
-    expect(navigateSpy).toHaveBeenCalledWith("/onboarding/github");
+    expect(navigateSpy).toHaveBeenCalledWith(
+      "/onboarding/github?returnTo=%2Fjoin%2Ftok123",
+    );
     expect(screen.queryByText("secret")).not.toBeInTheDocument();
   });
 

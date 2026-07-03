@@ -24,7 +24,7 @@ import { useAuth } from "~/lib/auth-context";
  * click/keyboard/Escape working.
  */
 export function SwitchIdentity() {
-  const { account, github, signOut, unlinkGithub } = useAuth();
+  const { user, affiliations, github, signOut, unlinkGithub } = useAuth();
   const [open, setOpen] = useState(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -50,7 +50,7 @@ export function SwitchIdentity() {
     [],
   );
 
-  if (!account) {
+  if (!user) {
     return null;
   }
 
@@ -63,7 +63,7 @@ export function SwitchIdentity() {
         onMouseLeave={closeSoon}
       >
         {/* edu-ID identity: always initials (no avatarUrl passed). */}
-        <UserIdentity name={account.name} subtitle={account.email} />
+        <UserIdentity name={user.name} subtitle={user.email} />
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
@@ -74,14 +74,14 @@ export function SwitchIdentity() {
         <Stack gap="sm" className="px-1.5 py-1.5">
           <Text variant="overline">Emails</Text>
           <Stack gap="none">
-            {account.affiliations.length > 0 ? (
-              account.affiliations.map((email) => (
+            {affiliations.length > 0 ? (
+              affiliations.map((email) => (
                 <Text key={email} variant="body2">
                   {email}
                 </Text>
               ))
             ) : (
-              <Text variant="body2">{account.email}</Text>
+              <Text variant="body2">{user.email}</Text>
             )}
           </Stack>
         </Stack>
