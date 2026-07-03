@@ -3,7 +3,7 @@ import { Stack } from "~/components/custom/layout/stack";
 import { BrandHeader } from "~/components/custom/typography/brand-header";
 import { Text } from "~/components/custom/typography/text";
 import { Button } from "~/components/ui/button";
-import { useAuth } from "~/lib/auth-context";
+import { useAuth } from "~/contexts/auth-context";
 
 /** Onboarding gate: link GitHub before using the app. */
 export function OnboardingGitHubPage() {

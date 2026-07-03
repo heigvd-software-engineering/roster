@@ -1,6 +1,6 @@
 import { UserIdentity } from "~/components/custom/identity/user-identity";
 import { Text } from "~/components/custom/typography/text";
-import { useAuth } from "~/lib/auth-context";
+import { useAuth } from "~/contexts/auth-context";
 
 /**
  * The linked GitHub identity — wraps UserIdentity with the GitHub profile from

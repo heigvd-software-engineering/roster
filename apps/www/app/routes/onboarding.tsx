@@ -1,6 +1,6 @@
 import { Navigate } from "react-router";
 import { Auth } from "~/components/custom/shell/auth";
-import { useAuth } from "~/lib/auth-context";
+import { useAuth } from "~/contexts/auth-context";
 import { OnboardingGitHubPage } from "~/pages/onboarding-github-page";
 
 /** /onboarding/github — needs a session, not a linked GitHub. */

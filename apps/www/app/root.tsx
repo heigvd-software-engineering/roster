@@ -12,7 +12,7 @@ import { Stack } from "~/components/custom/layout/stack";
 import { AppLayout } from "~/components/custom/shell/app-layout";
 import { BrandHeader } from "~/components/custom/typography/brand-header";
 import { Text } from "~/components/custom/typography/text";
-import { AuthProvider } from "~/lib/auth-context";
+import { AuthProvider } from "~/contexts/auth-context";
 import type { Route } from "./+types/root";
 import "./app.css";
 

@@ -1,9 +1,9 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { Auth } from "~/components/custom/shell/auth";
-import { useAuth } from "~/lib/auth-context";
+import { useAuth } from "~/contexts/auth-context";
 
-vi.mock("~/lib/auth-context", () => ({ useAuth: vi.fn() }));
+vi.mock("~/contexts/auth-context", () => ({ useAuth: vi.fn() }));
 
 const navigateSpy = vi.fn();
 vi.mock("react-router", async (importOriginal) => {
