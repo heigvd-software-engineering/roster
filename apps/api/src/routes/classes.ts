@@ -66,6 +66,7 @@ export const classesRoutes = new Hono<AuthedEnv>()
       login: string;
       name: string | null;
       avatarUrl: string;
+      joinToken: string;
     }> = [];
     for (const cls of rows) {
       const live = byOrgId.get(cls.orgId);
@@ -94,6 +95,7 @@ export const classesRoutes = new Hono<AuthedEnv>()
           login: org.login,
           name: org.name ?? null,
           avatarUrl: org.avatar_url,
+          joinToken: cls.joinToken,
         });
       } catch {
         // One org's failure (rate limit, revoked install, admin-check error)

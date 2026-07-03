@@ -4,12 +4,19 @@ import { beforeEach, expect, test, vi } from "vitest";
 const state = vi.hoisted(() => ({
   session: { user: { id: "u1" } } as { user: { id: string } } | null,
   rows: [
-    { id: "c1", orgId: 42, installationId: 100, connectedByUserId: "u1" },
+    {
+      id: "c1",
+      orgId: 42,
+      installationId: 100,
+      connectedByUserId: "u1",
+      joinToken: "tokC1",
+    },
   ] as Array<{
     id: string;
     orgId: number;
     installationId: number;
     connectedByUserId: string;
+    joinToken: string;
   }>,
   refreshCalls: [] as unknown[],
   installations: [{ id: 200, account: { id: 42, login: "acme" } }] as Array<{
@@ -98,7 +105,13 @@ const env = { DB: {} };
 beforeEach(() => {
   state.session = { user: { id: "u1" } };
   state.rows = [
-    { id: "c1", orgId: 42, installationId: 100, connectedByUserId: "u1" },
+    {
+      id: "c1",
+      orgId: 42,
+      installationId: 100,
+      connectedByUserId: "u1",
+      joinToken: "tokC1",
+    },
   ];
   state.refreshCalls = [];
   state.installations = [{ id: 200, account: { id: 42, login: "acme" } }];
@@ -119,6 +132,7 @@ test("lists classes, reconciles stale installationId, enriches with live org", a
         login: "acme",
         name: "Acme",
         avatarUrl: "http://a",
+        joinToken: "tokC1",
       },
     ],
   });
@@ -148,8 +162,20 @@ test("does not refresh when installationId is unchanged", async () => {
 
 test("skips a class whose live-enrich call fails, without 500ing the rest", async () => {
   state.rows = [
-    { id: "c1", orgId: 42, installationId: 100, connectedByUserId: "u1" },
-    { id: "c2", orgId: 43, installationId: 101, connectedByUserId: "u1" },
+    {
+      id: "c1",
+      orgId: 42,
+      installationId: 100,
+      connectedByUserId: "u1",
+      joinToken: "tokC1",
+    },
+    {
+      id: "c2",
+      orgId: 43,
+      installationId: 101,
+      connectedByUserId: "u1",
+      joinToken: "tokC2",
+    },
   ];
   state.installations = [
     { id: 100, account: { id: 42, login: "acme" } },
@@ -167,6 +193,7 @@ test("skips a class whose live-enrich call fails, without 500ing the rest", asyn
         login: "acme",
         name: "Acme",
         avatarUrl: "http://a",
+        joinToken: "tokC2",
       },
     ],
   });
@@ -179,6 +206,7 @@ test("returns a class connected by someone else when the caller is an org admin"
       orgId: 42,
       installationId: 100,
       connectedByUserId: "someone-else",
+      joinToken: "tokC1",
     },
   ];
   // default mocks: callerGithubId 111, isOrgAdmin true — installations
@@ -194,6 +222,7 @@ test("returns a class connected by someone else when the caller is an org admin"
         login: "acme",
         name: "Acme",
         avatarUrl: "http://a",
+        joinToken: "tokC1",
       },
     ],
   });
