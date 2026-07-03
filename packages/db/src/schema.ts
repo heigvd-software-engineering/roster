@@ -22,6 +22,10 @@ export const classes = sqliteTable("classes", {
   connectedByUserId: text("connected_by_user_id")
     .notNull()
     .references(() => user.id),
+  // Join-link capability token (F4): possession of the link is the only
+  // enrollment gate. NOT NULL at the app level; the SQLite column is
+  // nullable (ADD COLUMN limitation) — every insert path mints one.
+  joinToken: text("join_token").notNull().unique(),
   status: text("status", { enum: ["active", "archived"] })
     .notNull()
     .default("active"),

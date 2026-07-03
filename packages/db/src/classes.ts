@@ -1,5 +1,6 @@
 import { eq, inArray } from "drizzle-orm";
 import type { getDb } from "./index";
+import { mintJoinToken } from "./join-token";
 import { classes } from "./schema";
 
 type Db = ReturnType<typeof getDb>;
@@ -21,6 +22,7 @@ export async function upsertClassByOrgId(
       orgId: args.orgId,
       installationId: args.installationId,
       connectedByUserId: args.connectedByUserId,
+      joinToken: mintJoinToken(),
       status: "active",
       createdAt: args.now,
       updatedAt: args.now,
@@ -59,4 +61,12 @@ export async function refreshInstallationId(
     .update(classes)
     .set({ installationId, updatedAt: now })
     .where(eq(classes.orgId, orgId));
+}
+
+export async function getClassByJoinToken(db: Db, joinToken: string) {
+  const [row] = await db
+    .select()
+    .from(classes)
+    .where(eq(classes.joinToken, joinToken));
+  return row;
 }

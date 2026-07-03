@@ -1,6 +1,10 @@
 import { env } from "cloudflare:test";
 import { beforeEach, expect, test } from "vitest";
-import { listClassesByOrgIds, upsertClassByOrgId } from "../src/classes";
+import {
+  getClassByJoinToken,
+  listClassesByOrgIds,
+  upsertClassByOrgId,
+} from "../src/classes";
 import { classes, getDb, user } from "../src/index";
 
 const db = getDb(env.DB);
@@ -61,4 +65,62 @@ test("listClassesByOrgIds returns rows matching any given orgId", async () => {
   expect(hit.map((c) => c.orgId)).toEqual([42]);
 
   expect(await listClassesByOrgIds(db, [])).toEqual([]);
+});
+
+test("upsert mints a join token on insert and keeps it on reinstall", async () => {
+  const now = new Date(0);
+  const first = await upsertClassByOrgId(db, {
+    id: "c1",
+    orgId: 42,
+    installationId: 100,
+    connectedByUserId: "u1",
+    now,
+  });
+  expect(first?.joinToken).toMatch(/^[0-9a-f]{32}$/);
+
+  const again = await upsertClassByOrgId(db, {
+    id: "c2",
+    orgId: 42,
+    installationId: 200,
+    connectedByUserId: "u1",
+    now,
+  });
+  // Reinstall must NOT rotate the cohort's link.
+  expect(again?.joinToken).toBe(first?.joinToken);
+});
+
+test("tokens are unique per class", async () => {
+  const now = new Date(0);
+  const a = await upsertClassByOrgId(db, {
+    id: "c1",
+    orgId: 42,
+    installationId: 1,
+    connectedByUserId: "u1",
+    now,
+  });
+  const b = await upsertClassByOrgId(db, {
+    id: "c2",
+    orgId: 43,
+    installationId: 2,
+    connectedByUserId: "u1",
+    now,
+  });
+  expect(a?.joinToken).not.toBe(b?.joinToken);
+});
+
+test("getClassByJoinToken finds the row by token, undefined on miss", async () => {
+  const now = new Date(0);
+  const created = await upsertClassByOrgId(db, {
+    id: "c1",
+    orgId: 42,
+    installationId: 1,
+    connectedByUserId: "u1",
+    now,
+  });
+  if (!created) throw new Error("upsert returned no row");
+
+  const hit = await getClassByJoinToken(db, created.joinToken);
+  expect(hit?.id).toBe("c1");
+
+  expect(await getClassByJoinToken(db, "nope")).toBeUndefined();
 });
