@@ -25,7 +25,8 @@ class**, accepts GitHub's native org invitation, and is enrolled (= org
    {class}". F9 (student home) later gives it a destination; nothing pulled
    forward.
 4. **No regeneration in F4** — link revocation (kill switch) is deferred to
-   the class-settings surface. Abuse fallback today: the professor manages
+   a class-card `⋯` settings menu (the class detail page was dropped
+   2026-07-03; see the hub design's revision note). Abuse fallback today: the professor manages
    members/invites directly on GitHub. Schema supports regeneration later
    (one UPDATE + one endpoint + one button; no migration).
 5. **Token-as-capability API** (Approach A) — the student flow only ever sees
@@ -147,7 +148,7 @@ login/confirm). Four states:
 
 ## Out of scope (deferred)
 
-- Link regeneration / revocation (class settings, later).
+- Link regeneration / revocation (class-card settings menu, later).
 - Student home (F9) — the enrolled state's destination.
 - People view / member counts (F5b).
 - `installation` webhook; silent token refresh (standing deferrals).

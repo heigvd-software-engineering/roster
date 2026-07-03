@@ -97,15 +97,6 @@ export function ClassCard({
           >
             {copied ? "Copied ✓" : "Copy join link"}
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            type="button"
-            disabled
-            title="Coming soon"
-          >
-            Open ›
-          </Button>
         </Row>
       </Row>
 

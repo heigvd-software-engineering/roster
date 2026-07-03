@@ -56,14 +56,14 @@ export function NewClassDialog() {
         <Stack gap="md">
           {MAPPING.map((m) => (
             <Stack gap="none" key={m.term}>
-              <Text variant="body1" className="font-medium">
+              <Text variant="label" className="font-medium">
                 {m.term}
               </Text>
               <Text variant="body2">{m.detail}</Text>
             </Stack>
           ))}
           <Stack gap="none">
-            <Text variant="body1" className="font-medium">
+            <Text variant="label" className="font-medium">
               One security change
             </Text>
             <Text variant="body2">
