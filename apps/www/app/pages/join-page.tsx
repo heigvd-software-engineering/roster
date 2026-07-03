@@ -102,15 +102,22 @@ export function JoinPage() {
 
   return (
     <Shell title={membership === "active" ? "Enrolled" : `Join ${className}`}>
-      <Row gap="sm">
-        <UserAvatar name={className} src={cls.avatarUrl} size="lg" />
-        <Stack gap="none">
-          <Text variant="body1" className="font-semibold">
-            {className}
-          </Text>
-          <Text variant="body2">@{cls.login}</Text>
-        </Stack>
-      </Row>
+      <a
+        href={`https://github.com/${cls.login}`}
+        target="_blank"
+        rel="noreferrer"
+        className="-m-2 rounded-md p-2 transition-colors hover:bg-muted"
+      >
+        <Row gap="sm">
+          <UserAvatar name={className} src={cls.avatarUrl} size="lg" />
+          <Stack gap="none">
+            <Text variant="body1" className="font-semibold">
+              {className}
+            </Text>
+            <Text variant="body2">@{cls.login}</Text>
+          </Stack>
+        </Row>
+      </a>
 
       {membership === "none" ? (
         <>

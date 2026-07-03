@@ -43,6 +43,10 @@ describe("JoinPage", () => {
     render(<JoinPage />);
     expect(await screen.findByText("Join Acme")).toBeInTheDocument();
     expect(screen.getByText("@acme")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /@acme/ })).toHaveAttribute(
+      "href",
+      "https://github.com/acme",
+    );
     expect(joinGet).toHaveBeenCalledWith({ param: { token: "tok123" } });
     expect(
       screen.getByRole("button", { name: "Join class" }),
