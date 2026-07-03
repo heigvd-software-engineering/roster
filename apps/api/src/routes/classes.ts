@@ -6,24 +6,11 @@ import {
 } from "@labs/db";
 import { Hono } from "hono";
 import { type AuthedEnv, requireAuth } from "../auth/require-auth";
-import { appJwtOctokit, installationOctokit } from "../github/clients";
+import { installationOctokit } from "../github/clients";
+import { orgLogin } from "../github/org";
 import { callerGithubId, isOrgAdmin } from "../github/teacher";
 import { userInstallationsByOrgId } from "../github/user-installations";
 import { githubUserToken } from "../github/user-token";
-
-/** Resolves the org login for an installation via the App JWT. The `account`
- *  union includes the (rarer) enterprise-account shape, which has no `login`
- *  field — narrow with `in` rather than assuming the org shape. */
-async function orgLogin(env: AuthedEnv["Bindings"], installationId: number) {
-  const { data } = await appJwtOctokit(env).request(
-    "GET /app/installations/{installation_id}",
-    { installation_id: installationId },
-  );
-  if (!data.account || !("login" in data.account)) {
-    throw new Error("installation account has no login");
-  }
-  return data.account.login;
-}
 
 export const classesRoutes = new Hono<AuthedEnv>()
   .use("/classes", requireAuth)
