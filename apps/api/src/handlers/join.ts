@@ -1,10 +1,10 @@
 import { classes, getDb } from "@labs/db";
 import { eq } from "drizzle-orm";
-import type { AuthedEnv } from "../auth/require-auth";
 import { authedFactory } from "../factory";
-import { orgLogin } from "../github/app";
-import { inviteOrgMember, orgInfo, orgMembership } from "../github/org";
-import { fetchGithubProfile } from "../github/user";
+import type { AuthedEnv } from "../lib/auth/require-auth";
+import { orgLogin } from "../lib/github/app";
+import { inviteOrgMember, orgInfo, orgMembership } from "../lib/github/org";
+import { fetchGithubProfile } from "../lib/github/user";
 
 /**
  * Student-facing join flow. The token IS the authorization — anyone signed in

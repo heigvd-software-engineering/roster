@@ -1,9 +1,9 @@
 import { classes, getDb } from "@labs/db";
-import { createAuth } from "../auth/config";
 import { factory } from "../factory";
-import { installationAccount } from "../github/app";
-import { userHasInstallation } from "../github/user";
-import { mintJoinToken } from "../join-token";
+import { createAuth } from "../lib/auth/config";
+import { installationAccount } from "../lib/github/app";
+import { userHasInstallation } from "../lib/github/user";
+import { mintJoinToken } from "../lib/join-token";
 
 /**
  * The GitHub App install Setup URL callback. Attributes the new class to the

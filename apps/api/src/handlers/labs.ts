@@ -3,8 +3,8 @@ import { classes, getDb, labs } from "@labs/db";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { authedFactory } from "../factory";
-import { orgLogin } from "../github/app";
-import { isOrgAdmin } from "../github/org";
+import { orgLogin } from "../lib/github/app";
+import { isOrgAdmin } from "../lib/github/org";
 
 /**
  * Lab creation input. `deadline` arrives as an ISO string (JSON) and is

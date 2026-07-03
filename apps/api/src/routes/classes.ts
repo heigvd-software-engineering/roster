@@ -1,6 +1,6 @@
 import { Hono } from "hono";
-import { type AuthedEnv, requireAuth } from "../auth/require-auth";
 import { confirmClass, listClasses } from "../handlers/classes";
+import { type AuthedEnv, requireAuth } from "../lib/auth/require-auth";
 
 export const classesRoutes = new Hono<AuthedEnv>()
   .use("/classes", requireAuth)

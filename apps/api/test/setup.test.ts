@@ -13,13 +13,13 @@ const state = vi.hoisted(() => ({
   installations: [{ id: 100 }] as Array<{ id: number }>,
 }));
 
-vi.mock("../src/auth/config", () => ({
+vi.mock("../src/lib/auth/config", () => ({
   createAuth: () => ({
     api: { getSession: async () => state.session },
   }),
 }));
 
-vi.mock("../src/github/app", () => ({
+vi.mock("../src/lib/github/app", () => ({
   installationAccount: async () => ({
     id: state.account.id,
     login: state.account.login,
@@ -27,7 +27,7 @@ vi.mock("../src/github/app", () => ({
   }),
 }));
 
-vi.mock("../src/github/user", () => ({
+vi.mock("../src/lib/github/user", () => ({
   userHasInstallation: async (_token: string, installationId: number) =>
     state.installations.some((i) => i.id === installationId),
 }));

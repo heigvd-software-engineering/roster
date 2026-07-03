@@ -1,6 +1,6 @@
 import { createFactory } from "hono/factory";
-import type { Env } from "./auth/config";
-import type { AuthedEnv } from "./auth/require-auth";
+import type { Env } from "./lib/auth/config";
+import type { AuthedEnv } from "./lib/auth/require-auth";
 
 /**
  * API ORGANIZATION STANDARD (adopted 2026-07-03)

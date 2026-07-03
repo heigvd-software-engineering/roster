@@ -10,17 +10,17 @@ const state = vi.hoisted(() => ({
   patchCalls: [] as unknown[],
 }));
 
-vi.mock("../src/auth/config", () => ({
+vi.mock("../src/lib/auth/config", () => ({
   createAuth: () => ({
     api: { getSession: async () => state.session },
   }),
 }));
 
-vi.mock("../src/github/app", () => ({
+vi.mock("../src/lib/github/app", () => ({
   orgLogin: async () => "acme",
 }));
 
-vi.mock("../src/github/org", () => ({
+vi.mock("../src/lib/github/org", () => ({
   isOrgAdmin: async (
     _env: unknown,
     _installationId: number,

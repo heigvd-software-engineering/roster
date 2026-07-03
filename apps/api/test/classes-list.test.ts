@@ -23,13 +23,13 @@ const state = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("../src/auth/config", () => ({
+vi.mock("../src/lib/auth/config", () => ({
   createAuth: () => ({
     api: { getSession: async () => state.session },
   }),
 }));
 
-vi.mock("../src/github/org", () => ({
+vi.mock("../src/lib/github/org", () => ({
   isOrgAdmin: async () => true,
   orgInfo: async (_env: unknown, installationId: number) => {
     if (state.failInstallationIds.includes(installationId)) {
@@ -56,12 +56,12 @@ const userInstallationsByOrgIdMock = vi.hoisted(() =>
   }),
 );
 
-vi.mock("../src/github/user", () => ({
+vi.mock("../src/lib/github/user", () => ({
   userInstallationsByOrgId: userInstallationsByOrgIdMock,
 }));
 
 const { classesRoutes } = await import("../src/routes/classes");
-const { orgPeople } = await import("../src/github/org");
+const { orgPeople } = await import("../src/lib/github/org");
 
 const app = new Hono().route("/api", classesRoutes);
 const db = getDb(env.DB);

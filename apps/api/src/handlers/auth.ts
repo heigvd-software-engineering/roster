@@ -1,5 +1,5 @@
-import { createAuth } from "../auth/config";
 import { factory } from "../factory";
+import { createAuth } from "../lib/auth/config";
 
 /** Better Auth handles everything under its mount point. */
 export const betterAuthHandler = factory.createHandlers((c) =>

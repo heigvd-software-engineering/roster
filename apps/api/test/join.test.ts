@@ -20,24 +20,24 @@ const state = vi.hoisted(() => ({
   inviteCalls: [] as unknown[],
 }));
 
-vi.mock("../src/auth/config", () => ({
+vi.mock("../src/lib/auth/config", () => ({
   createAuth: () => ({
     api: { getSession: async () => state.session },
   }),
 }));
 
-vi.mock("../src/github/user", () => ({
+vi.mock("../src/lib/github/user", () => ({
   fetchGithubProfile: async () => state.profile,
 }));
 
-vi.mock("../src/github/app", () => ({
+vi.mock("../src/lib/github/app", () => ({
   orgLogin: async () => {
     if (state.orgLoginFails) throw new Error("dead installation");
     return "acme";
   },
 }));
 
-vi.mock("../src/github/org", () => ({
+vi.mock("../src/lib/github/org", () => ({
   orgInfo: async () => state.org,
   orgMembership: async () => state.membership,
   inviteOrgMember: async (...args: unknown[]) => {

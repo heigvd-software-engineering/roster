@@ -1,8 +1,8 @@
 import { getDb } from "@labs/db";
-import { createAuth } from "../auth/config";
 import { factory } from "../factory";
-import { fetchGithubProfile } from "../github/user";
-import { readAffiliationEmails } from "../switch/claims";
+import { createAuth } from "../lib/auth/config";
+import { fetchGithubProfile } from "../lib/github/user";
+import { readAffiliationEmails } from "../lib/switch/claims";
 
 /**
  * Current user (Drizzle-inferred `User`) + their linked GitHub profile + edu-ID

@@ -1,7 +1,7 @@
 import { account, classes, getDb, type Lab, labs, user } from "@labs/db";
 import { and, eq, inArray } from "drizzle-orm";
 import { authedFactory } from "../factory";
-import { orgLogin } from "../github/app";
+import { orgLogin } from "../lib/github/app";
 import {
   basePermission,
   isOrgAdmin,
@@ -9,8 +9,8 @@ import {
   orgInfo,
   orgPeople,
   setBasePermissionNone,
-} from "../github/org";
-import { userInstallationsByOrgId } from "../github/user";
+} from "../lib/github/org";
+import { userInstallationsByOrgId } from "../lib/github/user";
 
 /** Teacher-only: lock the class org's base repository permission to "none"
  *  and verify it took. */

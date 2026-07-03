@@ -1,7 +1,7 @@
 import { Hono } from "hono";
-import type { Env } from "./auth/config";
+import type { Env } from "./lib/auth/config";
 
-export type { Auth } from "./auth/config";
+export type { Auth } from "./lib/auth/config";
 
 import { authRoutes } from "./routes/auth";
 import { classesRoutes } from "./routes/classes";
