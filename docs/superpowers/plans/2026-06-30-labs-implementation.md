@@ -6,7 +6,7 @@
 
 **Architecture:** A pnpm monorepo. One Cloudflare Worker (`apps/api`, Hono) serves the React Router 7 SPA (`apps/www`) static assets **and** `/api/*` — same origin, first-party cookies. Better Auth (edu-ID OIDC, later GitHub linking) persists to Drizzle/D1. Types flow Drizzle `$infer*` → (zod inputs when a feature needs them) → Hono RPC client, no codegen. Domain state delegates to GitHub; the DB stores only what GitHub can't express, **and only once a feature requires it**.
 
-**Tech Stack:** pnpm workspaces, TypeScript, Hono on Cloudflare Workers, Better Auth, Drizzle ORM + Cloudflare D1, Octokit (GitHub App), React Router 7 (SPA, `ssr:false`), Tailwind 4, shadcn/ui, Biome, Vitest (`@cloudflare/vitest-pool-workers` + `@testing-library/react`), lefthook, Wrangler.
+**Tech Stack:** pnpm workspaces, TypeScript, Hono on Cloudflare Workers, Better Auth, Drizzle ORM + Cloudflare D1, Octokit (GitHub App), React Router 7 (SPA, `ssr:false`), Tailwind 4, shadcn/ui, Biome, Vitest (`@cloudflare/vitest-pool-workers` + `@testing-library/react`), Wrangler. (lefthook dropped 2026-07-03 — no git hooks; gates run manually.)
 
 ## Working Mode (read first)
 
