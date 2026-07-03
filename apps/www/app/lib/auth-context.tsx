@@ -36,7 +36,7 @@ type AuthValue = {
   /** Sign out, then revalidate /api/me so the UI reflects it immediately. */
   signOut: () => Promise<void>;
   /** Start GitHub account linking (redirects to GitHub). */
-  linkGithub: () => void;
+  linkGithub: (callbackURL?: string) => void;
   /** Unlink GitHub, then revalidate — the gate then routes to onboarding. */
   unlinkGithub: () => Promise<void>;
 };
@@ -81,8 +81,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await authSignOut();
         await mutate();
       },
-      linkGithub: () => {
-        authLinkSocial({ provider: "github", callbackURL: "/" });
+      linkGithub: (callbackURL = "/") => {
+        authLinkSocial({ provider: "github", callbackURL });
       },
       unlinkGithub: async () => {
         await unlinkAccount({ providerId: "github" });

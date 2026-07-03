@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Navigate } from "react-router";
+import { Navigate, useLocation } from "react-router";
 import { Loading } from "~/components/custom/loading";
 import { useAuth } from "~/lib/auth-context";
 import { LoginPage } from "~/pages/login-page";
@@ -18,6 +18,7 @@ type AuthProps = {
  */
 export function Auth({ requireGithubLinked = true, children }: AuthProps) {
   const { isLoading, authed, githubLinked } = useAuth();
+  const location = useLocation();
 
   if (isLoading) {
     return <Loading loading className="flex-1" />;
@@ -26,7 +27,8 @@ export function Auth({ requireGithubLinked = true, children }: AuthProps) {
     return <LoginPage />;
   }
   if (requireGithubLinked && !githubLinked) {
-    return <Navigate to="/onboarding/github" replace />;
+    const returnTo = encodeURIComponent(location.pathname + location.search);
+    return <Navigate to={`/onboarding/github?returnTo=${returnTo}`} replace />;
   }
   return <>{children}</>;
 }

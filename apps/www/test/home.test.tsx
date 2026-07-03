@@ -13,6 +13,7 @@ vi.mock("react-router", async (importOriginal) => {
       navigateSpy(props.to);
       return null;
     },
+    useLocation: () => ({ pathname: "/", search: "" }),
   };
 });
 
