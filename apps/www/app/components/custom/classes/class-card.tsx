@@ -1,17 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { LabRow } from "~/components/custom/classes/lab-row";
+import { NewLabDialog } from "~/components/custom/classes/new-lab-dialog";
 import { PeopleChip } from "~/components/custom/classes/people-chip";
 import { UserAvatar } from "~/components/custom/identity/user-avatar";
+import { Panel } from "~/components/custom/layout/panel";
 import { Row } from "~/components/custom/layout/row";
 import { Stack } from "~/components/custom/layout/stack";
 import { Text } from "~/components/custom/typography/text";
 import { Button } from "~/components/ui/button";
-import { Card } from "~/components/ui/card";
 import type { ClassItem } from "~/lib/api";
-import type { DummyLab } from "~/lib/dummy";
-
-// Props = the inferred /api/classes item (spread by the page) + dummy labs.
-type ClassCardProps = ClassItem & { labs: DummyLab[] };
 
 function peopleLabel(count: number, noun: string, pendingCount: number) {
   const base = `${count} ${noun}${count === 1 ? "" : "s"}`;
@@ -19,13 +16,13 @@ function peopleLabel(count: number, noun: string, pendingCount: number) {
 }
 
 /**
- * One connected class (GitHub org): identity + state + its labs. The card is a
- * solid, slightly-darker-than-white surface so the white inset labs list reads
- * as its own level. People chips are live (F5b: org Owners / Members / pending
- * invites); the join link is live (F4); labs remain dummy until F6/F8 — see
- * the `dummyClassMeta` spread in `pages/classes-page.tsx`.
+ * One connected class (GitHub org): identity + state + its labs — everything
+ * live: people chips (F5b), join link (F4), labs list + New-lab dialog (F6).
+ * Sits on the standard Panel surface; the white inset labs list reads as its
+ * own level. Lab progress stays `—` until F8.
  */
 export function ClassCard({
+  id,
   login,
   name,
   avatarUrl,
@@ -35,7 +32,7 @@ export function ClassCard({
   pending,
   users,
   labs,
-}: ClassCardProps) {
+}: ClassItem) {
   // Correlate GitHub org members with their labs users (raw query rows from
   // the API — the client does the joining, endpoints return results as-is).
   const userByGithubId = new Map(users.map((u) => [u.githubId, u.user]));
@@ -57,7 +54,7 @@ export function ClassCard({
     copyResetTimer.current = setTimeout(() => setCopied(false), 2000);
   }
   return (
-    <Card className="w-full gap-4 bg-muted p-5">
+    <Panel>
       <Row justify="between" wrap>
         <a
           href={`https://github.com/${login}`}
@@ -105,22 +102,18 @@ export function ClassCard({
         gap="none"
         className="w-full rounded-lg border border-border bg-background px-4 py-1"
       >
-        {labs.map((lab) => (
-          <LabRow key={lab.id} lab={lab} />
-        ))}
+        {labs.length === 0 ? (
+          <Text variant="body2" className="py-2">
+            No labs yet — add the first one.
+          </Text>
+        ) : (
+          labs.map((lab) => <LabRow key={lab.id} lab={lab} />)
+        )}
       </Stack>
 
       <Row>
-        <Button
-          variant="outline"
-          size="sm"
-          type="button"
-          disabled
-          title="Coming soon"
-        >
-          + Add a lab
-        </Button>
+        <NewLabDialog classId={id} />
       </Row>
-    </Card>
+    </Panel>
   );
 }

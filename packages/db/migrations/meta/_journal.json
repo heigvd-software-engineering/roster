@@ -13,21 +13,28 @@
       "idx": 1,
       "version": "6",
       "when": 1782996839167,
-      "tag": "0001_flaky_cerebro",
+      "tag": "0001_classes_table",
       "breakpoints": true
     },
     {
       "idx": 2,
       "version": "6",
       "when": 1783067610481,
-      "tag": "0002_remarkable_unus",
+      "tag": "0002_class_join_token",
       "breakpoints": true
     },
     {
       "idx": 3,
       "version": "6",
       "when": 1783074765356,
-      "tag": "0003_free_vance_astro",
+      "tag": "0003_user_first_last_name",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1783088456970,
+      "tag": "0004_labs_table",
       "breakpoints": true
     }
   ]

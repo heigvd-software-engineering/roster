@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 import { ClassCard } from "~/components/custom/classes/class-card";
 
@@ -14,21 +15,36 @@ const profUser = {
   updatedAt: "1970-01-01T00:00:00.000Z",
 };
 
+const lab = {
+  id: "l1",
+  classId: "c1",
+  title: "Lab 1 — TCP sockets",
+  deadline: "2099-08-01T23:59:00.000Z",
+  groupMode: "group" as const,
+  minMembers: 2,
+  maxMembers: 3,
+  createdByUserId: "u1",
+  createdAt: "1970-01-01T00:00:00.000Z",
+  updatedAt: "1970-01-01T00:00:00.000Z",
+};
+
 function renderCard() {
   return render(
-    <ClassCard
-      id="c1"
-      orgId={42}
-      login="acme"
-      name="Acme"
-      avatarUrl="http://a"
-      joinToken="tok123"
-      teachers={[{ id: 1, login: "prof", avatarUrl: "http://p" }]}
-      students={[{ id: 2, login: "alice", avatarUrl: "http://s" }]}
-      pending={[{ id: 900, login: "bob", avatarUrl: null }]}
-      users={[{ githubId: "1", user: profUser }]}
-      labs={[]}
-    />,
+    <MemoryRouter>
+      <ClassCard
+        id="c1"
+        orgId={42}
+        login="acme"
+        name="Acme"
+        avatarUrl="http://a"
+        joinToken="tok123"
+        teachers={[{ id: 1, login: "prof", avatarUrl: "http://p" }]}
+        students={[{ id: 2, login: "alice", avatarUrl: "http://s" }]}
+        pending={[{ id: 900, login: "bob", avatarUrl: null }]}
+        users={[{ githubId: "1", user: profUser }]}
+        labs={[lab]}
+      />
+    </MemoryRouter>,
   );
 }
 
@@ -65,5 +81,17 @@ describe("ClassCard copy join link", () => {
       await screen.findByRole("button", { name: "Copied ✓" }),
     ).toBeInTheDocument();
     vi.unstubAllGlobals();
+  });
+});
+
+describe("ClassCard labs (F6)", () => {
+  it("renders real lab rows with mode and dash progress", () => {
+    renderCard();
+    expect(screen.getByText("Lab 1 — TCP sockets")).toBeInTheDocument();
+    expect(screen.getByText("group 2–3")).toBeInTheDocument();
+    expect(screen.getByText("—")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "+ Add a lab" }),
+    ).toBeInTheDocument();
   });
 });

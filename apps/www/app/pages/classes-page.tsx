@@ -5,7 +5,6 @@ import { Stack } from "~/components/custom/layout/stack";
 import { Loading } from "~/components/custom/loading";
 import { Text } from "~/components/custom/typography/text";
 import { api, useApi } from "~/lib/api";
-import { dummyClassMeta } from "~/lib/dummy";
 
 /** The teacher hub: connect orgs + the live list of connected classes. */
 export function ClassesPage() {
@@ -29,11 +28,7 @@ export function ClassesPage() {
               Connect a GitHub organization to start a class.
             </Text>
           ) : (
-            classes.map((cls) => (
-              // Dummy meta spread swaps to real data as F5 (people)/F6
-              // (labs)/F8 (progress) land.
-              <ClassCard key={cls.id} {...cls} {...dummyClassMeta(cls.login)} />
-            ))
+            classes.map((cls) => <ClassCard key={cls.id} {...cls} />)
           )}
         </Stack>
       </Loading>

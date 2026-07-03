@@ -19,6 +19,7 @@ export type ClassItem = InferResponseType<
   typeof api.api.classes.$get,
   200
 >["classes"][number];
+export type LabItem = ClassItem["labs"][number];
 
 /**
  * Generic typed GET hook (SWR-backed). Pass an hc endpoint node (e.g.

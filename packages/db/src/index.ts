@@ -11,6 +11,7 @@ export * from "./schema";
 export type User = typeof schema.user.$inferSelect;
 export type Account = typeof schema.account.$inferSelect;
 export type Class = typeof schema.classes.$inferSelect;
+export type Lab = typeof schema.labs.$inferSelect;
 
 export function getDb(d1: D1Database) {
   return drizzle(d1, { schema });

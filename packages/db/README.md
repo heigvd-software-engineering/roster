@@ -27,5 +27,8 @@ against a real local D1 (Workers pool).
 
 ## Workflow
 
-- New app table/column → edit `app-schema.ts` → `pnpm --filter @labs/db db:generate` → apply migrations.
+- New app table/column → edit `app-schema.ts` →
+  `pnpm --filter @labs/db db:generate --name <what_it_does>` (ALWAYS pass
+  `--name` — never ship drizzle-kit's random `flaky_cerebro` names) → apply
+  migrations.
 - Auth config change (e.g. `user.additionalFields`) → regenerate `auth-schema.ts` via the CLI → `db:generate` → apply.

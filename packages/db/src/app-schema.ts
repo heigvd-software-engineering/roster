@@ -24,3 +24,26 @@ export const classes = sqliteTable("classes", {
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
+
+/** An assignment: deadline + group settings (F6). Visible to students on
+ *  creation; the deadline controls timing. Template columns arrive with
+ *  accept (F8), which is what consumes them. */
+export const labs = sqliteTable("labs", {
+  id: text("id").primaryKey(),
+  classId: text("class_id")
+    .notNull()
+    .references(() => classes.id),
+  title: text("title").notNull(),
+  deadline: integer("deadline", { mode: "timestamp" }).notNull(),
+  // `individual` = a group of one (min=max=1); `group` uses min/maxMembers.
+  groupMode: text("group_mode", { enum: ["individual", "group"] })
+    .notNull()
+    .default("individual"),
+  minMembers: integer("min_members"),
+  maxMembers: integer("max_members"),
+  createdByUserId: text("created_by_user_id")
+    .notNull()
+    .references(() => user.id),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+});

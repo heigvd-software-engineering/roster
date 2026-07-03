@@ -1,4 +1,4 @@
-import { account, classes, getDb, user } from "@labs/db";
+import { account, classes, getDb, type Lab, labs, user } from "@labs/db";
 import { and, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import { type AuthedEnv, requireAuth } from "../auth/require-auth";
@@ -79,6 +79,22 @@ export const classesRoutes = new Hono<AuthedEnv>()
         ? []
         : await db.select().from(classes).where(inArray(classes.orgId, orgIds));
 
+    // One query for every candidate class's labs; emitted per class below
+    // (labs of classes the caller can't see are never pushed).
+    const labRows =
+      rows.length === 0
+        ? []
+        : await db
+            .select()
+            .from(labs)
+            .where(
+              inArray(
+                labs.classId,
+                rows.map((r) => r.id),
+              ),
+            );
+
+    // TODO: discuss this transformation and propose the move the transformation to frontend
     const out: Array<{
       id: string;
       orgId: number;
@@ -92,6 +108,7 @@ export const classesRoutes = new Hono<AuthedEnv>()
       /** Labs users linked to the members' GitHub accounts — raw query rows;
        *  the client correlates them with the people lists by github id. */
       users: Array<{ githubId: string; user: typeof user.$inferSelect }>;
+      labs: Lab[];
     }> = [];
     for (const cls of rows) {
       const live = byOrgId.get(cls.orgId);
@@ -139,6 +156,7 @@ export const classesRoutes = new Hono<AuthedEnv>()
           students: people.students,
           pending: people.pending,
           users,
+          labs: labRows.filter((l) => l.classId === cls.id),
         });
       } catch {
         // One org's failure (rate limit, revoked install, admin-check error)

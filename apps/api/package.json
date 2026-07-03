@@ -15,11 +15,13 @@
     "build": "wrangler deploy --dry-run --outdir dist"
   },
   "dependencies": {
+    "@hono/zod-validator": "^0.8.0",
     "@labs/db": "workspace:*",
     "better-auth": "^1.6.23",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.12.27",
-    "octokit": "^5.0.5"
+    "octokit": "^5.0.5",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@better-auth/cli": "^1.4.21",

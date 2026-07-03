@@ -147,6 +147,7 @@ test("lists classes with people + linked users, reconciles stale installationId"
     teachers: state.people.teachers,
     students: state.people.students,
     pending: state.people.pending,
+    labs: [],
   });
   // The linked-users query result rides along raw; only the teacher's
   // GitHub account (111) is linked to a labs user here.
