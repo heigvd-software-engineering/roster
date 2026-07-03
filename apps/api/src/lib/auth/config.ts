@@ -35,6 +35,8 @@ export type AuthEnv = {
   GITHUB_CLIENT_SECRET: string;
   GITHUB_APP_ID: string;
   GITHUB_APP_PRIVATE_KEY: string;
+  /** Public App slug (install URL) — delivered to the SPA via /api/me. */
+  GITHUB_APP_SLUG: string;
 };
 
 /** The Hono env for our Worker: `new Hono<Env>()` → `c.env` is AuthEnv. */

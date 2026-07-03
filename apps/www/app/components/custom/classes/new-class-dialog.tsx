@@ -10,7 +10,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "~/components/ui/dialog";
-import { githubAppInstallUrl } from "~/lib/config";
+import { useAuth } from "~/contexts/auth-context";
 
 /** How labs maps onto GitHub — shown before connecting, so a teacher knows
  *  exactly what "creating a class" does to their organization. */
@@ -41,6 +41,7 @@ const MAPPING = [
  * technical step rather than "create a class".
  */
 export function NewClassDialog() {
+  const { githubAppInstallUrl } = useAuth();
   return (
     <Dialog>
       <DialogTrigger render={<Button />}>Create a new class</DialogTrigger>

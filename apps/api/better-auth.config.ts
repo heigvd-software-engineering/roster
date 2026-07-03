@@ -15,4 +15,5 @@ export const auth = createAuth({
   GITHUB_CLIENT_SECRET: "x",
   GITHUB_APP_ID: "x",
   GITHUB_APP_PRIVATE_KEY: "x",
+  GITHUB_APP_SLUG: "x",
 });

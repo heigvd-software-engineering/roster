@@ -1,12 +1,25 @@
-import { App } from "octokit";
+import { App, Octokit } from "octokit";
 import type { AuthEnv } from "../auth/config";
 
 // FOLDER-INTERNAL: only the operation modules in github/ import these
 // factories. Routes compose the named operations instead (see README.md).
 
 /**
- * The GitHub App (server-to-server). Workers-compatible: @octokit/app signs the
- * App JWT with Web Crypto — which requires the key in **PKCS#8** (`BEGIN PRIVATE
+ * Workers-safe Octokit. The `octokit` package bundles the retry + throttling
+ * plugins, whose bottleneck timers resolve promises ACROSS request contexts —
+ * the Workers runtime cancels those ("code had hung and would never generate
+ * a response"), so the first request works and every later GitHub call hangs.
+ * Disable both; we keep pagination (pure) and already contain failures
+ * per-operation instead of retrying.
+ */
+export const WorkersOctokit = Octokit.defaults({
+  throttle: { enabled: false },
+  retry: { enabled: false },
+});
+
+/**
+ * The GitHub App (server-to-server). Workers-compatible: the App JWT is signed
+ * with Web Crypto — which requires the key in **PKCS#8** (`BEGIN PRIVATE
  * KEY`), NOT GitHub's default PKCS#1 (`BEGIN RSA PRIVATE KEY`). Convert once when
  * setting the secret (see GITHUB_APP_SETUP.md). The secret is stored single-line
  * with `\n`, so normalize to real newlines here.
@@ -15,6 +28,7 @@ export function createAppClient(env: AuthEnv): App {
   return new App({
     appId: env.GITHUB_APP_ID,
     privateKey: env.GITHUB_APP_PRIVATE_KEY.replace(/\\n/g, "\n"),
+    Octokit: WorkersOctokit,
   });
 }
 

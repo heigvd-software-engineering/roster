@@ -1,7 +1,7 @@
 // User-token operations — act as the caller's own GitHub account (OAuth
 // token stored at link time). Only ever used for the caller's own identity
 // and access; org writes go through the installation token (org.ts).
-import { Octokit } from "octokit";
+import { WorkersOctokit } from "./clients";
 
 export type GithubProfile = {
   login: string;
@@ -58,7 +58,7 @@ type UserInstallation = { installationId: number; login: string };
 export async function userInstallationsByOrgId(
   token: string,
 ): Promise<Map<number, UserInstallation>> {
-  const gh = new Octokit({ auth: token });
+  const gh = new WorkersOctokit({ auth: token });
   const { data } = await gh.request("GET /user/installations");
   const byOrgId = new Map<number, UserInstallation>();
   for (const inst of data.installations) {

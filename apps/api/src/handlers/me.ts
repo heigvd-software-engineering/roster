@@ -9,6 +9,10 @@ import { readAffiliationEmails } from "../lib/switch/claims";
  * affiliation emails, flowing to the frontend via hc<AppType> (no hand shape).
  */
 export const getMe = factory.createHandlers(async (c) => {
+  // Client config rides on the boot fetch — the SPA has no env of its own
+  // (static assets); the Worker env is the single configuration surface.
+  const githubAppInstallUrl = `https://github.com/apps/${c.env.GITHUB_APP_SLUG}/installations/new`;
+
   const session = await createAuth(c.env).api.getSession({
     headers: c.req.raw.headers,
   });
@@ -18,6 +22,7 @@ export const getMe = factory.createHandlers(async (c) => {
       github: null,
       githubLinked: false,
       affiliations: [] as string[],
+      githubAppInstallUrl,
     });
   }
 
@@ -53,5 +58,6 @@ export const getMe = factory.createHandlers(async (c) => {
     github,
     githubLinked: github !== null,
     affiliations,
+    githubAppInstallUrl,
   });
 });

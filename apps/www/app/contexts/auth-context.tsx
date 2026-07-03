@@ -12,7 +12,10 @@ import {
 // (user = the Drizzle user row; github = the live GitHub profile).
 type Me = InferResponseType<typeof api.api.me.$get, 200>;
 
-type AuthValue = Pick<Me, "user" | "github" | "affiliations"> & {
+type AuthValue = Pick<
+  Me,
+  "user" | "github" | "affiliations" | "githubAppInstallUrl"
+> & {
   /** True until the first /api/me resolves. */
   isLoading: boolean;
   /** A session exists (signed in). */
@@ -46,6 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user: data?.user ?? null,
       github: data?.github ?? null,
       affiliations: data?.affiliations ?? [],
+      githubAppInstallUrl: data?.githubAppInstallUrl ?? "",
       githubLinked: Boolean(data?.githubLinked),
       signIn: () => {
         // Return to the page the user was on — the login renders in place

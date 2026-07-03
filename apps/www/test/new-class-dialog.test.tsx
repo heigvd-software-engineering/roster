@@ -1,7 +1,11 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { NewClassDialog } from "~/components/custom/classes/new-class-dialog";
-import { githubAppInstallUrl } from "~/lib/config";
+
+const installUrl = "https://github.com/apps/heigvdlabs/installations/new";
+vi.mock("~/contexts/auth-context", () => ({
+  useAuth: () => ({ githubAppInstallUrl: installUrl }),
+}));
 
 describe("NewClassDialog", () => {
   it("explains the model, then hands off to the install flow", async () => {
@@ -20,7 +24,7 @@ describe("NewClassDialog", () => {
     expect(screen.getByText("One security change")).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "Connect an organization" }),
-    ).toHaveAttribute("href", githubAppInstallUrl);
+    ).toHaveAttribute("href", installUrl);
   });
 
   it("does not start the install flow before the dialog is opened", () => {

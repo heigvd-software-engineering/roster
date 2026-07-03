@@ -3,6 +3,12 @@ import { describe, expect, it, vi } from "vitest";
 import { useApi } from "~/lib/api";
 import { ClassesPage } from "~/pages/classes-page";
 
+vi.mock("~/contexts/auth-context", () => ({
+  useAuth: () => ({
+    githubAppInstallUrl: "https://github.com/apps/heigvdlabs/installations/new",
+  }),
+}));
+
 vi.mock("~/lib/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("~/lib/api")>();
   return { ...actual, useApi: vi.fn() };
