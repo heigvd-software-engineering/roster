@@ -38,4 +38,12 @@ describe("OnboardingGitHubPage returnTo", () => {
     fireEvent.click(screen.getByRole("button", { name: "Connect GitHub" }));
     expect(linkGithub).toHaveBeenCalledWith("/");
   });
+
+  it("rejects backslash paths (browser-normalized to protocol-relative)", () => {
+    linkGithub.mockClear();
+    params.returnTo = "/\\evil.example";
+    render(<OnboardingGitHubPage />);
+    fireEvent.click(screen.getByRole("button", { name: "Connect GitHub" }));
+    expect(linkGithub).toHaveBeenCalledWith("/");
+  });
 });

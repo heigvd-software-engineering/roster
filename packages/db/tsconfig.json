@@ -4,10 +4,7 @@
     "target": "ESNext",
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "types": [
-      "@cloudflare/workers-types",
-      "@cloudflare/vitest-pool-workers/types"
-    ]
+    "types": ["@cloudflare/workers-types"]
   },
-  "include": ["src", "drizzle.config.ts", "test", "vitest.config.ts"]
+  "include": ["src", "drizzle.config.ts"]
 }

@@ -1,10 +1,10 @@
-import { getClassByJoinToken, getDb } from "@labs/db";
+import { classes, getDb } from "@labs/db";
+import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { type AuthedEnv, requireAuth } from "../auth/require-auth";
-import { installationOctokit } from "../github/clients";
-import { inviteOrgMember, orgLogin, orgMembership } from "../github/org";
-import { fetchGithubProfile } from "../github/profile";
-import { githubUserToken } from "../github/user-token";
+import { orgLogin } from "../github/app";
+import { inviteOrgMember, orgInfo, orgMembership } from "../github/org";
+import { fetchGithubProfile } from "../github/user";
 
 /**
  * Student-facing join flow. The token IS the authorization — anyone signed in
@@ -35,13 +35,22 @@ async function resolveJoin(
   token: string,
 ): Promise<Resolved> {
   const db = getDb(env.DB);
-  const cls = await getClassByJoinToken(db, token);
+  const [cls] = await db
+    .select()
+    .from(classes)
+    .where(eq(classes.joinToken, token));
   if (!cls) {
     return { ok: false, status: 404, error: "invalid_link" };
   }
 
-  const userToken = await githubUserToken(db, userId);
-  const profile = userToken ? await fetchGithubProfile(userToken) : null;
+  const ghAccount = await db.query.account.findFirst({
+    where: (a, op) =>
+      op.and(op.eq(a.userId, userId), op.eq(a.providerId, "github")),
+    columns: { accessToken: true },
+  });
+  const profile = ghAccount?.accessToken
+    ? await fetchGithubProfile(ghAccount.accessToken)
+    : null;
   if (!profile) {
     // Client-side the Auth guard prevents this; the API still refuses cleanly.
     return { ok: false, status: 403, error: "github_not_linked" };
@@ -70,8 +79,7 @@ export const joinRoutes = new Hono<AuthedEnv>()
     if (!r.ok) return c.json({ error: r.error }, r.status);
     const { installationId, login, username } = r.ctx;
 
-    const gh = await installationOctokit(c.env, installationId);
-    const { data: org } = await gh.request("GET /orgs/{org}", { org: login });
+    const org = await orgInfo(c.env, installationId, login);
     const membership = await orgMembership(
       c.env,
       installationId,
@@ -79,11 +87,7 @@ export const joinRoutes = new Hono<AuthedEnv>()
       username,
     );
     return c.json({
-      class: {
-        login: org.login,
-        name: org.name ?? null,
-        avatarUrl: org.avatar_url,
-      },
+      class: org,
       membership: (membership?.state ?? "none") as
         | "none"
         | "pending"

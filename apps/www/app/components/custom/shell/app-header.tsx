@@ -11,8 +11,8 @@ import { useAuth } from "~/lib/auth-context";
  * (so the login screen stays chrome-free).
  */
 export function AppHeader() {
-  const { account } = useAuth();
-  if (!account) {
+  const { user } = useAuth();
+  if (!user) {
     return null;
   }
 

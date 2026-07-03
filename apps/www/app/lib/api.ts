@@ -13,6 +13,13 @@ export const api = hc<AppType>(
   typeof window === "undefined" ? "http://localhost" : window.location.origin,
 );
 
+// Derived response types — indexed off the inferred AppType, never
+// hand-modeled (the Drizzle schema stays the single source of truth).
+export type ClassItem = InferResponseType<
+  typeof api.api.classes.$get,
+  200
+>["classes"][number];
+
 /**
  * Generic typed GET hook (SWR-backed). Pass an hc endpoint node (e.g.
  * `api.api.me`): the response type is inferred from it, its URL is the SWR

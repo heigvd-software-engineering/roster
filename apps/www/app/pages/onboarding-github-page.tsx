@@ -10,8 +10,12 @@ export function OnboardingGitHubPage() {
   const { linkGithub } = useAuth();
   const [params] = useSearchParams();
   const raw = params.get("returnTo") ?? "/";
-  // Same-app absolute paths only — "//host" is scheme-relative (open redirect).
-  const returnTo = raw.startsWith("/") && !raw.startsWith("//") ? raw : "/";
+  // Same-app absolute paths only — "//host" is scheme-relative, and browsers
+  // normalize "\" to "/" (so "/\host" becomes one too): both open redirects.
+  const returnTo =
+    raw.startsWith("/") && !raw.startsWith("//") && !raw.includes("\\")
+      ? raw
+      : "/";
   return (
     <Stack gap="lg" align="start" justify="center" className="flex-1">
       <BrandHeader title="Connect GitHub" />

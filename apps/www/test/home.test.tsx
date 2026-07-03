@@ -21,7 +21,8 @@ function authValue(o: Partial<ReturnType<typeof useAuth>>) {
   return {
     isLoading: false,
     authed: false,
-    account: null,
+    user: null,
+    affiliations: [],
     github: null,
     githubLinked: false,
     signIn: vi.fn(),

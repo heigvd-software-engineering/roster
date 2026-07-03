@@ -1,5 +1,8 @@
-import { App } from "@octokit/app";
+import { App } from "octokit";
 import type { AuthEnv } from "../auth/config";
+
+// FOLDER-INTERNAL: only the operation modules in github/ import these
+// factories. Routes compose the named operations instead (see README.md).
 
 /**
  * The GitHub App (server-to-server). Workers-compatible: @octokit/app signs the

@@ -9,12 +9,19 @@ const state = vi.hoisted(() => ({
     },
   },
   putCalls: [] as unknown[],
+  admins: [] as Array<{ id: number; login: string; avatar_url: string }>,
+  members: [] as Array<{ id: number; login: string; avatar_url: string }>,
+  invitations: [] as Array<{
+    id: number;
+    login: string | null;
+    email: string | null;
+  }>,
 }));
 
 vi.mock("../src/github/clients", () => ({
   appJwtOctokit: () => ({
     request: async () => ({
-      data: { account: { login: "acme" } },
+      data: { account: { id: 42, login: "acme", type: "Organization" } },
     }),
   }),
   installationOctokit: async () => ({
@@ -34,14 +41,41 @@ vi.mock("../src/github/clients", () => ({
         state.putCalls.push(params);
         return { data: { state: "pending", role: "member" } };
       }
+      if (route === "GET /orgs/{org}/members") {
+        return { data: state.admins };
+      }
       throw new Error(`unexpected request ${route}`);
+    },
+    paginate: async (route: string, params: { role?: string }) => {
+      if (route === "GET /orgs/{org}/members") {
+        return params.role === "admin" ? state.admins : state.members;
+      }
+      if (route === "GET /orgs/{org}/invitations") {
+        return state.invitations;
+      }
+      throw new Error(`unexpected paginate ${route}`);
     },
   }),
 }));
 
-const { inviteOrgMember, orgLogin, orgMembership } = await import(
+const { installationAccount, orgLogin } = await import("../src/github/app");
+const { inviteOrgMember, isOrgAdmin, orgMembership, orgPeople } = await import(
   "../src/github/org"
 );
+
+test("installationAccount narrows the installation's org account", async () => {
+  expect(await installationAccount({} as never, 1)).toEqual({
+    id: 42,
+    login: "acme",
+    isOrganization: true,
+  });
+});
+
+test("isOrgAdmin: true iff the github id is in the org's admin list", async () => {
+  state.admins = [{ id: 111, login: "prof", avatar_url: "http://p" }];
+  expect(await isOrgAdmin({} as never, 1, "acme", 111)).toBe(true);
+  expect(await isOrgAdmin({} as never, 1, "acme", 999)).toBe(false);
+});
 
 const env = {} as Parameters<typeof orgLogin>[0];
 
@@ -76,4 +110,32 @@ test("inviteOrgMember PUTs role member and returns the new state", async () => {
   expect(state.putCalls).toEqual([
     { org: "acme", username: "alice", role: "member" },
   ]);
+});
+
+test("orgPeople splits admins/members and maps pending invitations", async () => {
+  state.admins = [{ id: 1, login: "prof", avatar_url: "http://p" }];
+  state.members = [{ id: 2, login: "student", avatar_url: "http://s" }];
+  state.invitations = [
+    { id: 900, login: "invited-user", email: null },
+    { id: 901, login: null, email: "ext@heig-vd.ch" },
+  ];
+  expect(await orgPeople(env, 1, "acme")).toEqual({
+    teachers: [{ id: 1, login: "prof", avatarUrl: "http://p" }],
+    students: [{ id: 2, login: "student", avatarUrl: "http://s" }],
+    pending: [
+      { id: 900, login: "invited-user", avatarUrl: null },
+      { id: 901, login: "ext@heig-vd.ch", avatarUrl: null },
+    ],
+  });
+});
+
+test("orgPeople returns empty arrays for an empty org", async () => {
+  state.admins = [];
+  state.members = [];
+  state.invitations = [];
+  expect(await orgPeople(env, 1, "acme")).toEqual({
+    teachers: [],
+    students: [],
+    pending: [],
+  });
 });
