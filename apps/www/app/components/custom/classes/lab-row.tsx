@@ -4,6 +4,7 @@ import { Row } from "~/components/custom/layout/row";
 import { Text } from "~/components/custom/typography/text";
 import { Badge } from "~/components/ui/badge";
 import type { LabItem } from "~/lib/api";
+import { formatDeadline } from "~/lib/format";
 
 /** One lab inside a class card: title · mode · deadline · progress. The row
  *  links to the lab detail page (the app's drill-down unit). Progress shows
@@ -29,9 +30,14 @@ export function LabRow({ lab }: { lab: LabItem }) {
           <Badge variant="secondary" className="font-normal">
             {mode}
           </Badge>
-        </Row>
-        <Row gap="sm">
           <DeadlineChip deadline={new Date(lab.deadline)} />
+        </Row>
+        {/* The exact moment, aligned as a column across rows (tabular-nums);
+            the chip on the left already carries urgency. */}
+        <Row gap="sm">
+          <Text variant="body2" className="tabular-nums">
+            {formatDeadline(new Date(lab.deadline))}
+          </Text>
           <Text variant="body2">—</Text>
         </Row>
       </Row>

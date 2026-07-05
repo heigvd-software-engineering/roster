@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 import { ClassCard } from "~/components/custom/classes/class-card";
+import { formatDeadline } from "~/lib/format";
 
 const profUser = {
   id: "u1",
@@ -92,6 +93,13 @@ describe("ClassCard labs (F6)", () => {
     expect(screen.getByText("—")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "+ Add a lab" }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows the explicit deadline date and time", () => {
+    renderCard();
+    expect(
+      screen.getByText(formatDeadline(new Date(lab.deadline))),
     ).toBeInTheDocument();
   });
 });

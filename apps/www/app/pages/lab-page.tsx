@@ -8,6 +8,7 @@ import { Loading } from "~/components/custom/loading";
 import { Text } from "~/components/custom/typography/text";
 import { Badge } from "~/components/ui/badge";
 import { api, useApi } from "~/lib/api";
+import { formatDeadline } from "~/lib/format";
 
 /**
  * /classes/:classId/labs/:labId — the per-lab management view (F6 shell).
@@ -52,6 +53,9 @@ export function LabPage() {
                   : `group ${lab.minMembers}–${lab.maxMembers}`}
               </Badge>
               <DeadlineChip deadline={new Date(lab.deadline)} />
+              <Text variant="body2" className="tabular-nums">
+                {formatDeadline(new Date(lab.deadline))}
+              </Text>
             </Row>
           </Stack>
 
