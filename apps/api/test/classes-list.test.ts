@@ -243,3 +243,24 @@ test("returns [] when the GitHub token is dead and unrefreshable", async () => {
   expect(await res.json()).toEqual({ classes: [] });
   expect(userInstallationsByOrgIdMock).not.toHaveBeenCalled();
 });
+
+test("orders classes by creation date, newest first", async () => {
+  await seedClass({ id: "c-old", orgId: 42 });
+  await db.insert(classes).values({
+    id: "c-new",
+    orgId: 43,
+    installationId: 101,
+    connectedByUserId: "u1",
+    joinToken: "tok-c-new",
+    status: "active",
+    createdAt: new Date(1000),
+    updatedAt: new Date(1000),
+  });
+  state.installations = [
+    { id: 100, account: { id: 42, login: "acme" } },
+    { id: 101, account: { id: 43, login: "beta" } },
+  ];
+  const res = await app.request("/api/classes", {}, env);
+  const body = (await res.json()) as { classes: Array<{ id: string }> };
+  expect(body.classes.map((c) => c.id)).toEqual(["c-new", "c-old"]);
+});

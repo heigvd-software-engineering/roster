@@ -1,5 +1,5 @@
 import { account, classes, getDb, type Lab, labs, user } from "@labs/db";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { authedFactory } from "../factory";
 import { githubAccessToken } from "../lib/auth/github-token";
 import { orgLogin } from "../lib/github/app";
@@ -78,7 +78,13 @@ export const listClasses = authedFactory.createHandlers(async (c) => {
   const rows =
     orgIds.length === 0
       ? []
-      : await db.select().from(classes).where(inArray(classes.orgId, orgIds));
+      : await db
+          .select()
+          .from(classes)
+          .where(inArray(classes.orgId, orgIds))
+          // Newest class first — the response keeps this order (the loop
+          // below pushes in row order).
+          .orderBy(desc(classes.createdAt));
 
   // One query for every candidate class's labs; emitted per class below
   // (labs of classes the caller can't see are never pushed).
