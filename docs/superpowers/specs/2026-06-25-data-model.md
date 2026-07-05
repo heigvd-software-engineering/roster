@@ -25,7 +25,8 @@ authority.
 |---|---|---|
 | Teacher vs student | GitHub org **Owner / Member** | ❌ read live |
 | Class existence | GitHub **App installation** | ⚠️ thin anchor row (cache), keyed on stable `orgId` |
-| Org members / repos | GitHub | ❌ read live |
+| Org members / repos | GitHub | ❌ read live (teacher views) |
+| **Student's own enrollment** | GitHub org membership | ⚠️ **display cache** in `class_members` — written at observation points, lazily repaired, **never authorization** (see §2) |
 | **Group membership** | GitHub **Team** membership | ❌ lives in the team |
 | Repo access / permissions | GitHub | ❌ set via API, not stored |
 | GitHub user tokens | — | ✅ in Better Auth `account` |
@@ -105,7 +106,51 @@ keep the library's singular names.
 > Existence is owned by GitHub; this row is a cache + anchor for app data,
 > maintained via the **`installation`** webhook. Name, avatar, login, members,
 > and the teacher/student split are all **read live from GitHub** each visit —
-> none stored.
+> none stored. *(Optional, for the student list to reach zero GitHub calls:
+> cache `login`/`name`/`avatarUrl` on this row, refreshed whenever `orgInfo`
+> is fetched on a teacher path.)*
+
+### `class_members` (S5 — student class list) — enrollment display cache
+| column | type | notes |
+|---|---|---|
+| `id` | text, pk | |
+| `classId` | text, fk → `classes.id` | |
+| `githubId` | text | GitHub **user** account id — matches `account.accountId`; resolve to an app user via the `account` table, never stored as `userId` (webhook/API payloads and `orgPeople` carry GitHub ids, not app ids) |
+| `state` | text | `pending` (invited) / `active` (member) |
+| `createdAt` / `updatedAt` | timestamp | |
+
+Unique on `(classId, githubId)`.
+
+> **A cache of what GitHub owns, not an authority** — the deliberate exception
+> to §0, accepted so the student's class list is a pure DB read (zero GitHub
+> calls) instead of a per-visit membership sweep. Rules that keep it honest:
+>
+> - **Write points** (everywhere the app already observes membership, for free):
+>   - `requestJoin` after inviting → upsert `pending`;
+>   - `previewJoin` seeing an `active` membership → upsert `active` (the common
+>     path: the student lands back on the join page after accepting);
+>   - the teacher hub's `orgPeople` fetch → **full-roster sync** for that class
+>     (upsert `active` students, upsert `pending` invitees, delete rows whose
+>     github id is no longer on the roster) — this is the reconciliation that
+>     catches everything the join flow missed, refreshed every teacher visit.
+> - **Lazy repair**: any GitHub call that reveals non-membership (404/403 on an
+>   action against the org) deletes the row.
+> - **Invariant — display only.** No endpoint may use `class_members` to
+>   authorize a privileged action; anything that grants or touches GitHub
+>   resources verifies against GitHub (or simply acts via an installation/user
+>   token and lets GitHub refuse). A stale row may show a dead class card;
+>   it must never grant access.
+> - **No webhooks required.** Accepted drift: a removed student sees a stale
+>   card until lazy repair or the next teacher visit; a student who accepted
+>   off-platform and never revisits any observation point stays invisible until
+>   the teacher's roster sync. Both self-heal; neither affects access control.
+> - The student list endpoint reads `class_members ⋈ classes ⋈ labs` for the
+>   caller's github id (via their `account` row) — no GitHub traffic.
+>
+> The student-owned-repos proposal (`2026-07-05-student-owned-repos.md` §4)
+> later **promotes** this table from cache to authority (join inserts directly;
+> org invites disappear). Same table, hardened semantics — the `state` column
+> collapses to `active`-only in that model.
 
 ### `labs` (S4)
 | column | type | notes |
@@ -164,6 +209,7 @@ keep the library's singular names.
 user 1───* session
 user 1───* account            (eduid + github)
 user 1───* classes            (connectedBy)
+classes 1───* class_members   (enrollment display cache; github id → user via account)
 classes 1───* labs
 classes 1───* groups          (reusable teams)
 user  1───* groups            (creator)
@@ -172,7 +218,8 @@ labs 1───* student_lab_repos
 groups 1───* student_lab_repos (every lab uses a group; solo = group of one)
 ```
 
-Not modeled in our DB (delegated): org membership (Owner/Member),
+Not modeled in our DB (delegated): org membership as **authority**
+(Owner/Member — `class_members` is only a display cache of it),
 **team membership** (= group roster), repo collaborators/permissions.
 
 ---

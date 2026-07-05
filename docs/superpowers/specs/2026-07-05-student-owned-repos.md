@@ -65,7 +65,17 @@ right one" — the error surface of a manual flow.
 
 ## 4. Roster — entirely on labs' side
 
-Without org membership, GitHub no longer holds the class roster. New table:
+Without org membership, GitHub no longer holds the class roster.
+
+> **Note (2026-07-05):** `class_members` now arrives *earlier* than this
+> proposal, as an enrollment **display cache** for the student class list in
+> the current org-membership model (see data-model spec §2 — keyed on
+> `githubId`, `pending`/`active` state, write-points + lazy repair, never
+> authorization). This section describes its **promotion to authority** if
+> the student-owned model is adopted: join inserts directly, org invites and
+> the `pending` state disappear.
+
+New table:
 
 ### `class_members`
 | column | type | notes |
