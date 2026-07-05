@@ -5,6 +5,7 @@ import { beforeEach, expect, test, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
   session: { user: { id: "u1" } } as { user: { id: string } } | null,
+  githubToken: "tok" as string | null,
   membership: { state: "active", role: "member" } as {
     state: "active" | "pending";
     role: string;
@@ -24,6 +25,10 @@ vi.mock("../src/lib/auth/config", () => ({
   createAuth: () => ({
     api: { getSession: async () => state.session },
   }),
+}));
+
+vi.mock("../src/lib/auth/github-token", () => ({
+  githubAccessToken: async () => state.githubToken,
 }));
 
 vi.mock("../src/lib/github/user", () => ({
@@ -53,6 +58,7 @@ const db = getDb(env.DB);
 
 beforeEach(async () => {
   state.session = { user: { id: "u1" } };
+  state.githubToken = "tok";
   state.membership = { state: "active", role: "member" };
   state.profile = {
     login: "alice",
@@ -103,6 +109,13 @@ test("GET: requires auth", async () => {
 
 test("GET: unusable GitHub link → 403 github_not_linked", async () => {
   state.profile = null;
+  const res = await app.request("/api/join/tok123", {}, env);
+  expect(res.status).toBe(403);
+  expect(await res.json()).toEqual({ error: "github_not_linked" });
+});
+
+test("GET: no usable GitHub token → 403 github_not_linked", async () => {
+  state.githubToken = null;
   const res = await app.request("/api/join/tok123", {}, env);
   expect(res.status).toBe(403);
   expect(await res.json()).toEqual({ error: "github_not_linked" });

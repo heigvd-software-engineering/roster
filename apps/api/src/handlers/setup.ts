@@ -1,6 +1,7 @@
 import { classes, getDb } from "@labs/db";
 import { factory } from "../factory";
 import { createAuth } from "../lib/auth/config";
+import { githubAccessToken } from "../lib/auth/github-token";
 import { installationAccount } from "../lib/github/app";
 import { userHasInstallation } from "../lib/github/user";
 import { mintJoinToken } from "../lib/join-token";
@@ -26,12 +27,7 @@ export const githubSetupCallback = factory.createHandlers(async (c) => {
   if (!installationId) return c.redirect("/?error=no_installation");
 
   const db = getDb(c.env.DB);
-  const ghAccount = await db.query.account.findFirst({
-    where: (a, op) =>
-      op.and(op.eq(a.userId, session.user.id), op.eq(a.providerId, "github")),
-    columns: { accessToken: true },
-  });
-  const token = ghAccount?.accessToken;
+  const token = await githubAccessToken(c.env, session.user.id);
   if (!token) return c.redirect("/?error=github_not_linked");
 
   if (!(await userHasInstallation(token, installationId))) {

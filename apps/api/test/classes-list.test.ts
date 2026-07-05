@@ -6,6 +6,7 @@ import { beforeEach, expect, test, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
   session: { user: { id: "u1" } } as { user: { id: string } } | null,
+  githubToken: "tok" as string | null,
   installations: [{ id: 200, account: { id: 42, login: "acme" } }] as Array<{
     id: number;
     account: { id: number; login: string };
@@ -27,6 +28,10 @@ vi.mock("../src/lib/auth/config", () => ({
   createAuth: () => ({
     api: { getSession: async () => state.session },
   }),
+}));
+
+vi.mock("../src/lib/auth/github-token", () => ({
+  githubAccessToken: async () => state.githubToken,
 }));
 
 vi.mock("../src/lib/github/org", () => ({
@@ -89,6 +94,7 @@ async function seedClass(args?: {
 
 beforeEach(async () => {
   state.session = { user: { id: "u1" } };
+  state.githubToken = "tok";
   state.installations = [{ id: 200, account: { id: 42, login: "acme" } }];
   state.org = { login: "acme", name: "Acme", avatarUrl: "http://a" };
   state.failInstallationIds = [];
@@ -223,6 +229,15 @@ test("skips a class when the caller has installation access but is NOT an org ow
 test("returns [] when the caller has no linked GitHub account", async () => {
   await seedClass();
   await db.delete(account);
+  const res = await app.request("/api/classes", {}, env);
+  expect(res.status).toBe(200);
+  expect(await res.json()).toEqual({ classes: [] });
+  expect(userInstallationsByOrgIdMock).not.toHaveBeenCalled();
+});
+
+test("returns [] when the GitHub token is dead and unrefreshable", async () => {
+  await seedClass();
+  state.githubToken = null;
   const res = await app.request("/api/classes", {}, env);
   expect(res.status).toBe(200);
   expect(await res.json()).toEqual({ classes: [] });

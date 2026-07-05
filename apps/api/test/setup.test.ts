@@ -5,6 +5,7 @@ import { beforeEach, expect, test, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
   session: { user: { id: "u1" } } as { user: { id: string } } | null,
+  githubToken: "tok" as string | null,
   account: { id: 42, login: "acme", type: "Organization" } as {
     id: number;
     login: string;
@@ -17,6 +18,10 @@ vi.mock("../src/lib/auth/config", () => ({
   createAuth: () => ({
     api: { getSession: async () => state.session },
   }),
+}));
+
+vi.mock("../src/lib/auth/github-token", () => ({
+  githubAccessToken: async () => state.githubToken,
 }));
 
 vi.mock("../src/lib/github/app", () => ({
@@ -39,6 +44,7 @@ const db = getDb(env.DB);
 
 beforeEach(async () => {
   state.session = { user: { id: "u1" } };
+  state.githubToken = "tok";
   state.account = { id: 42, login: "acme", type: "Organization" };
   state.installations = [{ id: 100 }];
   await db.delete(classes);
@@ -121,8 +127,8 @@ test("non-organization account redirects with an error and writes nothing", asyn
   expect(await db.select().from(classes)).toHaveLength(0);
 });
 
-test("no linked GitHub token redirects with an error and writes nothing", async () => {
-  await db.delete(account);
+test("no usable GitHub token redirects with an error and writes nothing", async () => {
+  state.githubToken = null;
   const res = await app.request(
     "/api/github/setup?installation_id=100",
     undefined,

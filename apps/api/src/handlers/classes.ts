@@ -1,6 +1,7 @@
 import { account, classes, getDb, type Lab, labs, user } from "@labs/db";
 import { and, eq, inArray } from "drizzle-orm";
 import { authedFactory } from "../factory";
+import { githubAccessToken } from "../lib/auth/github-token";
 import { orgLogin } from "../lib/github/app";
 import {
   basePermission,
@@ -56,16 +57,16 @@ export const listClasses = authedFactory.createHandlers(async (c) => {
   const db = getDb(c.env.DB);
   const caller = c.get("user");
 
-  // Identity first: one lookup serves both the caller's github id (teacher
-  // check) and their OAuth token (installations call) — either missing
+  // Identity first: the caller's github id (teacher check) and a usable
+  // OAuth token (installations call, refreshed if expired) — either missing
   // means there's nothing to list.
   const ghAccount = await db.query.account.findFirst({
     where: (a, op) =>
       op.and(op.eq(a.userId, caller.id), op.eq(a.providerId, "github")),
-    columns: { accountId: true, accessToken: true },
+    columns: { accountId: true },
   });
   const ghId = Number(ghAccount?.accountId);
-  const token = ghAccount?.accessToken;
+  const token = await githubAccessToken(c.env, caller.id);
   if (!Number.isFinite(ghId) || !token) return c.json({ classes: [] });
 
   // Reconcile against the user's LIVE installations — the installationId we

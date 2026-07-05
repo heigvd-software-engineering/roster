@@ -1,6 +1,7 @@
 import { classes, getDb } from "@labs/db";
 import { eq } from "drizzle-orm";
 import { authedFactory } from "../factory";
+import { githubAccessToken } from "../lib/auth/github-token";
 import type { AuthedEnv } from "../lib/auth/require-auth";
 import { orgLogin } from "../lib/github/app";
 import { inviteOrgMember, orgInfo, orgMembership } from "../lib/github/org";
@@ -43,14 +44,8 @@ async function resolveJoin(
     return { ok: false, status: 404, error: "invalid_link" };
   }
 
-  const ghAccount = await db.query.account.findFirst({
-    where: (a, op) =>
-      op.and(op.eq(a.userId, userId), op.eq(a.providerId, "github")),
-    columns: { accessToken: true },
-  });
-  const profile = ghAccount?.accessToken
-    ? await fetchGithubProfile(ghAccount.accessToken)
-    : null;
+  const ghToken = await githubAccessToken(env, userId);
+  const profile = ghToken ? await fetchGithubProfile(ghToken) : null;
   if (!profile) {
     // Client-side the Auth guard prevents this; the API still refuses cleanly.
     return { ok: false, status: 403, error: "github_not_linked" };
