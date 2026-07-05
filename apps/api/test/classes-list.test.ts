@@ -1,5 +1,5 @@
 import { env } from "cloudflare:test";
-import { account, classes, getDb, user } from "@labs/db";
+import { account, classes, getDb, labs, user } from "@labs/db";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { beforeEach, expect, test, vi } from "vitest";
@@ -105,6 +105,7 @@ beforeEach(async () => {
   };
   userInstallationsByOrgIdMock.mockClear();
 
+  await db.delete(labs);
   await db.delete(classes);
   await db.delete(account);
   await db.delete(user);
@@ -242,6 +243,48 @@ test("returns [] when the GitHub token is dead and unrefreshable", async () => {
   expect(res.status).toBe(200);
   expect(await res.json()).toEqual({ classes: [] });
   expect(userInstallationsByOrgIdMock).not.toHaveBeenCalled();
+});
+
+test("orders a class's labs by deadline, latest first", async () => {
+  await seedClass();
+  await db.insert(labs).values([
+    {
+      id: "lab-early",
+      classId: "c1",
+      title: "Early deadline",
+      deadline: new Date("2099-01-15T23:59:00Z"),
+      createdByUserId: "u1",
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: "lab-late",
+      classId: "c1",
+      title: "Late deadline",
+      deadline: new Date("2099-06-15T23:59:00Z"),
+      createdByUserId: "u1",
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: "lab-mid",
+      classId: "c1",
+      title: "Mid deadline",
+      deadline: new Date("2099-03-15T23:59:00Z"),
+      createdByUserId: "u1",
+      createdAt: now,
+      updatedAt: now,
+    },
+  ]);
+  const res = await app.request("/api/classes", {}, env);
+  const body = (await res.json()) as {
+    classes: Array<{ labs: Array<{ id: string }> }>;
+  };
+  expect(body.classes[0]?.labs.map((l) => l.id)).toEqual([
+    "lab-late",
+    "lab-mid",
+    "lab-early",
+  ]);
 });
 
 test("orders classes by creation date, newest first", async () => {

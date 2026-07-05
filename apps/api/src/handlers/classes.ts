@@ -99,7 +99,10 @@ export const listClasses = authedFactory.createHandlers(async (c) => {
               labs.classId,
               rows.map((r) => r.id),
             ),
-          );
+          )
+          // Latest deadline first — the per-class filter below keeps this
+          // order in the response.
+          .orderBy(desc(labs.deadline));
 
   // TODO: discuss this transformation and propose the move the transformation to frontend
   const out: Array<{
