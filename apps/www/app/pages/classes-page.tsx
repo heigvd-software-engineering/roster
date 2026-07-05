@@ -1,5 +1,6 @@
 import { ClassCard } from "~/components/custom/classes/class-card";
 import { NewClassDialog } from "~/components/custom/classes/new-class-dialog";
+import { Page } from "~/components/custom/layout/page";
 import { Row } from "~/components/custom/layout/row";
 import { Stack } from "~/components/custom/layout/stack";
 import { Loading } from "~/components/custom/loading";
@@ -12,13 +13,13 @@ export function ClassesPage() {
   const classes = data?.classes ?? [];
 
   return (
-    <Stack gap="lg" align="start" className="flex-1 pt-2">
+    <Page>
       <Row justify="between" className="w-full">
         <Text variant="heading">Classes</Text>
         <NewClassDialog />
       </Row>
       <Loading loading={isLoading} label="Loading classes…">
-        <Stack gap="md" className="w-full">
+        <Stack gap="lg" className="w-full">
           {error ? (
             <Text variant="error">
               Couldn't load your classes — refresh to retry.
@@ -32,6 +33,6 @@ export function ClassesPage() {
           )}
         </Stack>
       </Loading>
-    </Stack>
+    </Page>
   );
 }

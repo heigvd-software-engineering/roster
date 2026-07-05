@@ -1,5 +1,6 @@
 import { Link, useParams } from "react-router";
 import { DeadlineChip } from "~/components/custom/classes/deadline-chip";
+import { Page } from "~/components/custom/layout/page";
 import { Panel } from "~/components/custom/layout/panel";
 import { Row } from "~/components/custom/layout/row";
 import { Stack } from "~/components/custom/layout/stack";
@@ -24,7 +25,7 @@ export function LabPage() {
   return (
     <Loading loading={isLoading} className="flex-1">
       {error || !cls || !lab ? (
-        <Stack gap="lg" align="start" className="flex-1 pt-2">
+        <Page>
           <Text variant="error">
             {error
               ? "Couldn't load this lab — refresh to retry."
@@ -33,9 +34,9 @@ export function LabPage() {
           <Link to="/classes" className="text-sm underline">
             ‹ Back to classes
           </Link>
-        </Stack>
+        </Page>
       ) : (
-        <Stack gap="lg" align="start" className="flex-1 pt-2">
+        <Page>
           <Stack gap="sm">
             <Link
               to="/classes"
@@ -65,7 +66,7 @@ export function LabPage() {
               </Text>
             </Stack>
           </Panel>
-        </Stack>
+        </Page>
       )}
     </Loading>
   );
