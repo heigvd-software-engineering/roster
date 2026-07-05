@@ -1,23 +1,40 @@
+import { ArrowRightIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router";
-import { UserAvatar } from "~/components/custom/identity/user-avatar";
+import { UserIdentity } from "~/components/custom/identity/user-identity";
 import { Row } from "~/components/custom/layout/row";
 import { Stack } from "~/components/custom/layout/stack";
 import { Loading } from "~/components/custom/loading";
 import { BrandHeader } from "~/components/custom/typography/brand-header";
 import { Text } from "~/components/custom/typography/text";
 import { Button } from "~/components/ui/button";
+import { useAuth } from "~/contexts/auth-context";
 import { api } from "~/lib/api";
 
-type Membership = "none" | "pending" | "active";
+const MEMBERSHIPS = ["none", "pending", "active"] as const;
+type Membership = (typeof MEMBERSHIPS)[number];
 type ClassIdentity = { login: string; name: string | null; avatarUrl: string };
 
 type JoinState =
   | { kind: "loading" }
   | { kind: "invalid" }
   | { kind: "error" }
-  | { kind: "ready"; cls: ClassIdentity; membership: Membership };
+  | {
+      kind: "ready";
+      cls: ClassIdentity;
+      membership: Membership;
+      /** GitHub org role when membership exists — "admin" = owner (teacher). */
+      role: string | null;
+    };
+
+/** Narrow an API value to a known membership — anything else is an error
+ *  state, never silently rendered as "enrolled". */
+function asMembership(value: unknown): Membership | null {
+  return MEMBERSHIPS.includes(value as Membership)
+    ? (value as Membership)
+    : null;
+}
 
 /**
  * /join/:token — the student side of the class join link (spec: F4 design).
@@ -29,6 +46,7 @@ type JoinState =
  */
 export function JoinPage() {
   const { token = "" } = useParams();
+  const { github } = useAuth();
   const [state, setState] = useState<JoinState>({ kind: "loading" });
   const [submitting, setSubmitting] = useState(false);
 
@@ -45,7 +63,17 @@ export function JoinPage() {
         return;
       }
       const body = await res.json();
-      setState({ kind: "ready", cls: body.class, membership: body.membership });
+      const membership = asMembership(body.membership);
+      if (!membership) {
+        setState({ kind: "error" });
+        return;
+      }
+      setState({
+        kind: "ready",
+        cls: body.class,
+        membership,
+        role: body.role ?? null,
+      });
     } catch {
       setState({ kind: "error" });
     }
@@ -64,7 +92,12 @@ export function JoinPage() {
         return;
       }
       const body = await res.json();
-      setState({ kind: "ready", cls, membership: body.membership });
+      const membership = asMembership(body.membership);
+      if (!membership) {
+        setState({ kind: "error" });
+        return;
+      }
+      setState({ kind: "ready", cls, membership, role: body.role ?? null });
     } catch {
       setState({ kind: "error" });
     } finally {
@@ -97,27 +130,50 @@ export function JoinPage() {
     );
   }
 
-  const { cls, membership } = state;
+  const { cls, membership, role } = state;
   const className = cls.name ?? cls.login;
+  const isOwner = membership === "active" && role === "admin";
 
   return (
-    <Shell title={membership === "active" ? "Enrolled" : `Join ${className}`}>
-      <a
-        href={`https://github.com/${cls.login}`}
-        target="_blank"
-        rel="noreferrer"
-        className="-m-2 rounded-md p-2 transition-colors hover:bg-muted"
-      >
-        <Row gap="sm">
-          <UserAvatar name={className} src={cls.avatarUrl} size="lg" />
-          <Stack gap="none">
-            <Text variant="body1" className="font-semibold">
-              {className}
-            </Text>
-            <Text variant="body2">@{cls.login}</Text>
-          </Stack>
-        </Row>
-      </a>
+    <Shell
+      title={
+        isOwner
+          ? "This is your class"
+          : membership === "active"
+            ? "Enrolled"
+            : `Join ${className}`
+      }
+    >
+      {/* You → the class: the acting GitHub identity on the left — with
+          account switching (e.g. teacher vs student test accounts), the
+          membership shown below is meaningless without it. */}
+      <Row gap="md" align="center" wrap>
+        {github ? (
+          <>
+            <UserIdentity
+              name={github.name ?? github.login}
+              subtitle={`@${github.login}`}
+              avatarUrl={github.avatarUrl}
+            />
+            <ArrowRightIcon
+              aria-label="joins"
+              className="size-5 text-muted-foreground"
+            />
+          </>
+        ) : null}
+        <a
+          href={`https://github.com/${cls.login}`}
+          target="_blank"
+          rel="noreferrer"
+          className="-m-2 rounded-md p-2 transition-colors hover:bg-muted"
+        >
+          <UserIdentity
+            name={className}
+            subtitle={`@${cls.login}`}
+            avatarUrl={cls.avatarUrl}
+          />
+        </a>
+      </Row>
 
       {membership === "none" ? (
         <>
@@ -153,6 +209,10 @@ export function JoinPage() {
             </Button>
           </Row>
         </>
+      ) : isOwner ? (
+        <Text variant="subtitle" className="max-w-md">
+          You're an owner of this organization — this join link is for students.
+        </Text>
       ) : (
         <Text variant="subtitle" className="max-w-md">
           You're enrolled in {className}.

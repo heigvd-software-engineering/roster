@@ -82,9 +82,12 @@ export const previewJoin = authedFactory.createHandlers(async (c) => {
     login,
     username,
   );
+  // `role` lets the UI tell an org owner (teacher on their own link) apart
+  // from an enrolled student — "active" alone reads as "enrolled".
   return c.json({
     class: org,
     membership: (membership?.state ?? "none") as "none" | "pending" | "active",
+    role: membership?.role ?? null,
   });
 });
 
@@ -101,7 +104,7 @@ export const requestJoin = authedFactory.createHandlers(async (c) => {
   // replaying is a no-op, and an org OWNER opening their own link must never
   // be demoted by a role:"member" PUT.
   if (current) {
-    return c.json({ membership: current.state });
+    return c.json({ membership: current.state, role: current.role });
   }
   const membership = await inviteOrgMember(
     c.env,
@@ -109,5 +112,6 @@ export const requestJoin = authedFactory.createHandlers(async (c) => {
     login,
     username,
   );
-  return c.json({ membership });
+  // A fresh invite is always role "member" (the PUT above requests it).
+  return c.json({ membership, role: "member" });
 });

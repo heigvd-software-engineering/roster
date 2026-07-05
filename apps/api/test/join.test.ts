@@ -135,6 +135,7 @@ test("GET: returns class identity + membership state", async () => {
   expect(await res.json()).toEqual({
     class: { login: "acme", name: "Acme", avatarUrl: "http://a" },
     membership: "none",
+    role: null,
   });
 });
 
@@ -144,6 +145,17 @@ test("GET: pending invite is reported", async () => {
   expect(await res.json()).toEqual({
     class: { login: "acme", name: "Acme", avatarUrl: "http://a" },
     membership: "pending",
+    role: "member",
+  });
+});
+
+test("GET: an org owner opening their own link sees their admin role", async () => {
+  state.membership = { state: "active", role: "admin" };
+  const res = await app.request("/api/join/tok123", {}, env);
+  expect(await res.json()).toEqual({
+    class: { login: "acme", name: "Acme", avatarUrl: "http://a" },
+    membership: "active",
+    role: "admin",
   });
 });
 
@@ -151,28 +163,28 @@ test("POST: none → invites as member, returns pending", async () => {
   state.membership = null;
   const res = await app.request("/api/join/tok123", { method: "POST" }, env);
   expect(res.status).toBe(200);
-  expect(await res.json()).toEqual({ membership: "pending" });
+  expect(await res.json()).toEqual({ membership: "pending", role: "member" });
   expect(state.inviteCalls).toHaveLength(1);
 });
 
 test("POST: already active → short-circuits, no PUT", async () => {
   state.membership = { state: "active", role: "member" };
   const res = await app.request("/api/join/tok123", { method: "POST" }, env);
-  expect(await res.json()).toEqual({ membership: "active" });
+  expect(await res.json()).toEqual({ membership: "active", role: "member" });
   expect(state.inviteCalls).toHaveLength(0);
 });
 
 test("POST: org admin is never demoted — no PUT even while pending", async () => {
   state.membership = { state: "pending", role: "admin" };
   const res = await app.request("/api/join/tok123", { method: "POST" }, env);
-  expect(await res.json()).toEqual({ membership: "pending" });
+  expect(await res.json()).toEqual({ membership: "pending", role: "admin" });
   expect(state.inviteCalls).toHaveLength(0);
 });
 
 test("POST: pending member → no duplicate PUT, still pending", async () => {
   state.membership = { state: "pending", role: "member" };
   const res = await app.request("/api/join/tok123", { method: "POST" }, env);
-  expect(await res.json()).toEqual({ membership: "pending" });
+  expect(await res.json()).toEqual({ membership: "pending", role: "member" });
   expect(state.inviteCalls).toHaveLength(0);
 });
 

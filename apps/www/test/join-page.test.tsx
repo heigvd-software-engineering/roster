@@ -22,13 +22,20 @@ vi.mock("~/lib/api", () => ({
   },
 }));
 
-const ready = (membership: string) => ({
+vi.mock("~/contexts/auth-context", () => ({
+  useAuth: () => ({
+    github: { login: "ovich", id: 1, name: "Ovich", avatarUrl: "http://g" },
+  }),
+}));
+
+const ready = (membership: string, role: string | null = null) => ({
   status: 200,
   ok: true,
   json: () =>
     Promise.resolve({
       class: { login: "acme", name: "Acme", avatarUrl: "http://a" },
       membership,
+      role,
     }),
 });
 
@@ -84,11 +91,41 @@ describe("JoinPage", () => {
   });
 
   it("already-members land on the enrolled state directly", async () => {
-    joinGet.mockResolvedValue(ready("active"));
+    joinGet.mockResolvedValue(ready("active", "member"));
     render(<JoinPage />);
     expect(
       await screen.findByText("You're enrolled in Acme."),
     ).toBeInTheDocument();
+  });
+
+  it("shows which GitHub account the page is acting as", async () => {
+    joinGet.mockResolvedValue(ready("none"));
+    render(<JoinPage />);
+    expect(await screen.findByText("@ovich")).toBeInTheDocument();
+  });
+
+  it("an org owner on their own link is told the link is for students", async () => {
+    joinGet.mockResolvedValue(ready("active", "admin"));
+    render(<JoinPage />);
+    expect(
+      await screen.findByText(
+        "You're an owner of this organization — this join link is for students.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("You're enrolled in Acme."),
+    ).not.toBeInTheDocument();
+  });
+
+  it("an unexpected membership value shows the error state, not enrolled", async () => {
+    joinGet.mockResolvedValue(ready("banana"));
+    render(<JoinPage />);
+    expect(
+      await screen.findByText("Couldn't load this join link."),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("You're enrolled in Acme."),
+    ).not.toBeInTheDocument();
   });
 
   it("unknown token shows the invalid-link state", async () => {
