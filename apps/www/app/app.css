@@ -153,10 +153,13 @@
   animation: loader-bar 0.9s ease-in-out infinite;
 }
 
-/* Signature: faint engineering graph-paper grid (Swiss grid + lab notebook). */
+/* Signature: faint engineering graph-paper grid (Swiss grid + lab notebook).
+   The line color is the border token faded toward transparent — tune the
+   percentage to make the grid lighter (lower = fainter). */
 .graph-paper {
+  --grid-line: color-mix(in oklch, var(--border) 55%, transparent);
   background-image:
-    linear-gradient(to right, var(--border) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--border) 1px, transparent 1px);
+    linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
   background-size: 28px 28px;
 }
