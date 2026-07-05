@@ -23,6 +23,12 @@ describe("NewClassDialog", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("One security change")).toBeInTheDocument();
     expect(
+      screen.getByText("Students never see each other's work"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Your existing repositories stay hidden"),
+    ).toBeInTheDocument();
+    expect(
       screen.getByRole("link", { name: "Connect an organization" }),
     ).toHaveAttribute("href", installUrl);
   });

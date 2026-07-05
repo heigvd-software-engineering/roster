@@ -69,8 +69,30 @@ export function NewClassDialog() {
             </Text>
             <Text variant="body2">
               After you pick the organization, labs sets its base repository
-              permission to <strong>No access</strong>, so students only see the
-              repositories they are granted.
+              permission to <strong>No access</strong>: being a member grants
+              access to nothing by itself. Students only reach the repositories
+              they are explicitly granted.
+            </Text>
+          </Stack>
+          <Stack gap="none">
+            <Text variant="label" className="font-medium">
+              Students never see each other's work
+            </Text>
+            <Text variant="body2">
+              Each student (or group) is granted access to their own lab repo
+              only. GitHub hides repositories you have no permission on, so one
+              student's repo is invisible to every other student and group.
+            </Text>
+          </Stack>
+          <Stack gap="none">
+            <Text variant="label" className="font-medium">
+              Your existing repositories stay hidden
+            </Text>
+            <Text variant="body2">
+              Students are Members, not Owners: the organization's private
+              repositories stay invisible to them unless you grant access
+              yourself. Only public repositories remain visible — to anyone on
+              the internet — so keep confidential material private.
             </Text>
           </Stack>
         </Stack>
