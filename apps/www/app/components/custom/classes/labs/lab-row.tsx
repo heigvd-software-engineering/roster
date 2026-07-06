@@ -2,7 +2,7 @@ import { Link } from "react-router";
 import {
   DeadlineText,
   isDeadlineUrgent,
-} from "~/components/custom/classes/deadline-text";
+} from "~/components/custom/classes/labs/deadline-text";
 import type { LabItem } from "~/lib/api";
 import { formatDeadline, labModeLabel } from "~/lib/format";
 import { cn } from "~/lib/utils";
@@ -31,16 +31,18 @@ export function LabsHeader() {
 }
 
 /** One lab row: title · mode · due (exact moment + urgency-colored countdown)
- *  · progress. Links to the lab page — the drill-down unit for BOTH roles
- *  (teachers manage, students attach their groups there). Progress shows `—`
- *  until acceptance repos exist (F8). `action` (e.g. the teacher's edit
- *  pencil) overlays the row's right edge, OUTSIDE the link — a button may
- *  not nest in an anchor. */
+ *  · progress. Links to the role's lab page: `manage` (the teaching card)
+ *  goes to the teacher's manage page, otherwise the student's accept page.
+ *  Progress shows `—` until acceptance repos exist (F8). `action` (e.g. the
+ *  teacher's edit pencil) overlays the row's right edge, OUTSIDE the link —
+ *  a button may not nest in an anchor. */
 export function LabRow({
   lab,
+  manage = false,
   action,
 }: {
   lab: LabItem;
+  manage?: boolean;
   action?: React.ReactNode;
 }) {
   const mode = labModeLabel(lab);
@@ -76,7 +78,7 @@ export function LabRow({
 
   const row = (
     <Link
-      to={`/classes/${lab.classId}/labs/${lab.id}`}
+      to={`/classes/${lab.classId}/labs/${lab.id}${manage ? "/manage" : ""}`}
       className={cn(
         LAB_GRID,
         "border-border border-b py-2.5 transition-colors hover:bg-muted/60",

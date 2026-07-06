@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import type { PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useApi } from "~/lib/api";
-import { LabPage } from "~/pages/lab-page";
+import { StudentLabPage } from "~/pages/student-lab-page";
 
 const params = vi.hoisted(() => ({ classId: "c1", labId: "l1" }));
 
@@ -13,6 +13,7 @@ vi.mock("react-router", () => ({
       {children}
     </a>
   ),
+  Navigate: ({ to }: { to: string }) => <div data-testid="navigate">{to}</div>,
 }));
 
 vi.mock("~/contexts/auth-context", () => ({
@@ -54,20 +55,6 @@ const individualLab = {
 const alice = { id: 7, login: "alice", avatarUrl: "http://a" };
 const bob = { id: 8, login: "bob", avatarUrl: null };
 
-const teachingClass = {
-  id: "c1",
-  orgId: 1,
-  createdAt: "2026-03-10T00:00:00.000Z",
-  login: "acme",
-  name: "Acme",
-  avatarUrl: "",
-  joinToken: "tok",
-  teachers: [{ id: 111, login: "prof", avatarUrl: null }],
-  students: [alice, bob],
-  pending: [],
-  users: [],
-  labs: [groupLab, individualLab],
-};
 const enrolledClass = {
   id: "c1",
   createdAt: "2026-03-10T00:00:00.000Z",
@@ -79,7 +66,6 @@ const enrolledClass = {
   labs: [groupLab, individualLab],
 };
 
-/** classes fetch (no args) vs lab-groups fetch (args) — route by args. */
 function mockApi(classesData: unknown, labGroupsData: unknown) {
   vi.mocked(useApi).mockImplementation(
     (_endpoint, args) =>
@@ -98,6 +84,11 @@ const groupsData = (
     { id: "g2", name: "Team Beta", slug: "team-beta", members: [alice] },
   ],
   users: [],
+  // The pool source: the class_members cache riding on the response.
+  students: [
+    { githubId: "7", login: "alice", avatarUrl: "http://a" },
+    { githubId: "8", login: "bob", avatarUrl: null },
+  ],
   attachedIds: ["g1"],
   ...over,
 });
@@ -107,59 +98,30 @@ beforeEach(() => {
   params.labId = "l1";
 });
 
-describe("LabPage — teacher, group lab", () => {
-  it("shows the header, the without-a-group pool, and management", () => {
-    mockApi({ classes: [teachingClass], enrolled: [] }, groupsData());
-    render(<LabPage />);
-
-    expect(screen.getByText("Lab 1 — Sockets")).toBeInTheDocument();
-    expect(screen.getByText("group 2–3")).toBeInTheDocument();
-    expect(screen.getByText("teaching")).toBeInTheDocument();
-    // alice is in NO attached group (g2 isn't attached) → she's in the pool.
-    expect(
-      screen.getByText(/Students without a group for this lab/),
-    ).toBeInTheDocument();
-    expect(screen.getByText("@alice")).toBeInTheDocument();
-    // Attached group tile + teacher management affordances.
-    expect(screen.getByText("Team Alpha")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Detach Team Alpha from this lab" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "+ Attach a group" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "+ New group" }),
-    ).toBeInTheDocument();
-    // Teachers never join/leave.
-    expect(
-      screen.queryByRole("button", { name: "Join" }),
-    ).not.toBeInTheDocument();
-  });
-});
-
-describe("LabPage — student, group lab", () => {
+describe("StudentLabPage — group lab", () => {
   it("offers Join on an open attached group and the accept ghosts", () => {
     mockApi({ classes: [], enrolled: [enrolledClass] }, groupsData());
-    render(<LabPage />);
+    render(<StudentLabPage />);
 
     expect(screen.getByText("enrolled")).toBeInTheDocument();
-    // alice is NOT in attached g1 → Join is open (room under max 3).
     expect(screen.getByRole("button", { name: "Join" })).toBeInTheDocument();
-    // g2 (hers, unattached) is an accept candidate; creating also offered.
     expect(
       screen.getByRole("button", { name: "+ Accept with one of your groups" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "+ Accept with a new group" }),
     ).toBeInTheDocument();
-    // No teacher affordances, no pool.
+    // Students see the pool too — it helps them organize (alice is in no
+    // attached group yet). Management stays teacher-only.
     expect(
-      screen.queryByText(/Students without a group/),
+      screen.getByText(/Students without a group for this lab/),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Detach/ }),
     ).not.toBeInTheDocument();
   });
 
-  it("collapses accept affordances once participating", () => {
+  it("collapses accept affordances once participating; own group marked", () => {
     mockApi(
       { classes: [], enrolled: [enrolledClass] },
       groupsData({
@@ -174,23 +136,28 @@ describe("LabPage — student, group lab", () => {
         attachedIds: ["g1"],
       }),
     );
-    render(<LabPage />);
+    render(<StudentLabPage />);
 
+    expect(screen.getByText("your group")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Leave" })).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /Accept with/ }),
     ).not.toBeInTheDocument();
+    // Everyone's placed → the pool disappears.
+    expect(
+      screen.queryByText(/Students without a group/),
+    ).not.toBeInTheDocument();
   });
 });
 
-describe("LabPage — student, individual lab", () => {
+describe("StudentLabPage — individual lab", () => {
   it("is one-click: Accept lab, no group machinery", () => {
     params.labId = "l2";
     mockApi(
       { classes: [], enrolled: [enrolledClass] },
       groupsData({ groups: [], attachedIds: [] }),
     );
-    render(<LabPage />);
+    render(<StudentLabPage />);
 
     expect(
       screen.getByRole("button", { name: "Accept lab" }),
@@ -209,7 +176,7 @@ describe("LabPage — student, individual lab", () => {
         attachedIds: ["solo"],
       }),
     );
-    render(<LabPage />);
+    render(<StudentLabPage />);
 
     expect(screen.getByText("Accepted")).toBeInTheDocument();
     expect(
@@ -218,22 +185,30 @@ describe("LabPage — student, individual lab", () => {
   });
 });
 
-describe("LabPage — edges", () => {
+describe("StudentLabPage — edges", () => {
   it("gates a pending enrollee", () => {
     mockApi(
       { classes: [], enrolled: [{ ...enrolledClass, state: "pending" }] },
       groupsData(),
     );
-    render(<LabPage />);
+    render(<StudentLabPage />);
     expect(
       screen.getByText(/Accept your invitation on GitHub first/),
     ).toBeInTheDocument();
   });
 
+  it("redirects a TEACHER to the manage page", () => {
+    mockApi({ classes: [{ id: "c1", labs: [] }], enrolled: [] }, groupsData());
+    render(<StudentLabPage />);
+    expect(screen.getByTestId("navigate")).toHaveTextContent(
+      "/classes/c1/labs/l1/manage",
+    );
+  });
+
   it("shows a not-found message for an unknown lab", () => {
     params.labId = "nope";
-    mockApi({ classes: [teachingClass], enrolled: [] }, groupsData());
-    render(<LabPage />);
+    mockApi({ classes: [], enrolled: [enrolledClass] }, groupsData());
+    render(<StudentLabPage />);
     expect(
       screen.getByText("This lab doesn't exist (or you're not in its class)."),
     ).toBeInTheDocument();

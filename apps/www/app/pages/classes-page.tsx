@@ -1,6 +1,6 @@
-import { ClassCard } from "~/components/custom/classes/class-card";
-import { EnrolledClassCard } from "~/components/custom/classes/enrolled-class-card";
-import { NewClassDialog } from "~/components/custom/classes/new-class-dialog";
+import { ClassCard } from "~/components/custom/classes/hub/class-card";
+import { EnrolledClassCard } from "~/components/custom/classes/hub/enrolled-class-card";
+import { NewClassDialog } from "~/components/custom/classes/hub/new-class-dialog";
 import { Page } from "~/components/custom/layout/page";
 import { Row } from "~/components/custom/layout/row";
 import { Stack } from "~/components/custom/layout/stack";

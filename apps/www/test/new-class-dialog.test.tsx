@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { NewClassDialog } from "~/components/custom/classes/new-class-dialog";
+import { NewClassDialog } from "~/components/custom/classes/hub/new-class-dialog";
 
 const installUrl = "https://github.com/apps/heigvdlabs/installations/new";
 vi.mock("~/contexts/auth-context", () => ({

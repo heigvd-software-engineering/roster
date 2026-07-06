@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { NewLabDialog } from "~/components/custom/classes/new-lab-dialog";
+import { LabDialog } from "~/components/custom/classes/labs/lab-dialog";
 
 const labsPost = vi.fn();
 
@@ -25,11 +25,11 @@ beforeEach(() => {
 });
 
 function openDialog() {
-  render(<NewLabDialog classId="c1" />);
+  render(<LabDialog classId="c1" />);
   fireEvent.click(screen.getByRole("button", { name: "+ New lab" }));
 }
 
-describe("NewLabDialog", () => {
+describe("LabDialog", () => {
   it("disables Create until title and deadline are set", async () => {
     openDialog();
     const create = await screen.findByRole("button", { name: "Create lab" });

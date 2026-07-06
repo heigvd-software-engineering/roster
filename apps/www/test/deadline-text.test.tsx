@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { DeadlineText } from "~/components/custom/classes/deadline-text";
+import { DeadlineText } from "~/components/custom/classes/labs/deadline-text";
 
 const HOUR = 3_600_000;
 const DAY = 86_400_000;

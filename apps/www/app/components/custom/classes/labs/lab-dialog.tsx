@@ -33,7 +33,7 @@ function toDatetimeLocal(iso: string) {
  * and prefills from it — same form, same validation, PUT instead of POST.
  * On success the classes list revalidates and the dialog closes.
  */
-export function NewLabDialog({
+export function LabDialog({
   classId,
   lab,
 }: {

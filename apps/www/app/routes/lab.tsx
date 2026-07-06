@@ -1,11 +1,11 @@
 import { Auth } from "~/components/custom/shell/auth";
-import { LabPage } from "~/pages/lab-page";
+import { StudentLabPage } from "~/pages/student-lab-page";
 
-/** /classes/:classId/labs/:labId — the per-lab management view. */
+/** /classes/:classId/labs/:labId — the student's lab page (accept flows). */
 export default function Lab() {
   return (
     <Auth>
-      <LabPage />
+      <StudentLabPage />
     </Auth>
   );
 }

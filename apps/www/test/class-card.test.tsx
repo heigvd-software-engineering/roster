@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
-import { ClassCard } from "~/components/custom/classes/class-card";
+import { ClassCard } from "~/components/custom/classes/hub/class-card";
 import { formatDeadline } from "~/lib/format";
 
 const profUser = {

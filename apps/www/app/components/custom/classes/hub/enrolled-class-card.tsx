@@ -1,5 +1,5 @@
-import { LabRow, LabsHeader } from "~/components/custom/classes/lab-row";
-import { PeopleChip } from "~/components/custom/classes/people-chip";
+import { PeopleChip } from "~/components/custom/classes/hub/people-chip";
+import { LabRow, LabsHeader } from "~/components/custom/classes/labs/lab-row";
 import { RoleChip, roleSpine } from "~/components/custom/classes/role-marker";
 import { OrgIdentity } from "~/components/custom/identity/org-identity";
 import { Row } from "~/components/custom/layout/row";

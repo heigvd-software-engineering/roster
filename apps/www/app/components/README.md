@@ -73,4 +73,10 @@ gets regenerated, and where our own work lives.
 ## Import aliases
 
 - Generated: `~/components/ui/<name>` (e.g. `~/components/ui/button`)
-- Ours: `~/components/custom/<group>/<name>` (e.g. `~/components/custom/classes/class-card`)
+- Ours: `~/components/custom/<group>/<name>` (e.g. `~/components/custom/classes/hub/class-card`)
+
+Large groups split further by use case: `classes/` holds `hub/` (the classes
+page cards + dialogs), `labs/` (lab row, header, and the create/edit
+`lab-dialog`), and `groups/` (group tiles, the shared `use-lab-groups` hook,
+and the two role-specific lab-group sections). Cross-cutting pieces
+(`role-marker`) stay at the group root.

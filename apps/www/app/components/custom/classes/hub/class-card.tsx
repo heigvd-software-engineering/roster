@@ -1,8 +1,8 @@
 import { Check, Link2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { LabRow, LabsHeader } from "~/components/custom/classes/lab-row";
-import { NewLabDialog } from "~/components/custom/classes/new-lab-dialog";
-import { PeopleChip } from "~/components/custom/classes/people-chip";
+import { PeopleChip } from "~/components/custom/classes/hub/people-chip";
+import { LabDialog } from "~/components/custom/classes/labs/lab-dialog";
+import { LabRow, LabsHeader } from "~/components/custom/classes/labs/lab-row";
 import { RoleChip, roleSpine } from "~/components/custom/classes/role-marker";
 import { OrgIdentity } from "~/components/custom/identity/org-identity";
 import { Row } from "~/components/custom/layout/row";
@@ -125,12 +125,13 @@ export function ClassCard({
                 <LabRow
                   key={lab.id}
                   lab={lab}
-                  action={<NewLabDialog classId={id} lab={lab} />}
+                  manage
+                  action={<LabDialog classId={id} lab={lab} />}
                 />
               ))}
             </>
           )}
-          <NewLabDialog classId={id} />
+          <LabDialog classId={id} />
         </div>
       </div>
     </Card>

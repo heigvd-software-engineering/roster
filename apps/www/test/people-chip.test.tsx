@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { PeopleChip } from "~/components/custom/classes/people-chip";
+import { PeopleChip } from "~/components/custom/classes/hub/people-chip";
 
 const aliceUser = {
   id: "u1",

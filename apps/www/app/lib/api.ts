@@ -36,6 +36,11 @@ export type GroupItem = InferResponseType<
   (typeof labGroupsApi)["$get"],
   200
 >["groups"][number];
+/** An enrolled student as the lab pages see them (class_members cache). */
+export type LabStudent = InferResponseType<
+  (typeof labGroupsApi)["$get"],
+  200
+>["students"][number];
 
 /**
  * Generic typed GET hook (SWR-backed). Pass an hc endpoint node (e.g.
