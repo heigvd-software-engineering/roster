@@ -1,4 +1,4 @@
-import { groups, studentLabRepos } from "@labs/db";
+import { classMembers, groups, studentLabRepos } from "@labs/db";
 import { and, eq } from "drizzle-orm";
 import { authedFactory } from "../factory";
 import {
@@ -26,7 +26,9 @@ import {
  */
 
 /** All class groups with live rosters + the lab's attached group ids +
- *  linked SWITCH users for every roster member. */
+ *  the class's enrolled students (from the class_members display cache —
+ *  BOTH roles use it as the "without a group" pool) + linked SWITCH users
+ *  for everyone involved. */
 export const listLabGroups = authedFactory.createHandlers(async (c) => {
   const access = await resolveClassAccess(c, c.req.param("id"));
   if (!access) return c.json({ error: "not_found" }, 404);
@@ -44,13 +46,29 @@ export const listLabGroups = authedFactory.createHandlers(async (c) => {
     .select({ groupId: studentLabRepos.groupId })
     .from(studentLabRepos)
     .where(eq(studentLabRepos.labId, lab.id));
-  const users = await linkedUsers(
-    access.db,
-    out.flatMap((g) => g.members.map((m) => String(m.id))),
-  );
+  const students = await access.db
+    .select({
+      githubId: classMembers.githubId,
+      login: classMembers.login,
+      avatarUrl: classMembers.avatarUrl,
+    })
+    .from(classMembers)
+    .where(
+      and(
+        eq(classMembers.classId, access.cls.id),
+        eq(classMembers.state, "active"),
+      ),
+    );
+  const users = await linkedUsers(access.db, [
+    ...new Set([
+      ...out.flatMap((g) => g.members.map((m) => String(m.id))),
+      ...students.map((s) => s.githubId),
+    ]),
+  ]);
   return c.json({
     groups: out,
     users,
+    students,
     attachedIds: attached.map((a) => a.groupId),
   });
 });
