@@ -1,4 +1,4 @@
-import { LogOut, Unlink } from "lucide-react";
+import { LogOut, Monitor, Moon, Sun, Unlink } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { GithubIdentity } from "~/components/custom/identity/github-identity";
 import { UserIdentity } from "~/components/custom/identity/user-identity";
@@ -8,10 +8,14 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
 import { useAuth } from "~/contexts/auth-context";
+import { useTheme } from "~/contexts/theme-context";
+import type { Theme } from "~/lib/theme";
 
 /**
  * The top-right account control, keyed on the edu-ID (SWITCH) identity. Wraps
@@ -25,6 +29,7 @@ import { useAuth } from "~/contexts/auth-context";
  */
 export function SwitchIdentity() {
   const { user, affiliations, github, signOut, unlinkGithub } = useAuth();
+  const { theme, setTheme } = useTheme();
   const [open, setOpen] = useState(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -99,6 +104,27 @@ export function SwitchIdentity() {
             Unlink GitHub
           </DropdownMenuItem>
         )}
+        <DropdownMenuSeparator />
+        <Stack gap="none" className="px-1.5 pt-1.5">
+          <Text variant="overline">Theme</Text>
+        </Stack>
+        <DropdownMenuRadioGroup
+          value={theme}
+          onValueChange={(value) => setTheme(value as Theme)}
+        >
+          <DropdownMenuRadioItem value="light" closeOnClick={false}>
+            <Sun />
+            Light
+          </DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="dark" closeOnClick={false}>
+            <Moon />
+            Dark
+          </DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="system" closeOnClick={false}>
+            <Monitor />
+            System
+          </DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => signOut()}>
           <LogOut />

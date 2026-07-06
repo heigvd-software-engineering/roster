@@ -88,13 +88,15 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
-/* Dark palette is deliberately dormant — no toggle wires `.dark` yet. Keep it
-   in sync with `:root` if you touch tokens, but don't build partial dark-mode
-   support (e.g. a toggle) around it until that's actually planned. */
+/* Dark palette — applied by the inline script in root.tsx, which toggles
+   `.dark` on <html> from the OS `prefers-color-scheme`. No in-app toggle;
+   keep this block in sync with `:root` whenever tokens change. */
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
+  /* Closer to the background than shadcn's 0.205 default — flat cards sit
+     just above the paper, they don't glow. */
+  --card: oklch(0.17 0 0);
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
@@ -107,6 +109,8 @@
   --accent: oklch(0.269 0 0);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
+  /* Brand red lifted for dark grounds — the :root value muddies on near-black. */
+  --brand: oklch(0.62 0.2 27);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
