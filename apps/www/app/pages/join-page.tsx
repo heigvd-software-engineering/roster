@@ -1,7 +1,7 @@
 import { ArrowRightIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
-import { useParams } from "react-router";
+import { Link, useParams } from "react-router";
 import { OrgIdentity } from "~/components/custom/identity/org-identity";
 import { UserIdentity } from "~/components/custom/identity/user-identity";
 import { Row } from "~/components/custom/layout/row";
@@ -211,13 +211,24 @@ export function JoinPage() {
           </Row>
         </>
       ) : isOwner ? (
-        <Text variant="subtitle" className="max-w-md">
-          You're an owner of this organization — this join link is for students.
-        </Text>
+        <>
+          <Text variant="subtitle" className="max-w-md">
+            You're an owner of this organization — this join link is for
+            students.
+          </Text>
+          <Button size="lg" render={<Link to="/classes" />}>
+            Go to your classes
+          </Button>
+        </>
       ) : (
-        <Text variant="subtitle" className="max-w-md">
-          You're enrolled in {className}.
-        </Text>
+        <>
+          <Text variant="subtitle" className="max-w-md">
+            You're enrolled in {className}.
+          </Text>
+          <Button size="lg" render={<Link to="/classes" />}>
+            Go to your classes
+          </Button>
+        </>
       )}
     </Shell>
   );

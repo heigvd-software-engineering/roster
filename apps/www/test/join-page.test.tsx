@@ -7,6 +7,15 @@ const joinPost = vi.fn();
 
 vi.mock("react-router", () => ({
   useParams: () => ({ token: "tok123" }),
+  Link: ({
+    to,
+    children,
+    ...props
+  }: React.PropsWithChildren<{ to: string }>) => (
+    <a href={to} {...props}>
+      {children}
+    </a>
+  ),
 }));
 
 vi.mock("~/lib/api", () => ({
@@ -96,6 +105,10 @@ describe("JoinPage", () => {
     expect(
       await screen.findByText("You're enrolled in Acme."),
     ).toBeInTheDocument();
+    // The state is terminal here — offer the way onward.
+    expect(
+      screen.getByRole("link", { name: "Go to your classes" }),
+    ).toHaveAttribute("href", "/classes");
   });
 
   it("shows which GitHub account the page is acting as", async () => {
@@ -115,6 +128,9 @@ describe("JoinPage", () => {
     expect(
       screen.queryByText("You're enrolled in Acme."),
     ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Go to your classes" }),
+    ).toHaveAttribute("href", "/classes");
   });
 
   it("an unexpected membership value shows the error state, not enrolled", async () => {
