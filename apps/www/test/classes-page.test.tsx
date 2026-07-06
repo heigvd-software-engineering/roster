@@ -1,4 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { render as rtlRender, screen } from "@testing-library/react";
+import type { ReactElement } from "react";
+import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 import { useApi } from "~/lib/api";
 import { ClassesPage } from "~/pages/classes-page";
@@ -13,6 +15,10 @@ vi.mock("~/lib/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("~/lib/api")>();
   return { ...actual, useApi: vi.fn() };
 });
+
+// Cards link into the class detail page, so a router must be present.
+const render = (ui: ReactElement) =>
+  rtlRender(<MemoryRouter>{ui}</MemoryRouter>);
 
 describe("ClassesPage", () => {
   it("shows the connect action and lists classes under their semester", () => {
@@ -59,6 +65,15 @@ describe("ClassesPage", () => {
             name: "Beta",
             avatarUrl: "",
             state: "active",
+            teachers: [
+              {
+                classId: "c2",
+                githubId: "111",
+                login: "prof",
+                avatarUrl: null,
+                user: null,
+              },
+            ],
             labs: [
               {
                 id: "l1",
@@ -82,11 +97,14 @@ describe("ClassesPage", () => {
 
     expect(screen.getByText("Beta")).toBeInTheDocument();
     expect(screen.getByText("enrolled")).toBeInTheDocument();
+    // The class's teachers ride the cache into the people popover chip.
+    expect(screen.getByText("1 teacher")).toBeInTheDocument();
     expect(
       screen.getByText("Spring 2026 · 1 class · 1 lab"),
     ).toBeInTheDocument();
     expect(screen.getByText("Lab 1 — Sockets")).toBeInTheDocument();
-    // Read-only: no teacher actions, and the lab row is not a link.
+    // Read-only: no teacher actions. Lab rows DO link — students accept
+    // their labs on the lab page.
     expect(
       screen.queryByRole("button", { name: "Copy join link" }),
     ).not.toBeInTheDocument();
@@ -94,8 +112,8 @@ describe("ClassesPage", () => {
       screen.queryByRole("button", { name: "+ New lab" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("link", { name: /Lab 1 — Sockets/ }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("link", { name: /Lab 1 — Sockets/ }),
+    ).toHaveAttribute("href", "/classes/c2/labs/l1");
   });
 
   it("marks a pending invitation distinctly", () => {
@@ -110,6 +128,7 @@ describe("ClassesPage", () => {
             name: null,
             avatarUrl: null,
             state: "pending",
+            teachers: [],
             labs: [],
           },
         ],

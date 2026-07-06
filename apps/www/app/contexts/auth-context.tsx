@@ -68,7 +68,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await mutate();
       },
       linkGithub: (callbackURL = "/") => {
-        authLinkSocial({ provider: "github", callbackURL });
+        authLinkSocial({
+          provider: "github",
+          callbackURL,
+          // A failed link (e.g. a brand-new GitHub account whose email isn't
+          // verified yet → "Unable to get user info") lands back on the
+          // onboarding page with a friendly retry, not Better Auth's raw
+          // /api/auth/error page.
+          errorCallbackURL: `/onboarding/github?error=link_failed&returnTo=${encodeURIComponent(callbackURL)}`,
+        });
       },
       unlinkGithub: async () => {
         await unlinkAccount({ providerId: "github" });

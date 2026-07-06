@@ -124,7 +124,11 @@ export function JoinPage() {
     return (
       <Shell title="Something went wrong">
         <Text variant="error">Couldn't load this join link.</Text>
-        <Button size="lg" onClick={() => void load()}>
+        <Button
+          size="lg"
+          title="Try loading this join link again"
+          onClick={() => void load()}
+        >
           Retry
         </Button>
       </Shell>
@@ -182,7 +186,12 @@ export function JoinPage() {
             You've been invited to join this class. Joining makes you a member
             of its GitHub organization.
           </Text>
-          <Button size="lg" disabled={submitting} onClick={() => join(cls)}>
+          <Button
+            size="lg"
+            disabled={submitting}
+            title="Request to join — you'll get a GitHub organization invitation"
+            onClick={() => join(cls)}
+          >
             Join class
           </Button>
         </>
@@ -195,6 +204,7 @@ export function JoinPage() {
           <Row gap="sm" wrap>
             <Button
               size="lg"
+              title="Opens your invitation on GitHub in a new tab"
               render={
                 <a
                   href={`https://github.com/orgs/${cls.login}/invitation`}
@@ -205,7 +215,12 @@ export function JoinPage() {
             >
               Open the invitation on GitHub
             </Button>
-            <Button size="lg" variant="outline" onClick={() => void load()}>
+            <Button
+              size="lg"
+              variant="outline"
+              title="Re-check whether your invitation is accepted"
+              onClick={() => void load()}
+            >
               Check my enrollment
             </Button>
           </Row>
@@ -216,7 +231,11 @@ export function JoinPage() {
             You're an owner of this organization — this join link is for
             students.
           </Text>
-          <Button size="lg" render={<Link to="/classes" />}>
+          <Button
+            size="lg"
+            title="Open your class list"
+            render={<Link to="/classes" />}
+          >
             Go to your classes
           </Button>
         </>
@@ -225,7 +244,11 @@ export function JoinPage() {
           <Text variant="subtitle" className="max-w-md">
             You're enrolled in {className}.
           </Text>
-          <Button size="lg" render={<Link to="/classes" />}>
+          <Button
+            size="lg"
+            title="Open your class list"
+            render={<Link to="/classes" />}
+          >
             Go to your classes
           </Button>
         </>

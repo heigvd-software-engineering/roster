@@ -53,7 +53,13 @@ export function NewClassDialog({
   return (
     <Dialog>
       {variant === "button" ? (
-        <DialogTrigger render={<Button />}>New class</DialogTrigger>
+        <DialogTrigger
+          render={
+            <Button title="Connect a GitHub organization as a new class" />
+          }
+        >
+          New class
+        </DialogTrigger>
       ) : (
         <DialogTrigger
           render={
@@ -123,7 +129,10 @@ export function NewClassDialog({
           </Stack>
         </Stack>
         <DialogFooter>
-          <Button render={<a href={githubAppInstallUrl} />}>
+          <Button
+            title="Opens GitHub to pick the organization and install the labs App"
+            render={<a href={githubAppInstallUrl} />}
+          >
             Connect an organization
           </Button>
         </DialogFooter>

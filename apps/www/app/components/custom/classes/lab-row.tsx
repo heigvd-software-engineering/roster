@@ -4,7 +4,7 @@ import {
   isDeadlineUrgent,
 } from "~/components/custom/classes/deadline-text";
 import type { LabItem } from "~/lib/api";
-import { formatDeadline } from "~/lib/format";
+import { formatDeadline, labModeLabel } from "~/lib/format";
 import { cn } from "~/lib/utils";
 
 /** One shared column template so the header and every row stay aligned:
@@ -31,21 +31,19 @@ export function LabsHeader() {
 }
 
 /** One lab row: title · mode · due (exact moment + urgency-colored countdown)
- *  · progress. For teachers it links to the lab management page (the app's
- *  drill-down unit); `linked={false}` renders the same row inert — the
- *  student side has no lab page until accept lands (F8). Progress shows `—`
- *  until then too. */
+ *  · progress. Links to the lab page — the drill-down unit for BOTH roles
+ *  (teachers manage, students attach their groups there). Progress shows `—`
+ *  until acceptance repos exist (F8). `action` (e.g. the teacher's edit
+ *  pencil) overlays the row's right edge, OUTSIDE the link — a button may
+ *  not nest in an anchor. */
 export function LabRow({
   lab,
-  linked = true,
+  action,
 }: {
   lab: LabItem;
-  linked?: boolean;
+  action?: React.ReactNode;
 }) {
-  const mode =
-    lab.groupMode === "individual"
-      ? "individual"
-      : `group ${lab.minMembers}–${lab.maxMembers}`;
+  const mode = labModeLabel(lab);
   const deadline = new Date(lab.deadline);
   const urgent = isDeadlineUrgent(deadline);
   const cells = (
@@ -75,17 +73,28 @@ export function LabRow({
       <span className="font-mono text-muted-foreground text-xs">—</span>
     </>
   );
-  const row = cn(LAB_GRID, "border-border border-b py-2.5");
 
-  if (!linked) {
-    return <div className={row}>{cells}</div>;
-  }
-  return (
+  const row = (
     <Link
       to={`/classes/${lab.classId}/labs/${lab.id}`}
-      className={cn(row, "transition-colors hover:bg-muted/60")}
+      className={cn(
+        LAB_GRID,
+        "border-border border-b py-2.5 transition-colors hover:bg-muted/60",
+        action && "pr-14",
+      )}
     >
       {cells}
     </Link>
+  );
+  if (!action) {
+    return row;
+  }
+  return (
+    <div className="relative">
+      {row}
+      <div className="absolute inset-y-0 right-4 flex items-center">
+        {action}
+      </div>
+    </div>
   );
 }

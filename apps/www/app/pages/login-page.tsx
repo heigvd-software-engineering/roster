@@ -13,7 +13,11 @@ export function LoginPage() {
       <Text variant="subtitle" className="max-w-md">
         Course labs, on your own GitHub.
       </Text>
-      <Button size="lg" onClick={() => signIn()}>
+      <Button
+        size="lg"
+        title="Sign in with your SWITCH edu-ID account"
+        onClick={() => signIn()}
+      >
         Sign in with SWITCH edu-ID
       </Button>
     </Stack>

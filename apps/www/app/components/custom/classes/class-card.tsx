@@ -79,6 +79,7 @@ export function ClassCard({
         <Row gap="sm" wrap>
           <PeopleChip
             label={peopleLabel(students.length, "student", pending.length)}
+            title="Show the enrolled students and their GitHub accounts"
             emptyText="No students yet — share the join link."
             people={[
               ...students.map((p) => withUser(p)),
@@ -88,6 +89,7 @@ export function ClassCard({
           <span className="font-mono text-muted-foreground/60 text-xs">·</span>
           <PeopleChip
             label={peopleLabel(teachers.length, "teacher", 0)}
+            title="Show the class's teachers"
             emptyText="No teachers found."
             people={teachers.map((p) => withUser(p))}
           />
@@ -120,7 +122,11 @@ export function ClassCard({
             <>
               <LabsHeader />
               {labs.map((lab) => (
-                <LabRow key={lab.id} lab={lab} />
+                <LabRow
+                  key={lab.id}
+                  lab={lab}
+                  action={<NewLabDialog classId={id} lab={lab} />}
+                />
               ))}
             </>
           )}

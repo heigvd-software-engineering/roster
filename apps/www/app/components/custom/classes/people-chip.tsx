@@ -16,6 +16,7 @@ import {
   TableRow,
 } from "~/components/ui/table";
 import type { ClassItem } from "~/lib/api";
+import { switchDisplayName } from "~/lib/format";
 
 // Derived from the inferred /api/classes response — no hand-modeled shapes.
 type Member = ClassItem["students"][number];
@@ -27,6 +28,8 @@ type PeopleChipProps = {
   /** Org members, each correlated (by the caller) with their labs user. */
   people: Array<Member & { user: LinkedUser | null; pending?: boolean }>;
   emptyText: string;
+  /** Tooltip explaining what the popover will show. */
+  title?: string;
 };
 
 /**
@@ -36,10 +39,18 @@ type PeopleChipProps = {
  * linked to the profile. Org members whose GitHub account isn't linked to a
  * labs user yet read "not linked".
  */
-export function PeopleChip({ label, people, emptyText }: PeopleChipProps) {
+export function PeopleChip({
+  label,
+  people,
+  emptyText,
+  title = "Show the people list",
+}: PeopleChipProps) {
   return (
     <Popover>
-      <PopoverTrigger className="cursor-pointer font-mono text-muted-foreground text-xs tabular-nums transition-colors hover:text-foreground">
+      <PopoverTrigger
+        title={title}
+        className="cursor-pointer font-mono text-muted-foreground text-xs tabular-nums transition-colors hover:text-foreground"
+      >
         {label}
       </PopoverTrigger>
       <PopoverContent align="start" className="w-96 p-2">
@@ -64,11 +75,7 @@ export function PeopleChip({ label, people, emptyText }: PeopleChipProps) {
                   <TableCell>
                     {p.user ? (
                       <UserIdentity
-                        name={
-                          p.user.firstName && p.user.lastName
-                            ? `${p.user.firstName} ${p.user.lastName}`
-                            : p.user.name
-                        }
+                        name={switchDisplayName(p.user)}
                         subtitle={p.user.email}
                       />
                     ) : (

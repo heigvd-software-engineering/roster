@@ -1,4 +1,5 @@
 import { LabRow, LabsHeader } from "~/components/custom/classes/lab-row";
+import { PeopleChip } from "~/components/custom/classes/people-chip";
 import { RoleChip, roleSpine } from "~/components/custom/classes/role-marker";
 import { OrgIdentity } from "~/components/custom/identity/org-identity";
 import { Row } from "~/components/custom/layout/row";
@@ -45,6 +46,21 @@ export function EnrolledClassCard({ cls }: { cls: EnrolledClassItem }) {
           identity
         )}
         <Row gap="sm">
+          {/* The class's teachers, from the enrollment cache — the same
+              popover the teaching card uses for its people. */}
+          {cls.teachers.length > 0 ? (
+            <PeopleChip
+              label={`${cls.teachers.length} teacher${cls.teachers.length === 1 ? "" : "s"}`}
+              title="Show the class's teachers"
+              emptyText="No teachers found."
+              people={cls.teachers.map((t) => ({
+                id: Number(t.githubId),
+                login: t.login ?? "unknown",
+                avatarUrl: t.avatarUrl,
+                user: t.user,
+              }))}
+            />
+          ) : null}
           {/* State (urgency red) stays separate from role (identity teal). */}
           {cls.state === "pending" ? (
             <span className="font-mono text-brand text-xs">
@@ -58,7 +74,7 @@ export function EnrolledClassCard({ cls }: { cls: EnrolledClassItem }) {
       <div className="w-full overflow-x-auto border-border border-t">
         {/* No add-row below the table here, so the last row's hairline would
             double up with the card edge — drop it. */}
-        <div className="min-w-[660px] [&>div:last-child]:border-b-0">
+        <div className="min-w-[660px] [&>a:last-child]:border-b-0">
           {cls.labs.length === 0 ? (
             <Text variant="body2" className="px-5 py-3">
               No labs yet.
@@ -67,7 +83,7 @@ export function EnrolledClassCard({ cls }: { cls: EnrolledClassItem }) {
             <>
               <LabsHeader />
               {cls.labs.map((lab) => (
-                <LabRow key={lab.id} lab={lab} linked={false} />
+                <LabRow key={lab.id} lab={lab} />
               ))}
             </>
           )}

@@ -63,6 +63,7 @@ export function SwitchIdentity() {
     <DropdownMenu open={open} onOpenChange={setOpen} modal={false}>
       <DropdownMenuTrigger
         aria-label="Account menu"
+        title="Account menu — emails, GitHub link, theme, sign out"
         className="rounded-md px-2 py-1 text-left outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
         onMouseEnter={openNow}
         onMouseLeave={closeSoon}
