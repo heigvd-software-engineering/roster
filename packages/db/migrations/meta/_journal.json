@@ -36,6 +36,13 @@
       "when": 1783088456970,
       "tag": "0004_labs_table",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1783340022265,
+      "tag": "0005_class_members_and_org_cache",
+      "breakpoints": true
     }
   ]
 }

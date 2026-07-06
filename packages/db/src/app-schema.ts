@@ -1,7 +1,7 @@
 // App-domain tables — HAND-OWNED. Add new feature tables here (labs, groups,
 // student_lab_repos, …); never in auth-schema.ts, which the Better Auth CLI
 // overwrites on regeneration.
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { integer, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
 import { user } from "./auth-schema";
 
 /** A connected class = a thin anchor to a GitHub org App installation (F3). */
@@ -21,6 +21,12 @@ export const classes = sqliteTable("classes", {
   status: text("status", { enum: ["active", "archived"] })
     .notNull()
     .default("active"),
+  // Org identity cache so the STUDENT class list is a pure DB read (zero
+  // GitHub calls) — refreshed whenever a teacher path fetches orgInfo live
+  // (data-model spec §2). Nullable: backfilled on the next teacher visit.
+  login: text("login"),
+  name: text("name"),
+  avatarUrl: text("avatar_url"),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
@@ -47,3 +53,28 @@ export const labs = sqliteTable("labs", {
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
+
+/**
+ * Enrollment DISPLAY CACHE (data-model spec §2) — a cache of what GitHub
+ * owns (org membership), written where the app already observes it (join
+ * flow, the teacher hub's roster fetch) and lazily repaired. INVARIANT:
+ * never used to authorize anything — a stale row may show a dead class
+ * card; it must never grant access.
+ */
+export const classMembers = sqliteTable(
+  "class_members",
+  {
+    id: text("id").primaryKey(),
+    classId: text("class_id")
+      .notNull()
+      .references(() => classes.id),
+    // GitHub USER account id (matches `account.accountId`) — webhook/API
+    // payloads and orgPeople carry GitHub ids, not app user ids; resolve to
+    // an app user via the `account` table, never store a userId here.
+    githubId: text("github_id").notNull(),
+    state: text("state", { enum: ["pending", "active"] }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+  },
+  (t) => [unique().on(t.classId, t.githubId)],
+);
