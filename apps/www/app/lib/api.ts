@@ -20,6 +20,12 @@ export type ClassItem = InferResponseType<
   200
 >["classes"][number];
 export type LabItem = ClassItem["labs"][number];
+/** A class the caller is ENROLLED in (student side) — served entirely from
+ *  the DB caches; carries no join token, people, or teacher-only fields. */
+export type EnrolledClassItem = InferResponseType<
+  typeof api.api.classes.$get,
+  200
+>["enrolled"][number];
 
 /**
  * Generic typed GET hook (SWR-backed). Pass an hc endpoint node (e.g.

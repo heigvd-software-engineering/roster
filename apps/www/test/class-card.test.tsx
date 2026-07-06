@@ -66,6 +66,11 @@ describe("ClassCard org identity", () => {
       "https://github.com/acme",
     );
   });
+
+  it("carries the teaching role chip", () => {
+    renderCard();
+    expect(screen.getByText("teaching")).toBeInTheDocument();
+  });
 });
 
 describe("ClassCard copy join link", () => {

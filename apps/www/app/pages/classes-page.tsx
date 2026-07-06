@@ -1,36 +1,52 @@
 import { ClassCard } from "~/components/custom/classes/class-card";
+import { EnrolledClassCard } from "~/components/custom/classes/enrolled-class-card";
 import { NewClassDialog } from "~/components/custom/classes/new-class-dialog";
 import { Page } from "~/components/custom/layout/page";
 import { Row } from "~/components/custom/layout/row";
 import { Stack } from "~/components/custom/layout/stack";
 import { Loading } from "~/components/custom/loading";
 import { Text } from "~/components/custom/typography/text";
-import { api, type ClassItem, useApi } from "~/lib/api";
+import { api, type ClassItem, type EnrolledClassItem, useApi } from "~/lib/api";
 import { semesterLabel, semesterOf } from "~/lib/semester";
 
 function count(n: number, singular: string, plural: string) {
   return `${n} ${n === 1 ? singular : plural}`;
 }
 
-/** Classes bucketed by the semester they were created in. The API returns
- *  them newest-first, so first-appearance order = newest semester first —
- *  a Map preserves it. */
-function groupBySemester(classes: ClassItem[]) {
-  const groups = new Map<string, ClassItem[]>();
-  for (const cls of classes) {
-    const label = semesterLabel(semesterOf(new Date(cls.createdAt)));
+/** One hub entry — a class the caller teaches or one they're enrolled in.
+ *  Both carry createdAt + labs, which is all grouping needs. */
+type Entry =
+  | { kind: "teaching"; cls: ClassItem }
+  | { kind: "enrolled"; cls: EnrolledClassItem };
+
+/** All entries bucketed by the semester they were created in, newest
+ *  semester first, newest class first within each. */
+function groupBySemester(entries: Entry[]) {
+  const sorted = [...entries].sort(
+    (a, b) =>
+      new Date(b.cls.createdAt).getTime() - new Date(a.cls.createdAt).getTime(),
+  );
+  const groups = new Map<string, Entry[]>();
+  for (const entry of sorted) {
+    const label = semesterLabel(semesterOf(new Date(entry.cls.createdAt)));
     const group = groups.get(label) ?? [];
-    group.push(cls);
+    group.push(entry);
     groups.set(label, group);
   }
   return [...groups.entries()];
 }
 
-/** The teacher hub: connect orgs + the live list of connected classes,
- *  grouped by semester. */
+/** The hub: classes the caller teaches (live, with actions) and classes
+ *  they're enrolled in (read-only, from the enrollment cache), together
+ *  under semester headings. */
 export function ClassesPage() {
   const { data, isLoading, error } = useApi(api.api.classes);
-  const classes = data?.classes ?? [];
+  const entries: Entry[] = [
+    ...(data?.classes ?? []).map((cls) => ({ kind: "teaching", cls }) as const),
+    ...(data?.enrolled ?? []).map(
+      (cls) => ({ kind: "enrolled", cls }) as const,
+    ),
+  ];
 
   return (
     <Page>
@@ -46,18 +62,22 @@ export function ClassesPage() {
             </Text>
           ) : (
             <>
-              {groupBySemester(classes).map(([label, group]) => (
+              {groupBySemester(entries).map(([label, group]) => (
                 <Stack key={label} gap="md" className="w-full">
                   <Text variant="overline">
                     {`${label} · ${count(group.length, "class", "classes")} · ${count(
-                      group.reduce((sum, cls) => sum + cls.labs.length, 0),
+                      group.reduce((sum, e) => sum + e.cls.labs.length, 0),
                       "lab",
                       "labs",
                     )}`}
                   </Text>
-                  {group.map((cls) => (
-                    <ClassCard key={cls.id} {...cls} />
-                  ))}
+                  {group.map((entry) =>
+                    entry.kind === "teaching" ? (
+                      <ClassCard key={entry.cls.id} {...entry.cls} />
+                    ) : (
+                      <EnrolledClassCard key={entry.cls.id} cls={entry.cls} />
+                    ),
+                  )}
                 </Stack>
               ))}
               {/* Doubles as the empty state: with zero classes it's the only

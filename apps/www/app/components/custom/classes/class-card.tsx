@@ -3,12 +3,14 @@ import { useEffect, useRef, useState } from "react";
 import { LabRow, LabsHeader } from "~/components/custom/classes/lab-row";
 import { NewLabDialog } from "~/components/custom/classes/new-lab-dialog";
 import { PeopleChip } from "~/components/custom/classes/people-chip";
+import { RoleChip, roleSpine } from "~/components/custom/classes/role-marker";
 import { OrgIdentity } from "~/components/custom/identity/org-identity";
 import { Row } from "~/components/custom/layout/row";
 import { Text } from "~/components/custom/typography/text";
 import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
 import type { ClassItem } from "~/lib/api";
+import { cn } from "~/lib/utils";
 
 function peopleLabel(count: number, noun: string, pendingCount: number) {
   const base = `${count} ${noun}${count === 1 ? "" : "s"}`;
@@ -54,7 +56,12 @@ export function ClassCard({
     copyResetTimer.current = setTimeout(() => setCopied(false), 2000);
   }
   return (
-    <Card className="w-full gap-0 py-0 transition-shadow hover:ring-foreground/20">
+    <Card
+      className={cn(
+        "w-full gap-0 py-0 transition-shadow hover:ring-foreground/20",
+        roleSpine("teaching"),
+      )}
+    >
       <Row justify="between" wrap className="px-5 py-4">
         <a
           href={`https://github.com/${login}`}
@@ -98,6 +105,7 @@ export function ClassCard({
               <Link2 className="size-4 text-muted-foreground" />
             )}
           </Button>
+          <RoleChip kind="teaching" />
         </Row>
       </Row>
 

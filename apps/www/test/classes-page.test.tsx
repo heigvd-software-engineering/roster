@@ -47,6 +47,81 @@ describe("ClassesPage", () => {
     ).toBeInTheDocument();
   });
 
+  it("renders enrolled classes read-only under their semester", () => {
+    vi.mocked(useApi).mockReturnValue({
+      data: {
+        classes: [],
+        enrolled: [
+          {
+            id: "c2",
+            createdAt: "2026-03-10T00:00:00.000Z",
+            login: "beta",
+            name: "Beta",
+            avatarUrl: "",
+            state: "active",
+            labs: [
+              {
+                id: "l1",
+                classId: "c2",
+                title: "Lab 1 — Sockets",
+                deadline: "2099-08-01T23:59:00.000Z",
+                groupMode: "individual",
+                minMembers: null,
+                maxMembers: null,
+                createdByUserId: "u9",
+                createdAt: "2026-03-10T00:00:00.000Z",
+                updatedAt: "2026-03-10T00:00:00.000Z",
+              },
+            ],
+          },
+        ],
+      },
+    } as unknown as ReturnType<typeof useApi>);
+
+    render(<ClassesPage />);
+
+    expect(screen.getByText("Beta")).toBeInTheDocument();
+    expect(screen.getByText("enrolled")).toBeInTheDocument();
+    expect(
+      screen.getByText("Spring 2026 · 1 class · 1 lab"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Lab 1 — Sockets")).toBeInTheDocument();
+    // Read-only: no teacher actions, and the lab row is not a link.
+    expect(
+      screen.queryByRole("button", { name: "Copy join link" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "+ New lab" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /Lab 1 — Sockets/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("marks a pending invitation distinctly", () => {
+    vi.mocked(useApi).mockReturnValue({
+      data: {
+        classes: [],
+        enrolled: [
+          {
+            id: "c3",
+            createdAt: "2026-03-10T00:00:00.000Z",
+            login: "gamma",
+            name: null,
+            avatarUrl: null,
+            state: "pending",
+            labs: [],
+          },
+        ],
+      },
+    } as unknown as ReturnType<typeof useApi>);
+
+    render(<ClassesPage />);
+
+    expect(screen.getByText("invitation pending")).toBeInTheDocument();
+    expect(screen.getByText("No labs yet.")).toBeInTheDocument();
+  });
+
   it("shows the ghost connect card as the empty state", () => {
     vi.mocked(useApi).mockReturnValue({
       data: { classes: [] },

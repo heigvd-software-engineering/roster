@@ -11,6 +11,8 @@
   --font-sans: "Geist Variable", sans-serif;
   --font-mono: "Geist Mono Variable", ui-monospace, monospace;
   --color-brand: var(--brand);
+  --color-role-teaching: var(--role-teaching);
+  --color-role-enrolled: var(--role-enrolled);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -78,6 +80,10 @@
   /* Lowered from shadcn's 0.625rem default — sharper corners, Swiss look. */
   --radius: 0.375rem;
   --brand: oklch(0.55 0.22 27);
+  /* Role identity hues (class cards: spine + chip). Deliberately NOT red —
+     brand red stays reserved for urgency. */
+  --role-teaching: oklch(0.51 0.19 276);
+  --role-enrolled: oklch(0.6 0.12 185);
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -111,6 +117,9 @@
   --destructive: oklch(0.704 0.191 22.216);
   /* Brand red lifted for dark grounds — the :root value muddies on near-black. */
   --brand: oklch(0.62 0.2 27);
+  /* Role hues lifted for dark grounds too. */
+  --role-teaching: oklch(0.67 0.18 277);
+  --role-enrolled: oklch(0.75 0.13 182);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);

@@ -31,24 +31,25 @@ export function LabsHeader() {
 }
 
 /** One lab row: title · mode · due (exact moment + urgency-colored countdown)
- *  · progress. Links to the lab detail page (the app's drill-down unit).
- *  Progress shows `—` until acceptance exists (F8). */
-export function LabRow({ lab }: { lab: LabItem }) {
+ *  · progress. For teachers it links to the lab management page (the app's
+ *  drill-down unit); `linked={false}` renders the same row inert — the
+ *  student side has no lab page until accept lands (F8). Progress shows `—`
+ *  until then too. */
+export function LabRow({
+  lab,
+  linked = true,
+}: {
+  lab: LabItem;
+  linked?: boolean;
+}) {
   const mode =
     lab.groupMode === "individual"
       ? "individual"
       : `group ${lab.minMembers}–${lab.maxMembers}`;
   const deadline = new Date(lab.deadline);
   const urgent = isDeadlineUrgent(deadline);
-
-  return (
-    <Link
-      to={`/classes/${lab.classId}/labs/${lab.id}`}
-      className={cn(
-        LAB_GRID,
-        "border-border border-b py-2.5 transition-colors hover:bg-muted/60",
-      )}
-    >
+  const cells = (
+    <>
       <span className="truncate font-medium text-sm">{lab.title}</span>
       <span className="font-mono text-muted-foreground text-xs">{mode}</span>
       {/* Urgent deadlines light up the whole cell — date included. */}
@@ -72,6 +73,19 @@ export function LabRow({ lab }: { lab: LabItem }) {
         <DeadlineText deadline={deadline} />
       </span>
       <span className="font-mono text-muted-foreground text-xs">—</span>
+    </>
+  );
+  const row = cn(LAB_GRID, "border-border border-b py-2.5");
+
+  if (!linked) {
+    return <div className={row}>{cells}</div>;
+  }
+  return (
+    <Link
+      to={`/classes/${lab.classId}/labs/${lab.id}`}
+      className={cn(row, "transition-colors hover:bg-muted/60")}
+    >
+      {cells}
     </Link>
   );
 }
