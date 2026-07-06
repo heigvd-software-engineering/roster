@@ -30,23 +30,16 @@ type PeopleChipProps = {
 };
 
 /**
- * A class-card state chip that opens the live people list as a two-column
- * table: the SWITCH identity (THE identity inside the app — GitHub is
- * secondary) and the GitHub login, linked to the profile. Org members whose
- * GitHub account isn't linked to a labs user yet read "not linked".
+ * A quiet mono stat in the class-card header (people as data, not buttons)
+ * that opens the live people list as a two-column table: the SWITCH identity
+ * (THE identity inside the app — GitHub is secondary) and the GitHub login,
+ * linked to the profile. Org members whose GitHub account isn't linked to a
+ * labs user yet read "not linked".
  */
 export function PeopleChip({ label, people, emptyText }: PeopleChipProps) {
   return (
     <Popover>
-      <PopoverTrigger
-        nativeButton={false}
-        render={
-          <Badge
-            variant="secondary"
-            className="cursor-pointer font-normal hover:bg-secondary/80"
-          />
-        }
-      >
+      <PopoverTrigger className="cursor-pointer font-mono text-muted-foreground text-xs tabular-nums transition-colors hover:text-foreground">
         {label}
       </PopoverTrigger>
       <PopoverContent align="start" className="w-96 p-2">

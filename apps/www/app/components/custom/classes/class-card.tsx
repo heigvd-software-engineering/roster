@@ -1,13 +1,13 @@
+import { Check, Link2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { LabRow } from "~/components/custom/classes/lab-row";
+import { LabRow, LabsHeader } from "~/components/custom/classes/lab-row";
 import { NewLabDialog } from "~/components/custom/classes/new-lab-dialog";
 import { PeopleChip } from "~/components/custom/classes/people-chip";
-import { UserAvatar } from "~/components/custom/identity/user-avatar";
-import { Panel } from "~/components/custom/layout/panel";
+import { OrgIdentity } from "~/components/custom/identity/org-identity";
 import { Row } from "~/components/custom/layout/row";
-import { Stack } from "~/components/custom/layout/stack";
 import { Text } from "~/components/custom/typography/text";
 import { Button } from "~/components/ui/button";
+import { Card } from "~/components/ui/card";
 import type { ClassItem } from "~/lib/api";
 
 function peopleLabel(count: number, noun: string, pendingCount: number) {
@@ -16,10 +16,10 @@ function peopleLabel(count: number, noun: string, pendingCount: number) {
 }
 
 /**
- * One connected class (GitHub org): identity + state + its labs — everything
- * live: people chips (F5b), join link (F4), labs list + New-lab dialog (F6).
- * Sits on the standard Panel surface; the white inset labs list reads as its
- * own level. Lab progress stays `—` until F8.
+ * One connected class (GitHub org) as a single flat surface: identity + people
+ * stats + join-link action in the masthead, then the labs table sectioned off
+ * by a hairline — no nested boxes. Everything live: people popovers (F5b),
+ * join link (F4), labs + New-lab ghost row (F6). Progress stays `—` until F8.
  */
 export function ClassCard({
   id,
@@ -54,23 +54,20 @@ export function ClassCard({
     copyResetTimer.current = setTimeout(() => setCopied(false), 2000);
   }
   return (
-    <Panel>
-      <Row justify="between" wrap>
+    <Card className="w-full gap-0 py-0 transition-shadow hover:ring-foreground/20">
+      <Row justify="between" wrap className="px-5 py-4">
         <a
           href={`https://github.com/${login}`}
           target="_blank"
           rel="noreferrer"
-          className="-m-2 rounded-md p-2 transition-colors hover:bg-background/60"
+          className="-m-2 rounded-md p-2 transition-colors hover:bg-muted/60"
         >
-          <Row gap="sm">
-            <UserAvatar name={name ?? login} src={avatarUrl} size="lg" />
-            <Stack gap="none">
-              <Text variant="body1" className="font-semibold">
-                {name ?? login}
-              </Text>
-              <Text variant="body2">@{login}</Text>
-            </Stack>
-          </Row>
+          <OrgIdentity
+            name={name ?? login}
+            login={login}
+            avatarUrl={avatarUrl}
+            size="lg"
+          />
         </a>
         <Row gap="sm" wrap>
           <PeopleChip
@@ -81,39 +78,47 @@ export function ClassCard({
               ...pending.map((p) => withUser(p, true)),
             ]}
           />
+          <span className="font-mono text-muted-foreground/60 text-xs">·</span>
           <PeopleChip
             label={peopleLabel(teachers.length, "teacher", 0)}
             emptyText="No teachers found."
             people={teachers.map((p) => withUser(p))}
           />
           <Button
-            variant="outline"
-            size="sm"
+            variant="ghost"
+            size="icon"
             type="button"
+            aria-label={copied ? "Copied" : "Copy join link"}
+            title={copied ? "Copied" : "Copy join link"}
             onClick={copyJoinLink}
           >
-            {copied ? "Copied ✓" : "Copy join link"}
+            {copied ? (
+              <Check className="size-4 text-brand" />
+            ) : (
+              <Link2 className="size-4 text-muted-foreground" />
+            )}
           </Button>
         </Row>
       </Row>
 
-      {/* The labs list — a white inset panel against the muted card. */}
-      <Stack
-        gap="none"
-        className="w-full rounded-lg border border-border bg-background px-4 py-1"
-      >
-        {labs.length === 0 ? (
-          <Text variant="body2" className="py-2">
-            No labs yet — add the first one.
-          </Text>
-        ) : (
-          labs.map((lab) => <LabRow key={lab.id} lab={lab} />)
-        )}
-      </Stack>
-
-      <Row>
-        <NewLabDialog classId={id} />
-      </Row>
-    </Panel>
+      {/* The labs table — sectioned off by a hairline, not a nested box. */}
+      <div className="w-full overflow-x-auto border-border border-t">
+        <div className="min-w-[660px]">
+          {labs.length === 0 ? (
+            <Text variant="body2" className="px-5 pt-3">
+              No labs yet — add the first one.
+            </Text>
+          ) : (
+            <>
+              <LabsHeader />
+              {labs.map((lab) => (
+                <LabRow key={lab.id} lab={lab} />
+              ))}
+            </>
+          )}
+          <NewLabDialog classId={id} />
+        </div>
+      </div>
+    </Card>
   );
 }

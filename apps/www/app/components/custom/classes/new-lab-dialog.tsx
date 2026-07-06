@@ -75,8 +75,17 @@ export function NewLabDialog({ classId }: { classId: string }) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button variant="outline" size="sm" />}>
-        + Add a lab
+      {/* Notion-style ghost row at the table's foot: the add action lives
+          where the added lab will appear. */}
+      <DialogTrigger
+        render={
+          <button
+            type="button"
+            className="flex w-full cursor-pointer items-center gap-2 px-5 py-2.5 text-left text-muted-foreground text-sm transition-colors hover:bg-muted/60 hover:text-foreground"
+          />
+        }
+      >
+        <span className="font-mono">+</span> New lab
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>

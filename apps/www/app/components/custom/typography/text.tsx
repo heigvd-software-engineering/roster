@@ -21,7 +21,7 @@ const VARIANT = {
     "font-mono text-xs uppercase tracking-[0.2em] text-muted-foreground",
   body1: "text-base text-foreground",
   body2: "text-sm text-muted-foreground",
-  heading: "text-2xl font-bold tracking-tight md:text-3xl",
+  heading: "text-2xl font-bold tracking-tight",
   label: "text-sm text-foreground",
   caption: "text-xs text-muted-foreground",
   error: "text-sm text-destructive",

@@ -1,5 +1,5 @@
 import { Link, useParams } from "react-router";
-import { DeadlineChip } from "~/components/custom/classes/deadline-chip";
+import { DeadlineText } from "~/components/custom/classes/deadline-text";
 import { Page } from "~/components/custom/layout/page";
 import { Panel } from "~/components/custom/layout/panel";
 import { Row } from "~/components/custom/layout/row";
@@ -52,7 +52,7 @@ export function LabPage() {
                   ? "individual"
                   : `group ${lab.minMembers}–${lab.maxMembers}`}
               </Badge>
-              <DeadlineChip deadline={new Date(lab.deadline)} />
+              <DeadlineText deadline={new Date(lab.deadline)} />
               <Text variant="body2" className="tabular-nums">
                 {formatDeadline(new Date(lab.deadline))}
               </Text>

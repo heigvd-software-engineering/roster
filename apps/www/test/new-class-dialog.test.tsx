@@ -10,7 +10,7 @@ vi.mock("~/contexts/auth-context", () => ({
 describe("NewClassDialog", () => {
   it("explains the model, then hands off to the install flow", async () => {
     render(<NewClassDialog />);
-    fireEvent.click(screen.getByRole("button", { name: "Create a new class" }));
+    fireEvent.click(screen.getByRole("button", { name: "New class" }));
 
     expect(
       await screen.findByText("Class = GitHub organization"),

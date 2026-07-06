@@ -15,13 +15,14 @@ vi.mock("~/lib/api", async (importOriginal) => {
 });
 
 describe("ClassesPage", () => {
-  it("shows the connect action and lists classes", () => {
+  it("shows the connect action and lists classes under their semester", () => {
     vi.mocked(useApi).mockReturnValue({
       data: {
         classes: [
           {
             id: "c1",
             orgId: 1,
+            createdAt: "2026-03-10T00:00:00.000Z",
             login: "acme",
             name: "Acme",
             avatarUrl: "",
@@ -38,11 +39,15 @@ describe("ClassesPage", () => {
 
     render(<ClassesPage />);
 
-    expect(screen.getByText("Create a new class")).toBeInTheDocument();
+    expect(screen.getByText("New class")).toBeInTheDocument();
     expect(screen.getByText("Acme")).toBeInTheDocument();
+    // March 2026 → the Spring 2026 semester group heading.
+    expect(
+      screen.getByText("Spring 2026 · 1 class · 0 labs"),
+    ).toBeInTheDocument();
   });
 
-  it("shows an empty state with no classes", () => {
+  it("shows the ghost connect card as the empty state", () => {
     vi.mocked(useApi).mockReturnValue({
       data: { classes: [] },
     } as unknown as ReturnType<typeof useApi>);
@@ -50,7 +55,7 @@ describe("ClassesPage", () => {
     render(<ClassesPage />);
 
     expect(
-      screen.getByText(/Connect a GitHub organization to start a class/),
+      screen.getByText("+ Connect a GitHub organization"),
     ).toBeInTheDocument();
   });
 

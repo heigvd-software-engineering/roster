@@ -35,6 +35,7 @@ function renderCard() {
       <ClassCard
         id="c1"
         orgId={42}
+        createdAt="2026-03-10T00:00:00.000Z"
         login="acme"
         name="Acme"
         avatarUrl="http://a"
@@ -79,7 +80,7 @@ describe("ClassCard copy join link", () => {
       `${window.location.origin}/join/tok123`,
     );
     expect(
-      await screen.findByRole("button", { name: "Copied ✓" }),
+      await screen.findByRole("button", { name: "Copied" }),
     ).toBeInTheDocument();
     vi.unstubAllGlobals();
   });
@@ -92,7 +93,7 @@ describe("ClassCard labs (F6)", () => {
     expect(screen.getByText("group 2–3")).toBeInTheDocument();
     expect(screen.getByText("—")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "+ Add a lab" }),
+      screen.getByRole("button", { name: "+ New lab" }),
     ).toBeInTheDocument();
   });
 

@@ -2,6 +2,7 @@ import { ArrowRightIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router";
+import { OrgIdentity } from "~/components/custom/identity/org-identity";
 import { UserIdentity } from "~/components/custom/identity/user-identity";
 import { Row } from "~/components/custom/layout/row";
 import { Stack } from "~/components/custom/layout/stack";
@@ -167,9 +168,9 @@ export function JoinPage() {
           rel="noreferrer"
           className="-m-2 rounded-md p-2 transition-colors hover:bg-muted"
         >
-          <UserIdentity
+          <OrgIdentity
             name={className}
-            subtitle={`@${cls.login}`}
+            login={cls.login}
             avatarUrl={cls.avatarUrl}
           />
         </a>

@@ -5,6 +5,7 @@
  */
 export const GAP = {
   none: "gap-0",
+  xs: "gap-1",
   sm: "gap-2",
   md: "gap-4",
   lg: "gap-6",
@@ -14,6 +15,7 @@ export type Gap = keyof typeof GAP;
 export const ALIGN = {
   start: "items-start",
   center: "items-center",
+  end: "items-end",
 } as const;
 export type Align = keyof typeof ALIGN;
 

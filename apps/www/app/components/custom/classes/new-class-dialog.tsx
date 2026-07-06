@@ -39,12 +39,38 @@ const MAPPING = [
  * (and the security change we make) BEFORE sending the teacher into the
  * GitHub App install flow — connecting an org otherwise reads as an obscure
  * technical step rather than "create a class".
+ *
+ * Two trigger surfaces: the page-header button (default) and a dashed ghost
+ * card that sits under the class list — and IS the empty state when there are
+ * no classes yet.
  */
-export function NewClassDialog() {
+export function NewClassDialog({
+  variant = "button",
+}: {
+  variant?: "button" | "card";
+}) {
   const { githubAppInstallUrl } = useAuth();
   return (
     <Dialog>
-      <DialogTrigger render={<Button />}>Create a new class</DialogTrigger>
+      {variant === "button" ? (
+        <DialogTrigger render={<Button />}>New class</DialogTrigger>
+      ) : (
+        <DialogTrigger
+          render={
+            <button
+              type="button"
+              className="group w-full cursor-pointer rounded-xl border-2 border-border border-dashed px-5 py-6 text-center transition-colors hover:border-muted-foreground/60"
+            />
+          }
+        >
+          <span className="block font-medium text-muted-foreground text-sm transition-colors group-hover:text-foreground">
+            + Connect a GitHub organization
+          </span>
+          <span className="block text-muted-foreground/80 text-xs">
+            Starts a new class from an organization you own
+          </span>
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Create a new class</DialogTitle>
