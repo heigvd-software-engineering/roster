@@ -1,21 +1,24 @@
 import { reactRouter } from "@react-router/dev/vite";
 import tailwindcss from "@tailwindcss/vite";
+import basicSsl from "@vitejs/plugin-basic-ssl";
 import { defineConfig } from "vite";
 
 export default defineConfig({
-  plugins: [tailwindcss(), reactRouter()],
+  plugins: [tailwindcss(), reactRouter(), basicSsl()],
   resolve: {
     tsconfigPaths: true,
   },
-  // Dev only: HMR app on :5173, but proxy /api to the running Worker (:3000)
-  // so auth + data work live. Session cookie is localhost-scoped, so it flows.
-  // (In production the Worker serves both from one origin — no proxy involved.)
+  // Dev only: Vite owns https://localhost:3000 (the origin SWITCH redirect
+  // URIs and cookies are registered for) so the SPA gets HMR, and /api is
+  // proxied to the Worker on :8788. In production the Worker serves both
+  // from one origin — no proxy involved.
   server: {
+    port: 3000,
+    strictPort: true,
     proxy: {
       "/api": {
-        target: "https://localhost:3000",
+        target: "http://localhost:8788",
         changeOrigin: true,
-        secure: false,
       },
     },
   },
