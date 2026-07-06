@@ -112,7 +112,7 @@ After green, the agent presents: the change summary + new test output; anything 
 | F4 | Class join link + student enrollment | `classes.joinToken` | [x] **DONE + live 🔴 walk PASSED** (2026-07-03) — spec/plan `2026-07-03-f4-join-enrollment*`; landing page → invite → native accept → check-enrollment; owner short-circuit; returnTo through onboarding (+ backslash open-redirect fix from final review). UNCOMMITTED on `milestone-3-enrollment`; remote D1 migration pending (needs wrangler auth). |
 | F5 | View class people (live Owners/Members) | none (read live) | **F5a (teacher access model) [x] DONE + live 🔴 PASSED** (2026-07-02, pulled ahead of F4): teacher = live org `admin`; list = installations ∩ rows + admin filter; writes 404 for non-admins; co-owner + demote both live-verified. See `specs/2026-07-02-f5a-teacher-access-design.md`. F5b people chips [x] **DONE** (2026-07-03, spec `2026-07-03-f5b-class-people-design.md`): live teachers/students/pending on /api/classes (orgPeople, one fetch also drives the F5a check), clickable PeopleChip popovers. Health chip still open (class detail page dropped 2026-07-03; it lands on the card). UNCOMMITTED. |
 | F6 | Create a lab | `labs` (minimal) | [x] **DONE** (2026-07-03, built inline; committed on `milestone-4-labs`): labs table (0004), POST /api/classes/:id/labs (first zod input), labs on GET /api/classes, NewLabDialog, LabRow, lab detail shell. |
-| F7 | Groups (create/join/leave/remove/delete) | `groups` | [ ] ⏸ deliberately parked: the teams-based design dies if `specs/2026-07-05-student-owned-repos.md` survives the data-policy review — decide there first. |
+| F7 | Groups (create/join/leave/remove/delete) | `groups` | **[ ] IN PROGRESS** (2026-07-06, unparked — student-owned-repos stays an idea for later; groups-as-teams per `specs/2026-06-25-groups-teams-design.md`). See "Feature 7 — Groups" section below. |
 | F8 | Accept a lab → student lab repo (solo = team of one) | `student_lab_repos` | [ ] (shape depends on the same student-owned-repos decision) |
 | F9 | Student home (browse classes/labs/standing) | none | **Class-list slice DONE** (2026-07-06): `class_members` display cache + org identity cache (0005), join-flow write points + teacher roster sync, `enrolled` on GET /api/classes (zero GitHub calls), EnrolledClassCard + role markers on the hub. Standing/accept wait for F8. |
 | F10 | Teacher dashboard | none | [ ] |
@@ -141,6 +141,7 @@ Multi-session, **and nothing is committed** — so resume relies on this file + 
 
 | Session date | Tasks completed | Cursor left at | Blockers / notes |
 |---|---|---|---|
+| 2026-07-06 (cont. — F7) | **Feature 7 Groups COMPLETE, all gates passed** (see the F7 table above for the full shape): groups = secret GitHub Teams; lab attachments (`student_lab_repos`, repo columns await F8); the LAB page is the only group surface (class detail page built + removed same day); student ACCEPT flows incl. one-click individual accept; teacher pool "students without a group" (hidden when empty) + management; own-group highlighted in the student's role color; enrollment cache gained `teacher` rows + GitHub identity (student cards name their teachers via the existing PeopleChip popover). Cross-cutting: GLOBAL MESSAGE STRIP (MessageProvider; page-level action feedback; modal forms stay inline), tooltips on every button, link-failure UX (unverified GitHub email → friendly retry), simplify pass (lib/access + lib/groups convergence, ONE per-lab groups request, parallel roster reads, useAction/GhostTile/labModeLabel/switchDisplayName extractions, dead Panel removed). Live-found bug fixed + regression-tested: membership paths could double-book a student into two groups of one lab. Test gate: 104 api / 66 www. | **F8 — Accept a lab → student lab repo** (repo creation; solo-name → keyed column decision) | Node 22.14 warning persists; deferred: GitHub client/token reuse per request, server-side size verdicts. |
 | 2026-07-06 | **Dev loop:** Vite now OWNS `https://localhost:3000` (HMR, basic-ssl) proxying `/api` → Worker on :8788; `pnpm --filter @labs/api preview` = old prod-like mode. **Classes hub redesigned** (visual gate ✅): flat single-surface cards + labs table (mono headers), deadline color = urgency only (red ≤ 7d, calm "closed" past), semester grouping (`lib/semester.ts`, configurable `SEMESTER_CONFIG`, api exposes `createdAt`), `OrgIdentity` extraction (square org avatars), page-header overline. **Dark mode live**: system-follow + Light/Dark/System switcher in the account menu (`ThemeProvider` + paint-time bootstrap script). **Student class list (F9 slice) built + committed**: `class_members` display cache + org cache (migration 0005), join write points + teacher roster sync (`lib/enrollment.ts`), `enrolled` on GET /api/classes, `EnrolledClassCard` + role markers (indigo TEACHING / teal ENROLLED spine+chip, new role tokens), join-page terminal states link to /classes. All committed on `milestone-4-labs`; gate green (api 66 / www 61). | **F7/F8 blocked on the student-owned-repos data-policy decision** (`specs/2026-07-05-student-owned-repos.md`) | Remote D1 migrations pending (needs user wrangler auth, incl. 0005); Node 22.14 < react-router's required 22.22; commits now user-triggered batches (no co-author trailer). |
 | 2026-06-30 | Task 1 (scaffold) approved; plan re-cut to feature-iterative + no-commit | F1 · Task 2 | edu-ID test-IdP creds needed before Task 5 (🔴). Repo `heigvd-software-engineering/labs` exists with 2 baseline commits (scaffold) — see controller note re: hiding history. |
 | 2026-06-30 | Cleaned slate; rebuilt root + apps/api + packages/db **tooling-driven** (latest deps). Better Auth edu-ID config + CLI-generated auth schema (isolated in `auth-schema.ts`, barrel in `schema.ts`) + migration + health test. **Tasks 2+3 green, human gate pending.** | F1 · Task 4 (apps/www) | ⛔ **SWITCH edu-ID access not yet approved** → Task 5 blocked. `better-call@1.3.7` override + `allowBuilds` in pnpm-workspace.yaml. Workers-pool tests deferred (vitest-4 churn). Everything UNCOMMITTED. |
@@ -626,6 +627,36 @@ Each is a single feature: smallest schema + code, auto + human gate per task.
 - **F8 — Accept a lab.** Add `student_lab_repos` (id, labId, groupId, ghRepoId, ghRepoFullName; unique (labId, groupId)). Individual = team-of-one; group = reuse/join/create; repo via `/generate` or empty. *(Flows §3.11.)* 🔴
 - **F9 — Student home.** By-class sections listing member classes (live) + labs + standing + inline accept drawer. *Schema: none.* *(Flows §3.9.)*
 - **F10 — Teacher dashboard.** Live aggregation over GitHub + lab metadata; short-TTL caching. *Schema: none.* *(Flows §3.12.)*
+
+---
+
+# Feature 7 — Groups (expanded 2026-07-06)
+
+**Outcome:** a class-scoped, reusable student group backed by a GitHub Team
+(`privacy: secret`, students always role `member`). Roster lives in the team —
+read live, reconciled on read (team 404 → orphaned cleanup; rename → refresh
+cached name). Min/max enforcement + repo grants + solo group-of-one are F8.
+
+**Permission matrix (user-decided 2026-07-06):** one shared Groups surface on
+the class card for BOTH roles; a **student** (live active org member) may
+create groups and join/leave — only ever manages HIMSELF; a **teacher** (live
+org Owner) may manage ANY group and ANY member (add, remove, delete group).
+`creatorUserId` is provenance only — no special creator powers.
+Authorization is always LIVE GitHub state (org membership / Owner role),
+never `class_members` (display-only invariant).
+
+| Task | Auto | Human | Done |
+|---|---|---|---|
+| 1. `groups` table + migration 0006 | [x] | [x] 🟢 | [x] |
+| 2. `lib/github/team.ts` — team lifecycle ops (create secret team, add/remove member, delete, list members) | [x] | [x] 🟢 | [x] |
+| 3. Endpoints: create · join/leave (self) · teacher add/remove member · teacher delete (class-level LIST later merged into the per-lab endpoint) | [x] | [x] 🟢 | [x] |
+| 4. UI: `useApi` learns parameterized endpoints; groups data stays OFF the hub cards (user-decided 2026-07-06). ~~Class detail page~~ built then REMOVED same day (user: no added value yet; reconsider later) — hub card org identity links to the GitHub org, lab rows to the lab page, which is the ONLY group surface. | [x] | [x] 👁 | [x] |
+| 6. `student_lab_repos` link table — MINIMAL (labId+groupId unique pair; repo columns arrive with F8) + migration 0007 | [x] | [x] 🟢 | [x] |
+| 7. API: attach/detach + ONE per-lab list (all class groups + rosters + attachedIds — single request, parallel roster reads); `POST …/accept` = one-click individual accept (find-or-create the solo group, team name = login); invariants: MAX-only size at attach (under-min groups form in place, marked "needs N more" — min bites at F8's repo creation, user-decided), one-participating-group-per-student-per-lab enforced at attach AND at membership (join / teacher add → 409, found live 2026-07-06) | [x] | [x] 🟢 | [x] |
+| 8. UI: the LAB page is the group surface — student ACCEPT language (join a participating group / accept with one of your groups, misfits disabled with reason / accept with a new group → attaches immediately; individual labs = one-click Accept + Withdraw); teacher: "students without a group" pool (hidden when empty), add-member offers ONLY that pool, detach/manage, tile grid (3-col) with dashed ghost tiles; tooltips on every button app-wide; global message strip (MessageProvider, info/warning/error, 5s) under the header replaces inline action errors — modal forms stay inline | [x] | [x] 👁 | [x] |
+| 5. Live walk: student created + attached a pair group, 2nd student joined via a fresh GitHub account (unverified-email link failure → friendly retry added), teacher managed members; double-booking bug found live → fixed server-side + regression-tested | [x] | [x] 🔴 | [x] |
+
+**F7 gate closed 2026-07-06:** biome ✅ typecheck 3/3 ✅ tests 104 api / 66 www ✅. Deferred, flagged: solo-group naming convention → keyed column (a student can squat another's login as a group name; touches F8 accept design); request-scoped GitHub client/token reuse; server-computed size verdicts for the client (F8).
 
 ---
 
