@@ -13,6 +13,7 @@ import { AppLayout } from "~/components/custom/shell/app-layout";
 import { BrandHeader } from "~/components/custom/typography/brand-header";
 import { Text } from "~/components/custom/typography/text";
 import { AuthProvider } from "~/contexts/auth-context";
+import { MessageProvider } from "~/contexts/message-context";
 import { ThemeProvider } from "~/contexts/theme-context";
 import type { Route } from "./+types/root";
 import "./app.css";
@@ -49,11 +50,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <ThemeProvider>
-      <AuthProvider>
-        <AppLayout>
-          <Outlet />
-        </AppLayout>
-      </AuthProvider>
+      <MessageProvider>
+        <AuthProvider>
+          <AppLayout>
+            <Outlet />
+          </AppLayout>
+        </AuthProvider>
+      </MessageProvider>
     </ThemeProvider>
   );
 }
