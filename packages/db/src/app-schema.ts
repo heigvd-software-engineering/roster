@@ -55,6 +55,52 @@ export const labs = sqliteTable("labs", {
 });
 
 /**
+ * A student group = a GitHub Team (F7), class-scoped and reusable across
+ * labs. This row holds only what the team can't express: the class link,
+ * provenance, and the team id/slug. The ROSTER is the team's member list —
+ * read live, never stored. `creatorUserId` is provenance only (students
+ * manage themselves; teachers manage everything).
+ */
+export const groups = sqliteTable("groups", {
+  id: text("id").primaryKey(),
+  classId: text("class_id")
+    .notNull()
+    .references(() => classes.id),
+  // Stable GitHub Team id — the real key (slugs change on rename).
+  ghTeamId: integer("gh_team_id").notNull().unique(),
+  // Labs-generated, collision-safe org-wide; cached for API paths.
+  ghTeamSlug: text("gh_team_slug").notNull(),
+  name: text("name").notNull(),
+  creatorUserId: text("creator_user_id")
+    .notNull()
+    .references(() => user.id),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+});
+
+/**
+ * A group's PARTICIPATION in a lab — the group↔lab link (many-to-many, one
+ * row per pairing; groups are reusable across labs). Managed from the lab
+ * page (F7); F8's accept flow adds this pairing's student lab repo columns
+ * (ghRepoId, …) when repos exist — until then the row IS the attachment.
+ */
+export const studentLabRepos = sqliteTable(
+  "student_lab_repos",
+  {
+    id: text("id").primaryKey(),
+    labId: text("lab_id")
+      .notNull()
+      .references(() => labs.id),
+    groupId: text("group_id")
+      .notNull()
+      .references(() => groups.id),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+  },
+  (t) => [unique().on(t.labId, t.groupId)],
+);
+
+/**
  * Enrollment DISPLAY CACHE (data-model spec §2) — a cache of what GitHub
  * owns (org membership), written where the app already observes it (join
  * flow, the teacher hub's roster fetch) and lazily repaired. INVARIANT:
@@ -72,7 +118,13 @@ export const classMembers = sqliteTable(
     // payloads and orgPeople carry GitHub ids, not app user ids; resolve to
     // an app user via the `account` table, never store a userId here.
     githubId: text("github_id").notNull(),
-    state: text("state", { enum: ["pending", "active"] }).notNull(),
+    // `teacher` = org Owner, cached so the STUDENT class card can name its
+    // teachers with zero GitHub calls. Display only, like the rest.
+    state: text("state", { enum: ["pending", "active", "teacher"] }).notNull(),
+    // GitHub identity cache (login/avatar) — both write points know it when
+    // they observe the membership (orgPeople rows, the joiner's profile).
+    login: text("login"),
+    avatarUrl: text("avatar_url"),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },
