@@ -28,6 +28,8 @@ type JoinContext = {
   username: string;
   /** The caller's GitHub user id, as `class_members`/`account` store it. */
   githubId: string;
+  /** The caller's GitHub avatar — cached with the observed membership. */
+  avatarUrl: string | null;
 };
 
 type Resolved =
@@ -68,6 +70,7 @@ async function resolveJoin(
         login,
         username: profile.login,
         githubId: String(profile.id),
+        avatarUrl: profile.avatarUrl ?? null,
       },
     };
   } catch {
@@ -77,22 +80,29 @@ async function resolveJoin(
 }
 
 /** Record an observed membership state in the display cache. Owners are
- *  teachers, not enrollees — never cached. */
+ *  cached as TEACHERS (shown on the student class card), never as
+ *  enrollees. */
 async function observeMembership(
   db: ReturnType<typeof getDb>,
   cls: Class,
-  githubId: string,
+  ctx: JoinContext,
   membership: { state: string; role: string } | null,
 ) {
+  const identity = {
+    githubId: ctx.githubId,
+    login: ctx.username,
+    avatarUrl: ctx.avatarUrl,
+  };
   if (!membership) {
-    await forgetMember(db, cls.id, githubId);
+    await forgetMember(db, cls.id, ctx.githubId);
     return;
   }
-  if (
-    membership.role !== "admin" &&
-    (membership.state === "active" || membership.state === "pending")
-  ) {
-    await observeMember(db, cls.id, githubId, membership.state);
+  if (membership.role === "admin") {
+    await observeMember(db, cls.id, identity, "teacher");
+    return;
+  }
+  if (membership.state === "active" || membership.state === "pending") {
+    await observeMember(db, cls.id, identity, membership.state);
   }
 }
 
@@ -102,7 +112,7 @@ export const previewJoin = authedFactory.createHandlers(async (c) => {
   if (!token) return c.json({ error: "invalid_link" }, 404);
   const r = await resolveJoin(c.env, c.get("user").id, token);
   if (!r.ok) return c.json({ error: r.error }, r.status);
-  const { cls, login, username, githubId } = r.ctx;
+  const { cls, login, username } = r.ctx;
 
   const org = await orgInfo(c.env, cls.installationId, login);
   const membership = await orgMembership(
@@ -113,7 +123,7 @@ export const previewJoin = authedFactory.createHandlers(async (c) => {
   );
 
   const db = getDb(c.env.DB);
-  await observeMembership(db, cls, githubId, membership);
+  await observeMembership(db, cls, r.ctx, membership);
   // Keep the org identity cache fresh — the student class list reads it
   // with zero GitHub calls (data-model spec §2).
   if (
@@ -160,7 +170,7 @@ export const requestJoin = authedFactory.createHandlers(async (c) => {
   // replaying is a no-op, and an org OWNER opening their own link must never
   // be demoted by a role:"member" PUT.
   if (current) {
-    await observeMembership(db, cls, githubId, current);
+    await observeMembership(db, cls, r.ctx, current);
     return c.json({ membership: current.state, role: current.role });
   }
   const membership = await inviteOrgMember(
@@ -169,7 +179,12 @@ export const requestJoin = authedFactory.createHandlers(async (c) => {
     login,
     username,
   );
-  await observeMember(db, cls.id, githubId, "pending");
+  await observeMember(
+    db,
+    cls.id,
+    { githubId, login: username, avatarUrl: r.ctx.avatarUrl },
+    "pending",
+  );
   // A fresh invite is always role "member" (the PUT above requests it).
   return c.json({ membership, role: "member" });
 });

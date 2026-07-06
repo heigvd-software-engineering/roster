@@ -236,8 +236,10 @@ test("GET: observed non-membership drops the stale row (lazy repair)", async () 
   expect(await db.select().from(classMembers)).toEqual([]);
 });
 
-test("GET: an org owner is a teacher, never cached as an enrollee", async () => {
+test("GET: an org owner is cached as a TEACHER, never as an enrollee", async () => {
   state.membership = { state: "active", role: "admin" };
   await app.request("/api/join/tok123", {}, env);
-  expect(await db.select().from(classMembers)).toEqual([]);
+  expect(await db.select().from(classMembers)).toMatchObject([
+    { classId: "c1", githubId: "7", state: "teacher", login: "alice" },
+  ]);
 });

@@ -1,0 +1,151 @@
+import {
+  account,
+  type Class,
+  classes,
+  getDb,
+  groups,
+  labs,
+  user,
+} from "@labs/db";
+import { and, eq, inArray } from "drizzle-orm";
+import type { Context } from "hono";
+import { githubAccessToken } from "./auth/github-token";
+import type { AuthedEnv } from "./auth/require-auth";
+import { orgLogin } from "./github/app";
+import { isOrgAdmin, orgMembership } from "./github/org";
+import { fetchGithubProfile } from "./github/user";
+
+/**
+ * Class-scoped access resolution — the ONE home for "who is the caller to
+ * this class" (previously spread across three handler files). Two variants,
+ * deliberately different mechanisms:
+ *
+ * - `resolveClassAccess` — routes where the caller acts as THEMSELVES
+ *   (join/leave a group): needs their GitHub LOGIN, so it spends their
+ *   OAuth token on a profile fetch and reads membership + role from one
+ *   live orgMembership call. Active members only.
+ * - `resolveClassAsTeacher` — teacher-only routes: stored account id + the
+ *   org's live admin list; NO user-token dependence, so a teacher with an
+ *   expired OAuth link can still manage labs/classes.
+ *
+ * Both deny with null → routes answer 404, never confirming that a class
+ * exists to someone outside it. Authorization is always live GitHub state,
+ * never the class_members display cache.
+ */
+
+type Db = ReturnType<typeof getDb>;
+
+export type ClassAccess = {
+  db: Db;
+  cls: Class;
+  org: string;
+  /** The caller's GitHub login — self join/leave acts on it. */
+  login: string;
+  /** Live org Owner (teacher). */
+  admin: boolean;
+};
+
+export async function resolveClassAccess(
+  c: Context<AuthedEnv>,
+  classId: string | undefined,
+): Promise<ClassAccess | null> {
+  if (!classId) return null;
+  const db = getDb(c.env.DB);
+  const [cls] = await db.select().from(classes).where(eq(classes.id, classId));
+  if (!cls) return null;
+
+  const token = await githubAccessToken(c.env, c.get("user").id);
+  if (!token) return null;
+
+  try {
+    // Independent lookups — one round trip instead of two.
+    const [profile, org] = await Promise.all([
+      fetchGithubProfile(token),
+      orgLogin(c.env, cls.installationId),
+    ]);
+    if (!profile) return null;
+    const membership = await orgMembership(
+      c.env,
+      cls.installationId,
+      org,
+      profile.login,
+    );
+    // Pending invitees can't act yet — active members only.
+    if (membership?.state !== "active") return null;
+    return {
+      db,
+      cls,
+      org,
+      login: profile.login,
+      admin: membership.role === "admin",
+    };
+  } catch {
+    // Dead installation — the class effectively doesn't exist.
+    return null;
+  }
+}
+
+export async function resolveClassAsTeacher(
+  c: Context<AuthedEnv>,
+  classId: string | undefined,
+): Promise<{ db: Db; cls: Class; org: string } | null> {
+  if (!classId) return null;
+  const db = getDb(c.env.DB);
+  const [cls] = await db.select().from(classes).where(eq(classes.id, classId));
+  if (!cls) return null;
+
+  const ghAccount = await db.query.account.findFirst({
+    where: (a, op) =>
+      op.and(op.eq(a.userId, c.get("user").id), op.eq(a.providerId, "github")),
+    columns: { accountId: true },
+  });
+  const ghId = Number(ghAccount?.accountId);
+  if (!Number.isFinite(ghId)) return null;
+
+  try {
+    const org = await orgLogin(c.env, cls.installationId);
+    if (!(await isOrgAdmin(c.env, cls.installationId, org, ghId))) return null;
+    return { db, cls, org };
+  } catch {
+    return null;
+  }
+}
+
+/** The group row, only if it belongs to the class. */
+export async function groupInClass(
+  scope: { db: Db; cls: Class },
+  groupId: string | undefined,
+) {
+  if (!groupId) return null;
+  const [row] = await scope.db
+    .select()
+    .from(groups)
+    .where(eq(groups.id, groupId));
+  return row && row.classId === scope.cls.id ? row : null;
+}
+
+/** The lab row, only if it belongs to the class. */
+export async function labInClass(
+  scope: { db: Db; cls: Class },
+  labId: string | undefined,
+) {
+  if (!labId) return null;
+  const [row] = await scope.db.select().from(labs).where(eq(labs.id, labId));
+  return row && row.classId === scope.cls.id ? row : null;
+}
+
+/** SWITCH users linked to GitHub accounts — raw query rows; clients
+ *  correlate them by github id (one query for any people/roster list). */
+export async function linkedUsers(db: Db, githubIds: string[]) {
+  if (githubIds.length === 0) return [];
+  return db
+    .select({ githubId: account.accountId, user })
+    .from(account)
+    .innerJoin(user, eq(account.userId, user.id))
+    .where(
+      and(
+        eq(account.providerId, "github"),
+        inArray(account.accountId, githubIds),
+      ),
+    );
+}

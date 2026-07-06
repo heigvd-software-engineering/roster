@@ -349,9 +349,12 @@ test("syncs the enrollment cache from the live roster (promote, add, drop)", asy
     .select()
     .from(classMembers)
     .orderBy(classMembers.githubId);
+  // Teachers ride the same cache (state "teacher") and everyone carries the
+  // GitHub identity the sync observed (login/avatar for the student card).
   expect(rows).toMatchObject([
-    { classId: "c1", githubId: "2", state: "active" },
-    { classId: "c1", githubId: "900", state: "pending" },
+    { classId: "c1", githubId: "111", state: "teacher", login: "prof" },
+    { classId: "c1", githubId: "2", state: "active", login: "student" },
+    { classId: "c1", githubId: "900", state: "pending", login: "invited" },
   ]);
 });
 
