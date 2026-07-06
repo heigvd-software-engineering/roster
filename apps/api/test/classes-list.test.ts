@@ -1,5 +1,5 @@
 import { env } from "cloudflare:test";
-import { account, classes, getDb, labs, user } from "@labs/db";
+import { account, classes, classMembers, getDb, labs, user } from "@labs/db";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { beforeEach, expect, test, vi } from "vitest";
@@ -79,6 +79,9 @@ async function seedClass(args?: {
   installationId?: number;
   connectedByUserId?: string;
   joinToken?: string;
+  login?: string;
+  name?: string;
+  avatarUrl?: string;
 }) {
   await db.insert(classes).values({
     id: args?.id ?? "c1",
@@ -87,6 +90,9 @@ async function seedClass(args?: {
     connectedByUserId: args?.connectedByUserId ?? "u1",
     joinToken: args?.joinToken ?? `tok-${args?.id ?? "c1"}`,
     status: "active",
+    login: args?.login ?? null,
+    name: args?.name ?? null,
+    avatarUrl: args?.avatarUrl ?? null,
     createdAt: now,
     updatedAt: now,
   });
@@ -106,6 +112,7 @@ beforeEach(async () => {
   userInstallationsByOrgIdMock.mockClear();
 
   await db.delete(labs);
+  await db.delete(classMembers);
   await db.delete(classes);
   await db.delete(account);
   await db.delete(user);
@@ -180,11 +187,16 @@ test("skips classes whose org is no longer in the user's installations", async (
   state.installations = [];
   const res = await app.request("/api/classes", {}, env);
   expect(res.status).toBe(200);
-  expect(await res.json()).toEqual({ classes: [] });
+  expect(await res.json()).toEqual({ classes: [], enrolled: [] });
 });
 
-test("does not touch the row when installationId is unchanged", async () => {
-  await seedClass({ installationId: 200 });
+test("does not touch the row when installationId and org cache are current", async () => {
+  await seedClass({
+    installationId: 200,
+    login: "acme",
+    name: "Acme",
+    avatarUrl: "http://a",
+  });
   const res = await app.request("/api/classes", {}, env);
   expect(res.status).toBe(200);
   const [row] = await db.select().from(classes).where(eq(classes.id, "c1"));
@@ -224,7 +236,7 @@ test("skips a class when the caller has installation access but is NOT an org ow
   });
   const res = await app.request("/api/classes", {}, env);
   expect(res.status).toBe(200);
-  expect(await res.json()).toEqual({ classes: [] });
+  expect(await res.json()).toEqual({ classes: [], enrolled: [] });
 });
 
 test("returns [] when the caller has no linked GitHub account", async () => {
@@ -232,7 +244,7 @@ test("returns [] when the caller has no linked GitHub account", async () => {
   await db.delete(account);
   const res = await app.request("/api/classes", {}, env);
   expect(res.status).toBe(200);
-  expect(await res.json()).toEqual({ classes: [] });
+  expect(await res.json()).toEqual({ classes: [], enrolled: [] });
   expect(userInstallationsByOrgIdMock).not.toHaveBeenCalled();
 });
 
@@ -241,7 +253,7 @@ test("returns [] when the GitHub token is dead and unrefreshable", async () => {
   state.githubToken = null;
   const res = await app.request("/api/classes", {}, env);
   expect(res.status).toBe(200);
-  expect(await res.json()).toEqual({ classes: [] });
+  expect(await res.json()).toEqual({ classes: [], enrolled: [] });
   expect(userInstallationsByOrgIdMock).not.toHaveBeenCalled();
 });
 
@@ -306,4 +318,124 @@ test("orders classes by creation date, newest first", async () => {
   const res = await app.request("/api/classes", {}, env);
   const body = (await res.json()) as { classes: Array<{ id: string }> };
   expect(body.classes.map((c) => c.id)).toEqual(["c-new", "c-old"]);
+});
+
+// --- class_members enrollment display cache + the student class list ---
+
+test("syncs the enrollment cache from the live roster (promote, add, drop)", async () => {
+  await seedClass();
+  await db.insert(classMembers).values([
+    // Was invited, has since accepted (roster now lists them active).
+    {
+      id: "m-old",
+      classId: "c1",
+      githubId: "2",
+      state: "pending",
+      createdAt: now,
+      updatedAt: now,
+    },
+    // No longer on the roster at all — must be dropped.
+    {
+      id: "m-gone",
+      classId: "c1",
+      githubId: "999",
+      state: "active",
+      createdAt: now,
+      updatedAt: now,
+    },
+  ]);
+  await app.request("/api/classes", {}, env);
+  const rows = await db
+    .select()
+    .from(classMembers)
+    .orderBy(classMembers.githubId);
+  expect(rows).toMatchObject([
+    { classId: "c1", githubId: "2", state: "active" },
+    { classId: "c1", githubId: "900", state: "pending" },
+  ]);
+});
+
+test("caches the org identity on the class row for DB-only student reads", async () => {
+  await seedClass();
+  await app.request("/api/classes", {}, env);
+  const [row] = await db.select().from(classes).where(eq(classes.id, "c1"));
+  expect(row).toMatchObject({
+    login: "acme",
+    name: "Acme",
+    avatarUrl: "http://a",
+  });
+});
+
+test("returns the caller's enrolled classes (with labs) from the cache alone", async () => {
+  await seedClass(); // teaching c1 (org 42, in installations)
+  // c2: a class the caller is enrolled in but does NOT teach — its org is
+  // not among the caller's installations, so only the cache can surface it.
+  await db.insert(classes).values({
+    id: "c2",
+    orgId: 43,
+    installationId: 300,
+    connectedByUserId: "someone-else",
+    joinToken: "tok-c2",
+    status: "active",
+    login: "beta",
+    name: "Beta",
+    avatarUrl: "http://b",
+    createdAt: new Date(500),
+    updatedAt: new Date(500),
+  });
+  await db.insert(labs).values({
+    id: "l1",
+    classId: "c2",
+    title: "Lab 1",
+    deadline: new Date("2099-01-01T23:59:00Z"),
+    createdByUserId: "someone-else",
+    createdAt: now,
+    updatedAt: now,
+  });
+  await db.insert(classMembers).values({
+    id: "m1",
+    classId: "c2",
+    githubId: "111",
+    state: "active",
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  const res = await app.request("/api/classes", {}, env);
+  const body = (await res.json()) as {
+    classes: Array<{ id: string }>;
+    enrolled: Array<Record<string, unknown>>;
+  };
+  expect(body.classes.map((c) => c.id)).toEqual(["c1"]);
+  expect(body.enrolled).toMatchObject([
+    {
+      id: "c2",
+      login: "beta",
+      name: "Beta",
+      avatarUrl: "http://b",
+      state: "active",
+      labs: [{ id: "l1", title: "Lab 1" }],
+    },
+  ]);
+  // The join token must never leak to enrollees.
+  expect(body.enrolled[0]).not.toHaveProperty("joinToken");
+});
+
+test("a class the caller teaches never doubles as an enrolled class", async () => {
+  await seedClass();
+  await db.insert(classMembers).values({
+    id: "m1",
+    classId: "c1",
+    githubId: "111",
+    state: "active",
+    createdAt: now,
+    updatedAt: now,
+  });
+  const res = await app.request("/api/classes", {}, env);
+  const body = (await res.json()) as {
+    classes: Array<{ id: string }>;
+    enrolled: unknown[];
+  };
+  expect(body.classes.map((c) => c.id)).toEqual(["c1"]);
+  expect(body.enrolled).toEqual([]);
 });

@@ -1,5 +1,6 @@
 import { env } from "cloudflare:test";
-import { account, classes, getDb, user } from "@labs/db";
+import { account, classes, classMembers, getDb, user } from "@labs/db";
+import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { beforeEach, expect, test, vi } from "vitest";
 
@@ -70,6 +71,7 @@ beforeEach(async () => {
   state.inviteCalls = [];
 
   const now = new Date(0);
+  await db.delete(classMembers);
   await db.delete(classes);
   await db.delete(account);
   await db.delete(user);
@@ -191,4 +193,51 @@ test("POST: pending member → no duplicate PUT, still pending", async () => {
 test("POST: unknown token → 404 invalid_link", async () => {
   const res = await app.request("/api/join/nope", { method: "POST" }, env);
   expect(res.status).toBe(404);
+});
+
+// --- class_members enrollment display cache (write points) ---
+
+test("POST: a fresh invite records a pending enrollment", async () => {
+  state.membership = null;
+  await app.request("/api/join/tok123", { method: "POST" }, env);
+  const rows = await db.select().from(classMembers);
+  expect(rows).toMatchObject([
+    { classId: "c1", githubId: "7", state: "pending" },
+  ]);
+});
+
+test("GET: an active membership is cached; org identity lands on the class row", async () => {
+  state.membership = { state: "active", role: "member" };
+  await app.request("/api/join/tok123", {}, env);
+  const rows = await db.select().from(classMembers);
+  expect(rows).toMatchObject([
+    { classId: "c1", githubId: "7", state: "active" },
+  ]);
+  const [cls] = await db.select().from(classes).where(eq(classes.id, "c1"));
+  expect(cls).toMatchObject({
+    login: "acme",
+    name: "Acme",
+    avatarUrl: "http://a",
+  });
+});
+
+test("GET: observed non-membership drops the stale row (lazy repair)", async () => {
+  const now = new Date(0);
+  await db.insert(classMembers).values({
+    id: "m1",
+    classId: "c1",
+    githubId: "7",
+    state: "active",
+    createdAt: now,
+    updatedAt: now,
+  });
+  state.membership = null;
+  await app.request("/api/join/tok123", {}, env);
+  expect(await db.select().from(classMembers)).toEqual([]);
+});
+
+test("GET: an org owner is a teacher, never cached as an enrollee", async () => {
+  state.membership = { state: "active", role: "admin" };
+  await app.request("/api/join/tok123", {}, env);
+  expect(await db.select().from(classMembers)).toEqual([]);
 });

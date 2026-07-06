@@ -1,7 +1,16 @@
-import { account, classes, getDb, type Lab, labs, user } from "@labs/db";
+import {
+  account,
+  classes,
+  classMembers,
+  getDb,
+  type Lab,
+  labs,
+  user,
+} from "@labs/db";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { authedFactory } from "../factory";
 import { githubAccessToken } from "../lib/auth/github-token";
+import { syncRoster } from "../lib/enrollment";
 import { orgLogin } from "../lib/github/app";
 import {
   basePermission,
@@ -67,7 +76,9 @@ export const listClasses = authedFactory.createHandlers(async (c) => {
   });
   const ghId = Number(ghAccount?.accountId);
   const token = await githubAccessToken(c.env, caller.id);
-  if (!Number.isFinite(ghId) || !token) return c.json({ classes: [] });
+  if (!ghAccount || !Number.isFinite(ghId) || !token) {
+    return c.json({ classes: [], enrolled: [] });
+  }
 
   // Reconcile against the user's LIVE installations — the installationId we
   // stored can go stale on reinstall, and an org the user uninstalled the
@@ -139,6 +150,28 @@ export const listClasses = authedFactory.createHandlers(async (c) => {
           .where(eq(classes.orgId, cls.orgId));
       }
       const org = await orgInfo(c.env, live.installationId, live.login);
+      // Every teacher visit reconciles the enrollment display cache against
+      // the live roster and refreshes the org identity cache — both keep the
+      // STUDENT class list a pure DB read (data-model spec §2).
+      await syncRoster(db, cls.id, {
+        active: people.students.map((p) => String(p.id)),
+        pending: people.pending.map((p) => String(p.id)),
+      });
+      if (
+        org.login !== cls.login ||
+        org.name !== cls.name ||
+        org.avatarUrl !== cls.avatarUrl
+      ) {
+        await db
+          .update(classes)
+          .set({
+            login: org.login,
+            name: org.name,
+            avatarUrl: org.avatarUrl,
+            updatedAt: new Date(),
+          })
+          .where(eq(classes.id, cls.id));
+      }
       // SWITCH users linked to the members' GitHub accounts. Teachers are
       // never empty (the caller is one), so inArray is safe. Pending
       // invitees carry an invitation id, not a user id — never looked up.
@@ -174,5 +207,41 @@ export const listClasses = authedFactory.createHandlers(async (c) => {
       // must not 500 the whole list — skip this class, keep going.
     }
   }
-  return c.json({ classes: out });
+
+  // The caller's own enrollments — the student side of the hub. Pure DB
+  // read (enrollment display cache ⋈ org identity cache ⋈ labs): zero
+  // GitHub calls. Classes the caller teaches never double as enrolled.
+  const teachingIds = new Set(out.map((o) => o.id));
+  const memberships = (
+    await db
+      .select({ state: classMembers.state, cls: classes })
+      .from(classMembers)
+      .innerJoin(classes, eq(classMembers.classId, classes.id))
+      .where(eq(classMembers.githubId, ghAccount.accountId))
+      .orderBy(desc(classes.createdAt))
+  ).filter((m) => !teachingIds.has(m.cls.id));
+  const enrolledLabs =
+    memberships.length === 0
+      ? []
+      : await db
+          .select()
+          .from(labs)
+          .where(
+            inArray(
+              labs.classId,
+              memberships.map((m) => m.cls.id),
+            ),
+          )
+          .orderBy(desc(labs.deadline));
+  const enrolled = memberships.map((m) => ({
+    id: m.cls.id,
+    createdAt: m.cls.createdAt,
+    login: m.cls.login,
+    name: m.cls.name,
+    avatarUrl: m.cls.avatarUrl,
+    state: m.state,
+    labs: enrolledLabs.filter((l) => l.classId === m.cls.id),
+  }));
+
+  return c.json({ classes: out, enrolled });
 });
