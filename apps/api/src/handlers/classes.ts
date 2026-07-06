@@ -108,6 +108,8 @@ export const listClasses = authedFactory.createHandlers(async (c) => {
   const out: Array<{
     id: string;
     orgId: number;
+    /** The client groups classes into semesters by creation date. */
+    createdAt: Date;
     login: string;
     name: string | null;
     avatarUrl: string;
@@ -156,6 +158,7 @@ export const listClasses = authedFactory.createHandlers(async (c) => {
       out.push({
         id: cls.id,
         orgId: cls.orgId,
+        createdAt: cls.createdAt,
         joinToken: cls.joinToken,
         login: org.login,
         name: org.name,
