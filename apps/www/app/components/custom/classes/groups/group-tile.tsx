@@ -1,3 +1,4 @@
+import { GitBranch } from "lucide-react";
 import type { ReactNode } from "react";
 import { UserAvatar } from "~/components/custom/identity/user-avatar";
 import { Row } from "~/components/custom/layout/row";
@@ -24,6 +25,7 @@ export function GroupTile({
   highlight = false,
   notes,
   actions,
+  footer,
   memberAction,
 }: {
   group: GroupItem;
@@ -33,6 +35,8 @@ export function GroupTile({
   notes?: ReactNode;
   /** Top-right controls (role-specific). */
   actions?: ReactNode;
+  /** Below the roster: the work-repo link or its create action (F8). */
+  footer?: ReactNode;
   memberAction?: (member: GroupItem["members"][number]) => ReactNode;
 }) {
   return (
@@ -52,8 +56,25 @@ export function GroupTile({
           users={users}
           memberAction={memberAction}
         />
+        {footer}
       </Stack>
     </Card>
+  );
+}
+
+/** The pairing's work repo, linked (opens on GitHub). */
+export function RepoLink({ fullName }: { fullName: string }) {
+  return (
+    <a
+      href={`https://github.com/${fullName}`}
+      target="_blank"
+      rel="noreferrer"
+      title="Open the work repository on GitHub"
+      className="inline-flex items-center gap-1.5 self-start font-mono text-foreground text-xs hover:underline"
+    >
+      <GitBranch className="size-3.5 text-muted-foreground" />
+      {fullName}
+    </a>
   );
 }
 

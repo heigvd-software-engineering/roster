@@ -24,6 +24,8 @@ const lab = {
   groupMode: "group" as const,
   minMembers: 2,
   maxMembers: 3,
+  templateRepoId: null,
+  templateRepoFullName: null,
   createdByUserId: "u1",
   createdAt: "1970-01-01T00:00:00.000Z",
   updatedAt: "1970-01-01T00:00:00.000Z",

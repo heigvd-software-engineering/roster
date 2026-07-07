@@ -12,6 +12,8 @@ vi.mock("~/lib/api", () => ({
       },
     },
   },
+  // The template picker inside the dialog fetches the org's templates.
+  useApi: () => ({ data: { templates: [] }, isLoading: false }),
 }));
 
 const mutate = vi.fn();

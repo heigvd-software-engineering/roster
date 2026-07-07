@@ -17,7 +17,7 @@ import {
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { ToggleGroup, ToggleGroupItem } from "~/components/ui/toggle-group";
-import { api, type LabItem } from "~/lib/api";
+import { api, type LabItem, useApi } from "~/lib/api";
 
 /** `datetime-local` wants "YYYY-MM-DDTHH:mm" in LOCAL time. */
 function toDatetimeLocal(iso: string) {
@@ -49,6 +49,10 @@ export function LabDialog({
   );
   const [minMembers, setMinMembers] = useState("2");
   const [maxMembers, setMaxMembers] = useState("3");
+  const [template, setTemplate] = useState<{
+    id: number;
+    fullName: string;
+  } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -62,6 +66,11 @@ export function LabDialog({
       setGroupMode(lab?.groupMode ?? "individual");
       setMinMembers(String(lab?.minMembers ?? 2));
       setMaxMembers(String(lab?.maxMembers ?? 3));
+      setTemplate(
+        lab?.templateRepoId && lab.templateRepoFullName
+          ? { id: lab.templateRepoId, fullName: lab.templateRepoFullName }
+          : null,
+      );
       setError(null);
     }
   }
@@ -81,6 +90,12 @@ export function LabDialog({
       groupMode,
       ...(groupMode === "group"
         ? { minMembers: Number(minMembers), maxMembers: Number(maxMembers) }
+        : {}),
+      ...(template
+        ? {
+            templateRepoId: template.id,
+            templateRepoFullName: template.fullName,
+          }
         : {}),
     };
     try {
@@ -208,6 +223,11 @@ export function LabDialog({
               </Stack>
             </Row>
           ) : null}
+          <TemplatePicker
+            classId={classId}
+            value={template}
+            onChange={setTemplate}
+          />
           {error ? <Text variant="error">{error}</Text> : null}
         </Stack>
         <DialogFooter>
@@ -232,5 +252,61 @@ export function LabDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * Starter-code choice: the org's TEMPLATE repos (only repos flagged
+ * `is_template` on GitHub can seed new ones). Mounts with the dialog
+ * content, so the list is only fetched when the dialog opens (SWR-cached
+ * per class after that). "No template" = an empty auto-init repo.
+ */
+function TemplatePicker({
+  classId,
+  value,
+  onChange,
+}: {
+  classId: string;
+  value: { id: number; fullName: string } | null;
+  onChange: (template: { id: number; fullName: string } | null) => void;
+}) {
+  const { data, isLoading, error } = useApi(api.api.classes[":id"].templates, {
+    param: { id: classId },
+  });
+  const templates = data?.templates ?? [];
+
+  return (
+    <Stack gap="sm">
+      <Label htmlFor="lab-template">Starter code</Label>
+      <select
+        id="lab-template"
+        title="The template repository new work repos are generated from"
+        value={value ? String(value.id) : ""}
+        onChange={(e) => {
+          const picked = templates.find((t) => String(t.id) === e.target.value);
+          onChange(
+            picked ? { id: picked.id, fullName: picked.fullName } : null,
+          );
+        }}
+        className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+      >
+        <option value="">No template — empty repository</option>
+        {templates.map((t) => (
+          <option key={t.id} value={String(t.id)}>
+            {t.fullName}
+          </option>
+        ))}
+      </select>
+      {error ? (
+        <Text variant="caption">Couldn't load the org's templates.</Text>
+      ) : isLoading ? (
+        <Text variant="caption">Loading templates…</Text>
+      ) : templates.length === 0 ? (
+        <Text variant="caption">
+          No template repos in the organization — flag one as a template on
+          GitHub to offer starter code.
+        </Text>
+      ) : null}
+    </Stack>
   );
 }

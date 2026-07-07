@@ -1,5 +1,6 @@
 import { Check } from "lucide-react";
 import { Link, Navigate, useParams } from "react-router";
+import { RepoLink } from "~/components/custom/classes/groups/group-tile";
 import { StudentLabGroups } from "~/components/custom/classes/groups/student-lab-groups";
 import { useLabGroups } from "~/components/custom/classes/groups/use-lab-groups";
 import { LabHeader } from "~/components/custom/classes/labs/lab-header";
@@ -70,7 +71,9 @@ export function StudentLabPage() {
 
 /**
  * The one-click accept on INDIVIDUAL labs: no group machinery — the server
- * finds-or-creates the solo group and attaches it. Withdrawing detaches.
+ * finds-or-creates the solo group, attaches it, and creates the WORK REPO
+ * in the same click. Withdrawing is only possible while no repo exists
+ * (once it does, the pairing is a deliverable).
  */
 function IndividualAccept({ classId, lab }: { classId: string; lab: LabItem }) {
   const { github } = useAuth();
@@ -80,6 +83,7 @@ function IndividualAccept({ classId, lab }: { classId: string; lab: LabItem }) {
   const mine = g.attached.find((group) =>
     group.members.some((m) => m.login === me),
   );
+  const repo = mine ? g.repoFor(mine.id) : null;
 
   if (g.error) {
     return (
@@ -100,30 +104,53 @@ function IndividualAccept({ classId, lab }: { classId: string; lab: LabItem }) {
               Accepted
             </Text>
           </Row>
-          <Text variant="body2">
-            Your repository arrives with a later update — you're in.
-          </Text>
-          <Button
-            variant="outline"
-            size="sm"
-            type="button"
-            disabled={g.busy}
-            title="Withdraw your acceptance of this lab"
-            onClick={() => g.detach(mine.id)}
-          >
-            Withdraw
-          </Button>
+          {repo ? (
+            <>
+              <Text variant="body2">
+                Your work repository — clone it and get going:
+              </Text>
+              <RepoLink fullName={repo} />
+            </>
+          ) : (
+            <>
+              <Text variant="body2">
+                Your repository couldn't be created yet — try again.
+              </Text>
+              <Row gap="sm">
+                <Button
+                  size="sm"
+                  type="button"
+                  disabled={g.busy}
+                  title="Create your work repository"
+                  onClick={() => g.createRepo(mine.id)}
+                >
+                  Create repository
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  type="button"
+                  disabled={g.busy}
+                  title="Withdraw your acceptance of this lab"
+                  onClick={() => g.detach(mine.id)}
+                >
+                  Withdraw
+                </Button>
+              </Row>
+            </>
+          )}
         </>
       ) : (
         <>
           <Text variant="body2">
-            This is an individual lab — accepting takes one click.
+            This is an individual lab — accepting takes one click and creates
+            your work repository.
           </Text>
           <Button
             size="lg"
             type="button"
             disabled={g.busy}
-            title="Accept this lab — you participate individually"
+            title="Accept this lab — creates your personal work repository"
             onClick={() => g.acceptIndividual()}
           >
             Accept lab

@@ -77,7 +77,7 @@ function mockApi(classesData: unknown, labGroupsData: unknown) {
 }
 
 const groupsData = (
-  over?: Partial<{ groups: unknown[]; attachedIds: string[] }>,
+  over?: Partial<{ groups: unknown[]; attached: unknown[] }>,
 ) => ({
   groups: [
     { id: "g1", name: "Team Alpha", slug: "team-alpha", members: [bob] },
@@ -89,7 +89,7 @@ const groupsData = (
     { githubId: "7", login: "alice", avatarUrl: "http://a" },
     { githubId: "8", login: "bob", avatarUrl: null },
   ],
-  attachedIds: ["g1"],
+  attached: [{ groupId: "g1", repoFullName: null }],
   ...over,
 });
 
@@ -133,7 +133,7 @@ describe("StudentLabPage — group lab", () => {
             members: [alice, bob],
           },
         ],
-        attachedIds: ["g1"],
+        attached: [{ groupId: "g1", repoFullName: null }],
       }),
     );
     render(<StudentLabPage />);
@@ -148,6 +148,95 @@ describe("StudentLabPage — group lab", () => {
       screen.queryByText(/Students without a group/),
     ).not.toBeInTheDocument();
   });
+
+  it("hides the other groups once participating; start card offers the repo", () => {
+    const carol = { id: 9, login: "carol", avatarUrl: null };
+    mockApi(
+      { classes: [], enrolled: [enrolledClass] },
+      groupsData({
+        groups: [
+          {
+            id: "g1",
+            name: "Team Alpha",
+            slug: "team-alpha",
+            members: [alice, bob],
+          },
+          { id: "g2", name: "Team Beta", slug: "team-beta", members: [carol] },
+        ],
+        attached: [
+          { groupId: "g1", repoFullName: null },
+          { groupId: "g2", repoFullName: null },
+        ],
+      }),
+    );
+    render(<StudentLabPage />);
+
+    expect(screen.getByText("Your group")).toBeInTheDocument();
+    expect(screen.getByText("Team Alpha")).toBeInTheDocument();
+    expect(screen.queryByText("Team Beta")).not.toBeInTheDocument();
+    // g1 has the min (2) → the start card, with the repo yet to create.
+    expect(screen.getByText("Your group is ready")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Create repository" }),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the start card away while the group is under the minimum", () => {
+    mockApi(
+      { classes: [], enrolled: [enrolledClass] },
+      groupsData({
+        groups: [
+          {
+            id: "g1",
+            name: "Team Alpha",
+            slug: "team-alpha",
+            members: [alice],
+          },
+        ],
+        attached: [{ groupId: "g1", repoFullName: null }],
+      }),
+    );
+    render(<StudentLabPage />);
+
+    expect(screen.getByText("needs 1 more member")).toBeInTheDocument();
+    expect(screen.queryByText("Your group is ready")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Create repository" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("start card turns to the clone instructions once the repo exists", () => {
+    mockApi(
+      { classes: [], enrolled: [enrolledClass] },
+      groupsData({
+        groups: [
+          {
+            id: "g1",
+            name: "Team Alpha",
+            slug: "team-alpha",
+            members: [alice, bob],
+          },
+        ],
+        attached: [{ groupId: "g1", repoFullName: "acme/lab-1-team-alpha" }],
+      }),
+    );
+    render(<StudentLabPage />);
+
+    expect(
+      screen.getByText("repository created — off you go"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /git clone https:\/\/github\.com\/acme\/lab-1-team-alpha\.git/,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /acme\/lab-1-team-alpha/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Create repository" }),
+    ).not.toBeInTheDocument();
+  });
 });
 
 describe("StudentLabPage — individual lab", () => {
@@ -155,7 +244,7 @@ describe("StudentLabPage — individual lab", () => {
     params.labId = "l2";
     mockApi(
       { classes: [], enrolled: [enrolledClass] },
-      groupsData({ groups: [], attachedIds: [] }),
+      groupsData({ groups: [], attached: [] }),
     );
     render(<StudentLabPage />);
 
@@ -165,7 +254,7 @@ describe("StudentLabPage — individual lab", () => {
     expect(screen.queryByText("Participating groups")).not.toBeInTheDocument();
   });
 
-  it("shows Accepted + Withdraw once the solo group participates", () => {
+  it("shows Accepted + the work repo link once the solo group has one", () => {
     params.labId = "l2";
     mockApi(
       { classes: [], enrolled: [enrolledClass] },
@@ -173,15 +262,19 @@ describe("StudentLabPage — individual lab", () => {
         groups: [
           { id: "solo", name: "alice", slug: "alice", members: [alice] },
         ],
-        attachedIds: ["solo"],
+        attached: [{ groupId: "solo", repoFullName: "acme/lab-2-solo-alice" }],
       }),
     );
     render(<StudentLabPage />);
 
     expect(screen.getByText("Accepted")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Withdraw" }),
-    ).toBeInTheDocument();
+      screen.getByRole("link", { name: /acme\/lab-2-solo-alice/ }),
+    ).toHaveAttribute("href", "https://github.com/acme/lab-2-solo-alice");
+    // A pairing with a repo is a deliverable — no Withdraw anymore.
+    expect(
+      screen.queryByRole("button", { name: "Withdraw" }),
+    ).not.toBeInTheDocument();
   });
 });
 

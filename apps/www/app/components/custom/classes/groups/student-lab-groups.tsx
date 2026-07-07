@@ -4,6 +4,7 @@ import {
   MissingMembersNote,
 } from "~/components/custom/classes/groups/group-tile";
 import { NewGroupDialog } from "~/components/custom/classes/groups/new-group-dialog";
+import { StartLabCard } from "~/components/custom/classes/groups/start-lab-card";
 import { UnassignedPool } from "~/components/custom/classes/groups/unassigned-pool";
 import { useLabGroups } from "~/components/custom/classes/groups/use-lab-groups";
 import { GhostTile } from "~/components/custom/layout/ghost-tile";
@@ -20,12 +21,16 @@ import { useAuth } from "~/contexts/auth-context";
 import type { LabItem } from "~/lib/api";
 
 /**
- * The STUDENT's group view for one lab — the language is ACCEPTING the lab:
- * join a participating group with room (until you participate), accept with
- * one of your existing groups (misfits listed disabled with the reason), or
- * accept with a new group (it attaches immediately). Your own group is
- * highlighted in your role color; once you participate, the accept
- * affordances collapse to your group + Leave.
+ * The STUDENT's group view for one lab, in two states:
+ *
+ * BROWSE (not participating yet) — the language is ACCEPTING the lab: join a
+ * participating group with room, accept with one of your existing groups
+ * (misfits listed disabled with the reason), or accept with a new group (it
+ * attaches immediately).
+ *
+ * YOUR GROUP (participating) — the other groups disappear; your group tile
+ * (1/3) sits beside the start-lab card (2/3) that owns the work repo:
+ * create it, then clone it.
  */
 export function StudentLabGroups({
   classId,
@@ -38,7 +43,7 @@ export function StudentLabGroups({
   const me = github?.login;
   const g = useLabGroups(classId, lab);
 
-  const participating = g.attached.some((group) =>
+  const mine = g.attached.find((group) =>
     group.members.some((m) => m.login === me),
   );
   // Accept candidates: YOUR unattached groups only.
@@ -55,65 +60,91 @@ export function StudentLabGroups({
     return <Text variant="body2">Loading groups…</Text>;
   }
 
+  if (mine) {
+    return (
+      <>
+        {/* Who still needs a team — the students' organizing aid. */}
+        <UnassignedPool students={g.unassignedStudents} users={g.users} />
+        <Stack gap="md" className="w-full">
+          <Text variant="overline">Your group</Text>
+          <div className="grid w-full grid-cols-1 gap-4 lg:grid-cols-3">
+            <GroupTile
+              group={mine}
+              users={g.users}
+              highlight
+              notes={
+                <>
+                  <span className="font-mono text-role-enrolled text-xs">
+                    your group
+                  </span>
+                  <MissingMembersNote group={mine} min={g.min} />
+                </>
+              }
+              actions={
+                <Button
+                  variant="outline"
+                  size="sm"
+                  type="button"
+                  disabled={g.busy}
+                  title="Leave this group"
+                  onClick={() => g.leave(mine.id)}
+                >
+                  Leave
+                </Button>
+              }
+            />
+            {/* The lab starts here once the group reaches the minimum size:
+                create the work repo, then clone it. */}
+            {mine.members.length >= g.min ? (
+              <div className="lg:col-span-2">
+                <StartLabCard
+                  repoFullName={g.repoFor(mine.id)}
+                  busy={g.busy}
+                  onCreate={() => g.createRepo(mine.id)}
+                />
+              </div>
+            ) : null}
+          </div>
+        </Stack>
+      </>
+    );
+  }
+
   return (
     <>
       {/* Who still needs a team — the students' organizing aid. */}
       <UnassignedPool students={g.unassignedStudents} users={g.users} />
       <Stack gap="md" className="w-full">
         <Text variant="overline">Participating groups</Text>
-        {g.attached.length === 0 && participating === false ? (
+        {g.attached.length === 0 ? (
           <Text variant="body2">
             No groups in this lab yet — accept it below.
           </Text>
         ) : null}
         <div className={GROUPS_GRID}>
-          {g.attached.map((group) => {
-            const isMember = group.members.some((m) => m.login === me);
-            return (
-              <GroupTile
-                key={group.id}
-                group={group}
-                users={g.users}
-                highlight={isMember}
-                notes={
-                  <>
-                    {isMember ? (
-                      <span className="font-mono text-role-enrolled text-xs">
-                        your group
-                      </span>
-                    ) : null}
-                    <MissingMembersNote group={group} min={g.min} />
-                  </>
-                }
-                actions={
-                  isMember ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      type="button"
-                      disabled={g.busy}
-                      title="Leave this group"
-                      onClick={() => g.leave(group.id)}
-                    >
-                      Leave
-                    </Button>
-                  ) : !participating && group.members.length < g.max ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      type="button"
-                      disabled={g.busy}
-                      title="Join this group and participate in the lab with it"
-                      onClick={() => g.join(group.id)}
-                    >
-                      Join
-                    </Button>
-                  ) : null
-                }
-              />
-            );
-          })}
-          {!participating && candidates.length > 0 ? (
+          {g.attached.map((group) => (
+            <GroupTile
+              key={group.id}
+              group={group}
+              users={g.users}
+              notes={<MissingMembersNote group={group} min={g.min} />}
+              actions={
+                group.members.length < g.max ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    type="button"
+                    disabled={g.busy}
+                    title="Join this group and participate in the lab with it"
+                    onClick={() => g.join(group.id)}
+                  >
+                    Join
+                  </Button>
+                ) : null
+              }
+            />
+          ))}
+          {candidates.length > 0 ? (
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={
@@ -147,14 +178,12 @@ export function StudentLabGroups({
               </DropdownMenuContent>
             </DropdownMenu>
           ) : null}
-          {!participating ? (
-            <NewGroupDialog
-              classId={classId}
-              autoJoins
-              triggerLabel="Accept with a new group"
-              onCreated={(group) => g.attach(group.id)}
-            />
-          ) : null}
+          <NewGroupDialog
+            classId={classId}
+            autoJoins
+            triggerLabel="Accept with a new group"
+            onCreated={(group) => g.attach(group.id)}
+          />
         </div>
       </Stack>
     </>

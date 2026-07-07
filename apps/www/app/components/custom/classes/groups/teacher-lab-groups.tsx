@@ -3,6 +3,7 @@ import {
   GROUPS_GRID,
   GroupTile,
   MissingMembersNote,
+  RepoLink,
 } from "~/components/custom/classes/groups/group-tile";
 import { NewGroupDialog } from "~/components/custom/classes/groups/new-group-dialog";
 import { UnassignedPool } from "~/components/custom/classes/groups/unassigned-pool";
@@ -66,6 +67,23 @@ export function TeacherLabGroups({
               group={group}
               users={g.users}
               notes={<MissingMembersNote group={group} min={g.min} />}
+              footer={
+                g.repoFor(group.id) ? (
+                  <RepoLink fullName={g.repoFor(group.id) ?? ""} />
+                ) : group.members.length >= g.min ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    type="button"
+                    className="self-start"
+                    disabled={g.busy}
+                    title="Create the group's work repository and grant it access"
+                    onClick={() => g.createRepo(group.id)}
+                  >
+                    Create repository
+                  </Button>
+                ) : null
+              }
               actions={
                 <>
                   <DropdownMenu>

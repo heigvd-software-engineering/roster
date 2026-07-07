@@ -83,7 +83,7 @@ const groupsData = {
     { githubId: "7", login: "alice", avatarUrl: "http://a" },
     { githubId: "8", login: "bob", avatarUrl: null },
   ],
-  attachedIds: ["g1"],
+  attached: [{ groupId: "g1", repoFullName: null }],
 };
 
 beforeEach(() => {

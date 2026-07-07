@@ -16,16 +16,31 @@ export function useLabGroups(classId: string, lab: LabItem) {
     lab.groupMode === "individual"
       ? "1"
       : `${lab.minMembers}–${lab.maxMembers}`;
-  const { busy, act } = useAction(mutate, (body) =>
-    body.error === "member_already_participating"
-      ? "Someone in that group already participates through another group."
-      : `That group doesn't fit this lab (takes ${sizeLabel} members).`,
-  );
+  const { busy, act } = useAction(mutate, (body) => {
+    switch (body.error) {
+      case "member_already_participating":
+        return "Someone in that group already participates through another group.";
+      case "group_incomplete":
+        return "The group hasn't reached this lab's minimum size yet.";
+      case "repo_name_taken":
+        return "A repository with that name already exists in the organization — ask your teacher.";
+      case "app_permissions":
+        return "labs can't create repositories yet — the GitHub App needs updated permissions (an administrator must approve them).";
+      case "has_repo":
+        return "This group already has its repository for the lab — it can't be detached.";
+      default:
+        return `That group doesn't fit this lab (takes ${sizeLabel} members).`;
+    }
+  });
 
   const groups = data?.groups ?? [];
-  const attachedIds = new Set(data?.attachedIds ?? []);
+  const pairings = data?.attached ?? [];
+  const attachedIds = new Set(pairings.map((p) => p.groupId));
   const attached = groups.filter((g) => attachedIds.has(g.id));
   const unattached = groups.filter((g) => !attachedIds.has(g.id));
+  /** The group's work repo full name, once created. */
+  const repoFor = (groupId: string) =>
+    pairings.find((p) => p.groupId === groupId)?.repoFullName ?? null;
   // The "without a group for this lab" pool: enrolled students (from the
   // class_members display cache) who are in NO participating group.
   const inGroup = new Set(
@@ -51,6 +66,7 @@ export function useLabGroups(classId: string, lab: LabItem) {
     attached,
     unattached,
     unassignedStudents,
+    repoFor,
     min: lab.groupMode === "individual" ? 1 : (lab.minMembers ?? 1),
     max: lab.groupMode === "individual" ? 1 : (lab.maxMembers ?? Infinity),
     sizeLabel,
@@ -78,6 +94,9 @@ export function useLabGroups(classId: string, lab: LabItem) {
           param: { id: classId, groupId, login },
         }),
       ),
+    /** The explicit accept-completion step: create the pairing's repo. */
+    createRepo: (groupId: string) =>
+      act(() => labGroupsApi[":groupId"].repo.$post(pairParam(groupId))),
     acceptIndividual: () =>
       act(() =>
         api.api.classes[":id"].labs[":labId"].accept.$post({
