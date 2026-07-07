@@ -21,7 +21,7 @@ function peopleLabel(count: number, noun: string, pendingCount: number) {
  * One connected class (GitHub org) as a single flat surface: identity + people
  * stats + join-link action in the masthead, then the labs table sectioned off
  * by a hairline — no nested boxes. Everything live: people popovers (F5b),
- * join link (F4), labs + New-lab ghost row (F6). Progress stays `—` until F8.
+ * join link (F4), labs + New-lab ghost row (F6).
  */
 export function ClassCard({
   id,
@@ -120,7 +120,7 @@ export function ClassCard({
             </Text>
           ) : (
             <>
-              <LabsHeader />
+              <LabsHeader actions />
               {labs.map((lab) => (
                 <LabRow
                   key={lab.id}

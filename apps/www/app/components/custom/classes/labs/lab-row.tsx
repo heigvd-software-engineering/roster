@@ -9,16 +9,24 @@ import { formatDeadline, labModeLabel } from "~/lib/format";
 import { cn } from "~/lib/utils";
 
 /** One shared column template so the header and every row stay aligned:
- *  LAB (flexes) · MODE · DUE (date + relative) · PROGRESS. */
+ *  LAB (flexes) · MODE · DUE (date + relative). */
 const LAB_GRID =
-  "grid grid-cols-[minmax(0,1fr)_100px_215px_80px] items-center gap-4 px-5";
+  "grid grid-cols-[minmax(0,1fr)_100px_215px] items-center gap-4 px-5";
 
-const COLUMNS = ["Lab", "Mode", "Due", "Progress"];
+const COLUMNS = ["Lab", "Mode", "Due"];
 
-/** The labs table's column header row — quiet mono caps, hairline below. */
-export function LabsHeader() {
+/** The labs table's column header row — quiet mono caps, hairline below.
+ *  `actions` reserves the same right gutter as rows carrying an action
+ *  (the teacher's edit pencil), so the columns stay aligned. */
+export function LabsHeader({ actions = false }: { actions?: boolean }) {
   return (
-    <div className={cn(LAB_GRID, "border-border border-b pt-3 pb-2")}>
+    <div
+      className={cn(
+        LAB_GRID,
+        "border-border border-b pt-3 pb-2",
+        actions && "pr-14",
+      )}
+    >
       {COLUMNS.map((col) => (
         <span key={col} className={cn(CAPS_LABEL, "text-muted-foreground")}>
           {col}
@@ -31,7 +39,7 @@ export function LabsHeader() {
 /** One lab row: title · mode · due (exact moment + urgency-colored countdown)
  *  · progress. Links to the role's lab page: `manage` (the teaching card)
  *  goes to the teacher's manage page, otherwise the student's accept page.
- *  Progress shows `—` until acceptance repos exist (F8). `action` (e.g. the
+ *  `action` (e.g. the
  *  teacher's edit pencil) overlays the row's right edge, OUTSIDE the link —
  *  a button may not nest in an anchor. */
 export function LabRow({
@@ -70,7 +78,6 @@ export function LabRow({
         </span>
         <DeadlineText deadline={deadline} />
       </span>
-      <span className="font-mono text-muted-foreground text-xs">—</span>
     </>
   );
 

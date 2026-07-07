@@ -94,11 +94,13 @@ describe("ClassCard copy join link", () => {
 });
 
 describe("ClassCard labs (F6)", () => {
-  it("renders real lab rows with mode and dash progress", () => {
+  it("renders real lab rows with their mode", () => {
     renderCard();
     expect(screen.getByText("Lab 1 — TCP sockets")).toBeInTheDocument();
     expect(screen.getByText("group 2–3")).toBeInTheDocument();
-    expect(screen.getByText("—")).toBeInTheDocument();
+    // The Progress column was dropped (user-decided 2026-07-07): standing
+    // lives on the lab pages, the hub stays lean.
+    expect(screen.queryByText("Progress")).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "+ New lab" }),
     ).toBeInTheDocument();
