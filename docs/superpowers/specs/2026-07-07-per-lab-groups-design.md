@@ -1,5 +1,13 @@
 # Per-lab groups — design (2026-07-07)
 
+> **STATUS: BUILT + live-confirmed 2026-07-07.** Slices 1–3 (schema/migration
+> 0010, per-lab API, per-lab www) done; **student copy-forward** (reuse a
+> group from another lab) done. Gate: 102 api / 79 www. Deferred: teacher
+> bulk "carry all groups forward"; the group-membership cache (slice 4).
+> Known caveat: the lab slug uses the lab TITLE, so two labs with identical
+> titles in one class would collide group slugs (titles are normally
+> distinct; fold the lab id in if it bites).
+
 ## Problem
 
 Groups are **one GitHub Team with one roster, reused across many labs**
