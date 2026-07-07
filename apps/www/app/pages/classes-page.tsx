@@ -58,7 +58,7 @@ function groupBySemester(entries: Entry[]) {
  */
 export function ClassesPage() {
   const [oldest, setOldest] = useState<Semester>(() => currentSemester());
-  const { data, isLoading, error } = useApi(
+  const { data, isLoading, error, mutate } = useApi(
     api.api.classes,
     { query: { from: semesterStart(oldest).toISOString() } },
     // Each window is its own cache key — keep the previous window on screen
@@ -125,7 +125,11 @@ export function ClassesPage() {
                   </Text>
                   {group.map((entry) =>
                     entry.kind === "teaching" ? (
-                      <ClassCard key={entry.cls.id} {...entry.cls} />
+                      <ClassCard
+                        key={entry.cls.id}
+                        {...entry.cls}
+                        onChanged={mutate}
+                      />
                     ) : (
                       <EnrolledClassCard key={entry.cls.id} cls={entry.cls} />
                     ),

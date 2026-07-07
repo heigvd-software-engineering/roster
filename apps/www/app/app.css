@@ -55,6 +55,10 @@
 }
 
 :root {
+  /* Native controls (select popups, scrollbars, date pickers) are painted
+     by the OS and follow color-scheme, not our tokens — declare it so they
+     match the theme. The .dark block flips it. */
+  color-scheme: light;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -101,6 +105,7 @@
    `.dark` on <html> from the OS `prefers-color-scheme`. No in-app toggle;
    keep this block in sync with `:root` whenever tokens change. */
 .dark {
+  color-scheme: dark;
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   /* Closer to the background than shadcn's 0.205 default — flat cards sit

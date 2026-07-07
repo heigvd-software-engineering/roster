@@ -16,18 +16,16 @@ vi.mock("~/lib/api", () => ({
   useApi: () => ({ data: { templates: [] }, isLoading: false }),
 }));
 
-const mutate = vi.fn();
-vi.mock("swr", () => ({
-  useSWRConfig: () => ({ mutate }),
-}));
+// The data owner's revalidate, handed in as a prop — no cache-key guessing.
+const onSaved = vi.fn();
 
 beforeEach(() => {
   labsPost.mockReset();
-  mutate.mockReset();
+  onSaved.mockReset();
 });
 
 function openDialog() {
-  render(<LabDialog classId="c1" />);
+  render(<LabDialog classId="c1" onSaved={onSaved} />);
   fireEvent.click(screen.getByRole("button", { name: "+ New lab" }));
 }
 
@@ -75,7 +73,7 @@ describe("LabDialog", () => {
       maxMembers: 3,
     });
     expect(typeof call.json.deadline).toBe("string");
-    await waitFor(() => expect(mutate).toHaveBeenCalledWith("/api/classes"));
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
   });
 
   it("shows an error when the API refuses", async () => {
@@ -94,6 +92,6 @@ describe("LabDialog", () => {
         "Couldn't create the lab — check the fields and try again.",
       ),
     ).toBeInTheDocument();
-    expect(mutate).not.toHaveBeenCalled();
+    expect(onSaved).not.toHaveBeenCalled();
   });
 });

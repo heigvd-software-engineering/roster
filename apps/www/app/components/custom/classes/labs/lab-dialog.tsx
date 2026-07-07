@@ -1,6 +1,5 @@
 import { Pencil } from "lucide-react";
 import { useState } from "react";
-import { useSWRConfig } from "swr";
 import { Row } from "~/components/custom/layout/row";
 import { Stack } from "~/components/custom/layout/stack";
 import { Text } from "~/components/custom/typography/text";
@@ -16,8 +15,17 @@ import {
 } from "~/components/ui/dialog";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "~/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "~/components/ui/toggle-group";
 import { api, type LabItem, useApi } from "~/lib/api";
+
+const NO_TEMPLATE = "No template — empty repository";
 
 /** `datetime-local` wants "YYYY-MM-DDTHH:mm" in LOCAL time. */
 function toDatetimeLocal(iso: string) {
@@ -36,11 +44,14 @@ function toDatetimeLocal(iso: string) {
 export function LabDialog({
   classId,
   lab,
+  onSaved,
 }: {
   classId: string;
   lab?: LabItem;
+  /** The OWNER of the classes data revalidates — the dialog never guesses
+   *  cache keys (the hub's key carries its semester window). */
+  onSaved: () => unknown;
 }) {
-  const { mutate } = useSWRConfig();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [deadline, setDeadline] = useState("");
@@ -116,7 +127,7 @@ export function LabDialog({
         );
         return;
       }
-      await mutate("/api/classes");
+      await onSaved();
       setOpen(false);
     } catch {
       setError("Something went wrong — check your connection and try again.");
@@ -278,35 +289,50 @@ function TemplatePicker({
   return (
     <Stack gap="sm">
       <Label htmlFor="lab-template">Starter code</Label>
-      <select
-        id="lab-template"
-        title="The template repository new work repos are generated from"
+      {/* Design-system Select (not a native <select>): the OS paints native
+          option popups by its own scheme — unstylable, broken in dark mode. */}
+      <Select
+        items={{
+          "": NO_TEMPLATE,
+          ...Object.fromEntries(
+            templates.map((t) => [String(t.id), t.fullName]),
+          ),
+        }}
         value={value ? String(value.id) : ""}
-        onChange={(e) => {
-          const picked = templates.find((t) => String(t.id) === e.target.value);
+        onValueChange={(picked: string | null) => {
+          const template = templates.find((t) => String(t.id) === picked);
           onChange(
-            picked ? { id: picked.id, fullName: picked.fullName } : null,
+            template ? { id: template.id, fullName: template.fullName } : null,
           );
         }}
-        className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
       >
-        <option value="">No template — empty repository</option>
-        {templates.map((t) => (
-          <option key={t.id} value={String(t.id)}>
-            {t.fullName}
-          </option>
-        ))}
-      </select>
+        <SelectTrigger
+          id="lab-template"
+          className="h-9 w-full"
+          title="The template repository new work repos are generated from"
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="">{NO_TEMPLATE}</SelectItem>
+          {templates.map((t) => (
+            <SelectItem key={t.id} value={String(t.id)}>
+              {t.fullName}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
       {error ? (
         <Text variant="caption">Couldn't load the org's templates.</Text>
       ) : isLoading ? (
         <Text variant="caption">Loading templates…</Text>
-      ) : templates.length === 0 ? (
+      ) : (
         <Text variant="caption">
-          No template repos in the organization — flag one as a template on
-          GitHub to offer starter code.
+          {templates.length === 0
+            ? "No templates found yet. Starter code must be a repository in this class's organization, marked as a template on GitHub (repo Settings → Template repository) — it can stay private."
+            : "Starter code comes from this class's organization: any repository marked as a template on GitHub (repo Settings → Template repository) — private ones work too."}
         </Text>
-      ) : null}
+      )}
     </Stack>
   );
 }

@@ -47,6 +47,7 @@ function renderCard() {
         pending={[{ id: 900, login: "bob", avatarUrl: null }]}
         users={[{ githubId: "1", user: profUser }]}
         labs={[lab]}
+        onChanged={() => {}}
       />
     </MemoryRouter>,
   );

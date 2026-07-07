@@ -34,7 +34,11 @@ export function ClassCard({
   pending,
   users,
   labs,
-}: ClassItem) {
+  onChanged,
+}: ClassItem & {
+  /** The hub's own revalidate — lab edits refresh the data they came from. */
+  onChanged: () => unknown;
+}) {
   // Correlate GitHub org members with their labs users (raw query rows from
   // the API — the client does the joining, endpoints return results as-is).
   const userByGithubId = new Map(users.map((u) => [u.githubId, u.user]));
@@ -126,12 +130,14 @@ export function ClassCard({
                   key={lab.id}
                   lab={lab}
                   manage
-                  action={<LabDialog classId={id} lab={lab} />}
+                  action={
+                    <LabDialog classId={id} lab={lab} onSaved={onChanged} />
+                  }
                 />
               ))}
             </>
           )}
-          <LabDialog classId={id} />
+          <LabDialog classId={id} onSaved={onChanged} />
         </div>
       </div>
     </Card>
