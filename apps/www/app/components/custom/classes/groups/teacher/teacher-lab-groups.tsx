@@ -24,13 +24,12 @@ import { Stack } from "~/components/custom/layout/stack";
 import { CAPS_LABEL, Text } from "~/components/custom/typography/text";
 import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "~/components/ui/dropdown-menu";
 import { Input } from "~/components/ui/input";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "~/components/ui/popover";
 import {
   Table,
   TableBody,
@@ -432,6 +431,7 @@ function GroupDrawer({
   repo: string | null;
   addCandidates: AddCandidate[];
 }) {
+  const userByGithubId = usersByGithubId(g.users);
   return (
     <div className="mx-4 mb-4 grid gap-6 rounded-md bg-muted/50 px-5 py-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-8">
       <Stack gap="md">
@@ -456,34 +456,15 @@ function GroupDrawer({
             </Button>
           )}
         />
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <Button
-                variant="outline"
-                size="sm"
-                type="button"
-                className="self-start"
-                disabled={g.busy || addCandidates.length === 0}
-                title="Add a student without a group to this group"
-              />
-            }
-          >
-            <UserPlus className="size-3.5 text-muted-foreground" />
-            Add from the pool ({addCandidates.length})
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            {addCandidates.map((s) => (
-              <DropdownMenuItem
-                key={s.githubId}
-                onClick={() => g.addMember(group.id, s.login)}
-              >
-                <UserAvatar name={s.login} src={s.avatarUrl} size="sm" />@
-                {s.login}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <AddFromPool
+          candidates={addCandidates}
+          nameFor={(s) => {
+            const linked = userByGithubId.get(s.githubId);
+            return linked ? switchDisplayName(linked) : `@${s.login}`;
+          }}
+          disabled={g.busy}
+          onAdd={(login) => g.addMember(group.id, login)}
+        />
       </Stack>
       <Stack
         gap="md"
@@ -515,6 +496,87 @@ function GroupDrawer({
         />
       </Stack>
     </div>
+  );
+}
+
+/** "Add from the pool" — a searchable picker (built for ~30 students): a
+ *  filter input over the without-a-group pool, scrollable, each row the
+ *  student's SWITCH identity over their login. Stays open for multi-add. */
+function AddFromPool({
+  candidates,
+  nameFor,
+  disabled,
+  onAdd,
+}: {
+  candidates: AddCandidate[];
+  nameFor: (s: AddCandidate) => string;
+  disabled: boolean;
+  onAdd: (login: string) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const needle = query.toLowerCase();
+  const filtered = candidates.filter((s) =>
+    `${nameFor(s)} ${s.login}`.toLowerCase().includes(needle),
+  );
+  return (
+    <Popover>
+      <PopoverTrigger
+        render={
+          <Button
+            variant="outline"
+            size="sm"
+            type="button"
+            className="self-start"
+            disabled={disabled || candidates.length === 0}
+            title="Add a student without a group to this group"
+          />
+        }
+      >
+        <UserPlus className="size-3.5 text-muted-foreground" />
+        Add from the pool ({candidates.length})
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-72 p-0">
+        <div className="border-border border-b p-2">
+          <Input
+            autoFocus
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Filter students…"
+            aria-label="Filter students"
+            className="h-8"
+          />
+        </div>
+        <div className="max-h-64 overflow-y-auto p-1">
+          {filtered.length === 0 ? (
+            <Text variant="caption" className="px-2 py-3 text-center">
+              No student matches.
+            </Text>
+          ) : (
+            filtered.map((s) => {
+              const name = nameFor(s);
+              return (
+                <button
+                  key={s.githubId}
+                  type="button"
+                  onClick={() => onAdd(s.login)}
+                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-muted"
+                >
+                  <UserAvatar name={name} src={s.avatarUrl} size="sm" />
+                  <span className="flex min-w-0 flex-col">
+                    <span className="truncate font-medium text-foreground text-xs">
+                      {name}
+                    </span>
+                    <span className="font-mono text-muted-foreground text-xs">
+                      @{s.login}
+                    </span>
+                  </span>
+                </button>
+              );
+            })
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
