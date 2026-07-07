@@ -81,7 +81,7 @@ function IndividualAccept({ classId, lab }: { classId: string; lab: LabItem }) {
   const me = github?.login;
   const g = useLabGroups(classId, lab);
 
-  const mine = g.attached.find((group) =>
+  const mine = g.groups.find((group) =>
     group.members.some((m) => m.login === me),
   );
   const repo = mine ? g.repoFor(mine.id) : null;
@@ -134,7 +134,7 @@ function IndividualAccept({ classId, lab }: { classId: string; lab: LabItem }) {
                   type="button"
                   disabled={g.busy}
                   title="Withdraw your acceptance of this lab"
-                  onClick={() => g.detach(mine.id)}
+                  onClick={() => g.deleteGroup(mine.id)}
                 >
                   Withdraw
                 </Button>

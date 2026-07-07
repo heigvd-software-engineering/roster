@@ -31,6 +31,12 @@ export type EnrolledClassItem = InferResponseType<
 /** The lab page's one groups endpoint: all class groups with live rosters,
  *  linked users, and which groups participate in this lab. */
 export const labGroupsApi = api.api.classes[":id"].labs[":labId"].groups;
+/** The caller's groups in OTHER labs — copy-forward sources for "reuse". */
+export const reusableGroupsApi = api.api.classes[":id"].labs[":labId"].reusable;
+export type ReusableGroup = InferResponseType<
+  (typeof reusableGroupsApi)["$get"],
+  200
+>["groups"][number];
 /** A group with its live team roster (F7). */
 export type GroupItem = InferResponseType<
   (typeof labGroupsApi)["$get"],

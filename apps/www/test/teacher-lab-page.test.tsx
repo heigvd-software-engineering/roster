@@ -72,18 +72,25 @@ function mockApi(classesData: unknown, labGroupsData: unknown) {
   );
 }
 
+const grp = (over: Record<string, unknown>) => ({
+  id: "g1",
+  name: "Team Alpha",
+  slug: "team-alpha",
+  members: [] as unknown[],
+  repoFullName: null,
+  pushedAt: null,
+  repoCreatedAt: null,
+  ...over,
+});
+
 const groupsData = {
-  groups: [
-    { id: "g1", name: "Team Alpha", slug: "team-alpha", members: [bob] },
-    { id: "g2", name: "Team Beta", slug: "team-beta", members: [] },
-  ],
+  groups: [grp({ members: [bob] })],
   users: [],
   // The pool source: the class_members cache riding on the response.
   students: [
     { githubId: "7", login: "alice", avatarUrl: "http://a" },
     { githubId: "8", login: "bob", avatarUrl: null },
   ],
-  attached: [{ groupId: "g1", repoFullName: null }],
 };
 
 beforeEach(() => {
@@ -98,25 +105,25 @@ describe("TeacherLabPage", () => {
 
     expect(screen.getByText("Lab 1 — Sockets")).toBeInTheDocument();
     expect(screen.getByText("teaching")).toBeInTheDocument();
-    // alice is in NO attached group → she's in the pool.
+    // alice is in NO group of this lab → she's in the pool.
     expect(
       screen.getByText(/Students without a group for this lab/),
     ).toBeInTheDocument();
     expect(screen.getByText("@alice")).toBeInTheDocument();
-    // The roster: Team Alpha participates with 1/2 members → under min.
+    // The roster: Team Alpha with 1/2 members → under min.
     expect(screen.getByText("Team Alpha")).toBeInTheDocument();
     expect(screen.getByText("under min")).toBeInTheDocument();
-    // Toolbar: attach/create moved off the grid, into buttons.
-    expect(
-      screen.getByRole("button", { name: "Attach a group" }),
-    ).toBeInTheDocument();
+    // Toolbar: create a group for THIS lab (no attach — groups are per-lab).
     expect(
       screen.getByRole("button", { name: "+ New group" }),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Attach a group" }),
+    ).not.toBeInTheDocument();
     // Management is one click deep: the row's drawer.
     fireEvent.click(screen.getByRole("button", { name: "Manage Team Alpha" }));
     expect(
-      screen.getByRole("button", { name: "Detach from this lab" }),
+      screen.getByRole("button", { name: "Delete group" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /Add from the pool/ }),
@@ -130,36 +137,24 @@ describe("TeacherLabPage", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("disables attach when every group participates, detach once the repo exists", () => {
+  it("links the repo and disables delete once the work repo exists", () => {
     mockApi(
       { classes: [teachingClass], enrolled: [] },
       {
         ...groupsData,
         groups: [
-          {
-            id: "g1",
-            name: "Team Alpha",
-            slug: "team-alpha",
-            members: [alice, bob],
-          },
+          grp({ members: [alice, bob], repoFullName: "acme/lab1-team-alpha" }),
         ],
-        attached: [{ groupId: "g1", repoFullName: "acme/lab1-team-alpha" }],
       },
     );
     render(<TeacherLabPage />);
 
-    // No unattached groups left → the affordance stays, disabled.
-    expect(
-      screen.getByRole("button", { name: "Attach a group" }),
-    ).toBeDisabled();
-    // The repo exists → the row links it and the drawer refuses detach.
+    // The repo exists → the row links it and the drawer refuses delete.
     expect(
       screen.getByRole("link", { name: /acme\/lab1-team-alpha/ }),
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Manage Team Alpha" }));
-    expect(
-      screen.getByRole("button", { name: "Detach from this lab" }),
-    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Delete group" })).toBeDisabled();
   });
 
   it("hides the pool when every student is placed", () => {

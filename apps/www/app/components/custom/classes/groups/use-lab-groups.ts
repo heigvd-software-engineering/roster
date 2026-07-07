@@ -25,61 +25,53 @@ export type GroupLabStatus =
   | "ready";
 
 /**
- * The lab page's group data + actions, shared by the teacher and student
- * group sections (their UIs diverge; the wire and the mutations don't).
- * One request: all class groups with live rosters, linked SWITCH users,
- * and which groups participate in this lab. Every action revalidates it;
- * failures surface on the global message strip.
+ * The lab page's group data + actions (per-lab model, spec 2026-07-07):
+ * groups belong to THIS lab, so the list IS the lab's groups — no attach,
+ * no cross-lab reach. Each group carries its live roster + work repo + push
+ * activity. Shared by the teacher and student sections; every action
+ * revalidates; failures surface on the global message strip.
  */
 export function useLabGroups(classId: string, lab: LabItem) {
   const { data, isLoading, error, mutate } = useApi(labGroupsApi, {
     param: { id: classId, labId: lab.id },
   });
 
-  const sizeLabel =
-    lab.groupMode === "individual"
-      ? "1"
-      : `${lab.minMembers}–${lab.maxMembers}`;
   const { busy, act } = useAction(mutate, (body) => {
     switch (body.error) {
       case "member_already_participating":
-        return "Someone in that group already participates through another group.";
+        return "You're already in another group for this lab — leave it first.";
       case "group_incomplete":
         return "The group hasn't reached this lab's minimum size yet.";
       case "repo_name_taken":
         return "A repository with that name already exists in the organization — ask your teacher.";
+      case "template_error":
+        return "The lab's starter-code template can't be used — it's likely empty or unavailable. Ask your teacher to add a file to it (or remove the template).";
       case "app_permissions":
         return "labs can't create repositories yet — the GitHub App needs updated permissions (an administrator must approve them).";
       case "has_repo":
-        return "This group already has its repository for the lab — it can't be detached.";
+        return "This group already has its work repository — it can't be deleted.";
+      case "name_taken":
+        return "A group with that name already exists in this lab.";
       default:
-        return `That group doesn't fit this lab (takes ${sizeLabel} members).`;
+        return "That didn't go through — refresh and try again.";
     }
   });
 
   const groups = data?.groups ?? [];
-  const pairings = data?.attached ?? [];
-  const attachedIds = new Set(pairings.map((p) => p.groupId));
-  const attached = groups.filter((g) => attachedIds.has(g.id));
-  const unattached = groups.filter((g) => !attachedIds.has(g.id));
-  /** The group↔lab pairing row: repo + its push/creation timestamps. */
-  const pairingFor = (groupId: string) =>
-    pairings.find((p) => p.groupId === groupId) ?? null;
   /** The group's work repo full name, once created. */
   const repoFor = (groupId: string) =>
-    pairingFor(groupId)?.repoFullName ?? null;
+    groups.find((g) => g.id === groupId)?.repoFullName ?? null;
   const min = lab.groupMode === "individual" ? 1 : (lab.minMembers ?? 1);
   const statusFor = (group: GroupItem): GroupLabStatus => {
-    const pairing = pairingFor(group.id);
-    if (!pairing?.repoFullName) {
+    if (!group.repoFullName) {
       return group.members.length >= min ? "no_repo" : "under_min";
     }
-    if (pairing.pushedAt === null && pairing.repoCreatedAt === null) {
+    if (group.pushedAt === null && group.repoCreatedAt === null) {
       return "ready"; // repo exists, activity unknown
     }
-    const pushedAt = pairing.pushedAt ? Date.parse(pairing.pushedAt) : null;
-    const createdAt = pairing.repoCreatedAt
-      ? Date.parse(pairing.repoCreatedAt)
+    const pushedAt = group.pushedAt ? Date.parse(group.pushedAt) : null;
+    const createdAt = group.repoCreatedAt
+      ? Date.parse(group.repoCreatedAt)
       : null;
     // The creation commit (auto-init / template) bumps pushed_at too —
     // count only pushes meaningfully after the repo came to be.
@@ -91,10 +83,10 @@ export function useLabGroups(classId: string, lab: LabItem) {
     if ((pushedAt as number) > deadline) return "late";
     return Date.now() > deadline ? "on_time" : "on_track";
   };
-  // The "without a group for this lab" pool: enrolled students (from the
-  // class_members display cache) who are in NO participating group.
+  // The "without a group for this lab" pool: enrolled students (class_members
+  // display cache) who are in NO group of this lab.
   const inGroup = new Set(
-    attached.flatMap((g) => g.members.map((m) => String(m.id))),
+    groups.flatMap((g) => g.members.map((m) => String(m.id))),
   );
   const unassignedStudents = (data?.students ?? []).filter(
     (s) => !inGroup.has(s.githubId),
@@ -111,23 +103,16 @@ export function useLabGroups(classId: string, lab: LabItem) {
     error,
     busy,
     act,
+    revalidate: mutate,
     users: data?.users,
     groups,
-    attached,
-    unattached,
     unassignedStudents,
-    /** Students in SOME participating group (the pool's complement). */
+    /** Students in SOME group of this lab (the pool's complement). */
     placedCount: inGroup.size,
-    pairingFor,
     repoFor,
     statusFor,
     min,
     max: lab.groupMode === "individual" ? 1 : (lab.maxMembers ?? Infinity),
-    sizeLabel,
-    attach: (groupId: string) =>
-      act(() => labGroupsApi[":groupId"].$put(pairParam(groupId))),
-    detach: (groupId: string) =>
-      act(() => labGroupsApi[":groupId"].$delete(pairParam(groupId))),
     join: (groupId: string) =>
       act(() =>
         classGroupsApi[":groupId"].membership.$put(groupParam(groupId)),
@@ -148,7 +133,9 @@ export function useLabGroups(classId: string, lab: LabItem) {
           param: { id: classId, groupId, login },
         }),
       ),
-    /** The explicit accept-completion step: create the pairing's repo. */
+    deleteGroup: (groupId: string) =>
+      act(() => classGroupsApi[":groupId"].$delete(groupParam(groupId))),
+    /** The explicit accept-completion step: create the group's repo. */
     createRepo: (groupId: string) =>
       act(() => labGroupsApi[":groupId"].repo.$post(pairParam(groupId))),
     /** Teacher toolbar: every missing repo in ONE request (one refetch). */

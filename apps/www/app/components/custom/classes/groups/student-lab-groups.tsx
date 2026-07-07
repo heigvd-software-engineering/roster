@@ -7,30 +7,20 @@ import { NewGroupDialog } from "~/components/custom/classes/groups/new-group-dia
 import { StartLabCard } from "~/components/custom/classes/groups/start-lab-card";
 import { UnassignedPool } from "~/components/custom/classes/groups/unassigned-pool";
 import { useLabGroups } from "~/components/custom/classes/groups/use-lab-groups";
-import { GhostTile } from "~/components/custom/layout/ghost-tile";
 import { Stack } from "~/components/custom/layout/stack";
 import { Text } from "~/components/custom/typography/text";
 import { Button } from "~/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "~/components/ui/dropdown-menu";
 import { useAuth } from "~/contexts/auth-context";
 import type { LabItem } from "~/lib/api";
 
 /**
- * The STUDENT's group view for one lab, in two states:
+ * The STUDENT's group view for one lab (per-lab model), in two states:
  *
- * BROWSE (not participating yet) — the language is ACCEPTING the lab: join a
- * participating group with room, accept with one of your existing groups
- * (misfits listed disabled with the reason), or accept with a new group (it
- * attaches immediately).
+ * BROWSE (not in a group yet) — this lab's groups, each joinable if it has
+ * room, plus "new group" (a fresh group for THIS lab; you auto-join it).
  *
- * YOUR GROUP (participating) — the other groups disappear; your group tile
- * (1/3) sits beside the start-lab card (2/3) that owns the work repo:
- * create it, then clone it.
+ * YOUR GROUP (in a group) — the others disappear; your group tile (1/3)
+ * sits beside the start-lab card (2/3) that owns the work repo.
  */
 export function StudentLabGroups({
   classId,
@@ -43,11 +33,7 @@ export function StudentLabGroups({
   const me = github?.login;
   const g = useLabGroups(classId, lab);
 
-  const mine = g.attached.find((group) =>
-    group.members.some((m) => m.login === me),
-  );
-  // Accept candidates: YOUR unattached groups only.
-  const candidates = g.unattached.filter((group) =>
+  const mine = g.groups.find((group) =>
     group.members.some((m) => m.login === me),
   );
 
@@ -115,14 +101,14 @@ export function StudentLabGroups({
       {/* Who still needs a team — the students' organizing aid. */}
       <UnassignedPool students={g.unassignedStudents} users={g.users} />
       <Stack gap="md" className="w-full">
-        <Text variant="overline">Participating groups</Text>
-        {g.attached.length === 0 ? (
+        <Text variant="overline">Groups in this lab</Text>
+        {g.groups.length === 0 ? (
           <Text variant="body2">
-            No groups in this lab yet — accept it below.
+            No groups in this lab yet — start one below.
           </Text>
         ) : null}
         <div className={GROUPS_GRID}>
-          {g.attached.map((group) => (
+          {g.groups.map((group) => (
             <GroupTile
               key={group.id}
               group={group}
@@ -135,7 +121,7 @@ export function StudentLabGroups({
                     size="sm"
                     type="button"
                     disabled={g.busy}
-                    title="Join this group and participate in the lab with it"
+                    title="Join this group for the lab"
                     onClick={() => g.join(group.id)}
                   >
                     Join
@@ -144,45 +130,12 @@ export function StudentLabGroups({
               }
             />
           ))}
-          {candidates.length > 0 ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <GhostTile
-                    disabled={g.busy}
-                    title="Pick one of your groups to participate with"
-                  />
-                }
-              >
-                <span className="font-mono">+</span> Accept with one of your
-                groups
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                {candidates.map((group) => {
-                  const fits = group.members.length <= g.max;
-                  return (
-                    <DropdownMenuItem
-                      key={group.id}
-                      disabled={!fits}
-                      onClick={() => g.attach(group.id)}
-                    >
-                      {group.name}
-                      <span className="font-mono text-muted-foreground text-xs">
-                        {fits
-                          ? `${group.members.length} member${group.members.length === 1 ? "" : "s"}`
-                          : `${group.members.length} members — this lab takes ${g.sizeLabel}`}
-                      </span>
-                    </DropdownMenuItem>
-                  );
-                })}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : null}
           <NewGroupDialog
             classId={classId}
+            labId={lab.id}
             autoJoins
-            triggerLabel="Accept with a new group"
-            onCreated={(group) => g.attach(group.id)}
+            triggerLabel="New group"
+            onCreated={g.revalidate}
           />
         </div>
       </Stack>

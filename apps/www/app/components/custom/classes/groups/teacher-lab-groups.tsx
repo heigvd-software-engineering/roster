@@ -9,7 +9,6 @@ import { NewGroupDialog } from "~/components/custom/classes/groups/new-group-dia
 import {
   AvatarCluster,
   LastPush,
-  Pill,
   STATUS_SPINE,
   StatusChip,
 } from "~/components/custom/classes/groups/roster";
@@ -62,12 +61,12 @@ type AddCandidate = LabGroups["unassignedStudents"][number] & { login: string };
 
 /**
  * The TEACHER's lab page is an ASSIGNMENT ROSTER (GitHub-Classroom-like):
- * summary stats, the without-a-group pool, then one table row per
- * participating group — members, repo, status chip + colored spine.
- * Management is progressive disclosure, not a separate surface: the row
- * expands into a drawer with the roster verbs (add from the pool, remove,
- * create repo, detach). The toolbar filters one list (search + status
- * segments) and batches the start-of-lab chore (create missing repos).
+ * summary stats, the without-a-group pool, then one table row per group of
+ * THIS lab — members, repo, status chip + colored spine. Management is
+ * progressive disclosure: the row expands into a drawer with the roster
+ * verbs (add from the pool, remove, delete group). The toolbar filters one
+ * list (search + status segments), creates a group, and batches the
+ * start-of-lab chore (create missing repos).
  */
 export function TeacherLabGroups({
   classId,
@@ -87,24 +86,22 @@ export function TeacherLabGroups({
   );
   const userByGithubId = usersByGithubId(g.users);
 
-  const rows: (RosterRow & { haystack: string })[] = g.attached.map(
-    (group) => ({
-      group,
-      repo: g.repoFor(group.id),
-      pushedAt: g.pairingFor(group.id)?.pushedAt ?? null,
-      status: g.statusFor(group),
-      haystack: [
-        group.name,
-        ...group.members.map((m) => m.login),
-        ...group.members.map((m) => {
-          const linked = userByGithubId.get(String(m.id));
-          return linked ? switchDisplayName(linked) : "";
-        }),
-      ]
-        .join(" ")
-        .toLowerCase(),
-    }),
-  );
+  const rows: (RosterRow & { haystack: string })[] = g.groups.map((group) => ({
+    group,
+    repo: g.repoFor(group.id),
+    pushedAt: group.pushedAt,
+    status: g.statusFor(group),
+    haystack: [
+      group.name,
+      ...group.members.map((m) => m.login),
+      ...group.members.map((m) => {
+        const linked = userByGithubId.get(String(m.id));
+        return linked ? switchDisplayName(linked) : "";
+      }),
+    ]
+      .join(" ")
+      .toLowerCase(),
+  }));
 
   const attention = rows.filter((r) => !GOOD_STATUSES.includes(r.status));
   const late = rows.filter((r) => r.status === "late");
@@ -130,7 +127,7 @@ export function TeacherLabGroups({
     <>
       <LabStats
         stats={[
-          { value: g.attached.length, label: "groups" },
+          { value: g.groups.length, label: "groups" },
           {
             value: g.placedCount,
             total: g.placedCount + g.unassignedStudents.length,
@@ -151,6 +148,7 @@ export function TeacherLabGroups({
         <RosterToolbar
           g={g}
           classId={classId}
+          labId={lab.id}
           query={query}
           onQuery={setQuery}
           filter={filter}
@@ -163,7 +161,7 @@ export function TeacherLabGroups({
 
         {rows.length === 0 ? (
           <Text variant="body2">
-            No groups in this lab yet — attach or create one above.
+            No groups in this lab yet — create one above.
           </Text>
         ) : (
           <Card className="w-full gap-0 overflow-hidden p-0">
@@ -219,6 +217,7 @@ export function TeacherLabGroups({
 function RosterToolbar({
   g,
   classId,
+  labId,
   query,
   onQuery,
   filter,
@@ -230,6 +229,7 @@ function RosterToolbar({
 }: {
   g: LabGroups;
   classId: string;
+  labId: string;
   query: string;
   onQuery: (query: string) => void;
   filter: StatusFilter;
@@ -292,9 +292,9 @@ function RosterToolbar({
           {missingCount === 1 ? "repository" : "repositories"}
         </Button>
       ) : null}
-      <AttachGroupMenu g={g} />
       <NewGroupDialog
         classId={classId}
+        labId={labId}
         autoJoins={false}
         triggerLabel="New group"
         trigger={
@@ -302,89 +302,12 @@ function RosterToolbar({
             variant="outline"
             size="sm"
             type="button"
-            title="Create a new group for this class"
+            title="Create a new group for this lab"
           />
         }
-        onCreated={(group) => g.attach(group.id)}
+        onCreated={g.revalidate}
       />
     </Row>
-  );
-}
-
-/** "Attach a group" — EVERY not-yet-participating group of the class,
- *  members visible; the ones that can't attach (over max, or a member
- *  already participating through another group) stay listed, disabled
- *  with the reason. Stays visible when there are none — disabled, so the
- *  affordance remains discoverable. */
-function AttachGroupMenu({ g }: { g: LabGroups }) {
-  const empty = g.unattached.length === 0;
-  // The server would 409 an overlap anyway — the menu says so up front.
-  const placed = new Set(
-    g.attached.flatMap((group) => group.members.map((m) => m.id)),
-  );
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            variant="outline"
-            size="sm"
-            type="button"
-            disabled={g.busy || empty}
-            title={
-              empty
-                ? "Every group in this class already participates in this lab"
-                : "Attach one of the class's groups to this lab"
-            }
-          />
-        }
-      >
-        Attach a group
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-96">
-        {g.unattached.map((group) => {
-          const tooLarge = group.members.length > g.max;
-          const overlapping = group.members.filter((m) => placed.has(m.id));
-          const blocked = tooLarge || overlapping.length > 0;
-          const note = tooLarge
-            ? `${group.members.length} members · this lab takes ${g.sizeLabel}`
-            : overlapping.length > 0
-              ? `@${overlapping[0]?.login} is already in`
-              : group.members.length === 0
-                ? "empty"
-                : `${group.members.length} member${group.members.length === 1 ? "" : "s"}`;
-          return (
-            <DropdownMenuItem
-              key={group.id}
-              disabled={blocked}
-              onClick={() => g.attach(group.id)}
-              className="flex-col items-stretch gap-1 px-2.5 py-1.5"
-            >
-              <div className="flex w-full items-start justify-between gap-3">
-                <span className="min-w-0 break-words font-medium">
-                  {group.name}
-                </span>
-                {blocked ? (
-                  <Pill tone="warn">
-                    {tooLarge ? "too large" : "already placed"}
-                  </Pill>
-                ) : (
-                  <Pill tone="good">can attach</Pill>
-                )}
-              </div>
-              <div className="flex w-full items-center gap-2">
-                {group.members.length > 0 ? (
-                  <AvatarCluster members={group.members} />
-                ) : null}
-                <span className="min-w-0 font-mono text-muted-foreground text-xs leading-snug">
-                  {note}
-                </span>
-              </div>
-            </DropdownMenuItem>
-          );
-        })}
-      </DropdownMenuContent>
-    </DropdownMenu>
   );
 }
 
@@ -568,10 +491,10 @@ function GroupDrawer({
       >
         <Text variant="overline">Group actions</Text>
         <ConfirmDialog
-          title={`Detach ${group.name}?`}
-          description="The group itself remains and keeps its members — it just stops participating in this lab. You can re-attach it anytime."
-          confirmLabel="Detach group"
-          onConfirm={() => g.detach(group.id)}
+          title={`Delete ${group.name}?`}
+          description="The group and its GitHub team are removed. Students can form a new group for this lab afterwards."
+          confirmLabel="Delete group"
+          onConfirm={() => g.deleteGroup(group.id)}
           trigger={
             <Button
               variant="outline"
@@ -582,11 +505,11 @@ function GroupDrawer({
               disabled={g.busy || repo !== null}
               title={
                 repo !== null
-                  ? "The group's work repository exists — the pairing can't be detached"
-                  : "Detach this group from the lab (the group itself remains)"
+                  ? "The group's work repository exists — it can't be deleted"
+                  : "Delete this group (and its GitHub team)"
               }
             >
-              Detach from this lab
+              Delete group
             </Button>
           }
         />

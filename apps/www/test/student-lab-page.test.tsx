@@ -76,20 +76,26 @@ function mockApi(classesData: unknown, labGroupsData: unknown) {
   );
 }
 
-const groupsData = (
-  over?: Partial<{ groups: unknown[]; attached: unknown[] }>,
-) => ({
-  groups: [
-    { id: "g1", name: "Team Alpha", slug: "team-alpha", members: [bob] },
-    { id: "g2", name: "Team Beta", slug: "team-beta", members: [alice] },
-  ],
+/** A lab group in the per-lab response shape (repo/activity folded in). */
+const grp = (over: Record<string, unknown>) => ({
+  id: "g1",
+  name: "Team Alpha",
+  slug: "team-alpha",
+  members: [] as unknown[],
+  repoFullName: null,
+  pushedAt: null,
+  repoCreatedAt: null,
+  ...over,
+});
+
+const groupsData = (over?: { groups?: unknown[] }) => ({
+  groups: [] as unknown[],
   users: [],
   // The pool source: the class_members cache riding on the response.
   students: [
     { githubId: "7", login: "alice", avatarUrl: "http://a" },
     { githubId: "8", login: "bob", avatarUrl: null },
   ],
-  attached: [{ groupId: "g1", repoFullName: null }],
   ...over,
 });
 
@@ -99,110 +105,56 @@ beforeEach(() => {
 });
 
 describe("StudentLabPage — group lab", () => {
-  it("offers Join on an open attached group and the accept ghosts", () => {
-    mockApi({ classes: [], enrolled: [enrolledClass] }, groupsData());
+  it("offers Join on a group with room, plus New group", () => {
+    mockApi(
+      { classes: [], enrolled: [enrolledClass] },
+      groupsData({ groups: [grp({ members: [bob] })] }),
+    );
     render(<StudentLabPage />);
 
     expect(screen.getByText("enrolled")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Join" })).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "+ Accept with one of your groups" }),
+      screen.getByRole("button", { name: "+ New group" }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "+ Accept with a new group" }),
-    ).toBeInTheDocument();
-    // Students see the pool too — it helps them organize (alice is in no
-    // attached group yet). Management stays teacher-only.
+    // The pool shows students not in any group of this lab (alice).
     expect(
       screen.getByText(/Students without a group for this lab/),
     ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: /Detach/ }),
-    ).not.toBeInTheDocument();
   });
 
-  it("collapses accept affordances once participating; own group marked", () => {
+  it("collapses to YOUR group once you're in one; hides the others", () => {
     mockApi(
       { classes: [], enrolled: [enrolledClass] },
       groupsData({
         groups: [
-          {
-            id: "g1",
-            name: "Team Alpha",
-            slug: "team-alpha",
-            members: [alice, bob],
-          },
+          grp({ id: "g1", name: "Team Alpha", members: [alice, bob] }),
+          grp({ id: "g2", name: "Team Beta", slug: "team-beta", members: [] }),
         ],
-        attached: [{ groupId: "g1", repoFullName: null }],
       }),
     );
     render(<StudentLabPage />);
 
     expect(screen.getByText("your group")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Leave" })).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: /Accept with/ }),
-    ).not.toBeInTheDocument();
-    // Everyone's placed → the pool disappears.
-    expect(
-      screen.queryByText(/Students without a group/),
-    ).not.toBeInTheDocument();
-  });
-
-  it("hides the other groups once participating; start card offers the repo", () => {
-    const carol = { id: 9, login: "carol", avatarUrl: null };
-    mockApi(
-      { classes: [], enrolled: [enrolledClass] },
-      groupsData({
-        groups: [
-          {
-            id: "g1",
-            name: "Team Alpha",
-            slug: "team-alpha",
-            members: [alice, bob],
-          },
-          { id: "g2", name: "Team Beta", slug: "team-beta", members: [carol] },
-        ],
-        attached: [
-          { groupId: "g1", repoFullName: null },
-          { groupId: "g2", repoFullName: null },
-        ],
-      }),
-    );
-    render(<StudentLabPage />);
-
-    expect(screen.getByText("Your group")).toBeInTheDocument();
     expect(screen.getByText("Team Alpha")).toBeInTheDocument();
     expect(screen.queryByText("Team Beta")).not.toBeInTheDocument();
-    // g1 has the min (2) → the start card, with the repo yet to create.
+    // g1 has the min (2) → the start card, repo yet to create.
     expect(screen.getByText("Your group is ready")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Create repository" }),
     ).toBeInTheDocument();
   });
 
-  it("keeps the start card away while the group is under the minimum", () => {
+  it("keeps the start card away while your group is under the minimum", () => {
     mockApi(
       { classes: [], enrolled: [enrolledClass] },
-      groupsData({
-        groups: [
-          {
-            id: "g1",
-            name: "Team Alpha",
-            slug: "team-alpha",
-            members: [alice],
-          },
-        ],
-        attached: [{ groupId: "g1", repoFullName: null }],
-      }),
+      groupsData({ groups: [grp({ members: [alice] })] }),
     );
     render(<StudentLabPage />);
 
     expect(screen.getByText("needs 1 more member")).toBeInTheDocument();
     expect(screen.queryByText("Your group is ready")).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "Create repository" }),
-    ).not.toBeInTheDocument();
   });
 
   it("start card turns to the clone instructions once the repo exists", () => {
@@ -210,14 +162,11 @@ describe("StudentLabPage — group lab", () => {
       { classes: [], enrolled: [enrolledClass] },
       groupsData({
         groups: [
-          {
-            id: "g1",
-            name: "Team Alpha",
-            slug: "team-alpha",
+          grp({
             members: [alice, bob],
-          },
+            repoFullName: "acme/lab-1-team-alpha",
+          }),
         ],
-        attached: [{ groupId: "g1", repoFullName: "acme/lab-1-team-alpha" }],
       }),
     );
     render(<StudentLabPage />);
@@ -231,9 +180,6 @@ describe("StudentLabPage — group lab", () => {
       ),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: /acme\/lab-1-team-alpha/ }),
-    ).toBeInTheDocument();
-    expect(
       screen.queryByRole("button", { name: "Create repository" }),
     ).not.toBeInTheDocument();
   });
@@ -244,14 +190,14 @@ describe("StudentLabPage — individual lab", () => {
     params.labId = "l2";
     mockApi(
       { classes: [], enrolled: [enrolledClass] },
-      groupsData({ groups: [], attached: [] }),
+      groupsData({ groups: [] }),
     );
     render(<StudentLabPage />);
 
     expect(
       screen.getByRole("button", { name: "Accept lab" }),
     ).toBeInTheDocument();
-    expect(screen.queryByText("Participating groups")).not.toBeInTheDocument();
+    expect(screen.queryByText("Groups in this lab")).not.toBeInTheDocument();
   });
 
   it("shows Accepted + the work repo link once the solo group has one", () => {
@@ -260,9 +206,14 @@ describe("StudentLabPage — individual lab", () => {
       { classes: [], enrolled: [enrolledClass] },
       groupsData({
         groups: [
-          { id: "solo", name: "alice", slug: "alice", members: [alice] },
+          grp({
+            id: "solo",
+            name: "alice",
+            slug: "alice",
+            members: [alice],
+            repoFullName: "acme/lab-2-solo-alice",
+          }),
         ],
-        attached: [{ groupId: "solo", repoFullName: "acme/lab-2-solo-alice" }],
       }),
     );
     render(<StudentLabPage />);
@@ -271,13 +222,11 @@ describe("StudentLabPage — individual lab", () => {
     expect(
       screen.getByRole("link", { name: /acme\/lab-2-solo-alice/ }),
     ).toHaveAttribute("href", "https://github.com/acme/lab-2-solo-alice");
-    // The copyable clone snippet rides along, like the group start card's.
     expect(
       screen.getByText(
         /git clone https:\/\/github\.com\/acme\/lab-2-solo-alice\.git/,
       ),
     ).toBeInTheDocument();
-    // A pairing with a repo is a deliverable — no Withdraw anymore.
     expect(
       screen.queryByRole("button", { name: "Withdraw" }),
     ).not.toBeInTheDocument();
