@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { GroupLabStatus } from "~/components/custom/classes/groups/use-lab-groups";
 import { UserAvatar } from "~/components/custom/identity/user-avatar";
 import { AvatarGroup } from "~/components/ui/avatar";
@@ -17,35 +18,50 @@ export const STATUS_SPINE: Record<GroupLabStatus, string> = {
   under_min: "border-l-muted-foreground/40",
 };
 
-const GOOD = "bg-role-enrolled/10 text-role-enrolled";
-const WARN = "bg-warning/12 text-warning";
-const CHIP: Record<GroupLabStatus, { label: string; className: string }> = {
-  on_track: { label: "on track", className: GOOD },
-  on_time: { label: "on time", className: GOOD },
-  ready: { label: "repo created", className: GOOD },
-  late: { label: "late", className: "bg-brand/10 text-brand" },
-  no_pushes: { label: "no pushes", className: WARN },
-  no_repo: { label: "no repo", className: WARN },
-  under_min: {
-    label: "under min",
-    className: "bg-foreground/6 text-muted-foreground",
-  },
-};
+const TONE = {
+  good: "bg-role-enrolled/10 text-role-enrolled",
+  warn: "bg-warning/12 text-warning",
+  bad: "bg-brand/10 text-brand",
+  muted: "bg-foreground/6 text-muted-foreground",
+} as const;
+export type PillTone = keyof typeof TONE;
 
-/** Dot + mono label pill encoding the group's lab status. */
-export function StatusChip({ status }: { status: GroupLabStatus }) {
-  const chip = CHIP[status];
+/** Dot + mono label pill — the roster's status vocabulary, reused wherever
+ *  a group needs a verdict at a glance (chips, the attach menu). */
+export function Pill({
+  tone,
+  children,
+}: {
+  tone: PillTone;
+  children: ReactNode;
+}) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-wider",
-        chip.className,
+        "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-wider",
+        TONE[tone],
       )}
     >
       <span className="size-1.5 rounded-full bg-current" />
-      {chip.label}
+      {children}
     </span>
   );
+}
+
+const CHIP: Record<GroupLabStatus, { label: string; tone: PillTone }> = {
+  on_track: { label: "on track", tone: "good" },
+  on_time: { label: "on time", tone: "good" },
+  ready: { label: "repo created", tone: "good" },
+  late: { label: "late", tone: "bad" },
+  no_pushes: { label: "no pushes", tone: "warn" },
+  no_repo: { label: "no repo", tone: "warn" },
+  under_min: { label: "under min", tone: "muted" },
+};
+
+/** The group's lab status as a Pill. */
+export function StatusChip({ status }: { status: GroupLabStatus }) {
+  const chip = CHIP[status];
+  return <Pill tone={chip.tone}>{chip.label}</Pill>;
 }
 
 /** Coarse distance for the push-vs-deadline note: "42min" / "5h" / "3d". */

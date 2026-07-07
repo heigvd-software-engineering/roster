@@ -9,6 +9,7 @@ import { NewGroupDialog } from "~/components/custom/classes/groups/new-group-dia
 import {
   AvatarCluster,
   LastPush,
+  Pill,
   STATUS_SPINE,
   StatusChip,
 } from "~/components/custom/classes/groups/roster";
@@ -340,35 +341,45 @@ function AttachGroupMenu({ g }: { g: LabGroups }) {
       >
         Attach a group
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-72">
+      <DropdownMenuContent align="end" className="w-96">
         {g.unattached.map((group) => {
-          const fits = group.members.length <= g.max;
+          const tooLarge = group.members.length > g.max;
           const overlapping = group.members.filter((m) => placed.has(m.id));
-          const note = !fits
-            ? `${group.members.length} members — this lab takes ${g.sizeLabel}`
+          const blocked = tooLarge || overlapping.length > 0;
+          const note = tooLarge
+            ? `${group.members.length} members · this lab takes ${g.sizeLabel}`
             : overlapping.length > 0
-              ? `@${overlapping[0]?.login} already participates`
-              : `${group.members.length} member${group.members.length === 1 ? "" : "s"}`;
+              ? `@${overlapping[0]?.login} is already in`
+              : group.members.length === 0
+                ? "empty"
+                : `${group.members.length} member${group.members.length === 1 ? "" : "s"}`;
           return (
             <DropdownMenuItem
               key={group.id}
-              disabled={!fits || overlapping.length > 0}
+              disabled={blocked}
               onClick={() => g.attach(group.id)}
-              className="flex-col items-start gap-1.5"
+              className="flex-col items-stretch gap-1 px-2.5 py-1.5"
             >
-              <Row gap="sm" className="w-full">
-                <span className="font-medium">{group.name}</span>
-                <span className="ml-auto font-mono text-muted-foreground text-xs">
+              <div className="flex w-full items-start justify-between gap-3">
+                <span className="min-w-0 break-words font-medium">
+                  {group.name}
+                </span>
+                {blocked ? (
+                  <Pill tone="warn">
+                    {tooLarge ? "too large" : "already placed"}
+                  </Pill>
+                ) : (
+                  <Pill tone="good">can attach</Pill>
+                )}
+              </div>
+              <div className="flex w-full items-center gap-2">
+                {group.members.length > 0 ? (
+                  <AvatarCluster members={group.members} />
+                ) : null}
+                <span className="min-w-0 font-mono text-muted-foreground text-xs leading-snug">
                   {note}
                 </span>
-              </Row>
-              {group.members.length > 0 ? (
-                <AvatarCluster members={group.members} />
-              ) : (
-                <span className="font-mono text-muted-foreground text-xs">
-                  empty
-                </span>
-              )}
+              </div>
             </DropdownMenuItem>
           );
         })}
