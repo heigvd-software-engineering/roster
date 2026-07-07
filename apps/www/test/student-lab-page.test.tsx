@@ -271,6 +271,12 @@ describe("StudentLabPage — individual lab", () => {
     expect(
       screen.getByRole("link", { name: /acme\/lab-2-solo-alice/ }),
     ).toHaveAttribute("href", "https://github.com/acme/lab-2-solo-alice");
+    // The copyable clone snippet rides along, like the group start card's.
+    expect(
+      screen.getByText(
+        /git clone https:\/\/github\.com\/acme\/lab-2-solo-alice\.git/,
+      ),
+    ).toBeInTheDocument();
     // A pairing with a repo is a deliverable — no Withdraw anymore.
     expect(
       screen.queryByRole("button", { name: "Withdraw" }),

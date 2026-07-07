@@ -1,6 +1,7 @@
 import { Check } from "lucide-react";
 import { Link, Navigate, useParams } from "react-router";
 import { RepoLink } from "~/components/custom/classes/groups/group-tile";
+import { CloneCommands } from "~/components/custom/classes/groups/start-lab-card";
 import { StudentLabGroups } from "~/components/custom/classes/groups/student-lab-groups";
 import { useLabGroups } from "~/components/custom/classes/groups/use-lab-groups";
 import { LabHeader } from "~/components/custom/classes/labs/lab-header";
@@ -110,6 +111,7 @@ function IndividualAccept({ classId, lab }: { classId: string; lab: LabItem }) {
                 Your work repository — clone it and get going:
               </Text>
               <RepoLink fullName={repo} />
+              <CloneCommands fullName={repo} />
             </>
           ) : (
             <>
