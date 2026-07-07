@@ -37,10 +37,34 @@ export function appJwtOctokit(env: AuthEnv) {
   return createAppClient(env).octokit;
 }
 
+/**
+ * Installation tokens cached per isolate (they live 1h; we renew 5 min
+ * early). Without this, EVERY operation minted its own token — one extra
+ * GitHub round-trip per call. Only the token STRING is cached, never a
+ * client or an in-flight promise: Workers forbids sharing I/O (pending
+ * fetches) across request contexts, while a string is inert.
+ */
+const installationTokens = new Map<
+  number,
+  { token: string; expiresAt: number }
+>();
+
 /** Installation-scoped client — for org reads/writes with least privilege. */
 export async function installationOctokit(
   env: AuthEnv,
   installationId: number,
 ) {
-  return createAppClient(env).getInstallationOctokit(installationId);
+  const cached = installationTokens.get(installationId);
+  if (cached && cached.expiresAt - Date.now() > 5 * 60 * 1000) {
+    return new WorkersOctokit({ auth: cached.token });
+  }
+  const { data } = await appJwtOctokit(env).request(
+    "POST /app/installations/{installation_id}/access_tokens",
+    { installation_id: installationId },
+  );
+  installationTokens.set(installationId, {
+    token: data.token,
+    expiresAt: Date.parse(data.expires_at),
+  });
+  return new WorkersOctokit({ auth: data.token });
 }

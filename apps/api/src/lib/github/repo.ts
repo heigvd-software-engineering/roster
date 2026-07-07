@@ -67,6 +67,31 @@ export async function grantTeamRepo(
   });
 }
 
+/**
+ * Push/creation timestamps for ALL the org's repos, keyed by full name —
+ * ONE list call covers every work repo of a lab (the org listing already
+ * carries `pushed_at`), instead of a per-repo GET. Note: the creation
+ * commit (auto-init / template generation) also bumps `pushed_at`, so
+ * "has the group pushed" must compare it against `created_at`.
+ */
+export async function orgRepoActivity(
+  env: AuthEnv,
+  installationId: number,
+  org: string,
+): Promise<Map<string, { pushedAt: string | null; createdAt: string | null }>> {
+  const gh = await installationOctokit(env, installationId);
+  const repos = await gh.paginate("GET /orgs/{org}/repos", {
+    org,
+    per_page: 100,
+  });
+  return new Map(
+    repos.map((r) => [
+      r.full_name,
+      { pushedAt: r.pushed_at ?? null, createdAt: r.created_at ?? null },
+    ]),
+  );
+}
+
 /** The org's TEMPLATE repos — the lab dialog's starter-code choices. */
 export async function orgTemplateRepos(
   env: AuthEnv,

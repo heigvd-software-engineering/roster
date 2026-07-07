@@ -22,6 +22,11 @@ const state = vi.hoisted(() => ({
     string,
     Array<{ id: number; login: string; avatarUrl: string | null }>
   >,
+  // repo fullName → org-listing activity (pushed_at / created_at).
+  activity: {} as Record<
+    string,
+    { pushedAt: string | null; createdAt: string | null }
+  >,
 }));
 
 vi.mock("../src/lib/auth/config", () => ({
@@ -67,6 +72,7 @@ vi.mock("../src/lib/github/repo", () => ({
     name: string,
   ) => ({ id: repoSeq.next++, fullName: `${org}/${name}` }),
   grantTeamRepo: async () => {},
+  orgRepoActivity: async () => new Map(Object.entries(state.activity)),
 }));
 
 vi.mock("../src/lib/github/team", () => ({
@@ -157,6 +163,7 @@ beforeEach(async () => {
   state.session = { user: { id: "u1" } };
   state.membership = { state: "active", role: "member" };
   state.rosters = {};
+  state.activity = {};
 
   await db.delete(studentLabRepos);
   await db.delete(groups);
@@ -297,7 +304,10 @@ test("lists ALL class groups with rosters + which participate here", async () =>
   };
   expect(body.groups.map((g) => g.id)).toEqual(["g1", "g2"]);
   expect(body.groups[0]?.members).toEqual([alice, bob]);
-  expect(body.attached).toEqual([{ groupId: "g1", repoFullName: null }]);
+  // Repo-less pairings carry null activity (no org listing is even made).
+  expect(body.attached).toEqual([
+    { groupId: "g1", repoFullName: null, pushedAt: null, repoCreatedAt: null },
+  ]);
   // Linked SWITCH users ride along (alice's github id 7 → labs user u1).
   expect(body.users).toMatchObject([{ githubId: "7", user: { id: "u1" } }]);
 });
@@ -405,6 +415,89 @@ test("individual accept refuses group labs", async () => {
   );
   expect(res.status).toBe(409);
   expect(await res.json()).toEqual({ error: "group_lab" });
+});
+
+test("batch repos: creates the complete groups, reports the skipped", async () => {
+  state.membership = { state: "active", role: "admin" };
+  await seedLab({ minMembers: 2, maxMembers: 3 });
+  await seedGroup("g1"); // complete → repo created
+  await seedGroup("g2"); // under min → skipped, forms in place
+  state.rosters["g1-slug"] = [alice, bob];
+  state.rosters["g2-slug"] = [carol];
+  await attach("l1", "g1");
+  await attach("l1", "g2");
+
+  const res = await app.request(
+    "/api/classes/c1/labs/l1/repos",
+    { method: "POST" },
+    env,
+  );
+  expect(res.status).toBe(200);
+  expect(await res.json()).toEqual({
+    created: 1,
+    skipped: [{ groupId: "g2", reason: "group_incomplete" }],
+  });
+  const rows = await db.select().from(studentLabRepos);
+  expect(rows.find((r) => r.groupId === "g1")?.ghRepoFullName).toBe(
+    "acme/lab-g1-slug",
+  );
+  expect(rows.find((r) => r.groupId === "g2")?.ghRepoFullName).toBeNull();
+
+  // Idempotent replay: nothing left to create (g2 still under min).
+  const again = await app.request(
+    "/api/classes/c1/labs/l1/repos",
+    { method: "POST" },
+    env,
+  );
+  expect(await again.json()).toEqual({
+    created: 0,
+    skipped: [{ groupId: "g2", reason: "group_incomplete" }],
+  });
+});
+
+test("batch repos is the teacher's verb — members get 404", async () => {
+  await seedLab();
+  await seedGroup("g1");
+  state.rosters["g1-slug"] = [alice];
+  await attach("l1", "g1");
+
+  const res = await app.request(
+    "/api/classes/c1/labs/l1/repos",
+    { method: "POST" },
+    env,
+  );
+  expect(res.status).toBe(404);
+});
+
+test("the groups list carries work-repo activity from the org listing", async () => {
+  await seedLab();
+  await seedGroup("g1");
+  state.rosters["g1-slug"] = [alice];
+  await attach("l1", "g1");
+  await app.request(
+    "/api/classes/c1/labs/l1/groups/g1/repo",
+    { method: "POST" },
+    env,
+  );
+  state.activity["acme/lab-g1-slug"] = {
+    pushedAt: "2099-02-01T00:00:00Z",
+    createdAt: "2099-01-15T00:00:00Z",
+  };
+
+  const res = await app.request(
+    "/api/classes/c1/labs/l1/groups",
+    { method: "GET" },
+    env,
+  );
+  const body = (await res.json()) as { attached: unknown[] };
+  expect(body.attached).toEqual([
+    {
+      groupId: "g1",
+      repoFullName: "acme/lab-g1-slug",
+      pushedAt: "2099-02-01T00:00:00Z",
+      repoCreatedAt: "2099-01-15T00:00:00Z",
+    },
+  ]);
 });
 
 test("a lab from another class is unreachable", async () => {

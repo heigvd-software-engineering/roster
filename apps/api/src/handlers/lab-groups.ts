@@ -1,5 +1,5 @@
 import { classMembers, type Group, groups, studentLabRepos } from "@labs/db";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { authedFactory } from "../factory";
 import {
   groupInClass,
@@ -7,6 +7,7 @@ import {
   linkedUsers,
   resolveClassAccess,
 } from "../lib/access";
+import { orgRepoActivity } from "../lib/github/repo";
 import { teamMembers } from "../lib/github/team";
 import {
   attachPair,
@@ -43,13 +44,38 @@ export const listLabGroups = authedFactory.createHandlers(async (c) => {
     .orderBy(groups.createdAt);
   const out = await groupsWithRosters(c.env, access, rows);
   // After reconciliation: gone groups' attachments were dropped with them.
-  const attached = await access.db
+  const pairings = await access.db
     .select({
       groupId: studentLabRepos.groupId,
       repoFullName: studentLabRepos.ghRepoFullName,
     })
     .from(studentLabRepos)
     .where(eq(studentLabRepos.labId, lab.id));
+  // Work-repo activity (last push vs deadline drives the roster's status
+  // chips): ONE org-repos listing covers every repo, and a failure only
+  // degrades the chips (activity unknown), never the roster itself.
+  let activity = new Map<
+    string,
+    { pushedAt: string | null; createdAt: string | null }
+  >();
+  if (pairings.some((p) => p.repoFullName)) {
+    try {
+      activity = await orgRepoActivity(
+        c.env,
+        access.cls.installationId,
+        access.org,
+      );
+    } catch {}
+  }
+  const attached = pairings.map((p) => ({
+    ...p,
+    pushedAt: p.repoFullName
+      ? (activity.get(p.repoFullName)?.pushedAt ?? null)
+      : null,
+    repoCreatedAt: p.repoFullName
+      ? (activity.get(p.repoFullName)?.createdAt ?? null)
+      : null,
+  }));
   const students = await access.db
     .select({
       githubId: classMembers.githubId,
@@ -129,6 +155,73 @@ export const createLabRepo = authedFactory.createHandlers(async (c) => {
     return c.json({ error: "app_permissions" }, 409);
   }
   return c.json({ repo: { fullName: repo.fullName } });
+});
+
+/**
+ * Batch-create every missing work repo for the lab (teacher only) — the
+ * roster toolbar's "create N missing repositories" as ONE request instead
+ * of N create+refetch round-trips. Creations run sequentially on purpose
+ * (repo-creation bursts trip GitHub's abuse limits). Per-group blockers
+ * (under min, orphaned team, name collision) are skipped and reported —
+ * their rows simply stay "no repo" — while a permissions failure aborts:
+ * it's an installation-level problem that would fail every remaining
+ * create the same way.
+ */
+export const createMissingLabRepos = authedFactory.createHandlers(async (c) => {
+  const access = await resolveClassAccess(c, c.req.param("id"));
+  if (!access) return c.json({ error: "not_found" }, 404);
+  // The batch verb is the teacher's; students create for their own group.
+  if (!access.admin) return c.json({ error: "not_found" }, 404);
+  const lab = await labInClass(access, c.req.param("labId"));
+  if (!lab) return c.json({ error: "not_found" }, 404);
+
+  const pairings = await access.db
+    .select()
+    .from(studentLabRepos)
+    .where(
+      and(
+        eq(studentLabRepos.labId, lab.id),
+        isNull(studentLabRepos.ghRepoFullName),
+      ),
+    );
+
+  const min = lab.groupMode === "individual" ? 1 : (lab.minMembers ?? 1);
+  let created = 0;
+  const skipped: {
+    groupId: string;
+    reason: "group_gone" | "group_incomplete" | "repo_name_taken";
+  }[] = [];
+  for (const pairing of pairings) {
+    const group = await groupInClass(access, pairing.groupId);
+    if (!group) {
+      skipped.push({ groupId: pairing.groupId, reason: "group_gone" });
+      continue;
+    }
+    const members = await teamMembers(
+      c.env,
+      access.cls.installationId,
+      access.org,
+      group.ghTeamSlug,
+    );
+    if (members === null) {
+      skipped.push({ groupId: group.id, reason: "group_gone" });
+      continue;
+    }
+    if (members.length < min) {
+      skipped.push({ groupId: group.id, reason: "group_incomplete" });
+      continue;
+    }
+    const repo = await createPairRepo(c.env, access, lab, group);
+    if (repo === "name_taken") {
+      skipped.push({ groupId: group.id, reason: "repo_name_taken" });
+      continue;
+    }
+    if (repo === "app_permissions") {
+      return c.json({ error: "app_permissions" }, 409);
+    }
+    created++;
+  }
+  return c.json({ created, skipped });
 });
 
 /** Attach a group to the lab (member of the group, or a teacher). */
