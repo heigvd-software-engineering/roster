@@ -1,4 +1,18 @@
-import { api, type LabItem, labGroupsApi, useAction, useApi } from "~/lib/api";
+import {
+  api,
+  type GroupItem,
+  type LabItem,
+  labGroupsApi,
+  useAction,
+  useApi,
+} from "~/lib/api";
+
+/**
+ * A group's standing in one lab — ONE derivation for both role UIs (the
+ * teacher's roster chips, the student's start-lab gate). Push-based
+ * statuses (on time / late) arrive with the activity slice.
+ */
+export type GroupLabStatus = "ready" | "no_repo" | "under_min";
 
 /**
  * The lab page's group data + actions, shared by the teacher and student
@@ -41,6 +55,11 @@ export function useLabGroups(classId: string, lab: LabItem) {
   /** The group's work repo full name, once created. */
   const repoFor = (groupId: string) =>
     pairings.find((p) => p.groupId === groupId)?.repoFullName ?? null;
+  const min = lab.groupMode === "individual" ? 1 : (lab.minMembers ?? 1);
+  const statusFor = (group: GroupItem): GroupLabStatus => {
+    if (repoFor(group.id)) return "ready";
+    return group.members.length >= min ? "no_repo" : "under_min";
+  };
   // The "without a group for this lab" pool: enrolled students (from the
   // class_members display cache) who are in NO participating group.
   const inGroup = new Set(
@@ -66,8 +85,11 @@ export function useLabGroups(classId: string, lab: LabItem) {
     attached,
     unattached,
     unassignedStudents,
+    /** Students in SOME participating group (the pool's complement). */
+    placedCount: inGroup.size,
     repoFor,
-    min: lab.groupMode === "individual" ? 1 : (lab.minMembers ?? 1),
+    statusFor,
+    min,
     max: lab.groupMode === "individual" ? 1 : (lab.maxMembers ?? Infinity),
     sizeLabel,
     attach: (groupId: string) =>

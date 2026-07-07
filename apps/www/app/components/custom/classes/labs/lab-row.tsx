@@ -3,6 +3,7 @@ import {
   DeadlineText,
   isDeadlineUrgent,
 } from "~/components/custom/classes/labs/deadline-text";
+import { CAPS_LABEL } from "~/components/custom/typography/text";
 import type { LabItem } from "~/lib/api";
 import { formatDeadline, labModeLabel } from "~/lib/format";
 import { cn } from "~/lib/utils";
@@ -19,10 +20,7 @@ export function LabsHeader() {
   return (
     <div className={cn(LAB_GRID, "border-border border-b pt-3 pb-2")}>
       {COLUMNS.map((col) => (
-        <span
-          key={col}
-          className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.18em]"
-        >
+        <span key={col} className={cn(CAPS_LABEL, "text-muted-foreground")}>
           {col}
         </span>
       ))}

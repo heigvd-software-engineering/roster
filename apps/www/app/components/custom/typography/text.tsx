@@ -27,6 +27,13 @@ const VARIANT = {
   error: "text-sm text-destructive",
 } as const;
 
+/**
+ * The DENSE caps-label token — table/stat headers where `overline` is too
+ * airy (10px, tighter tracking, no color: consumers pick it). One spelling
+ * for what lab-row, lab-stats, and the roster head all share.
+ */
+export const CAPS_LABEL = "font-mono text-[10px] uppercase tracking-[0.18em]";
+
 const ELEMENT = {
   hero: "h1",
   title: "h1",

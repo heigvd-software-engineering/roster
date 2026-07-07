@@ -77,8 +77,15 @@ export function StartLabCard({
   );
 }
 
-/** The clone-and-enter snippet as a copyable code block. */
-function CloneCommands({ fullName }: { fullName: string }) {
+/** The clone-and-enter snippet as a copyable code block — shared by the
+ *  group start-lab card and the individual lab's accepted state. */
+export function CloneCommands({
+  fullName,
+  className,
+}: {
+  fullName: string;
+  className?: string;
+}) {
   const commands = `git clone https://github.com/${fullName}.git\ncd ${fullName.split("/")[1]}`;
   const [copied, setCopied] = useState(false);
   const copyResetTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -92,7 +99,7 @@ function CloneCommands({ fullName }: { fullName: string }) {
   }
 
   return (
-    <div className="relative w-full rounded-md bg-muted">
+    <div className={cn("relative w-full rounded-md bg-muted", className)}>
       <pre className="overflow-x-auto p-3 pr-10 font-mono text-foreground text-xs leading-relaxed">
         {commands}
       </pre>

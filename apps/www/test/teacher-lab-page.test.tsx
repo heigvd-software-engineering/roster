@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import type { PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useApi } from "~/lib/api";
@@ -103,23 +103,63 @@ describe("TeacherLabPage", () => {
       screen.getByText(/Students without a group for this lab/),
     ).toBeInTheDocument();
     expect(screen.getByText("@alice")).toBeInTheDocument();
-    // Management on the attached tile + the attach/create ghosts.
+    // The roster: Team Alpha participates with 1/2 members → under min.
+    expect(screen.getByText("Team Alpha")).toBeInTheDocument();
+    expect(screen.getByText("under min")).toBeInTheDocument();
+    // Toolbar: attach/create moved off the grid, into buttons.
     expect(
-      screen.getByRole("button", { name: "Detach Team Alpha from this lab" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Add a member to Team Alpha" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "+ Attach a group" }),
+      screen.getByRole("button", { name: "Attach a group" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "+ New group" }),
+    ).toBeInTheDocument();
+    // Management is one click deep: the row's drawer.
+    fireEvent.click(screen.getByRole("button", { name: "Manage Team Alpha" }));
+    expect(
+      screen.getByRole("button", { name: "Detach from this lab" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Add from the pool/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Remove bob from Team Alpha" }),
     ).toBeInTheDocument();
     // Teachers never join/leave.
     expect(
       screen.queryByRole("button", { name: "Join" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("disables attach when every group participates, detach once the repo exists", () => {
+    mockApi(
+      { classes: [teachingClass], enrolled: [] },
+      {
+        ...groupsData,
+        groups: [
+          {
+            id: "g1",
+            name: "Team Alpha",
+            slug: "team-alpha",
+            members: [alice, bob],
+          },
+        ],
+        attached: [{ groupId: "g1", repoFullName: "acme/lab1-team-alpha" }],
+      },
+    );
+    render(<TeacherLabPage />);
+
+    // No unattached groups left → the affordance stays, disabled.
+    expect(
+      screen.getByRole("button", { name: "Attach a group" }),
+    ).toBeDisabled();
+    // The repo exists → the row links it and the drawer refuses detach.
+    expect(
+      screen.getByRole("link", { name: /acme\/lab1-team-alpha/ }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Manage Team Alpha" }));
+    expect(
+      screen.getByRole("button", { name: "Detach from this lab" }),
+    ).toBeDisabled();
   });
 
   it("hides the pool when every student is placed", () => {

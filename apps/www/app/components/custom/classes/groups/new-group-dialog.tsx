@@ -26,6 +26,7 @@ export function NewGroupDialog({
   classId,
   autoJoins,
   triggerLabel = "New group",
+  trigger,
   onCreated,
 }: {
   classId: string;
@@ -33,6 +34,8 @@ export function NewGroupDialog({
   autoJoins: boolean;
   /** Ghost-tile text (student CTA on the lab page reads "Accept…"). */
   triggerLabel?: string;
+  /** Replaces the default ghost tile (e.g. a toolbar button). */
+  trigger?: React.ReactElement;
   /** Follow-up after creation — attaches and/or revalidates. */
   onCreated: (group: {
     id: string;
@@ -75,7 +78,9 @@ export function NewGroupDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
-        render={<GhostTile title="Create a new group for this class" />}
+        render={
+          trigger ?? <GhostTile title="Create a new group for this class" />
+        }
       >
         <span className="font-mono">+</span> {triggerLabel}
       </DialogTrigger>

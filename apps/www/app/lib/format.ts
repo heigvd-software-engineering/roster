@@ -48,3 +48,11 @@ export function switchDisplayName(user: {
     ? `${user.firstName} ${user.lastName}`
     : user.name;
 }
+
+/** The linked-users rows (riding on class/groups responses) as a lookup by
+ *  GitHub id — the one way member rosters correlate to SWITCH identities. */
+export function usersByGithubId<U>(
+  users?: { githubId: string; user: U }[],
+): Map<string, U> {
+  return new Map(users?.map((u) => [u.githubId, u.user]));
+}

@@ -6,7 +6,7 @@ import { Stack } from "~/components/custom/layout/stack";
 import { Text } from "~/components/custom/typography/text";
 import { Card } from "~/components/ui/card";
 import type { ClassItem, GroupItem } from "~/lib/api";
-import { switchDisplayName } from "~/lib/format";
+import { switchDisplayName, usersByGithubId } from "~/lib/format";
 import { cn } from "~/lib/utils";
 
 /** The groups grid: 3 columns on desktop, collapsing below. */
@@ -107,12 +107,15 @@ export function GroupMembers({
   members,
   users,
   memberAction,
+  memberClassName,
 }: {
   members: GroupItem["members"];
   users?: ClassItem["users"];
   memberAction?: (member: GroupItem["members"][number]) => ReactNode;
+  /** Restyles each row (e.g. the drawer's card-like member rows). */
+  memberClassName?: string;
 }) {
-  const userByGithubId = new Map(users?.map((u) => [u.githubId, u.user]));
+  const userByGithubId = usersByGithubId(users);
   if (members.length === 0) {
     return (
       <Text variant="caption" className="font-mono">
@@ -130,6 +133,7 @@ export function GroupMembers({
             member={member}
             name={linked ? switchDisplayName(linked) : member.login}
             action={memberAction?.(member)}
+            className={memberClassName}
           />
         );
       })}
@@ -138,18 +142,21 @@ export function GroupMembers({
 }
 
 /** A roster member as a small identity block: SWITCH name (THE identity
- *  inside the app) over the mono GitHub login. */
-export function MemberBlock({
+ *  inside the app) over the mono GitHub login. The action (e.g. remove ×)
+ *  rides the row's right edge when the row is given width. */
+function MemberBlock({
   member,
   name,
   action,
+  className,
 }: {
   member: { id: number; login: string; avatarUrl: string | null };
   name: string;
   action?: ReactNode;
+  className?: string;
 }) {
   return (
-    <Row gap="xs">
+    <Row gap="sm" className={className}>
       <UserAvatar name={name} src={member.avatarUrl} size="sm" />
       <Stack gap="none">
         <Text variant="caption" className="font-medium text-foreground">
@@ -159,7 +166,7 @@ export function MemberBlock({
           @{member.login}
         </Text>
       </Stack>
-      {action}
+      {action ? <span className="ml-auto">{action}</span> : null}
     </Row>
   );
 }
