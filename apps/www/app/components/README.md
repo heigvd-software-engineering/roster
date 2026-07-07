@@ -77,6 +77,9 @@ gets regenerated, and where our own work lives.
 
 Large groups split further by use case: `classes/` holds `hub/` (the classes
 page cards + dialogs), `labs/` (lab row, header, and the create/edit
-`lab-dialog`), and `groups/` (group tiles, the shared `use-lab-groups` hook,
-and the two role-specific lab-group sections). Cross-cutting pieces
-(`role-marker`) stay at the group root.
+`lab-dialog`), and `groups/` (everything both lab pages compose: the shared
+`use-lab-groups` hook, the teacher's roster — `teacher-lab-groups` +
+`roster`/`lab-stats` bits — the student's `student-lab-groups` +
+`start-lab-card`, and the shared `group-tile`/`unassigned-pool`/
+`new-group-dialog`). Cross-cutting pieces (`role-marker`) stay at the group
+root.
