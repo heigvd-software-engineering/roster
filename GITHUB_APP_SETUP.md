@@ -89,13 +89,23 @@ Only the minimum. Under **Permissions & events → Organization permissions**:
 | Permission | Access | Why |
 |---|---|---|
 | **Administration** | **Read & write** | set the org's **base repository permission** to "No access" (`PATCH /orgs/{org}`) |
-| **Members** | **Read & write** | enrollment (invite students as org members) — F4 |
+| **Members** | **Read & write** | enrollment (invite students as org members) — F4; teams = groups — F7 |
 
-Leave **Repository** and **Account** permissions at their defaults (Metadata:
-Read is implied). Add more only when a feature needs it.
+And under **Repository permissions** (added for F8 — work repo distribution):
+
+| Permission | Access | Why |
+|---|---|---|
+| **Administration** | **Read & write** | create the work repos (`POST /orgs/{org}/repos`, `/generate`), grant the group's team push |
+| **Contents** | **Read & write** | `auto_init` the empty repos / generate from a template |
+
+Leave **Account** permissions at their defaults (Metadata: Read is implied).
+Add more only when a feature needs it.
 
 > Changing permissions on an **already-installed** App requires each installation
-> to approve the new permissions. For a fresh install it's included.
+> to approve the new permissions (org Settings → GitHub Apps → review request;
+> until approved, repo creation answers `403 Resource not accessible by
+> integration` — labs surfaces it as an "App needs updated permissions"
+> message). For a fresh install it's included.
 
 ### 6. Where can this App be installed?
 
