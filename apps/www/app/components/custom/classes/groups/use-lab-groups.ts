@@ -9,10 +9,20 @@ import {
 
 /**
  * A group's standing in one lab — ONE derivation for both role UIs (the
- * teacher's roster chips, the student's start-lab gate). Push-based
- * statuses (on time / late) arrive with the activity slice.
+ * teacher's roster chips, the student's start-lab gate). Blocked states
+ * first (under_min, no_repo), then push-based activity: on_track/on_time
+ * (last push respects the deadline, open/closed), late (pushed after it),
+ * no_pushes (repo untouched). "ready" = repo exists but activity unknown
+ * (the org listing failed) — chips degrade, the roster never does.
  */
-export type GroupLabStatus = "ready" | "no_repo" | "under_min";
+export type GroupLabStatus =
+  | "under_min"
+  | "no_repo"
+  | "no_pushes"
+  | "on_track"
+  | "on_time"
+  | "late"
+  | "ready";
 
 /**
  * The lab page's group data + actions, shared by the teacher and student
@@ -52,13 +62,34 @@ export function useLabGroups(classId: string, lab: LabItem) {
   const attachedIds = new Set(pairings.map((p) => p.groupId));
   const attached = groups.filter((g) => attachedIds.has(g.id));
   const unattached = groups.filter((g) => !attachedIds.has(g.id));
+  /** The group↔lab pairing row: repo + its push/creation timestamps. */
+  const pairingFor = (groupId: string) =>
+    pairings.find((p) => p.groupId === groupId) ?? null;
   /** The group's work repo full name, once created. */
   const repoFor = (groupId: string) =>
-    pairings.find((p) => p.groupId === groupId)?.repoFullName ?? null;
+    pairingFor(groupId)?.repoFullName ?? null;
   const min = lab.groupMode === "individual" ? 1 : (lab.minMembers ?? 1);
   const statusFor = (group: GroupItem): GroupLabStatus => {
-    if (repoFor(group.id)) return "ready";
-    return group.members.length >= min ? "no_repo" : "under_min";
+    const pairing = pairingFor(group.id);
+    if (!pairing?.repoFullName) {
+      return group.members.length >= min ? "no_repo" : "under_min";
+    }
+    if (pairing.pushedAt === null && pairing.repoCreatedAt === null) {
+      return "ready"; // repo exists, activity unknown
+    }
+    const pushedAt = pairing.pushedAt ? Date.parse(pairing.pushedAt) : null;
+    const createdAt = pairing.repoCreatedAt
+      ? Date.parse(pairing.repoCreatedAt)
+      : null;
+    // The creation commit (auto-init / template) bumps pushed_at too —
+    // count only pushes meaningfully after the repo came to be.
+    const hasPushes =
+      pushedAt !== null &&
+      (createdAt === null || pushedAt - createdAt > 2 * 60_000);
+    if (!hasPushes) return "no_pushes";
+    const deadline = Date.parse(lab.deadline);
+    if ((pushedAt as number) > deadline) return "late";
+    return Date.now() > deadline ? "on_time" : "on_track";
   };
   // The "without a group for this lab" pool: enrolled students (from the
   // class_members display cache) who are in NO participating group.
@@ -87,6 +118,7 @@ export function useLabGroups(classId: string, lab: LabItem) {
     unassignedStudents,
     /** Students in SOME participating group (the pool's complement). */
     placedCount: inGroup.size,
+    pairingFor,
     repoFor,
     statusFor,
     min,
@@ -119,6 +151,13 @@ export function useLabGroups(classId: string, lab: LabItem) {
     /** The explicit accept-completion step: create the pairing's repo. */
     createRepo: (groupId: string) =>
       act(() => labGroupsApi[":groupId"].repo.$post(pairParam(groupId))),
+    /** Teacher toolbar: every missing repo in ONE request (one refetch). */
+    createMissingRepos: () =>
+      act(() =>
+        api.api.classes[":id"].labs[":labId"].repos.$post({
+          param: { id: classId, labId: lab.id },
+        }),
+      ),
     acceptIndividual: () =>
       act(() =>
         api.api.classes[":id"].labs[":labId"].accept.$post({

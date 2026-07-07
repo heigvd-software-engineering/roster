@@ -8,6 +8,7 @@ import { LabStats } from "~/components/custom/classes/groups/lab-stats";
 import { NewGroupDialog } from "~/components/custom/classes/groups/new-group-dialog";
 import {
   AvatarCluster,
+  LastPush,
   STATUS_SPINE,
   StatusChip,
 } from "~/components/custom/classes/groups/roster";
@@ -45,13 +46,16 @@ import { cn } from "~/lib/utils";
 
 const HEAD = cn(CAPS_LABEL, "h-9 font-medium text-muted-foreground");
 
-type StatusFilter = "all" | "attention" | "ready";
+type StatusFilter = "all" | "attention" | "late";
 type LabGroups = ReturnType<typeof useLabGroups>;
 type RosterRow = {
   group: GroupItem;
   repo: string | null;
+  pushedAt: string | null;
   status: GroupLabStatus;
 };
+/** Statuses that need nothing from anyone — everything else is attention. */
+const GOOD_STATUSES: GroupLabStatus[] = ["on_track", "on_time", "ready"];
 /** The pool members a teacher may add to a group (linked login required). */
 type AddCandidate = LabGroups["unassignedStudents"][number] & { login: string };
 
@@ -86,6 +90,7 @@ export function TeacherLabGroups({
     (group) => ({
       group,
       repo: g.repoFor(group.id),
+      pushedAt: g.pairingFor(group.id)?.pushedAt ?? null,
       status: g.statusFor(group),
       haystack: [
         group.name,
@@ -100,11 +105,12 @@ export function TeacherLabGroups({
     }),
   );
 
-  const attention = rows.filter((r) => r.status !== "ready");
+  const attention = rows.filter((r) => !GOOD_STATUSES.includes(r.status));
+  const late = rows.filter((r) => r.status === "late");
   const missingRepos = rows.filter((r) => r.status === "no_repo");
   const matchesFilter = (status: GroupLabStatus) =>
     filter === "all" ||
-    (filter === "ready" ? status === "ready" : status !== "ready");
+    (filter === "late" ? status === "late" : !GOOD_STATUSES.includes(status));
   const needle = query.toLowerCase();
   const visible = rows.filter(
     (r) => matchesFilter(r.status) && r.haystack.includes(needle),
@@ -134,6 +140,7 @@ export function TeacherLabGroups({
             total: rows.length,
             label: "repositories",
           },
+          { value: late.length, label: "late", alert: true },
         ]}
       />
 
@@ -149,7 +156,8 @@ export function TeacherLabGroups({
           onFilter={setFilter}
           total={rows.length}
           attentionCount={attention.length}
-          missingRepos={missingRepos}
+          lateCount={late.length}
+          missingCount={missingRepos.length}
         />
 
         {rows.length === 0 ? (
@@ -164,6 +172,7 @@ export function TeacherLabGroups({
                   <TableHead className={cn(HEAD, "pl-4")}>Group</TableHead>
                   <TableHead className={HEAD}>Members</TableHead>
                   <TableHead className={HEAD}>Repository</TableHead>
+                  <TableHead className={HEAD}>Last push</TableHead>
                   <TableHead className={HEAD}>Status</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
@@ -175,6 +184,7 @@ export function TeacherLabGroups({
                     g={g}
                     row={row}
                     max={g.max}
+                    deadline={lab.deadline}
                     expanded={expandedId === row.group.id}
                     onToggle={() =>
                       setExpandedId(
@@ -187,7 +197,7 @@ export function TeacherLabGroups({
                 {visible.length === 0 ? (
                   <TableRow className="hover:bg-transparent">
                     <TableCell
-                      colSpan={5}
+                      colSpan={6}
                       className="py-6 text-center text-muted-foreground text-sm"
                     >
                       No groups match — clear the search or filter.
@@ -214,7 +224,8 @@ function RosterToolbar({
   onFilter,
   total,
   attentionCount,
-  missingRepos,
+  lateCount,
+  missingCount,
 }: {
   g: LabGroups;
   classId: string;
@@ -224,14 +235,10 @@ function RosterToolbar({
   onFilter: (filter: StatusFilter) => void;
   total: number;
   attentionCount: number;
-  missingRepos: RosterRow[];
+  lateCount: number;
+  /** Complete groups still lacking their repo — the batch button's scope. */
+  missingCount: number;
 }) {
-  async function createMissingRepos() {
-    for (const row of missingRepos) {
-      await g.createRepo(row.group.id);
-    }
-  }
-
   return (
     <Row gap="sm" wrap className="w-full">
       <div className="relative">
@@ -260,28 +267,28 @@ function RosterToolbar({
         </ToggleGroupItem>
         <ToggleGroupItem
           value="attention"
-          title="Groups missing their repo or under the minimum size"
+          title="Groups that are late, untouched, missing their repo, or under the minimum size"
         >
           Needs attention <Count n={attentionCount} />
         </ToggleGroupItem>
         <ToggleGroupItem
-          value="ready"
-          title="Groups whose work repository exists"
+          value="late"
+          title="Groups whose last push came after the deadline"
         >
-          Ready <Count n={total - attentionCount} />
+          Late <Count n={lateCount} />
         </ToggleGroupItem>
       </ToggleGroup>
       <span className="flex-1" />
-      {missingRepos.length > 0 ? (
+      {missingCount > 0 ? (
         <Button
           size="sm"
           type="button"
           disabled={g.busy}
           title="Create the work repository for every complete group that lacks one"
-          onClick={createMissingRepos}
+          onClick={() => g.createMissingRepos()}
         >
-          Create {missingRepos.length} missing{" "}
-          {missingRepos.length === 1 ? "repository" : "repositories"}
+          Create {missingCount} missing{" "}
+          {missingCount === 1 ? "repository" : "repositories"}
         </Button>
       ) : null}
       <AttachGroupMenu g={g} />
@@ -303,11 +310,17 @@ function RosterToolbar({
   );
 }
 
-/** "Attach a group" — the class's not-yet-participating groups as a menu
- *  (misfits listed disabled with the reason). Stays visible when there are
- *  none — disabled, so the affordance remains discoverable. */
+/** "Attach a group" — EVERY not-yet-participating group of the class,
+ *  members visible; the ones that can't attach (over max, or a member
+ *  already participating through another group) stay listed, disabled
+ *  with the reason. Stays visible when there are none — disabled, so the
+ *  affordance remains discoverable. */
 function AttachGroupMenu({ g }: { g: LabGroups }) {
   const empty = g.unattached.length === 0;
+  // The server would 409 an overlap anyway — the menu says so up front.
+  const placed = new Set(
+    g.attached.flatMap((group) => group.members.map((m) => m.id)),
+  );
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -327,21 +340,35 @@ function AttachGroupMenu({ g }: { g: LabGroups }) {
       >
         Attach a group
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent align="end" className="w-72">
         {g.unattached.map((group) => {
           const fits = group.members.length <= g.max;
+          const overlapping = group.members.filter((m) => placed.has(m.id));
+          const note = !fits
+            ? `${group.members.length} members — this lab takes ${g.sizeLabel}`
+            : overlapping.length > 0
+              ? `@${overlapping[0]?.login} already participates`
+              : `${group.members.length} member${group.members.length === 1 ? "" : "s"}`;
           return (
             <DropdownMenuItem
               key={group.id}
-              disabled={!fits}
+              disabled={!fits || overlapping.length > 0}
               onClick={() => g.attach(group.id)}
+              className="flex-col items-start gap-1.5"
             >
-              {group.name}
-              <span className="font-mono text-muted-foreground text-xs">
-                {fits
-                  ? `${group.members.length} member${group.members.length === 1 ? "" : "s"}`
-                  : `${group.members.length} members — this lab takes ${g.sizeLabel}`}
-              </span>
+              <Row gap="sm" className="w-full">
+                <span className="font-medium">{group.name}</span>
+                <span className="ml-auto font-mono text-muted-foreground text-xs">
+                  {note}
+                </span>
+              </Row>
+              {group.members.length > 0 ? (
+                <AvatarCluster members={group.members} />
+              ) : (
+                <span className="font-mono text-muted-foreground text-xs">
+                  empty
+                </span>
+              )}
             </DropdownMenuItem>
           );
         })}
@@ -354,8 +381,9 @@ function AttachGroupMenu({ g }: { g: LabGroups }) {
  *  management drawer when toggled open. */
 function GroupRow({
   g,
-  row: { group, repo, status },
+  row: { group, repo, pushedAt, status },
   max,
+  deadline,
   expanded,
   onToggle,
   addCandidates,
@@ -363,6 +391,7 @@ function GroupRow({
   g: LabGroups;
   row: RosterRow;
   max: number;
+  deadline: string;
   expanded: boolean;
   onToggle: () => void;
   addCandidates: AddCandidate[];
@@ -413,6 +442,9 @@ function GroupRow({
           )}
         </TableCell>
         <TableCell>
+          <LastPush pushedAt={pushedAt} status={status} deadline={deadline} />
+        </TableCell>
+        <TableCell>
           <StatusChip status={status} />
         </TableCell>
         <TableCell className="pr-3 text-right">
@@ -437,7 +469,7 @@ function GroupRow({
       {expanded ? (
         <TableRow className="hover:bg-transparent">
           <TableCell
-            colSpan={5}
+            colSpan={6}
             className={cn("border-l-2 p-0", STATUS_SPINE[status])}
           >
             <GroupDrawer

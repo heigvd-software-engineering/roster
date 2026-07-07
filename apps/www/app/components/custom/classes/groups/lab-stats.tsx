@@ -7,6 +7,8 @@ export type LabStat = {
   /** Renders as a smaller, muted "/total" behind the value. */
   total?: number;
   label: string;
+  /** Urgency: a non-zero value lights up brand red (e.g. late groups). */
+  alert?: boolean;
 };
 
 /**
@@ -22,7 +24,12 @@ export function LabStats({ stats }: { stats: LabStat[] }) {
           key={stat.label}
           className="border-border border-l px-5 py-3 first:border-l-0"
         >
-          <div className="font-mono text-xl tabular-nums">
+          <div
+            className={cn(
+              "font-mono text-xl tabular-nums",
+              stat.alert && stat.value > 0 && "text-brand",
+            )}
+          >
             {stat.value}
             {stat.total !== undefined ? (
               <span className="text-muted-foreground text-sm">
