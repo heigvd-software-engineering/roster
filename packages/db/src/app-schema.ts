@@ -59,54 +59,46 @@ export const labs = sqliteTable("labs", {
 });
 
 /**
- * A student group = a GitHub Team (F7), class-scoped and reusable across
- * labs. This row holds only what the team can't express: the class link,
- * provenance, and the team id/slug. The ROSTER is the team's member list —
- * read live, never stored. `creatorUserId` is provenance only (students
- * manage themselves; teachers manage everything).
+ * A student group = a GitHub Team, now **per-lab** (owns exactly one lab —
+ * groups are copied per lab, never shared across them; see spec
+ * `2026-07-07-per-lab-groups-design.md`). Three identifiers, deliberately
+ * distinct:
+ *   - `name`     display label ("Team Alpha"). NEVER sent to GitHub. Unique
+ *                per (labId, name) — friendly names reuse freely across labs.
+ *   - `slug`     `labSlug-groupSlug`, org-unique by construction; this is
+ *                what we HAND GitHub as the team's name.
+ *   - `ghTeamSlug` GitHub's returned slug (source of truth for API paths /
+ *                the repo name; equals `slug` unless GitHub deduped).
+ * The WORK REPO is folded in (one lab per group → group IS the
+ * participation). The ROSTER stays the team's live member list.
+ * `creatorUserId` is provenance only. Class is DERIVED via labs.classId.
  */
-export const groups = sqliteTable("groups", {
-  id: text("id").primaryKey(),
-  classId: text("class_id")
-    .notNull()
-    .references(() => classes.id),
-  // Stable GitHub Team id — the real key (slugs change on rename).
-  ghTeamId: integer("gh_team_id").notNull().unique(),
-  // Labs-generated, collision-safe org-wide; cached for API paths.
-  ghTeamSlug: text("gh_team_slug").notNull(),
-  name: text("name").notNull(),
-  creatorUserId: text("creator_user_id")
-    .notNull()
-    .references(() => user.id),
-  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
-  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
-});
-
-/**
- * A group's PARTICIPATION in a lab — the group↔lab link (many-to-many, one
- * row per pairing; groups are reusable across labs). Managed from the lab
- * page (F7); F8's accept flow adds this pairing's student lab repo columns
- * (ghRepoId, …) when repos exist — until then the row IS the attachment.
- */
-export const studentLabRepos = sqliteTable(
-  "student_lab_repos",
+export const groups = sqliteTable(
+  "groups",
   {
     id: text("id").primaryKey(),
     labId: text("lab_id")
       .notNull()
       .references(() => labs.id),
-    groupId: text("group_id")
-      .notNull()
-      .references(() => groups.id),
-    // The pairing's WORK REPO (F8) — created explicitly once the group
-    // meets the lab's min size (that's where min is enforced); null while
-    // the group is still forming. The team gets push on it.
+    // Stable GitHub Team id — the real key (slugs change on rename).
+    ghTeamId: integer("gh_team_id").notNull().unique(),
+    // GitHub's returned slug; cached for API paths + the repo name.
+    ghTeamSlug: text("gh_team_slug").notNull(),
+    // Our computed lab-scoped slug (what we send GitHub as the team name).
+    slug: text("slug").notNull(),
+    // Display label — reusable across labs, never sent to GitHub.
+    name: text("name").notNull(),
+    // The group's WORK REPO — created once the group meets the lab's min
+    // size (where min is enforced); null while still forming. Team gets push.
     ghRepoId: integer("gh_repo_id").unique(),
     ghRepoFullName: text("gh_repo_full_name"),
+    creatorUserId: text("creator_user_id")
+      .notNull()
+      .references(() => user.id),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },
-  (t) => [unique().on(t.labId, t.groupId)],
+  (t) => [unique().on(t.labId, t.name), unique().on(t.labId, t.slug)],
 );
 
 /**
