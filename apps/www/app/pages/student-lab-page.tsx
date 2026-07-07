@@ -74,7 +74,7 @@ export function StudentLabPage() {
  * The one-click accept on INDIVIDUAL labs: no group machinery — the server
  * finds-or-creates the solo group, attaches it, and creates the WORK REPO
  * in the same click. Withdrawing is only possible while no repo exists
- * (once it does, the pairing is a deliverable).
+ * (once it does, the group is a deliverable).
  */
 function IndividualAccept({ classId, lab }: { classId: string; lab: LabItem }) {
   const { github } = useAuth();

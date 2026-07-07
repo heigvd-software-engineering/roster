@@ -1,5 +1,6 @@
 import { type Class, type Group, type getDb, groups, type Lab } from "@labs/db";
 import { and, eq, ne } from "drizzle-orm";
+import type { ClassAccess } from "./access";
 import type { AuthEnv } from "./auth/config";
 import {
   type CreatedRepo,
@@ -7,7 +8,7 @@ import {
   generateFromTemplate,
   grantTeamRepo,
 } from "./github/repo";
-import { addTeamMember, createTeam, teamMembers } from "./github/team";
+import { addTeamMember, createTeam } from "./github/team";
 
 type Db = ReturnType<typeof getDb>;
 
@@ -102,21 +103,17 @@ export async function createGroupInLab(
  * being joined itself.
  */
 export async function alreadyInLabGroup(
-  env: AuthEnv,
-  scope: { db: Db; cls: Class },
-  org: string,
+  access: ClassAccess,
   labId: string,
   login: string,
   exceptGroupId: string,
 ): Promise<boolean> {
-  const labGroups = await scope.db
+  const labGroups = await access.db
     .select()
     .from(groups)
     .where(and(eq(groups.labId, labId), ne(groups.id, exceptGroupId)));
   const rosters = await Promise.all(
-    labGroups.map((g) =>
-      teamMembers(env, scope.cls.installationId, org, g.ghTeamSlug),
-    ),
+    labGroups.map((g) => access.team.roster(g.ghTeamSlug)),
   );
   return rosters.some(
     (roster) => roster?.some((m) => m.login === login) ?? false,
@@ -134,7 +131,7 @@ export async function alreadyInLabGroup(
  * Repository write).
  */
 export type RepoFailure = "name_taken" | "template_error" | "app_permissions";
-export async function createPairRepo(
+export async function createWorkRepo(
   env: AuthEnv,
   scope: { db: Db; cls: Class; org: string },
   lab: Lab,
@@ -193,22 +190,16 @@ export async function createPairRepo(
  * team gone on GitHub reconciles HERE: its row is dropped. Returns the
  * group's display data + live members + its work repo (folded onto the row).
  */
-export async function groupsWithRosters(
-  env: AuthEnv,
-  scope: { db: Db; cls: Class; org: string },
-  rows: Group[],
-) {
+export async function groupsWithRosters(access: ClassAccess, rows: Group[]) {
   const rosters = await Promise.all(
-    rows.map((row) =>
-      teamMembers(env, scope.cls.installationId, scope.org, row.ghTeamSlug),
-    ),
+    rows.map((row) => access.team.roster(row.ghTeamSlug)),
   );
   const out = [];
   for (const [i, members] of rosters.entries()) {
     const row = rows[i];
     if (!row) continue;
     if (members === null) {
-      await scope.db.delete(groups).where(eq(groups.id, row.id));
+      await access.db.delete(groups).where(eq(groups.id, row.id));
       continue;
     }
     out.push({

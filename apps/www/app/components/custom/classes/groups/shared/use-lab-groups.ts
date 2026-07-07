@@ -93,7 +93,7 @@ export function useLabGroups(classId: string, lab: LabItem) {
   );
 
   const groupParam = (groupId: string) => ({ param: { id: classId, groupId } });
-  const pairParam = (groupId: string) => ({
+  const labGroupParam = (groupId: string) => ({
     param: { id: classId, labId: lab.id, groupId },
   });
   const classGroupsApi = api.api.classes[":id"].groups;
@@ -137,7 +137,7 @@ export function useLabGroups(classId: string, lab: LabItem) {
       act(() => classGroupsApi[":groupId"].$delete(groupParam(groupId))),
     /** The explicit accept-completion step: create the group's repo. */
     createRepo: (groupId: string) =>
-      act(() => labGroupsApi[":groupId"].repo.$post(pairParam(groupId))),
+      act(() => labGroupsApi[":groupId"].repo.$post(labGroupParam(groupId))),
     /** Teacher toolbar: every missing repo in ONE request (one refetch). */
     createMissingRepos: () =>
       act(() =>

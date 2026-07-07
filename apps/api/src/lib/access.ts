@@ -9,10 +9,17 @@ import {
 } from "@labs/db";
 import { and, eq, inArray } from "drizzle-orm";
 import type { Context } from "hono";
+import type { AuthEnv } from "./auth/config";
 import { githubAccessToken } from "./auth/github-token";
 import type { AuthedEnv } from "./auth/require-auth";
 import { orgLogin } from "./github/app";
 import { isOrgAdmin, orgMembership } from "./github/org";
+import {
+  addTeamMember,
+  deleteTeam,
+  removeTeamMember,
+  teamMembers,
+} from "./github/team";
 import { fetchGithubProfile } from "./github/user";
 
 /**
@@ -35,6 +42,16 @@ import { fetchGithubProfile } from "./github/user";
 
 type Db = ReturnType<typeof getDb>;
 
+/** The class org's GitHub Team API, pre-bound to this class's installation +
+ *  org — so handlers call `access.team.roster(slug)` instead of threading
+ *  `(env, cls.installationId, org, …)` through every call. */
+export type ClassTeam = {
+  roster: (slug: string) => ReturnType<typeof teamMembers>;
+  add: (slug: string, login: string) => Promise<void>;
+  remove: (slug: string, login: string) => Promise<void>;
+  delete: (slug: string) => Promise<void>;
+};
+
 export type ClassAccess = {
   db: Db;
   cls: Class;
@@ -43,7 +60,23 @@ export type ClassAccess = {
   login: string;
   /** Live org Owner (teacher). */
   admin: boolean;
+  /** This class's GitHub Team API, pre-bound to its installation + org. */
+  team: ClassTeam;
 };
+
+function classTeam(
+  env: AuthEnv,
+  installationId: number,
+  org: string,
+): ClassTeam {
+  return {
+    roster: (slug) => teamMembers(env, installationId, org, slug),
+    add: (slug, login) => addTeamMember(env, installationId, org, slug, login),
+    remove: (slug, login) =>
+      removeTeamMember(env, installationId, org, slug, login),
+    delete: (slug) => deleteTeam(env, installationId, org, slug),
+  };
+}
 
 export async function resolveClassAccess(
   c: Context<AuthedEnv>,
@@ -78,6 +111,7 @@ export async function resolveClassAccess(
       org,
       login: profile.login,
       admin: membership.role === "admin",
+      team: classTeam(c.env, cls.installationId, org),
     };
   } catch {
     // Dead installation — the class effectively doesn't exist.

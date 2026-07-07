@@ -2,11 +2,6 @@ import { groups } from "@labs/db";
 import { eq } from "drizzle-orm";
 import { authedFactory } from "../factory";
 import { groupInClass, resolveClassAccess } from "../lib/access";
-import {
-  addTeamMember,
-  deleteTeam,
-  removeTeamMember,
-} from "../lib/github/team";
 import { alreadyInLabGroup } from "../lib/groups";
 
 /**
@@ -27,25 +22,10 @@ export const joinGroup = authedFactory.createHandlers(async (c) => {
   const group = await groupInClass(access, c.req.param("groupId"));
   if (!group) return c.json({ error: "not_found" }, 404);
 
-  if (
-    await alreadyInLabGroup(
-      c.env,
-      access,
-      access.org,
-      group.labId,
-      access.login,
-      group.id,
-    )
-  ) {
+  if (await alreadyInLabGroup(access, group.labId, access.login, group.id)) {
     return c.json({ error: "member_already_participating" }, 409);
   }
-  await addTeamMember(
-    c.env,
-    access.cls.installationId,
-    access.org,
-    group.ghTeamSlug,
-    access.login,
-  );
+  await access.team.add(group.ghTeamSlug, access.login);
   return c.json({ ok: true });
 });
 
@@ -56,13 +36,7 @@ export const leaveGroup = authedFactory.createHandlers(async (c) => {
   const group = await groupInClass(access, c.req.param("groupId"));
   if (!group) return c.json({ error: "not_found" }, 404);
 
-  await removeTeamMember(
-    c.env,
-    access.cls.installationId,
-    access.org,
-    group.ghTeamSlug,
-    access.login,
-  );
+  await access.team.remove(group.ghTeamSlug, access.login);
   return c.json({ ok: true });
 });
 
@@ -75,25 +49,10 @@ export const addGroupMember = authedFactory.createHandlers(async (c) => {
   const login = c.req.param("login");
   if (!group || !login) return c.json({ error: "not_found" }, 404);
 
-  if (
-    await alreadyInLabGroup(
-      c.env,
-      access,
-      access.org,
-      group.labId,
-      login,
-      group.id,
-    )
-  ) {
+  if (await alreadyInLabGroup(access, group.labId, login, group.id)) {
     return c.json({ error: "member_already_participating" }, 409);
   }
-  await addTeamMember(
-    c.env,
-    access.cls.installationId,
-    access.org,
-    group.ghTeamSlug,
-    login,
-  );
+  await access.team.add(group.ghTeamSlug, login);
   return c.json({ ok: true });
 });
 
@@ -105,13 +64,7 @@ export const removeGroupMember = authedFactory.createHandlers(async (c) => {
   const login = c.req.param("login");
   if (!group || !login) return c.json({ error: "not_found" }, 404);
 
-  await removeTeamMember(
-    c.env,
-    access.cls.installationId,
-    access.org,
-    group.ghTeamSlug,
-    login,
-  );
+  await access.team.remove(group.ghTeamSlug, login);
   return c.json({ ok: true });
 });
 
@@ -129,12 +82,7 @@ export const deleteGroup = authedFactory.createHandlers(async (c) => {
   }
 
   try {
-    await deleteTeam(
-      c.env,
-      access.cls.installationId,
-      access.org,
-      group.ghTeamSlug,
-    );
+    await access.team.delete(group.ghTeamSlug);
   } catch (err) {
     if ((err as { status?: number }).status !== 404) throw err;
   }

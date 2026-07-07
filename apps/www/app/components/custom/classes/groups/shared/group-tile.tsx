@@ -62,7 +62,7 @@ export function GroupTile({
   );
 }
 
-/** The pairing's work repo, linked (opens on GitHub). */
+/** The group's work repo, linked (opens on GitHub). */
 export function RepoLink({ fullName }: { fullName: string }) {
   return (
     <a
