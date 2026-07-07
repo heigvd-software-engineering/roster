@@ -64,6 +64,13 @@
       "when": 1783353414607,
       "tag": "0008_class_members_identity_cache",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1783372975294,
+      "tag": "0009_lab_templates_and_work_repos",
+      "breakpoints": true
     }
   ]
 }

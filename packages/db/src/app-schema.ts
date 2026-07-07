@@ -40,6 +40,10 @@ export const labs = sqliteTable("labs", {
     .notNull()
     .references(() => classes.id),
   title: text("title").notNull(),
+  // Optional starter code (F8): a template repo in the class org — repos
+  // are created via /generate from it; empty (auto-init) when null.
+  templateRepoId: integer("template_repo_id"),
+  templateRepoFullName: text("template_repo_full_name"),
   deadline: integer("deadline", { mode: "timestamp" }).notNull(),
   // `individual` = a group of one (min=max=1); `group` uses min/maxMembers.
   groupMode: text("group_mode", { enum: ["individual", "group"] })
@@ -94,6 +98,11 @@ export const studentLabRepos = sqliteTable(
     groupId: text("group_id")
       .notNull()
       .references(() => groups.id),
+    // The pairing's WORK REPO (F8) — created explicitly once the group
+    // meets the lab's min size (that's where min is enforced); null while
+    // the group is still forming. The team gets push on it.
+    ghRepoId: integer("gh_repo_id").unique(),
+    ghRepoFullName: text("gh_repo_full_name"),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },
