@@ -106,7 +106,13 @@ export function useApi<
   config?: SWRConfiguration<InferResponseType<E["$get"], 200>>,
 ) {
   type Data = InferResponseType<E["$get"], 200>;
-  const path = endpoint.$url(args).pathname;
+  // The cache key must carry the QUERY too — `$url` only substitutes path
+  // params, and two windows of the same endpoint (e.g. `?from=`) must not
+  // collide on one key.
+  const url = endpoint.$url(args);
+  const query = (args as { query?: Record<string, string> } | undefined)?.query;
+  const path =
+    url.pathname + (query ? `?${new URLSearchParams(query)}` : url.search);
   return useSWR<Data>(
     path,
     async () => {

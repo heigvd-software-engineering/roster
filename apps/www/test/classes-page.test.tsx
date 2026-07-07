@@ -141,16 +141,52 @@ describe("ClassesPage", () => {
     expect(screen.getByText("No labs yet.")).toBeInTheDocument();
   });
 
-  it("shows the ghost connect card as the empty state", () => {
+  it("shows the empty state when nothing exists in any semester", () => {
+    // The ghost connect card is gone (user-decided 2026-07-07) — an empty
+    // hub explains itself in text; connecting lives in the header dialog.
     vi.mocked(useApi).mockReturnValue({
-      data: { classes: [] },
+      data: { classes: [], enrolled: [], hasOlder: false },
     } as unknown as ReturnType<typeof useApi>);
 
     render(<ClassesPage />);
 
-    expect(
-      screen.getByText("+ Connect a GitHub organization"),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/No classes yet/)).toBeInTheDocument();
+  });
+
+  it("offers Load more when older semesters exist", () => {
+    vi.mocked(useApi).mockReturnValue({
+      data: { classes: [], enrolled: [], hasOlder: true },
+    } as unknown as ReturnType<typeof useApi>);
+
+    render(<ClassesPage />);
+
+    expect(screen.getByRole("button", { name: /Load/ })).toBeEnabled();
+    expect(screen.queryByText(/No classes yet/)).not.toBeInTheDocument();
+  });
+
+  it("keeps Load more visible but disabled when nothing older exists", () => {
+    vi.mocked(useApi).mockReturnValue({
+      data: {
+        classes: [],
+        enrolled: [
+          {
+            id: "c1",
+            createdAt: "2026-07-02T00:00:00.000Z",
+            login: "acme",
+            name: "Acme",
+            avatarUrl: null,
+            state: "active",
+            teachers: [],
+            labs: [],
+          },
+        ],
+        hasOlder: false,
+      },
+    } as unknown as ReturnType<typeof useApi>);
+
+    render(<ClassesPage />);
+
+    expect(screen.getByRole("button", { name: /Load/ })).toBeDisabled();
   });
 
   it("shows a loading state while classes are being fetched", () => {
