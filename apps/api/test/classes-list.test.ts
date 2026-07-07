@@ -82,6 +82,7 @@ async function seedClass(args?: {
   login?: string;
   name?: string;
   avatarUrl?: string;
+  createdAt?: Date;
 }) {
   await db.insert(classes).values({
     id: args?.id ?? "c1",
@@ -93,7 +94,7 @@ async function seedClass(args?: {
     login: args?.login ?? null,
     name: args?.name ?? null,
     avatarUrl: args?.avatarUrl ?? null,
-    createdAt: now,
+    createdAt: args?.createdAt ?? now,
     updatedAt: now,
   });
 }
@@ -187,7 +188,11 @@ test("skips classes whose org is no longer in the user's installations", async (
   state.installations = [];
   const res = await app.request("/api/classes", {}, env);
   expect(res.status).toBe(200);
-  expect(await res.json()).toEqual({ classes: [], enrolled: [] });
+  expect(await res.json()).toEqual({
+    classes: [],
+    enrolled: [],
+    hasOlder: false,
+  });
 });
 
 test("does not touch the row when installationId and org cache are current", async () => {
@@ -236,7 +241,11 @@ test("skips a class when the caller has installation access but is NOT an org ow
   });
   const res = await app.request("/api/classes", {}, env);
   expect(res.status).toBe(200);
-  expect(await res.json()).toEqual({ classes: [], enrolled: [] });
+  expect(await res.json()).toEqual({
+    classes: [],
+    enrolled: [],
+    hasOlder: false,
+  });
 });
 
 test("returns [] when the caller has no linked GitHub account", async () => {
@@ -244,7 +253,11 @@ test("returns [] when the caller has no linked GitHub account", async () => {
   await db.delete(account);
   const res = await app.request("/api/classes", {}, env);
   expect(res.status).toBe(200);
-  expect(await res.json()).toEqual({ classes: [], enrolled: [] });
+  expect(await res.json()).toEqual({
+    classes: [],
+    enrolled: [],
+    hasOlder: false,
+  });
   expect(userInstallationsByOrgIdMock).not.toHaveBeenCalled();
 });
 
@@ -253,7 +266,11 @@ test("returns [] when the GitHub token is dead and unrefreshable", async () => {
   state.githubToken = null;
   const res = await app.request("/api/classes", {}, env);
   expect(res.status).toBe(200);
-  expect(await res.json()).toEqual({ classes: [], enrolled: [] });
+  expect(await res.json()).toEqual({
+    classes: [],
+    enrolled: [],
+    hasOlder: false,
+  });
   expect(userInstallationsByOrgIdMock).not.toHaveBeenCalled();
 });
 
@@ -441,4 +458,81 @@ test("a class the caller teaches never doubles as an enrolled class", async () =
   };
   expect(body.classes.map((c) => c.id)).toEqual(["c1"]);
   expect(body.enrolled).toEqual([]);
+});
+
+test("?from windows the list — no GitHub work for out-of-window classes", async () => {
+  state.installations = [
+    { id: 200, account: { id: 42, login: "acme" } },
+    { id: 201, account: { id: 43, login: "oldies" } },
+  ];
+  await seedClass({
+    id: "c-new",
+    orgId: 42,
+    createdAt: new Date("2026-03-01"),
+  });
+  await seedClass({
+    id: "c-old",
+    orgId: 43,
+    installationId: 201,
+    createdAt: new Date("2025-03-01"),
+  });
+  vi.mocked(orgPeople).mockClear();
+
+  const res = await app.request(
+    "/api/classes?from=2026-02-01T00:00:00Z",
+    {},
+    env,
+  );
+  const body = (await res.json()) as {
+    classes: Array<{ id: string }>;
+    hasOlder: boolean;
+  };
+  expect(body.classes.map((c) => c.id)).toEqual(["c-new"]);
+  expect(body.hasOlder).toBe(true);
+  // The saving: the out-of-window class never triggered live GitHub work.
+  expect(vi.mocked(orgPeople)).toHaveBeenCalledTimes(1);
+
+  // Widened window: both classes, nothing older left.
+  const all = await app.request(
+    "/api/classes?from=2025-02-01T00:00:00Z",
+    {},
+    env,
+  );
+  const allBody = (await all.json()) as {
+    classes: Array<{ id: string }>;
+    hasOlder: boolean;
+  };
+  expect(allBody.classes.map((c) => c.id)).toEqual(["c-new", "c-old"]);
+  expect(allBody.hasOlder).toBe(false);
+});
+
+test("hasOlder also sees older ENROLLED classes; bad from is a 400", async () => {
+  await seedClass({ id: "c-new", createdAt: new Date("2026-03-01") });
+  // An older class the caller is only enrolled in (org not installed).
+  await seedClass({
+    id: "c-enr",
+    orgId: 99,
+    createdAt: new Date("2024-10-01"),
+  });
+  await db.insert(classMembers).values({
+    id: "m-enr",
+    classId: "c-enr",
+    githubId: "111",
+    state: "active",
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  const res = await app.request(
+    "/api/classes?from=2026-02-01T00:00:00Z",
+    {},
+    env,
+  );
+  const body = (await res.json()) as { enrolled: unknown[]; hasOlder: boolean };
+  expect(body.enrolled).toEqual([]);
+  expect(body.hasOlder).toBe(true);
+
+  expect(
+    (await app.request("/api/classes?from=not-a-date", {}, env)).status,
+  ).toBe(400);
 });

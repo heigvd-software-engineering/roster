@@ -7,7 +7,7 @@ import {
   labs,
   user,
 } from "@labs/db";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lt } from "drizzle-orm";
 import { authedFactory } from "../factory";
 import { linkedUsers, resolveClassAsTeacher } from "../lib/access";
 import { githubAccessToken } from "../lib/auth/github-token";
@@ -40,10 +40,19 @@ export const confirmClass = authedFactory.createHandlers(async (c) => {
 });
 
 /** The teacher hub's data: the caller's classes (live org Owner check),
- *  each with live people, linked labs users, and its labs. */
+ *  each with live people, linked labs users, and its labs. `?from=<iso>`
+ *  windows the list by class creation date BEFORE any live GitHub work —
+ *  the hub loads only the current semester and pages older ones on demand;
+ *  `hasOlder` (pure DB) tells the client whether "Load more" has anything
+ *  left to fetch. */
 export const listClasses = authedFactory.createHandlers(async (c) => {
   const db = getDb(c.env.DB);
   const caller = c.get("user");
+  const fromParam = c.req.query("from");
+  const from = fromParam ? new Date(fromParam) : null;
+  if (from && Number.isNaN(from.getTime())) {
+    return c.json({ error: "bad_from" }, 400);
+  }
 
   // Identity first: the caller's github id (teacher check) and a usable
   // OAuth token (installations call, refreshed if expired) — either missing
@@ -56,7 +65,7 @@ export const listClasses = authedFactory.createHandlers(async (c) => {
   const ghId = Number(ghAccount?.accountId);
   const token = await githubAccessToken(c.env, caller.id);
   if (!ghAccount || !Number.isFinite(ghId) || !token) {
-    return c.json({ classes: [], enrolled: [] });
+    return c.json({ classes: [], enrolled: [], hasOlder: false });
   }
 
   // Reconcile against the user's LIVE installations — the installationId we
@@ -71,7 +80,12 @@ export const listClasses = authedFactory.createHandlers(async (c) => {
       : await db
           .select()
           .from(classes)
-          .where(inArray(classes.orgId, orgIds))
+          .where(
+            and(
+              inArray(classes.orgId, orgIds),
+              ...(from ? [gte(classes.createdAt, from)] : []),
+            ),
+          )
           // Newest class first — the response keeps this order (the loop
           // below pushes in row order).
           .orderBy(desc(classes.createdAt));
@@ -198,6 +212,7 @@ export const listClasses = authedFactory.createHandlers(async (c) => {
         and(
           eq(classMembers.githubId, ghAccount.accountId),
           inArray(classMembers.state, ["pending", "active"]),
+          ...(from ? [gte(classes.createdAt, from)] : []),
         ),
       )
       .orderBy(desc(classes.createdAt))
@@ -251,5 +266,35 @@ export const listClasses = authedFactory.createHandlers(async (c) => {
     labs: enrolledLabs.filter((l) => l.classId === m.cls.id),
   }));
 
-  return c.json({ classes: out, enrolled });
+  // Anything visible-ish OLDER than the window? Pure DB — a teaching
+  // candidate (class in one of the caller's installations) or an enrollment
+  // created before `from`. Drives the hub's "Load more".
+  let hasOlder = false;
+  if (from) {
+    const olderTeaching =
+      orgIds.length === 0
+        ? []
+        : await db
+            .select({ id: classes.id })
+            .from(classes)
+            .where(
+              and(inArray(classes.orgId, orgIds), lt(classes.createdAt, from)),
+            )
+            .limit(1);
+    const olderEnrolled = await db
+      .select({ id: classes.id })
+      .from(classMembers)
+      .innerJoin(classes, eq(classMembers.classId, classes.id))
+      .where(
+        and(
+          eq(classMembers.githubId, ghAccount.accountId),
+          inArray(classMembers.state, ["pending", "active"]),
+          lt(classes.createdAt, from),
+        ),
+      )
+      .limit(1);
+    hasOlder = olderTeaching.length > 0 || olderEnrolled.length > 0;
+  }
+
+  return c.json({ classes: out, enrolled, hasOlder });
 });
