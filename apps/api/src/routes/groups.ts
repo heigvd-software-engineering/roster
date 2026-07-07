@@ -1,7 +1,6 @@
 import { Hono } from "hono";
 import {
   addGroupMember,
-  createGroup,
   deleteGroup,
   joinGroup,
   leaveGroup,
@@ -9,14 +8,12 @@ import {
 } from "../handlers/groups";
 import { type AuthedEnv, requireAuth } from "../lib/auth/require-auth";
 
-// `membership` = the CALLER's own (self join/leave); `members/:login` = a
-// teacher acting on someone else. Both live under the class so the group id
-// is always scope-checked against it. There is no class-level group LIST —
-// groups are listed per-lab (the lab page is the only group surface).
+// Group MEMBERSHIP + lifecycle by group id (per-lab model: a group owns its
+// lab, so these stay class-scoped by the globally-unique group id). CREATE
+// is lab-scoped — see routes/lab-groups.ts. `membership` = the CALLER's own
+// (self join/leave); `members/:login` = a teacher acting on someone else.
 export const groupsRoutes = new Hono<AuthedEnv>()
-  .use("/classes/:id/groups", requireAuth)
   .use("/classes/:id/groups/*", requireAuth)
-  .post("/classes/:id/groups", ...createGroup)
   .put("/classes/:id/groups/:groupId/membership", ...joinGroup)
   .delete("/classes/:id/groups/:groupId/membership", ...leaveGroup)
   .put("/classes/:id/groups/:groupId/members/:login", ...addGroupMember)

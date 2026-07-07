@@ -1,13 +1,5 @@
 import { env } from "cloudflare:test";
-import {
-  account,
-  classes,
-  getDb,
-  groups,
-  labs,
-  studentLabRepos,
-  user,
-} from "@labs/db";
+import { account, classes, getDb, groups, labs, user } from "@labs/db";
 import { Hono } from "hono";
 import { beforeEach, expect, test, vi } from "vitest";
 
@@ -22,7 +14,7 @@ const state = vi.hoisted(() => ({
     string,
     Array<{ id: number; login: string; avatarUrl: string | null }>
   >,
-  // repo fullName → org-listing activity (pushed_at / created_at).
+  // repo fullName → org-listing activity.
   activity: {} as Record<
     string,
     { pushedAt: string | null; createdAt: string | null }
@@ -30,15 +22,11 @@ const state = vi.hoisted(() => ({
 }));
 
 vi.mock("../src/lib/auth/config", () => ({
-  createAuth: () => ({
-    api: { getSession: async () => state.session },
-  }),
+  createAuth: () => ({ api: { getSession: async () => state.session } }),
 }));
-
 vi.mock("../src/lib/auth/github-token", () => ({
   githubAccessToken: async () => "tok",
 }));
-
 vi.mock("../src/lib/github/user", () => ({
   fetchGithubProfile: async () => ({
     login: "alice",
@@ -47,11 +35,7 @@ vi.mock("../src/lib/github/user", () => ({
     avatarUrl: "http://a",
   }),
 }));
-
-vi.mock("../src/lib/github/app", () => ({
-  orgLogin: async () => "acme",
-}));
-
+vi.mock("../src/lib/github/app", () => ({ orgLogin: async () => "acme" }));
 vi.mock("../src/lib/github/org", () => ({
   orgMembership: async () => state.membership,
 }));
@@ -118,16 +102,22 @@ const alice = { id: 7, login: "alice", avatarUrl: "http://a" };
 const bob = { id: 8, login: "bob", avatarUrl: null };
 const carol = { id: 9, login: "carol", avatarUrl: null };
 
+type GroupResp = { group: { id: string; name: string; slug: string } };
+type RepoResp = { repo: { fullName: string } };
+const asGroup = (r: Response) => r.json() as Promise<GroupResp>;
+const asRepo = (r: Response) => r.json() as Promise<RepoResp>;
+
 async function seedLab(args?: {
   id?: string;
   groupMode?: "individual" | "group";
   minMembers?: number | null;
   maxMembers?: number | null;
 }) {
+  const id = args?.id ?? "l1";
   await db.insert(labs).values({
-    id: args?.id ?? "l1",
+    id,
     classId: "c1",
-    title: "Lab",
+    title: `Lab ${id}`, // distinct titles → distinct lab slugs
     deadline: new Date("2099-01-01"),
     groupMode: args?.groupMode ?? "group",
     minMembers: args?.minMembers ?? 1,
@@ -138,26 +128,48 @@ async function seedLab(args?: {
   });
 }
 
-async function seedGroup(id: string) {
+async function seedGroup(args: {
+  id: string;
+  labId: string;
+  name?: string;
+  repo?: boolean;
+}) {
   await db.insert(groups).values({
-    id,
-    classId: "c1",
+    id: args.id,
+    labId: args.labId,
     ghTeamId: Math.floor(Math.random() * 1e6),
-    ghTeamSlug: `${id}-slug`,
-    name: `Group ${id}`,
+    ghTeamSlug: `${args.id}-slug`,
+    slug: `${args.labId}-${args.id}`,
+    name: args.name ?? `Group ${args.id}`,
+    ghRepoId: args.repo ? Math.floor(Math.random() * 1e6) : null,
+    ghRepoFullName: args.repo ? `acme/${args.id}` : null,
     creatorUserId: "u1",
     createdAt: now,
     updatedAt: now,
   });
 }
 
-function attach(labId: string, groupId: string) {
+function createGroup(labId: string, body: object) {
   return app.request(
-    `/api/classes/c1/labs/${labId}/groups/${groupId}`,
-    { method: "PUT" },
+    `/api/classes/c1/labs/${labId}/groups`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    },
     env,
   );
 }
+const repo = (labId: string, groupId: string) =>
+  app.request(
+    `/api/classes/c1/labs/${labId}/groups/${groupId}/repo`,
+    { method: "POST" },
+    env,
+  );
+const batch = (labId: string) =>
+  app.request(`/api/classes/c1/labs/${labId}/repos`, { method: "POST" }, env);
+const accept = (labId: string) =>
+  app.request(`/api/classes/c1/labs/${labId}/accept`, { method: "POST" }, env);
 
 beforeEach(async () => {
   state.session = { user: { id: "u1" } };
@@ -165,7 +177,6 @@ beforeEach(async () => {
   state.rosters = {};
   state.activity = {};
 
-  await db.delete(studentLabRepos);
   await db.delete(groups);
   await db.delete(labs);
   await db.delete(classes);
@@ -193,312 +204,199 @@ beforeEach(async () => {
   });
 });
 
-test("a member attaches their group; the pairing is recorded once", async () => {
-  await seedLab();
-  await seedGroup("g1");
-  state.rosters["g1-slug"] = [alice, bob];
+// --- create (lab-scoped) ---
 
-  const res = await attach("l1", "g1");
+test("a student creates a group in the lab and auto-joins it", async () => {
+  await seedLab();
+  const res = await createGroup("l1", { name: "Alpha" });
   expect(res.status).toBe(200);
-  expect(await db.select().from(studentLabRepos)).toMatchObject([
-    { labId: "l1", groupId: "g1" },
-  ]);
-
-  // Idempotent replay.
-  expect((await attach("l1", "g1")).status).toBe(200);
-  expect(await db.select().from(studentLabRepos)).toHaveLength(1);
-});
-
-test("a student cannot attach a group they're not in", async () => {
-  await seedLab();
-  await seedGroup("g1");
-  state.rosters["g1-slug"] = [bob];
-
-  const res = await attach("l1", "g1");
-  expect(res.status).toBe(404);
-  expect(await db.select().from(studentLabRepos)).toHaveLength(0);
-});
-
-test("a teacher attaches any group", async () => {
-  state.membership = { state: "active", role: "admin" };
-  await seedLab();
-  await seedGroup("g1");
-  state.rosters["g1-slug"] = [bob];
-
-  expect((await attach("l1", "g1")).status).toBe(200);
-});
-
-test("attach enforces MAX only — under-min groups form in place", async () => {
-  await seedLab({ minMembers: 2, maxMembers: 3 });
-  await seedGroup("g1");
-
-  // Below min: allowed — classmates join through the lab page; min bites
-  // at F8's repo creation.
-  state.rosters["g1-slug"] = [alice];
-  expect((await attach("l1", "g1")).status).toBe(200);
-
-  // Over max: refused.
-  await seedGroup("g2");
-  state.rosters["g2-slug"] = [
-    carol,
-    bob,
-    alice,
-    { id: 10, login: "dan", avatarUrl: null },
-  ];
-  const res = await attach("l1", "g2");
-  expect(res.status).toBe(409);
-  expect(await res.json()).toEqual({ error: "group_size" });
-});
-
-test("an individual lab takes exactly a group of one", async () => {
-  await seedLab({
-    id: "l2",
-    groupMode: "individual",
-    minMembers: null,
-    maxMembers: null,
+  expect((await asGroup(res)).group).toMatchObject({
+    name: "Alpha",
+    slug: "lab-l1-alpha",
   });
-  await seedGroup("g1");
-  state.rosters["g1-slug"] = [alice, bob];
-
-  const res = await attach("l2", "g1");
-  expect(res.status).toBe(409);
-  expect(await res.json()).toEqual({ error: "group_size" });
-
-  state.rosters["g1-slug"] = [alice];
-  expect((await attach("l2", "g1")).status).toBe(200);
+  const rows = await db.select().from(groups);
+  expect(rows).toMatchObject([
+    { labId: "l1", name: "Alpha", slug: "lab-l1-alpha" },
+  ]);
+  // The GitHub team is named by the lab-scoped slug; the creator auto-joins.
+  expect(state.rosters["lab-l1-alpha"]).toEqual([alice]);
 });
 
-test("a student never participates twice: overlapping group is refused", async () => {
-  await seedLab();
-  await seedGroup("g1");
-  await seedGroup("g2");
-  state.rosters["g1-slug"] = [alice, bob];
-  state.rosters["g2-slug"] = [alice, carol]; // alice already in via g1
-
-  expect((await attach("l1", "g1")).status).toBe(200);
-  const res = await attach("l1", "g2");
-  expect(res.status).toBe(409);
-  expect(await res.json()).toEqual({ error: "member_already_participating" });
-
-  // A DISJOINT group attaches fine (as the teacher — alice isn't in g3).
+test("a teacher creates a group without joining it", async () => {
   state.membership = { state: "active", role: "admin" };
-  await seedGroup("g3");
-  state.rosters["g3-slug"] = [carol];
-  expect((await attach("l1", "g3")).status).toBe(200);
+  await seedLab();
+  await createGroup("l1", { name: "Alpha" });
+  expect(state.rosters["lab-l1-alpha"]).toBeUndefined();
 });
 
-test("lists ALL class groups with rosters + which participate here", async () => {
+test("a duplicate display name in the SAME lab is 409 name_taken", async () => {
   await seedLab();
-  await seedGroup("g1");
-  await seedGroup("g2"); // exists in the class, NOT attached to l1
+  await seedGroup({ id: "g1", labId: "l1", name: "Alpha" });
+  const res = await createGroup("l1", { name: "Alpha" });
+  expect(res.status).toBe(409);
+  expect(await res.json()).toEqual({ error: "name_taken" });
+});
+
+test("the same name reuses freely across labs (per-lab uniqueness)", async () => {
+  await seedLab({ id: "l1" });
+  await seedLab({ id: "l2" });
+  await seedGroup({ id: "g1", labId: "l1", name: "Alpha" });
+  const res = await createGroup("l2", { name: "Alpha" });
+  expect(res.status).toBe(200);
+  expect((await asGroup(res)).group.slug).toBe("lab-l2-alpha");
+});
+
+test("copy-forward seeds the roster, skipping members already in this lab", async () => {
+  state.membership = { state: "active", role: "admin" };
+  await seedLab({ id: "l1" });
+  await seedLab({ id: "l2" });
+  // Source group on another lab: alice + bob.
+  await seedGroup({ id: "src", labId: "l2", name: "Team" });
+  state.rosters["src-slug"] = [alice, bob];
+  // bob is already placed in a group of THIS lab (l1).
+  await seedGroup({ id: "here", labId: "l1", name: "Here" });
+  state.rosters["here-slug"] = [bob];
+
+  const res = await createGroup("l1", { name: "Team", copyFromGroupId: "src" });
+  expect(res.status).toBe(200);
+  // Copied: alice only (bob skipped — already in l1).
+  expect(state.rosters["lab-l1-team"]).toEqual([alice]);
+});
+
+test("reusable lists the caller's groups from OTHER labs only", async () => {
+  await seedLab({ id: "l1" });
+  await seedLab({ id: "l2" });
+  await seedGroup({ id: "mine", labId: "l2", name: "Team Alpha" });
+  await seedGroup({ id: "theirs", labId: "l2", name: "Team Beta" });
+  await seedGroup({ id: "here", labId: "l1", name: "Here" }); // current lab
+  state.rosters["mine-slug"] = [alice, bob];
+  state.rosters["theirs-slug"] = [carol]; // alice not in it
+  state.rosters["here-slug"] = [alice]; // current lab → excluded
+
+  const res = await app.request("/api/classes/c1/labs/l1/reusable", {}, env);
+  const body = (await res.json()) as {
+    groups: Array<{ id: string; name: string; labTitle: string }>;
+  };
+  // Only alice's group from another lab (l2); not theirs, not the current lab.
+  expect(body.groups).toMatchObject([
+    { id: "mine", name: "Team Alpha", labTitle: "Lab l2" },
+  ]);
+});
+
+// --- list ---
+
+test("lists only THIS lab's groups, with roster + repo + activity", async () => {
+  await seedLab({ id: "l1" });
+  await seedLab({ id: "l2" });
+  await seedGroup({ id: "g1", labId: "l1", name: "A", repo: true });
+  await seedGroup({ id: "g2", labId: "l2", name: "B" }); // other lab
   state.rosters["g1-slug"] = [alice, bob];
   state.rosters["g2-slug"] = [carol];
-  await attach("l1", "g1");
-
-  const res = await app.request("/api/classes/c1/labs/l1/groups", {}, env);
-  expect(res.status).toBe(200);
-  const body = (await res.json()) as {
-    groups: Array<{ id: string; members: unknown[] }>;
-    users: Array<{ githubId: string }>;
-    attached: Array<{ groupId: string; repoFullName: string | null }>;
-  };
-  expect(body.groups.map((g) => g.id)).toEqual(["g1", "g2"]);
-  expect(body.groups[0]?.members).toEqual([alice, bob]);
-  // Repo-less pairings carry null activity (no org listing is even made).
-  expect(body.attached).toEqual([
-    { groupId: "g1", repoFullName: null, pushedAt: null, repoCreatedAt: null },
-  ]);
-  // Linked SWITCH users ride along (alice's github id 7 → labs user u1).
-  expect(body.users).toMatchObject([{ githubId: "7", user: { id: "u1" } }]);
-});
-
-test("a team deleted on GitHub reconciles: row + attachment dropped", async () => {
-  await seedLab();
-  await seedGroup("g1");
-  state.rosters["g1-slug"] = [alice];
-  await attach("l1", "g1");
-  delete state.rosters["g1-slug"]; // team gone on GitHub
-
-  const res = await app.request("/api/classes/c1/labs/l1/groups", {}, env);
-  const body = (await res.json()) as {
-    groups: unknown[];
-    attached: unknown[];
-  };
-  expect(body.groups).toEqual([]);
-  expect(body.attached).toEqual([]);
-  expect(await db.select().from(groups)).toHaveLength(0);
-  expect(await db.select().from(studentLabRepos)).toHaveLength(0);
-});
-
-test("detach: a member detaches their group; outsiders get 404", async () => {
-  await seedLab();
-  await seedGroup("g1");
-  state.rosters["g1-slug"] = [alice];
-  await attach("l1", "g1");
-
-  // bob-only group now (alice left off-scenario): outsider student → 404.
-  state.rosters["g1-slug"] = [bob];
-  const denied = await app.request(
-    "/api/classes/c1/labs/l1/groups/g1",
-    { method: "DELETE" },
-    env,
-  );
-  expect(denied.status).toBe(404);
-  expect(await db.select().from(studentLabRepos)).toHaveLength(1);
-
-  // Member again → detaches.
-  state.rosters["g1-slug"] = [alice];
-  const ok = await app.request(
-    "/api/classes/c1/labs/l1/groups/g1",
-    { method: "DELETE" },
-    env,
-  );
-  expect(ok.status).toBe(200);
-  expect(await db.select().from(studentLabRepos)).toHaveLength(0);
-});
-
-test("individual accept: one click creates the solo group and attaches it", async () => {
-  await seedLab({
-    id: "l2",
-    groupMode: "individual",
-    minMembers: null,
-    maxMembers: null,
-  });
-
-  const res = await app.request(
-    "/api/classes/c1/labs/l2/accept",
-    { method: "POST" },
-    env,
-  );
-  expect(res.status).toBe(200);
-
-  const groupRows = await db.select().from(groups);
-  expect(groupRows).toMatchObject([{ classId: "c1", name: "alice" }]);
-  expect(await db.select().from(studentLabRepos)).toMatchObject([
-    { labId: "l2", groupId: groupRows[0]?.id },
-  ]);
-  // The solo team got its one member.
-  expect(state.rosters["alice"]).toMatchObject([{ login: "alice" }]);
-});
-
-test("individual accept: a second lab REUSES the solo group", async () => {
-  await seedLab({
-    id: "l2",
-    groupMode: "individual",
-    minMembers: null,
-    maxMembers: null,
-  });
-  await seedLab({
-    id: "l3",
-    groupMode: "individual",
-    minMembers: null,
-    maxMembers: null,
-  });
-
-  await app.request("/api/classes/c1/labs/l2/accept", { method: "POST" }, env);
-  const res = await app.request(
-    "/api/classes/c1/labs/l3/accept",
-    { method: "POST" },
-    env,
-  );
-  expect(res.status).toBe(200);
-  expect(await db.select().from(groups)).toHaveLength(1);
-  expect(await db.select().from(studentLabRepos)).toHaveLength(2);
-});
-
-test("individual accept refuses group labs", async () => {
-  await seedLab(); // group mode
-  const res = await app.request(
-    "/api/classes/c1/labs/l1/accept",
-    { method: "POST" },
-    env,
-  );
-  expect(res.status).toBe(409);
-  expect(await res.json()).toEqual({ error: "group_lab" });
-});
-
-test("batch repos: creates the complete groups, reports the skipped", async () => {
-  state.membership = { state: "active", role: "admin" };
-  await seedLab({ minMembers: 2, maxMembers: 3 });
-  await seedGroup("g1"); // complete → repo created
-  await seedGroup("g2"); // under min → skipped, forms in place
-  state.rosters["g1-slug"] = [alice, bob];
-  state.rosters["g2-slug"] = [carol];
-  await attach("l1", "g1");
-  await attach("l1", "g2");
-
-  const res = await app.request(
-    "/api/classes/c1/labs/l1/repos",
-    { method: "POST" },
-    env,
-  );
-  expect(res.status).toBe(200);
-  expect(await res.json()).toEqual({
-    created: 1,
-    skipped: [{ groupId: "g2", reason: "group_incomplete" }],
-  });
-  const rows = await db.select().from(studentLabRepos);
-  expect(rows.find((r) => r.groupId === "g1")?.ghRepoFullName).toBe(
-    "acme/lab-g1-slug",
-  );
-  expect(rows.find((r) => r.groupId === "g2")?.ghRepoFullName).toBeNull();
-
-  // Idempotent replay: nothing left to create (g2 still under min).
-  const again = await app.request(
-    "/api/classes/c1/labs/l1/repos",
-    { method: "POST" },
-    env,
-  );
-  expect(await again.json()).toEqual({
-    created: 0,
-    skipped: [{ groupId: "g2", reason: "group_incomplete" }],
-  });
-});
-
-test("batch repos is the teacher's verb — members get 404", async () => {
-  await seedLab();
-  await seedGroup("g1");
-  state.rosters["g1-slug"] = [alice];
-  await attach("l1", "g1");
-
-  const res = await app.request(
-    "/api/classes/c1/labs/l1/repos",
-    { method: "POST" },
-    env,
-  );
-  expect(res.status).toBe(404);
-});
-
-test("the groups list carries work-repo activity from the org listing", async () => {
-  await seedLab();
-  await seedGroup("g1");
-  state.rosters["g1-slug"] = [alice];
-  await attach("l1", "g1");
-  await app.request(
-    "/api/classes/c1/labs/l1/groups/g1/repo",
-    { method: "POST" },
-    env,
-  );
-  state.activity["acme/lab-g1-slug"] = {
+  state.activity["acme/g1"] = {
     pushedAt: "2099-02-01T00:00:00Z",
     createdAt: "2099-01-15T00:00:00Z",
   };
 
-  const res = await app.request(
-    "/api/classes/c1/labs/l1/groups",
-    { method: "GET" },
-    env,
-  );
-  const body = (await res.json()) as { attached: unknown[] };
-  expect(body.attached).toEqual([
-    {
-      groupId: "g1",
-      repoFullName: "acme/lab-g1-slug",
-      pushedAt: "2099-02-01T00:00:00Z",
-      repoCreatedAt: "2099-01-15T00:00:00Z",
-    },
-  ]);
+  const res = await app.request("/api/classes/c1/labs/l1/groups", {}, env);
+  const body = (await res.json()) as {
+    groups: Array<{
+      id: string;
+      name: string;
+      repoFullName: string | null;
+      pushedAt: string | null;
+      repoCreatedAt: string | null;
+      members: unknown[];
+    }>;
+  };
+  expect(body.groups.map((g) => g.id)).toEqual(["g1"]);
+  expect(body.groups[0]).toMatchObject({
+    name: "A",
+    repoFullName: "acme/g1",
+    pushedAt: "2099-02-01T00:00:00Z",
+    repoCreatedAt: "2099-01-15T00:00:00Z",
+  });
+  expect(body.groups[0]?.members).toEqual([alice, bob]);
 });
+
+// --- repo creation ---
+
+test("create repo enforces the lab min, then names the repo by group slug", async () => {
+  await seedLab({ minMembers: 2, maxMembers: 3 });
+  await seedGroup({ id: "g1", labId: "l1", name: "A" });
+
+  state.rosters["g1-slug"] = [alice]; // under min
+  const under = await repo("l1", "g1");
+  expect(under.status).toBe(409);
+  expect(await under.json()).toEqual({ error: "group_incomplete" });
+
+  state.rosters["g1-slug"] = [alice, bob];
+  const ok = await repo("l1", "g1");
+  expect(ok.status).toBe(200);
+  expect((await asRepo(ok)).repo.fullName).toBe("acme/l1-g1");
+
+  // Idempotent — the group row now carries the repo.
+  const again = await repo("l1", "g1");
+  expect((await asRepo(again)).repo.fullName).toBe("acme/l1-g1");
+});
+
+test("a repo can't be created for a group of ANOTHER lab", async () => {
+  await seedLab({ id: "l1" });
+  await seedLab({ id: "l2" });
+  await seedGroup({ id: "g1", labId: "l2", name: "A" });
+  state.rosters["g1-slug"] = [alice];
+  expect((await repo("l1", "g1")).status).toBe(404);
+});
+
+// --- batch missing repos ---
+
+test("batch is teacher-only and skips under-min groups", async () => {
+  await seedLab({ minMembers: 2 });
+  expect((await batch("l1")).status).toBe(404); // member
+
+  state.membership = { state: "active", role: "admin" };
+  await seedGroup({ id: "g1", labId: "l1", name: "A" }); // complete
+  await seedGroup({ id: "g2", labId: "l1", name: "B" }); // under min
+  state.rosters["g1-slug"] = [alice, bob];
+  state.rosters["g2-slug"] = [carol];
+
+  const res = await batch("l1");
+  expect(await res.json()).toEqual({
+    created: 1,
+    skipped: [{ groupId: "g2", reason: "group_incomplete" }],
+  });
+  const g1 = (await db.select().from(groups)).find((g) => g.id === "g1");
+  expect(g1?.ghRepoFullName).toBe("acme/l1-g1");
+});
+
+// --- individual accept ---
+
+test("accept creates the solo group + repo and reuses on replay", async () => {
+  await seedLab({
+    id: "l2",
+    groupMode: "individual",
+    minMembers: null,
+    maxMembers: null,
+  });
+  const res = await accept("l2");
+  expect(res.status).toBe(200);
+  expect((await asRepo(res)).repo.fullName).toBe("acme/lab-l2-alice");
+  expect(await db.select().from(groups)).toMatchObject([
+    { labId: "l2", name: "alice", slug: "lab-l2-alice" },
+  ]);
+
+  const again = await accept("l2");
+  expect((await asRepo(again)).repo.fullName).toBe("acme/lab-l2-alice");
+  expect(await db.select().from(groups)).toHaveLength(1);
+});
+
+test("accept refuses group labs", async () => {
+  await seedLab(); // group mode
+  const res = await accept("l1");
+  expect(res.status).toBe(409);
+  expect(await res.json()).toEqual({ error: "group_lab" });
+});
+
+// --- scoping ---
 
 test("a lab from another class is unreachable", async () => {
   await db.insert(classes).values({
@@ -520,8 +418,5 @@ test("a lab from another class is unreachable", async () => {
     createdAt: now,
     updatedAt: now,
   });
-  await seedGroup("g1");
-  state.rosters["g1-slug"] = [alice];
-
-  expect((await attach("l9", "g1")).status).toBe(404);
+  expect((await createGroup("l9", { name: "X" })).status).toBe(404);
 });

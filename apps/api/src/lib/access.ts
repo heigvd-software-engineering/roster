@@ -111,17 +111,19 @@ export async function resolveClassAsTeacher(
   }
 }
 
-/** The group row, only if it belongs to the class. */
+/** The group row, only if it belongs to the class — class is DERIVED via
+ *  the group's lab (per-lab model: groups own a lab, not a class). */
 export async function groupInClass(
   scope: { db: Db; cls: Class },
   groupId: string | undefined,
 ) {
   if (!groupId) return null;
   const [row] = await scope.db
-    .select()
+    .select({ group: groups, labClassId: labs.classId })
     .from(groups)
+    .innerJoin(labs, eq(groups.labId, labs.id))
     .where(eq(groups.id, groupId));
-  return row && row.classId === scope.cls.id ? row : null;
+  return row && row.labClassId === scope.cls.id ? row.group : null;
 }
 
 /** The lab row, only if it belongs to the class. */

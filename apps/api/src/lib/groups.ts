@@ -1,12 +1,5 @@
-import {
-  type Class,
-  type Group,
-  type getDb,
-  groups,
-  type Lab,
-  studentLabRepos,
-} from "@labs/db";
-import { and, eq, inArray, ne } from "drizzle-orm";
+import { type Class, type Group, type getDb, groups, type Lab } from "@labs/db";
+import { and, eq, ne } from "drizzle-orm";
 import type { AuthEnv } from "./auth/config";
 import {
   type CreatedRepo,
@@ -19,37 +12,67 @@ import { addTeamMember, createTeam, teamMembers } from "./github/team";
 type Db = ReturnType<typeof getDb>;
 
 /**
- * Group mechanics shared by the class-groups and lab-groups handlers — the
- * one place that knows how a group is born (secret team + row), how it
- * pairs with a lab, and how a roster list is assembled and reconciled.
+ * Group mechanics (per-lab model, spec 2026-07-07): a group belongs to ONE
+ * lab and owns its GitHub Team. The one place that knows how a group is born
+ * (team named by the lab-scoped slug + row), how its within-lab uniqueness
+ * is checked, and how a roster list is assembled and reconciled.
  */
 
-/** Create a group: its backing SECRET team + the thin row. `autoJoin` puts
- *  the creating student in it (that's why they create one); teachers stay
- *  out. Null on a taken name (GitHub 422) — routes answer 409. */
-export async function createGroupWithTeam(
+/** Slug-safe: lowercase, strip diacritics, collapse to `a-z0-9-`. */
+function slugify(text: string) {
+  return text
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60);
+}
+
+/**
+ * Create a group IN a lab: its backing SECRET team + the row. The GitHub
+ * team is named by the lab-scoped `slug` (`labSlug-groupSlug`) so it's
+ * org-unique even when the friendly `name` repeats across labs; `name` is
+ * display-only and never sent to GitHub. `autoJoin` adds the creating
+ * student; `copyFromLogins` seeds the roster (copy-forward). Returns
+ * "name_taken" when the display name already exists in THIS lab (checked
+ * before touching GitHub, so no orphan team) or GitHub rejects the team.
+ */
+export async function createGroupInLab(
   env: AuthEnv,
   scope: { db: Db; cls: Class; org: string; login: string },
+  lab: Lab,
   name: string,
   creatorUserId: string,
-  opts: { autoJoin: boolean },
-): Promise<Group | null> {
+  opts: { autoJoin: boolean; copyFromLogins?: string[] },
+): Promise<Group | "name_taken"> {
+  // Display-name uniqueness within the lab — check first so we never orphan
+  // a GitHub team on a name clash (the (labId, name) index is the backstop).
+  const [existing] = await scope.db
+    .select({ id: groups.id })
+    .from(groups)
+    .where(and(eq(groups.labId, lab.id), eq(groups.name, name)));
+  if (existing) return "name_taken";
+
+  const slug = `${slugify(lab.title)}-${slugify(name)}`;
   let team: Awaited<ReturnType<typeof createTeam>>;
   try {
-    team = await createTeam(env, scope.cls.installationId, scope.org, name);
+    team = await createTeam(env, scope.cls.installationId, scope.org, slug);
   } catch (err) {
-    if ((err as { status?: number }).status === 422) {
-      return null;
-    }
+    if ((err as { status?: number }).status === 422) return "name_taken";
     throw err;
   }
-  if (opts.autoJoin) {
+
+  // Seed the roster: copied members (copy-forward) + the creating student.
+  const logins = new Set(opts.copyFromLogins ?? []);
+  if (opts.autoJoin) logins.add(scope.login);
+  for (const login of logins) {
     await addTeamMember(
       env,
       scope.cls.installationId,
       scope.org,
       team.slug,
-      scope.login,
+      login,
     );
   }
 
@@ -58,57 +81,41 @@ export async function createGroupWithTeam(
     .insert(groups)
     .values({
       id: crypto.randomUUID(),
-      classId: scope.cls.id,
+      labId: lab.id,
       ghTeamId: team.id,
       ghTeamSlug: team.slug,
-      name: team.name,
+      slug,
+      name,
       creatorUserId,
       createdAt: now,
       updatedAt: now,
     })
     .returning();
-  if (!group) {
-    throw new Error("group insert returned no row");
-  }
+  if (!group) throw new Error("group insert returned no row");
   return group;
 }
 
 /**
- * The one-group-per-student-per-LAB invariant, from the membership side:
- * would putting `login` into `group` double-book a lab this group already
- * participates in (because another attached group has them)? Attach-time
- * checks the same invariant from the pairing side — together they close
- * both doors. Live rosters, in parallel.
+ * The one-group-per-student-per-LAB invariant, checked within a SINGLE lab
+ * (per-lab model — no cross-lab reach): is `login` already in another group
+ * of `labId`? Live rosters, in parallel. `exceptGroupId` skips the group
+ * being joined itself.
  */
-export async function wouldDoubleParticipate(
+export async function alreadyInLabGroup(
   env: AuthEnv,
   scope: { db: Db; cls: Class },
   org: string,
-  group: Group,
+  labId: string,
   login: string,
+  exceptGroupId: string,
 ): Promise<boolean> {
-  const attachedLabs = await scope.db
-    .select({ labId: studentLabRepos.labId })
-    .from(studentLabRepos)
-    .where(eq(studentLabRepos.groupId, group.id));
-  if (attachedLabs.length === 0) return false;
-
-  const others = await scope.db
-    .selectDistinct({ group: groups })
-    .from(studentLabRepos)
-    .innerJoin(groups, eq(studentLabRepos.groupId, groups.id))
-    .where(
-      and(
-        inArray(
-          studentLabRepos.labId,
-          attachedLabs.map((a) => a.labId),
-        ),
-        ne(studentLabRepos.groupId, group.id),
-      ),
-    );
+  const labGroups = await scope.db
+    .select()
+    .from(groups)
+    .where(and(eq(groups.labId, labId), ne(groups.id, exceptGroupId)));
   const rosters = await Promise.all(
-    others.map(({ group: other }) =>
-      teamMembers(env, scope.cls.installationId, org, other.ghTeamSlug),
+    labGroups.map((g) =>
+      teamMembers(env, scope.cls.installationId, org, g.ghTeamSlug),
     ),
   );
   return rosters.some(
@@ -116,33 +123,24 @@ export async function wouldDoubleParticipate(
   );
 }
 
-/** Repo-name-safe slug (the team slug part is GitHub-made already). */
-function slugify(text: string) {
-  return (
-    text
-      .toLowerCase()
-      .normalize("NFKD")
-      // Strip combining diacritics (U+0300–U+036F) left by NFKD.
-      .replace(/[̀-ͯ]/g, "")
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 60)
-  );
-}
-
 /**
- * Create the pairing's WORK REPO (F8): `lab-slug-team-slug`, private, from
- * the lab's template when set (else empty auto-init), team granted push,
- * recorded on the student_lab_repos row. "name_taken" when the org already
- * has that repo name (e.g. a leftover from a deleted pairing).
+ * Create the group's WORK REPO: named by the group's lab-scoped `slug`
+ * (already unique — no lab prefix to re-add), private, from the lab's
+ * template when set (else empty auto-init), team granted push, recorded on
+ * the group row. Failure sentinels: "name_taken" (repo name already in the
+ * org), "template_error" (the /generate call refused — usually the template
+ * repo is EMPTY or gone; the name 422 and this one are BOTH 422 but mean
+ * opposite things, so we read the message), "app_permissions" (App lacks
+ * Repository write).
  */
+export type RepoFailure = "name_taken" | "template_error" | "app_permissions";
 export async function createPairRepo(
   env: AuthEnv,
   scope: { db: Db; cls: Class; org: string },
   lab: Lab,
   group: Group,
-): Promise<CreatedRepo | "name_taken" | "app_permissions"> {
-  const name = `${slugify(lab.title)}-${group.ghTeamSlug}`;
+): Promise<CreatedRepo | RepoFailure> {
+  const name = group.slug;
   let repo: CreatedRepo;
   try {
     repo = lab.templateRepoFullName
@@ -155,16 +153,21 @@ export async function createPairRepo(
         )
       : await createOrgRepo(env, scope.cls.installationId, scope.org, name);
   } catch (err) {
-    const status = (err as { status?: number }).status;
-    if (status === 422) {
-      return "name_taken";
+    const e = err as {
+      status?: number;
+      response?: { data?: { message?: string } };
+      message?: string;
+    };
+    if (e.status === 422) {
+      // A 422 means either the name is taken OR the template can't be used
+      // (empty/gone). Only the message tells them apart.
+      const msg = e.response?.data?.message ?? e.message ?? "";
+      return /already exists/i.test(msg) ? "name_taken" : "template_error";
     }
     // "Resource not accessible by integration": the App installation lacks
-    // Repository Administration/Contents write — an admin problem, not a
-    // student one; surface it instead of 500ing.
-    if (status === 403) {
-      return "app_permissions";
-    }
+    // Repository Administration/Contents write — an admin problem, surface
+    // it instead of 500ing.
+    if (e.status === 403) return "app_permissions";
     throw err;
   }
   await grantTeamRepo(
@@ -175,43 +178,20 @@ export async function createPairRepo(
     repo.fullName,
   );
   await scope.db
-    .update(studentLabRepos)
+    .update(groups)
     .set({
       ghRepoId: repo.id,
       ghRepoFullName: repo.fullName,
       updatedAt: new Date(),
     })
-    .where(
-      and(
-        eq(studentLabRepos.labId, lab.id),
-        eq(studentLabRepos.groupId, group.id),
-      ),
-    );
+    .where(eq(groups.id, group.id));
   return repo;
-}
-
-/** Idempotently record the group↔lab pairing (the attachment). */
-export async function attachPair(db: Db, labId: string, groupId: string) {
-  const now = new Date();
-  await db
-    .insert(studentLabRepos)
-    .values({
-      id: crypto.randomUUID(),
-      labId,
-      groupId,
-      createdAt: now,
-      updatedAt: now,
-    })
-    .onConflictDoNothing({
-      target: [studentLabRepos.labId, studentLabRepos.groupId],
-    });
 }
 
 /**
  * Live rosters for group rows — one GitHub call per team, in PARALLEL. A
- * team gone on GitHub reconciles HERE, whichever list noticed: its lab
- * attachments and row are dropped (single decision point, no drift between
- * lists).
+ * team gone on GitHub reconciles HERE: its row is dropped. Returns the
+ * group's display data + live members + its work repo (folded onto the row).
  */
 export async function groupsWithRosters(
   env: AuthEnv,
@@ -228,9 +208,6 @@ export async function groupsWithRosters(
     const row = rows[i];
     if (!row) continue;
     if (members === null) {
-      await scope.db
-        .delete(studentLabRepos)
-        .where(eq(studentLabRepos.groupId, row.id));
       await scope.db.delete(groups).where(eq(groups.id, row.id));
       continue;
     }
@@ -239,6 +216,7 @@ export async function groupsWithRosters(
       name: row.name,
       slug: row.ghTeamSlug,
       members,
+      repoFullName: row.ghRepoFullName,
     });
   }
   return out;
