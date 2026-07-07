@@ -3,10 +3,17 @@ import {
   type Group,
   type getDb,
   groups,
+  type Lab,
   studentLabRepos,
 } from "@labs/db";
 import { and, eq, inArray, ne } from "drizzle-orm";
 import type { AuthEnv } from "./auth/config";
+import {
+  type CreatedRepo,
+  createOrgRepo,
+  generateFromTemplate,
+  grantTeamRepo,
+} from "./github/repo";
 import { addTeamMember, createTeam, teamMembers } from "./github/team";
 
 type Db = ReturnType<typeof getDb>;
@@ -107,6 +114,80 @@ export async function wouldDoubleParticipate(
   return rosters.some(
     (roster) => roster?.some((m) => m.login === login) ?? false,
   );
+}
+
+/** Repo-name-safe slug (the team slug part is GitHub-made already). */
+function slugify(text: string) {
+  return (
+    text
+      .toLowerCase()
+      .normalize("NFKD")
+      // Strip combining diacritics (U+0300–U+036F) left by NFKD.
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 60)
+  );
+}
+
+/**
+ * Create the pairing's WORK REPO (F8): `lab-slug-team-slug`, private, from
+ * the lab's template when set (else empty auto-init), team granted push,
+ * recorded on the student_lab_repos row. "name_taken" when the org already
+ * has that repo name (e.g. a leftover from a deleted pairing).
+ */
+export async function createPairRepo(
+  env: AuthEnv,
+  scope: { db: Db; cls: Class; org: string },
+  lab: Lab,
+  group: Group,
+): Promise<CreatedRepo | "name_taken" | "app_permissions"> {
+  const name = `${slugify(lab.title)}-${group.ghTeamSlug}`;
+  let repo: CreatedRepo;
+  try {
+    repo = lab.templateRepoFullName
+      ? await generateFromTemplate(
+          env,
+          scope.cls.installationId,
+          lab.templateRepoFullName,
+          scope.org,
+          name,
+        )
+      : await createOrgRepo(env, scope.cls.installationId, scope.org, name);
+  } catch (err) {
+    const status = (err as { status?: number }).status;
+    if (status === 422) {
+      return "name_taken";
+    }
+    // "Resource not accessible by integration": the App installation lacks
+    // Repository Administration/Contents write — an admin problem, not a
+    // student one; surface it instead of 500ing.
+    if (status === 403) {
+      return "app_permissions";
+    }
+    throw err;
+  }
+  await grantTeamRepo(
+    env,
+    scope.cls.installationId,
+    scope.org,
+    group.ghTeamSlug,
+    repo.fullName,
+  );
+  await scope.db
+    .update(studentLabRepos)
+    .set({
+      ghRepoId: repo.id,
+      ghRepoFullName: repo.fullName,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(studentLabRepos.labId, lab.id),
+        eq(studentLabRepos.groupId, group.id),
+      ),
+    );
+  return repo;
 }
 
 /** Idempotently record the group↔lab pairing (the attachment). */

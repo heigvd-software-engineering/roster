@@ -4,12 +4,14 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { authedFactory } from "../factory";
 import { labInClass, resolveClassAsTeacher } from "../lib/access";
+import { orgTemplateRepos } from "../lib/github/repo";
 
 /**
  * Lab input (create AND update share it). `deadline` arrives as an ISO
  * string (JSON) and is coerced to a Date; group labs must carry a sane
  * min/max, individual labs must carry none (individual = a group of one,
- * min=max=1 implicitly).
+ * min=max=1 implicitly). The optional template (starter code) comes as the
+ * id+fullName pair from the templates endpoint — both or neither.
  */
 const labInput = z
   .object({
@@ -18,6 +20,8 @@ const labInput = z
     groupMode: z.enum(["individual", "group"]),
     minMembers: z.number().int().min(1).optional(),
     maxMembers: z.number().int().min(1).optional(),
+    templateRepoId: z.number().int().optional(),
+    templateRepoFullName: z.string().min(3).max(200).optional(),
   })
   .refine(
     (v) =>
@@ -30,6 +34,12 @@ const labInput = z
       message:
         "group labs need minMembers <= maxMembers; individual labs take neither",
     },
+  )
+  .refine(
+    (v) =>
+      (v.templateRepoId === undefined) ===
+      (v.templateRepoFullName === undefined),
+    { message: "template id and full name come together" },
   );
 
 /** Teacher-only: create a lab in the class (visible to students on create). */
@@ -52,6 +62,8 @@ export const createLab = authedFactory.createHandlers(
         groupMode: input.groupMode,
         minMembers: input.minMembers ?? null,
         maxMembers: input.maxMembers ?? null,
+        templateRepoId: input.templateRepoId ?? null,
+        templateRepoFullName: input.templateRepoFullName ?? null,
         createdByUserId: c.get("user").id,
         createdAt: now,
         updatedAt: now,
@@ -88,6 +100,8 @@ export const updateLab = authedFactory.createHandlers(
         groupMode: input.groupMode,
         minMembers: input.minMembers ?? null,
         maxMembers: input.maxMembers ?? null,
+        templateRepoId: input.templateRepoId ?? null,
+        templateRepoFullName: input.templateRepoFullName ?? null,
         updatedAt: new Date(),
       })
       .where(eq(labs.id, existing.id))
@@ -98,3 +112,16 @@ export const updateLab = authedFactory.createHandlers(
     return c.json({ lab });
   },
 );
+
+/** Teacher-only: the org's TEMPLATE repos — the lab dialog's starter-code
+ *  choices (only repos flagged `is_template` on GitHub can /generate). */
+export const listTemplateRepos = authedFactory.createHandlers(async (c) => {
+  const access = await resolveClassAsTeacher(c, c.req.param("id"));
+  if (!access) return c.json({ error: "not_found" }, 404);
+  const templates = await orgTemplateRepos(
+    c.env,
+    access.cls.installationId,
+    access.org,
+  );
+  return c.json({ templates });
+});

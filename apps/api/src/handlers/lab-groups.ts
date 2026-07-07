@@ -1,4 +1,4 @@
-import { classMembers, groups, studentLabRepos } from "@labs/db";
+import { classMembers, type Group, groups, studentLabRepos } from "@labs/db";
 import { and, eq } from "drizzle-orm";
 import { authedFactory } from "../factory";
 import {
@@ -11,6 +11,7 @@ import { teamMembers } from "../lib/github/team";
 import {
   attachPair,
   createGroupWithTeam,
+  createPairRepo,
   groupsWithRosters,
 } from "../lib/groups";
 
@@ -43,7 +44,10 @@ export const listLabGroups = authedFactory.createHandlers(async (c) => {
   const out = await groupsWithRosters(c.env, access, rows);
   // After reconciliation: gone groups' attachments were dropped with them.
   const attached = await access.db
-    .select({ groupId: studentLabRepos.groupId })
+    .select({
+      groupId: studentLabRepos.groupId,
+      repoFullName: studentLabRepos.ghRepoFullName,
+    })
     .from(studentLabRepos)
     .where(eq(studentLabRepos.labId, lab.id));
   const students = await access.db
@@ -69,8 +73,62 @@ export const listLabGroups = authedFactory.createHandlers(async (c) => {
     groups: out,
     users,
     students,
-    attachedIds: attached.map((a) => a.groupId),
+    // The lab's pairings: which groups participate + their work repos
+    // (repoFullName null while the group is still forming).
+    attached,
   });
+});
+
+/**
+ * Create the pairing's work repo — the EXPLICIT accept-completion step for
+ * group labs (user-decided): any group member (or a teacher) triggers it
+ * once the group meets the lab's MIN size, which is enforced exactly here.
+ * Idempotent: an existing repo is simply returned.
+ */
+export const createLabRepo = authedFactory.createHandlers(async (c) => {
+  const access = await resolveClassAccess(c, c.req.param("id"));
+  if (!access) return c.json({ error: "not_found" }, 404);
+  const lab = await labInClass(access, c.req.param("labId"));
+  const group = await groupInClass(access, c.req.param("groupId"));
+  if (!lab || !group) return c.json({ error: "not_found" }, 404);
+
+  const [pairing] = await access.db
+    .select()
+    .from(studentLabRepos)
+    .where(
+      and(
+        eq(studentLabRepos.labId, lab.id),
+        eq(studentLabRepos.groupId, group.id),
+      ),
+    );
+  if (!pairing) return c.json({ error: "not_found" }, 404);
+  if (pairing.ghRepoFullName) {
+    return c.json({ repo: { fullName: pairing.ghRepoFullName } });
+  }
+
+  const members = await teamMembers(
+    c.env,
+    access.cls.installationId,
+    access.org,
+    group.ghTeamSlug,
+  );
+  if (members === null) return c.json({ error: "not_found" }, 404);
+  if (!access.admin && !members.some((m) => m.login === access.login)) {
+    return c.json({ error: "not_found" }, 404);
+  }
+  const min = lab.groupMode === "individual" ? 1 : (lab.minMembers ?? 1);
+  if (members.length < min) {
+    return c.json({ error: "group_incomplete" }, 409);
+  }
+
+  const repo = await createPairRepo(c.env, access, lab, group);
+  if (repo === "name_taken") {
+    return c.json({ error: "repo_name_taken" }, 409);
+  }
+  if (repo === "app_permissions") {
+    return c.json({ error: "app_permissions" }, 409);
+  }
+  return c.json({ repo: { fullName: repo.fullName } });
 });
 
 /** Attach a group to the lab (member of the group, or a teacher). */
@@ -127,8 +185,9 @@ export const attachGroup = authedFactory.createHandlers(async (c) => {
 
 /**
  * One-click accept for INDIVIDUAL labs: find-or-create the caller's SOLO
- * group (a team named after their login) and attach it. Group labs refuse —
- * their accept path is the group UI. Idempotent.
+ * group (a team named after their login), attach it, AND create the work
+ * repo (a solo group is always complete, so accept = repo in one click).
+ * Group labs refuse — their accept path is the group UI. Idempotent.
  */
 export const acceptIndividualLab = authedFactory.createHandlers(async (c) => {
   const access = await resolveClassAccess(c, c.req.param("id"));
@@ -137,6 +196,39 @@ export const acceptIndividualLab = authedFactory.createHandlers(async (c) => {
   if (!lab) return c.json({ error: "not_found" }, 404);
   if (lab.groupMode !== "individual") {
     return c.json({ error: "group_lab" }, 409);
+  }
+
+  async function finish(solo: Group) {
+    if (!access || !lab) throw new Error("unreachable");
+    await attachPair(access.db, lab.id, solo.id);
+    const [pairing] = await access.db
+      .select()
+      .from(studentLabRepos)
+      .where(
+        and(
+          eq(studentLabRepos.labId, lab.id),
+          eq(studentLabRepos.groupId, solo.id),
+        ),
+      );
+    if (pairing?.ghRepoFullName) {
+      return c.json({
+        ok: true,
+        groupId: solo.id,
+        repo: { fullName: pairing.ghRepoFullName },
+      });
+    }
+    const repo = await createPairRepo(c.env, access, lab, solo);
+    if (repo === "name_taken") {
+      return c.json({ error: "repo_name_taken" }, 409);
+    }
+    if (repo === "app_permissions") {
+      return c.json({ error: "app_permissions" }, 409);
+    }
+    return c.json({
+      ok: true,
+      groupId: solo.id,
+      repo: { fullName: repo.fullName },
+    });
   }
 
   // The solo group, by naming convention (team name = login) — verified
@@ -159,8 +251,7 @@ export const acceptIndividualLab = authedFactory.createHandlers(async (c) => {
       // rather than hijack it.
       return c.json({ error: "solo_name_taken" }, 409);
     }
-    await attachPair(access.db, lab.id, existing.id);
-    return c.json({ ok: true, groupId: existing.id });
+    return finish(existing);
   }
 
   const created = await createGroupWithTeam(
@@ -171,8 +262,7 @@ export const acceptIndividualLab = authedFactory.createHandlers(async (c) => {
     { autoJoin: true },
   );
   if (!created) return c.json({ error: "solo_name_taken" }, 409);
-  await attachPair(access.db, lab.id, created.id);
-  return c.json({ ok: true, groupId: created.id });
+  return finish(created);
 });
 
 /** Detach a group from the lab (member of the group, or a teacher). */
@@ -193,6 +283,21 @@ export const detachGroup = authedFactory.createHandlers(async (c) => {
     if (!members?.some((m) => m.login === access.login)) {
       return c.json({ error: "not_found" }, 404);
     }
+  }
+
+  // Once the work repo exists, the pairing is a deliverable — detaching
+  // would orphan it. (A teacher escape hatch can come later if it bites.)
+  const [pairing] = await access.db
+    .select({ ghRepoFullName: studentLabRepos.ghRepoFullName })
+    .from(studentLabRepos)
+    .where(
+      and(
+        eq(studentLabRepos.labId, lab.id),
+        eq(studentLabRepos.groupId, group.id),
+      ),
+    );
+  if (pairing?.ghRepoFullName) {
+    return c.json({ error: "has_repo" }, 409);
   }
 
   await access.db

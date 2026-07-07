@@ -51,6 +51,24 @@ vi.mock("../src/lib/github/org", () => ({
   orgMembership: async () => state.membership,
 }));
 
+const repoSeq = vi.hoisted(() => ({ next: 9000 }));
+vi.mock("../src/lib/github/repo", () => ({
+  createOrgRepo: async (
+    _env: unknown,
+    _inst: number,
+    org: string,
+    name: string,
+  ) => ({ id: repoSeq.next++, fullName: `${org}/${name}` }),
+  generateFromTemplate: async (
+    _env: unknown,
+    _inst: number,
+    _template: string,
+    org: string,
+    name: string,
+  ) => ({ id: repoSeq.next++, fullName: `${org}/${name}` }),
+  grantTeamRepo: async () => {},
+}));
+
 vi.mock("../src/lib/github/team", () => ({
   teamMembers: async (
     _env: unknown,
@@ -275,11 +293,11 @@ test("lists ALL class groups with rosters + which participate here", async () =>
   const body = (await res.json()) as {
     groups: Array<{ id: string; members: unknown[] }>;
     users: Array<{ githubId: string }>;
-    attachedIds: string[];
+    attached: Array<{ groupId: string; repoFullName: string | null }>;
   };
   expect(body.groups.map((g) => g.id)).toEqual(["g1", "g2"]);
   expect(body.groups[0]?.members).toEqual([alice, bob]);
-  expect(body.attachedIds).toEqual(["g1"]);
+  expect(body.attached).toEqual([{ groupId: "g1", repoFullName: null }]);
   // Linked SWITCH users ride along (alice's github id 7 → labs user u1).
   expect(body.users).toMatchObject([{ githubId: "7", user: { id: "u1" } }]);
 });
@@ -294,10 +312,10 @@ test("a team deleted on GitHub reconciles: row + attachment dropped", async () =
   const res = await app.request("/api/classes/c1/labs/l1/groups", {}, env);
   const body = (await res.json()) as {
     groups: unknown[];
-    attachedIds: string[];
+    attached: unknown[];
   };
   expect(body.groups).toEqual([]);
-  expect(body.attachedIds).toEqual([]);
+  expect(body.attached).toEqual([]);
   expect(await db.select().from(groups)).toHaveLength(0);
   expect(await db.select().from(studentLabRepos)).toHaveLength(0);
 });

@@ -1,6 +1,6 @@
 import { zValidator } from "@hono/zod-validator";
 import { groups, studentLabRepos } from "@labs/db";
-import { eq } from "drizzle-orm";
+import { and, eq, isNotNull } from "drizzle-orm";
 import { z } from "zod";
 import { authedFactory } from "../factory";
 import { groupInClass, resolveClassAccess } from "../lib/access";
@@ -128,12 +128,26 @@ export const removeGroupMember = authedFactory.createHandlers(async (c) => {
 });
 
 /** Teacher-only: delete the group (team + attachments + row). A team
- *  already gone on GitHub still drops the rows. */
+ *  already gone on GitHub still drops the rows; a group with a WORK REPO
+ *  on any lab is a deliverable — refuse rather than orphan it. */
 export const deleteGroup = authedFactory.createHandlers(async (c) => {
   const access = await resolveClassAccess(c, c.req.param("id"));
   if (!access?.admin) return c.json({ error: "not_found" }, 404);
   const group = await groupInClass(access, c.req.param("groupId"));
   if (!group) return c.json({ error: "not_found" }, 404);
+
+  const withRepo = await access.db
+    .select({ id: studentLabRepos.id })
+    .from(studentLabRepos)
+    .where(
+      and(
+        eq(studentLabRepos.groupId, group.id),
+        isNotNull(studentLabRepos.ghRepoId),
+      ),
+    );
+  if (withRepo.length > 0) {
+    return c.json({ error: "has_repo" }, 409);
+  }
 
   try {
     await deleteTeam(
