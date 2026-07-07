@@ -2,11 +2,11 @@ import {
   GROUPS_GRID,
   GroupTile,
   MissingMembersNote,
-} from "~/components/custom/classes/groups/group-tile";
-import { NewGroupDialog } from "~/components/custom/classes/groups/new-group-dialog";
-import { StartLabCard } from "~/components/custom/classes/groups/start-lab-card";
-import { UnassignedPool } from "~/components/custom/classes/groups/unassigned-pool";
-import { useLabGroups } from "~/components/custom/classes/groups/use-lab-groups";
+} from "~/components/custom/classes/groups/shared/group-tile";
+import { NewGroupDialog } from "~/components/custom/classes/groups/shared/new-group-dialog";
+import { UnassignedPool } from "~/components/custom/classes/groups/shared/unassigned-pool";
+import { useLabGroups } from "~/components/custom/classes/groups/shared/use-lab-groups";
+import { StartLabCard } from "~/components/custom/classes/groups/student/start-lab-card";
 import { Stack } from "~/components/custom/layout/stack";
 import { Text } from "~/components/custom/typography/text";
 import { Button } from "~/components/ui/button";

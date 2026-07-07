@@ -1,9 +1,9 @@
 import { Check } from "lucide-react";
 import { Link, Navigate, useParams } from "react-router";
-import { RepoLink } from "~/components/custom/classes/groups/group-tile";
-import { CloneCommands } from "~/components/custom/classes/groups/start-lab-card";
-import { StudentLabGroups } from "~/components/custom/classes/groups/student-lab-groups";
-import { useLabGroups } from "~/components/custom/classes/groups/use-lab-groups";
+import { RepoLink } from "~/components/custom/classes/groups/shared/group-tile";
+import { useLabGroups } from "~/components/custom/classes/groups/shared/use-lab-groups";
+import { CloneCommands } from "~/components/custom/classes/groups/student/start-lab-card";
+import { StudentLabGroups } from "~/components/custom/classes/groups/student/student-lab-groups";
 import { LabHeader } from "~/components/custom/classes/labs/lab-header";
 import { Page } from "~/components/custom/layout/page";
 import { Row } from "~/components/custom/layout/row";

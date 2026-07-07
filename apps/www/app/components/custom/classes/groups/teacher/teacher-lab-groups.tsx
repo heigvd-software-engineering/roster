@@ -3,20 +3,20 @@ import { Fragment, useState } from "react";
 import {
   GroupMembers,
   RepoLink,
-} from "~/components/custom/classes/groups/group-tile";
-import { LabStats } from "~/components/custom/classes/groups/lab-stats";
-import { NewGroupDialog } from "~/components/custom/classes/groups/new-group-dialog";
+} from "~/components/custom/classes/groups/shared/group-tile";
+import { NewGroupDialog } from "~/components/custom/classes/groups/shared/new-group-dialog";
+import { UnassignedPool } from "~/components/custom/classes/groups/shared/unassigned-pool";
+import {
+  type GroupLabStatus,
+  useLabGroups,
+} from "~/components/custom/classes/groups/shared/use-lab-groups";
+import { LabStats } from "~/components/custom/classes/groups/teacher/lab-stats";
 import {
   AvatarCluster,
   LastPush,
   STATUS_SPINE,
   StatusChip,
-} from "~/components/custom/classes/groups/roster";
-import { UnassignedPool } from "~/components/custom/classes/groups/unassigned-pool";
-import {
-  type GroupLabStatus,
-  useLabGroups,
-} from "~/components/custom/classes/groups/use-lab-groups";
+} from "~/components/custom/classes/groups/teacher/roster";
 import { ConfirmDialog } from "~/components/custom/confirm-dialog";
 import { UserAvatar } from "~/components/custom/identity/user-avatar";
 import { Row } from "~/components/custom/layout/row";

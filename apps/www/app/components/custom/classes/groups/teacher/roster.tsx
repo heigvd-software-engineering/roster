@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { GroupLabStatus } from "~/components/custom/classes/groups/use-lab-groups";
+import type { GroupLabStatus } from "~/components/custom/classes/groups/shared/use-lab-groups";
 import { UserAvatar } from "~/components/custom/identity/user-avatar";
 import { AvatarGroup } from "~/components/ui/avatar";
 import type { GroupItem } from "~/lib/api";

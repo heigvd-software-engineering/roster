@@ -1,5 +1,5 @@
 import { Link, Navigate, useParams } from "react-router";
-import { TeacherLabGroups } from "~/components/custom/classes/groups/teacher-lab-groups";
+import { TeacherLabGroups } from "~/components/custom/classes/groups/teacher/teacher-lab-groups";
 import { LabHeader } from "~/components/custom/classes/labs/lab-header";
 import { Page } from "~/components/custom/layout/page";
 import { Loading } from "~/components/custom/loading";

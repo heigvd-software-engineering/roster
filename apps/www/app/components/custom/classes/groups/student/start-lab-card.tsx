@@ -1,6 +1,6 @@
 import { Check, Copy } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { RepoLink } from "~/components/custom/classes/groups/group-tile";
+import { RepoLink } from "~/components/custom/classes/groups/shared/group-tile";
 import { Stack } from "~/components/custom/layout/stack";
 import { Text } from "~/components/custom/typography/text";
 import { Button } from "~/components/ui/button";
