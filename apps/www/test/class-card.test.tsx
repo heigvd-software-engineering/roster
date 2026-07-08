@@ -82,7 +82,9 @@ describe("ClassCard copy join link", () => {
     vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
 
     renderCard();
-    fireEvent.click(screen.getByRole("button", { name: "Copy join link" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Copy student invitation link" }),
+    );
 
     expect(writeText).toHaveBeenCalledWith(
       `${window.location.origin}/join/tok123`,
