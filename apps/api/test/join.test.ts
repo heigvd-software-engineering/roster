@@ -123,9 +123,19 @@ test("GET: no usable GitHub token → 403 github_not_linked", async () => {
   expect(await res.json()).toEqual({ error: "github_not_linked" });
 });
 
-test("GET: dead installation reads as invalid_link", async () => {
+test("GET: a valid token whose class is unreachable needs a reconcile, not a new link", async () => {
+  // The token resolved to a class, so it is already proven valid — a healthy
+  // class returns its name and avatar to anyone holding it. Saying "invalid
+  // link" would blame the student for a link that is perfect, and hide the one
+  // thing that fixes it. An UNKNOWN token still reads as 404 invalid_link.
   state.orgLoginFails = true;
   const res = await app.request("/api/join/tok123", {}, env);
+  expect(res.status).toBe(409);
+  expect(await res.json()).toEqual({ error: "class_needs_reconcile" });
+});
+
+test("GET: an unknown token still reveals nothing", async () => {
+  const res = await app.request("/api/join/not-a-real-token", {}, env);
   expect(res.status).toBe(404);
   expect(await res.json()).toEqual({ error: "invalid_link" });
 });

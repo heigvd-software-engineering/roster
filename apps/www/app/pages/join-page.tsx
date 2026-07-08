@@ -20,6 +20,9 @@ type ClassIdentity = { login: string; name: string | null; avatarUrl: string };
 type JoinState =
   | { kind: "loading" }
   | { kind: "invalid" }
+  /** The link is fine; the class can't be reached from GitHub. Only a teacher
+   *  can fix it, so tell the student that rather than blaming their link. */
+  | { kind: "needs_reconcile" }
   | { kind: "error" }
   | {
       kind: "ready";
@@ -59,6 +62,10 @@ export function JoinPage() {
         setState({ kind: "invalid" });
         return;
       }
+      if (res.status === 409) {
+        setState({ kind: "needs_reconcile" });
+        return;
+      }
       if (!res.ok) {
         setState({ kind: "error" });
         return;
@@ -89,7 +96,9 @@ export function JoinPage() {
     try {
       const res = await api.api.join[":token"].$post({ param: { token } });
       if (!res.ok) {
-        setState(res.status === 404 ? { kind: "invalid" } : { kind: "error" });
+        if (res.status === 404) setState({ kind: "invalid" });
+        else if (res.status === 409) setState({ kind: "needs_reconcile" });
+        else setState({ kind: "error" });
         return;
       }
       const body = await res.json();
@@ -116,6 +125,25 @@ export function JoinPage() {
         <Text variant="subtitle" className="max-w-md">
           This join link isn't valid — ask your teacher for a fresh one.
         </Text>
+      </Shell>
+    );
+  }
+
+  if (state.kind === "needs_reconcile") {
+    return (
+      <Shell title="This class needs attention">
+        <Text variant="subtitle" className="max-w-md">
+          Your link is fine, but labs can't reach this class on GitHub right
+          now. Ask your teacher to open the class and reconcile it — then try
+          again.
+        </Text>
+        <Button
+          size="lg"
+          title="Try this join link again"
+          onClick={() => void load()}
+        >
+          Try again
+        </Button>
       </Shell>
     );
   }

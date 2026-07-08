@@ -12,9 +12,11 @@ import { fetchGithubProfile } from "../lib/github/user";
  * Student-facing join flow. The token IS the authorization — anyone signed in
  * with a usable GitHub link may look up the class behind a link they possess
  * and ask to be invited. Deliberately NO isOrgAdmin here; class ids never
- * appear in this flow. Failures that mean "this link goes nowhere" (unknown
- * token, dead installation) all read as 404 invalid_link so the response
- * doesn't reveal whether a class exists.
+ * appear in this flow. An UNKNOWN token reads as 404 invalid_link, so the
+ * response never reveals whether a class exists. A KNOWN token whose class is
+ * unreachable reads as 409 class_needs_reconcile — the token is already proven
+ * valid at that point, so this hides nothing, and the student deserves to know
+ * the link is fine and their teacher has something to fix.
  *
  * Both routes are also write points for the `class_members` enrollment
  * display cache (display only, never authorization): an observed membership
@@ -36,8 +38,8 @@ type Resolved =
   | { ok: true; ctx: JoinContext }
   | {
       ok: false;
-      status: 403 | 404;
-      error: "invalid_link" | "github_not_linked";
+      status: 403 | 404 | 409;
+      error: "invalid_link" | "github_not_linked" | "class_needs_reconcile";
     };
 
 async function resolveJoin(
@@ -74,8 +76,16 @@ async function resolveJoin(
       },
     };
   } catch {
-    // App uninstalled / installation dead — the link goes nowhere.
-    return { ok: false, status: 404, error: "invalid_link" };
+    // The token is VALID — we found its class. The org is unreachable: the App
+    // was uninstalled, or `installationId` went stale on a reinstall the teacher
+    // never completed. Saying "invalid link" here blames the student for a link
+    // that is perfect, and hides the one thing that would fix it.
+    //
+    // This reveals nothing the success path doesn't: a healthy class already
+    // returns its name and avatar to anyone holding the token. Only an UNKNOWN
+    // token still reads as `invalid_link`, so whether a class exists stays
+    // hidden from someone who never had the link.
+    return { ok: false, status: 409, error: "class_needs_reconcile" };
   }
 }
 
