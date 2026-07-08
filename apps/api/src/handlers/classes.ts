@@ -9,7 +9,11 @@ import {
 } from "@labs/db";
 import { and, desc, eq, gte, inArray, lt } from "drizzle-orm";
 import { authedFactory } from "../factory";
-import { linkedUsers, resolveClassAsTeacher } from "../lib/access";
+import {
+  callerGithub,
+  linkedUsers,
+  resolveClassAsTeacher,
+} from "../lib/access";
 import { githubAccessToken } from "../lib/auth/github-token";
 import { syncRoster } from "../lib/enrollment";
 import {
@@ -47,7 +51,7 @@ export const confirmClass = authedFactory.createHandlers(async (c) => {
  *  left to fetch. */
 export const listClasses = authedFactory.createHandlers(async (c) => {
   const db = getDb(c.env.DB);
-  const caller = c.get("user");
+  const callerUser = c.get("user");
   const fromParam = c.req.query("from");
   const from = fromParam ? new Date(fromParam) : null;
   if (from && Number.isNaN(from.getTime())) {
@@ -57,14 +61,9 @@ export const listClasses = authedFactory.createHandlers(async (c) => {
   // Identity first: the caller's github id (teacher check) and a usable
   // OAuth token (installations call, refreshed if expired) — either missing
   // means there's nothing to list.
-  const ghAccount = await db.query.account.findFirst({
-    where: (a, op) =>
-      op.and(op.eq(a.userId, caller.id), op.eq(a.providerId, "github")),
-    columns: { accountId: true },
-  });
-  const ghId = Number(ghAccount?.accountId);
-  const token = await githubAccessToken(c.env, caller.id);
-  if (!ghAccount || !Number.isFinite(ghId) || !token) {
+  const caller = await callerGithub(db, callerUser.id);
+  const token = await githubAccessToken(c.env, callerUser.id);
+  if (!caller || !token) {
     return c.json({ classes: [], enrolled: [], hasOlder: false });
   }
 
@@ -133,7 +132,7 @@ export const listClasses = authedFactory.createHandlers(async (c) => {
       // One people fetch serves both the teacher check (F5a: only live org
       // Owners see the class) and the card's people chips.
       const people = await orgPeople(c.env, live.installationId, live.login);
-      if (!people.teachers.some((t) => t.id === ghId)) {
+      if (!people.teachers.some((t) => t.id === caller.ghId)) {
         continue;
       }
       // A reinstall mints a NEW installation id. `githubSetupCallback` already
@@ -223,7 +222,7 @@ export const listClasses = authedFactory.createHandlers(async (c) => {
       .innerJoin(classes, eq(classMembers.classId, classes.id))
       .where(
         and(
-          eq(classMembers.githubId, ghAccount.accountId),
+          eq(classMembers.githubId, caller.githubId),
           inArray(classMembers.state, ["pending", "active"]),
           ...(from ? [gte(classes.createdAt, from)] : []),
         ),
@@ -300,7 +299,7 @@ export const listClasses = authedFactory.createHandlers(async (c) => {
       .innerJoin(classes, eq(classMembers.classId, classes.id))
       .where(
         and(
-          eq(classMembers.githubId, ghAccount.accountId),
+          eq(classMembers.githubId, caller.githubId),
           inArray(classMembers.state, ["pending", "active"]),
           lt(classes.createdAt, from),
         ),

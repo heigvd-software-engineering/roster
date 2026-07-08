@@ -42,6 +42,26 @@ import { fetchGithubProfile } from "./github/user";
 
 type Db = ReturnType<typeof getDb>;
 
+/**
+ * The caller's GitHub identity, both forms. `account.accountId` is TEXT: for the
+ * `github` provider it holds a numeric id, and a non-numeric value is as good as
+ * absent. Callers need the number (GitHub APIs) and the string
+ * (`class_members.githubId` comparisons).
+ */
+export async function callerGithub(
+  db: Db,
+  userId: string,
+): Promise<{ ghId: number; githubId: string } | null> {
+  const row = await db.query.account.findFirst({
+    where: (a, op) =>
+      op.and(op.eq(a.userId, userId), op.eq(a.providerId, "github")),
+    columns: { accountId: true },
+  });
+  if (!row) return null;
+  const ghId = Number(row.accountId);
+  return Number.isFinite(ghId) ? { ghId, githubId: row.accountId } : null;
+}
+
 /** The class org's GitHub Team API, pre-bound to this class's installation +
  *  org — so handlers call `access.team.roster(slug)` instead of threading
  *  `(env, cls.installationId, org, …)` through every call. */
@@ -128,17 +148,13 @@ export async function resolveClassAsTeacher(
   const [cls] = await db.select().from(classes).where(eq(classes.id, classId));
   if (!cls) return null;
 
-  const ghAccount = await db.query.account.findFirst({
-    where: (a, op) =>
-      op.and(op.eq(a.userId, c.get("user").id), op.eq(a.providerId, "github")),
-    columns: { accountId: true },
-  });
-  const ghId = Number(ghAccount?.accountId);
-  if (!Number.isFinite(ghId)) return null;
+  const caller = await callerGithub(db, c.get("user").id);
+  if (!caller) return null;
 
   try {
     const org = await orgLogin(c.env, cls.installationId);
-    if (!(await isOrgAdmin(c.env, cls.installationId, org, ghId))) return null;
+    if (!(await isOrgAdmin(c.env, cls.installationId, org, caller.ghId)))
+      return null;
     return { db, cls, org };
   } catch {
     return null;
