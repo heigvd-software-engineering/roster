@@ -29,6 +29,10 @@ export const classes = sqliteTable("classes", {
   avatarUrl: text("avatar_url"),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+  // NULL = never reconciled. Cannot be inferred from class_members row count:
+  // the join POSTs insert rows into a class that has never been reconciled, and
+  // a reconciled class with no students still has teacher rows.
+  reconciledAt: integer("reconciled_at", { mode: "timestamp" }),
 });
 
 /** An assignment: deadline + group settings (F6). Visible to students on

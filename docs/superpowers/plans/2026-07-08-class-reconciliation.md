@@ -30,7 +30,7 @@
 | # | Feature | Owns | Depends on |
 |---|---|---|---|
 | **F1** | Read-path safety net | the `catch {}` bug; `callerGithub` | — |
-| **F2** | Reconcile core | `types`, `context`, registry, `GET /audit`, `POST /reconcile`, the page, `reconciledAt`, the `identity` reconciler | F1 |
+| **F2** | Reconcile core | `types`, `context`, registry, `GET /audit`, `POST /reconcile`, the page, the `identity` reconciler | F1 |
 | **F3** | Installation pointer | `installation` reconciler; `setup.ts` session-less repair; hub stops writing `classes` | F2 |
 | **F4** | Roster | `roster` reconciler; hub reads `class_members` | F3 |
 | **F5** | Lab-title uniqueness | `labs: unique(classId, title)` | — |
@@ -49,7 +49,9 @@ F8                            independent; ship anywhere
 
 **F5 must precede F6.** `work-repos:adopt` attaches a repo to a group by name. Without `unique(classId, title)`, two labs sharing a title compute the same repo name, and adoption could cross labs — one lab's student work under another lab's group.
 
-**Migrations:** `0011` = `classes.reconciledAt` (F2). `0012` = `labs unique(classId, title)` (F5). If F5 lands first, swap the numbers and the filenames.
+**No `reconciledAt` column.** Considered and dropped: a "last reconciled" timestamp records when someone pressed Apply, not whether the class is in sync now — and a teacher who reads *"synced 5 minutes ago"* will not re-audit when they should. The audit answers that question, live. Accepted cost: a class predating this work renders `0 students` until its teacher opens the page once, then is correct forever.
+
+**Migrations:** `0011` = `labs unique(classId, title)` (F5). That is the only schema change.
 
 ---
 
@@ -322,44 +324,6 @@ Manual: sign in as the teacher; the hub lists classes exactly as before. **Nothi
 ## F2 — Reconcile core
 
 Ships the whole subsystem end to end with one reconciler. Everything after this is a file plus one line.
-
-### Task 2.1: `classes.reconciledAt`
-
-**Files:** `packages/db/src/app-schema.ts`, `packages/db/migrations/0011_class_reconciled_at.sql`
-
-- [ ] **Step 1: Add the column**
-
-```ts
-  // NULL = never reconciled. Cannot be inferred from class_members row count:
-  // the join POSTs insert rows into a class that has never been reconciled, and
-  // a reconciled class with no students still has teacher rows.
-  reconciledAt: integer("reconciled_at", { mode: "timestamp" }),
-```
-
-- [ ] **Step 2: Generate, rename, apply**
-
-```bash
-pnpm --filter @labs/db db:generate
-# rename the generated file to 0011_class_reconciled_at.sql and update meta/_journal.json
-pnpm --filter @labs/api exec wrangler d1 migrations apply labs --local
-```
-Expected SQL: `ALTER TABLE \`classes\` ADD \`reconciled_at\` integer;`
-
-- [ ] **Step 3: Commit**
-
-```bash
-git add packages/db
-git commit -m "$(cat <<'EOF'
-feat(db): classes.reconciledAt
-
-NULL means the class has never been reconciled. It cannot be inferred from
-class_members row count: the join POSTs insert rows into a class that has never
-been reconciled, and a reconciled class with no students still has teacher rows.
-
-Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
-EOF
-)"
-```
 
 ### Task 2.2: Types and the memoized context
 
@@ -700,7 +664,7 @@ EOF
 - Consumes: `callerGithub` (1.1), `buildContext` (2.2), `runAudit`/`applyFindings` (2.3)
 - Produces:
   - `GET /api/classes/:id/audit` → `200 { auditedAt, findings: Finding[] }`
-  - `POST /api/classes/:id/reconcile` → `200 { applied, failed, reconciledAt }`
+  - `POST /api/classes/:id/reconcile` → `200 { applied, failed }`
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -741,7 +705,7 @@ test("audit reports no_installation when the App is gone from the org", async ()
   expect(await res.json()).toEqual({ error: "no_installation" });
 });
 
-test("reconcile applies only the accepted keys and stamps reconciledAt", async () => {
+test("reconcile applies only the accepted keys", async () => {
   await seedClass({ orgId: 42, installationId: 200, login: "stale" });
   state.org = { login: "acme", name: "Acme", avatarUrl: "http://a" };
 
@@ -757,7 +721,6 @@ test("reconcile applies only the accepted keys and stamps reconciledAt", async (
   });
   const [row] = await db.select().from(classes);
   expect(row?.login).toBe("acme");
-  expect(row?.reconciledAt).not.toBeNull();
 });
 
 test("reconcile applies nothing when no keys are accepted", async () => {
@@ -835,16 +798,14 @@ export const reconcileClass = authedFactory.createHandlers(
     if ("error" in r) return c.json({ error: r.error }, r.status);
     const { keys } = c.req.valid("json");
 
+    // Only the reconcilers write. This handler dispatches and reports; it must
+    // not stamp the class row, because "when Apply last ran" is not the same
+    // question as "is this class in sync", and only the audit answers that.
     const results = await applyFindings(r.ctx, keys);
-    const reconciledAt = new Date();
-    await r.ctx.db.update(classes)
-      .set({ reconciledAt, updatedAt: reconciledAt })
-      .where(eq(classes.id, r.ctx.cls.id));
 
     return c.json({
       applied: results.filter((x) => x.ok),
       failed: results.filter((x) => !x.ok),
-      reconciledAt: reconciledAt.toISOString(),
     });
   },
 );
@@ -867,7 +828,7 @@ git commit -m "$(cat <<'EOF'
 feat(api): GET /classes/:id/audit and POST /classes/:id/reconcile
 
 The audit reads and writes nothing; reconcile applies exactly the keys the
-teacher accepted, and stamps reconciledAt.
+teacher accepted, and nothing else.
 
 Both derive the LIVE installation id before authorizing. resolveClassAsTeacher
 authorizes via orgLogin(cls.installationId) — the stored pointer — so a stale one
@@ -978,10 +939,10 @@ EOF
 5. **Before applying**, confirm the audit wrote nothing:
    ```bash
    cd apps/api && pnpm exec wrangler d1 execute DB --local \
-     --command "SELECT login, name, reconciled_at FROM classes;"
+     --command "SELECT login, name FROM classes;"
    ```
-   Unchanged; `reconciled_at` still `NULL`.
-6. Press **Apply 1 selected**. Re-query: `login` corrected, `reconciled_at` stamped.
+   Unchanged.
+6. Press **Apply 1 selected**. Re-query: `login` corrected.
 7. Reload the page: **"This class is in sync with GitHub."**
 8. Press Apply again with nothing selected — button disabled.
 9. Rename the org back, audit, and this time **uncheck** the finding, then Apply. The button is disabled; nothing is written. Consent is required.
@@ -1203,8 +1164,7 @@ type UserInstallation = { installationId: number; login: string; avatarUrl: stri
 
 In `classes.ts`: drop both `db.update(classes)` blocks from `refreshCaches`
 (it now writes only `class_members`), delete the per-class `orgInfo` call, and
-take `login`/`avatarUrl` from `live`, `name` from `cls`. Add
-`reconciledAt: cls.reconciledAt` to the DTO.
+take `login`/`avatarUrl` from `live`, `name` from `cls`. The DTO gains nothing.
 
 - [ ] **Step 4: Run, watch pass, commit.**
 
@@ -1501,8 +1461,8 @@ const person = (m: typeof classMembers.$inferSelect) => ({
 
 ### F4 feature test
 
-1. Reset: `DELETE FROM class_members; UPDATE classes SET reconciled_at = NULL;`
-2. Hub card reads **"Never reconciled"** — *not* `0 students`.
+1. Reset: `DELETE FROM class_members;`
+2. Hub card reads `0 students` — the accepted cold-start cost of dropping `reconciledAt`.
 3. `/classes/:id/reconcile`: *"N students joined the organization"*, all pre-checked. Apply. Card shows real counts.
 4. **The safety property.** Remove two students on GitHub. Audit → two `remove` findings, **both unchecked**. Check **one**. Apply. Query `class_members`: **exactly one row gone.** The other survives, and re-appears as a finding on the next audit.
 5. Add a student to the org **directly on github.com**. Reload the hub — absent. Audit → `add`, apply → present.
@@ -1528,7 +1488,7 @@ unique index fails on apply. Rename the duplicates by hand first.
 
 ### Task 5.2: The constraint
 
-**Files:** `packages/db/src/app-schema.ts`, `packages/db/migrations/0012_lab_title_unique.sql`, `apps/api/src/handlers/labs.ts`, `apps/api/test/labs.test.ts`, `apps/www/app/components/custom/classes/labs/lab-dialog.tsx`, `apps/www/test/lab-dialog.test.tsx`
+**Files:** `packages/db/src/app-schema.ts`, `packages/db/migrations/0011_lab_title_unique.sql`, `apps/api/src/handlers/labs.ts`, `apps/api/test/labs.test.ts`, `apps/www/app/components/custom/classes/labs/lab-dialog.tsx`, `apps/www/test/lab-dialog.test.tsx`
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -2206,12 +2166,12 @@ Two accounts (`Ovich` = teacher, `OvichHeigVD` = student).
 
 ## Self-review
 
-**Spec coverage.** §1 audit → F1-F8. §2.1 findings → 2.2. §2.2 apply-never-sweeps → 4.1 (test: *"apply removes ONLY the accepted subject"*). §2.3 lazy context → 2.2. §2.4 registry → 2.3. §2.5 failing-reconciler-is-a-finding → 2.3. §3.1 installation → 3.2. §3.2 identity → 2.3. §3.3 roster → 4.1. §3.4 group-teams → 6.2. §3.5 work-repos → 6.2. §3.6 base-permission → 7.1. §4 endpoints → 2.4; `setup.ts` → 3.1; join → 8.1; `teamMissing` → 6.1. §5 reads → 3.3, 4.2. §6 schema → 2.1 (`reconciledAt`), 5.2 (`unique(classId,title)`). §7 page → 2.5. §9 testing → each task.
+**Spec coverage.** §1 audit → F1-F8. §2.1 findings → 2.2. §2.2 apply-never-sweeps → 4.1 (test: *"apply removes ONLY the accepted subject"*). §2.3 lazy context → 2.2. §2.4 registry → 2.3. §2.5 failing-reconciler-is-a-finding → 2.3. §3.1 installation → 3.2. §3.2 identity → 2.3. §3.3 roster → 4.1. §3.4 group-teams → 6.2. §3.5 work-repos → 6.2. §3.6 base-permission → 7.1. §4 endpoints → 2.4; `setup.ts` → 3.1; join → 8.1; `teamMissing` → 6.1. §5 reads → 3.3, 4.2. §6 schema → 5.2 (`unique(classId,title)`; the spec's `reconciledAt` was dropped, see below). §7 page → 2.5. §9 testing → each task.
 
 **Not covered, deliberately.** `enrolledTeachers`' inline join (`classes.ts:243-257`) duplicates `linkedUsers` — a duplication, not a defect. The `listClasses` decomposition: after F4 the loop is one GitHub call and no writes, so re-assess whether it still earns a split.
 
-**Deviation from the spec.** §6 numbers `0011` = `reconciledAt`, `0012` = `labs unique(classId,title)`, matching F2-before-F5. If F5 ships first, swap both the numbers and the filenames.
+**Deviation from the spec.** `classes.reconciledAt` is dropped (decided during execution, after Task 1.2). Its only honest use was telling *never reconciled* from *reconciled, nobody joined*; shown as an age it is a false freshness signal. `0011` is now `labs unique(classId,title)` and is the only migration. Spec §6 updated to match.
 
-**Type consistency.** `callerGithub` → `{ ghId, githubId }` (1.1), consumed in 1.2, 2.4, 4.2. `Finding`/`FindingKey`/`Reconciler`/`ClassContext` defined in 2.2, consumed by every reconciler and by 2.3, 2.4, 2.5. `buildContext(env, db, cls, live)` (2.2) called only in 2.4's `teacherContext`. `runAudit(ctx, reconcilers?)` / `applyFindings(ctx, keys, reconcilers?)` (2.3) — the optional second argument is what lets 2.3's tests inject fakes. `AppliedOp | FailedOp` returned by every `apply`. `teamMissing: boolean` produced in 6.1, consumed in 6.3. `UserInstallation.avatarUrl` added in 3.3, consumed there and in 4.2. `reconciledAt` added in 2.1, written in 2.4, read in 3.3, rendered in 2.5.
+**Type consistency.** `callerGithub` → `{ ghId, githubId }` (1.1), consumed in 1.2, 2.4, 4.2. `Finding`/`FindingKey`/`Reconciler`/`ClassContext` defined in 2.2, consumed by every reconciler and by 2.3, 2.4, 2.5. `buildContext(env, db, cls, live)` (2.2) called only in 2.4's `teacherContext`. `runAudit(ctx, reconcilers?)` / `applyFindings(ctx, keys, reconcilers?)` (2.3) — the optional second argument is what lets 2.3's tests inject fakes. `AppliedOp | FailedOp` returned by every `apply`. `teamMissing: boolean` produced in 6.1, consumed in 6.3. `UserInstallation.avatarUrl` added in 3.3, consumed there and in 4.2.
 
 **Ordering hazard.** F6 Task 6.2 (`work-repos:adopt`) attaches a repo to a group by computed name. It **must not** ship before F5, or two labs sharing a title let adoption cross labs. The dependency is stated in the Features table and repeated here because it is the one ordering mistake that silently corrupts student work.

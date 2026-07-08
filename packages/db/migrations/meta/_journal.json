@@ -78,6 +78,13 @@
       "when": 1783438247098,
       "tag": "0010_per_lab_groups",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1783512122026,
+      "tag": "0011_class_reconciled_at",
+      "breakpoints": true
     }
   ]
 }

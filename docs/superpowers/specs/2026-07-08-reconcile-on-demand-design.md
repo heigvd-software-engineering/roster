@@ -240,7 +240,7 @@ GET  /api/classes/:id/audit        teacher-only. Runs every reconciler. WRITES N
                                    → { auditedAt, findings: Finding[] }
 
 POST /api/classes/:id/reconcile    teacher-only. { keys: FindingKey[] }
-                                   → { applied: AppliedOp[], failed: FailedOp[], reconciledAt }
+                                   → { applied: AppliedOp[], failed: FailedOp[] }
 ```
 
 `GET /audit` is an authed XHR from a page the teacher navigated to deliberately;
@@ -292,7 +292,6 @@ Returns `teamMissing: true` and an empty roster instead of deleting the row. The
 | `login`, `avatarUrl` | `/user/installations` payload | free (already fetched) |
 | `name` | cached `classes` row | free |
 | students / pending / teachers | `class_members` | free |
-| `reconciledAt` | cached `classes` row | free |
 
 Writes: **none.** Cost: **~4N GitHub calls → N + 1.**
 
@@ -320,18 +319,22 @@ reconcile page. Those are the only two writers of `classes.installationId`.
 ## 6. Schema
 
 ```
-classes.reconciledAt   integer (timestamp), null   -- migration 0011
-labs: unique(classId, title)                       -- migration 0012
+labs: unique(classId, title)    -- migration 0011
 ```
 
-### `classes.reconciledAt`
+### No `reconciledAt`
 
-`null` = never reconciled. The class card reads **"Never reconciled"** rather
-than presenting a partial roster as complete.
+Considered and dropped. A "last reconciled" timestamp records when someone last
+pressed Apply — **not** whether the class is in sync now. A class reconciled two
+minutes ago can have drifted one minute ago, and a teacher who reads *"synced 5
+minutes ago"* will not re-audit when they should. The audit is the only thing that
+answers "is this class in sync", and it answers it live.
 
-It cannot be inferred from `class_members` row count: the join `POST`s insert
-rows into a class that has never been reconciled, and a reconciled class with no
-students still has teacher rows.
+Its one honest use was distinguishing *never reconciled* from *reconciled, nobody
+joined* — a distinction §5 creates by moving the hub's chips onto `class_members`.
+The accepted cost: a class that predates this work renders `0 students` until its
+teacher opens the reconcile page once, then is correct forever. One wrong number,
+once, self-correcting — cheaper than a column that invites false confidence.
 
 ### `labs: unique(classId, title)`
 
@@ -371,7 +374,7 @@ Entry points:
 
 ```
 Reconcile — Test TWeb 2026
-Last reconciled 2 days ago · audited just now
+audited just now
 
 CLASS
   ☑ Organization was renamed to “TWeb 2026”
@@ -445,9 +448,9 @@ destructive apply is how a teacher fails to notice a student was removed.
 ## 10. Rollout
 
 No backfill script. **Reconcile is the backfill** — per class, on demand, run by
-the person who knows whether the roster is right. Every existing class reads
-"Never reconciled" until its teacher opens the page once, which is honest: we
-genuinely do not know their roster.
+the person who knows whether the roster is right. Every existing class shows
+a partial roster until its teacher opens the page once. The audit names every
+member the cache is missing, so the first apply makes it whole.
 
 Classes fill `class_members` from the join `POST`s as students arrive. That covers
 students who use the link — the normal path — but never anyone added to the org
