@@ -42,6 +42,12 @@ export const githubSetupCallback = factory.createHandlers(async (c) => {
   // Upsert keyed on the stable org id: a reinstall refreshes the
   // installation id but must NOT rotate joinToken (the cohort's link) or
   // reassign provenance.
+  //
+  // NOTE: every early return above skips this write, so a reinstall performed
+  // without a labs session (GitHub's org-settings page, or a second org owner
+  // who never signed in here) leaves the row pointing at the dead installation.
+  // `listClasses` re-reconciles it from `GET /user/installations` on the next
+  // teacher visit — see the backstop there before changing either side.
   const now = new Date();
   const [cls] = await db
     .insert(classes)

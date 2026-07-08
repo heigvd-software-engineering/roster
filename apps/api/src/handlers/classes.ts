@@ -136,6 +136,19 @@ export const listClasses = authedFactory.createHandlers(async (c) => {
       if (!people.teachers.some((t) => t.id === ghId)) {
         continue;
       }
+      // A reinstall mints a NEW installation id. `githubSetupCallback` already
+      // records it (keyed on the stable orgId) — but it bails before that write
+      // on four preconditions (no labs session, no linked GitHub, the caller
+      // doesn't hold the installation, not an org). A teacher who reinstalls
+      // from GitHub's org-settings page without a labs cookie, or a SECOND org
+      // owner who has never signed in here, trips them: GitHub fires the Setup
+      // URL, the callback redirects, and the row keeps the dead id.
+      //
+      // So this is the backstop, and it's free: `userInstallationsByOrgId`
+      // above already told us the live id for every org, and this runs whenever
+      // ANY teacher opens the hub — a strictly wider net than the callback.
+      // Keyed on orgId, like the callback: it's the only handle a reinstall
+      // preserves.
       if (live.installationId !== cls.installationId) {
         await db
           .update(classes)
