@@ -1,15 +1,23 @@
-// A group whose backing GitHub Team was deleted out of band.
+// A group row whose backing GitHub Team no longer exists.
 //
-// This state is worse than it looks. Repo access is granted TO the team
-// (`grantTeamRepo`), so when the team dies the students lose push on their own
-// work repo. The group is then stuck: it cannot be deleted (deleteGroup refuses
-// while a repo exists — the repo is a deliverable), it cannot be worked in, and
-// nothing recreates a team. Until now the lab page silently deleted the row and
-// orphaned the repo, which hid all of that.
+// GitHub is the authority for what exists. The team IS the group, as far as
+// GitHub is concerned: it holds the roster, and the work-repo grant is made TO
+// it. When someone deletes the team, the group is gone — the students have lost
+// push, the roster is unrecoverable (it only ever lived in the team), and no
+// amount of app-side data brings either back. So we follow GitHub and drop the
+// row, rather than resurrecting an empty team the teacher never asked for.
+//
+// The work repo is deliberately left in place. Nothing in this codebase ever
+// deletes a GitHub repository — student work outlives the group that made it. It
+// becomes an ORPHAN, and orphans re-attach by name: a group recreated with the
+// same lab title and group name computes the same slug, and `createWorkRepo`'s
+// find-or-create path (or the `work-repos` reconciler) links it straight back.
+//
+// Teams that exist on GitHub but have no group row are NOT our business. We
+// cannot know which lab they belong to, and an org has teams labs never made.
 import { groups } from "@labs/db";
 import { eq } from "drizzle-orm";
-import { grantTeamRepo } from "../github/repo";
-import { createTeam, teamMembers } from "../github/team";
+import { teamMembers } from "../github/team";
 import type {
   AppliedOp,
   FailedOp,
@@ -25,70 +33,46 @@ export const groupTeams: Reconciler = {
 
   async audit(ctx) {
     const rows = await ctx.groups();
+    // A per-team 404 is definitive. Listing the org's teams would be one call
+    // instead of N, but a team the App cannot see would read as deleted — and
+    // this finding removes a group row.
     const rosters = await Promise.all(
       rows.map((g) =>
         teamMembers(ctx.env, ctx.installationId, ctx.org, g.ghTeamSlug),
       ),
     );
+
     const findings: Finding[] = [];
     rows.forEach((group, i) => {
       if (rosters[i] !== null) return; // team alive
       findings.push({
-        key: `group-teams:recreate:groupId=${group.id}`,
+        key: `group-teams:delete:groupId=${group.id}`,
         reconciler: "group-teams",
         severity: "broken",
-        title: `"${group.name}" has no GitHub team`,
+        title: `"${group.name}" no longer exists on GitHub`,
         detail: group.ghRepoFullName
-          ? `Its team was deleted on GitHub, so its students can no longer push to ${group.ghRepoFullName}.`
-          : "Its team was deleted on GitHub, so it has no members and cannot be worked in.",
-        // The roster only ever lived in the GitHub team, so it died with it.
-        // The group comes back empty; the teacher re-adds from the pool.
-        fix: "Recreate the team and restore its repository access — the group comes back empty",
-        destructive: false,
+          ? `Its team was deleted, so its members and their access to ${group.ghRepoFullName} are gone. The repository is kept — recreating a group with the same name re-attaches it.`
+          : "Its team was deleted, so the group has no members and cannot be worked in.",
+        fix: "Remove the group from this lab",
+        // It drops a row, and the students in it lose their group.
+        destructive: true,
       });
     });
     return findings;
   },
 
   async apply(ctx, keys) {
-    const rows = await ctx.groups();
-    const byId = new Map(rows.map((g) => [g.id, g]));
+    const byId = new Map((await ctx.groups()).map((g) => [g.id, g]));
     const results: (AppliedOp | FailedOp)[] = [];
 
     for (const key of keys) {
-      const group = byId.get(subjectOf(key));
+      const groupId = subjectOf(key);
       try {
-        if (!group) throw new Error("group no longer exists");
-
-        try {
-          const team = await createTeam(
-            ctx.env,
-            ctx.installationId,
-            ctx.org,
-            group.slug,
-          );
-          // Repo access was granted TO the old team and died with it.
-          if (group.ghRepoFullName) {
-            await grantTeamRepo(
-              ctx.env,
-              ctx.installationId,
-              ctx.org,
-              team.slug,
-              group.ghRepoFullName,
-            );
-          }
-          await ctx.db
-            .update(groups)
-            .set({
-              ghTeamId: team.id,
-              ghTeamSlug: team.slug,
-              updatedAt: new Date(),
-            })
-            .where(eq(groups.id, group.id));
-        } catch (err) {
-          // 422 = a team with that name already exists: someone recreated it
-          // between the audit and now. Idempotent — treat as already done.
-          if ((err as { status?: number }).status !== 422) throw err;
+        // Idempotent: a row already gone is a success. The GitHub team is
+        // already deleted — that is what produced this finding — and the repo is
+        // never touched.
+        if (byId.has(groupId)) {
+          await ctx.db.delete(groups).where(eq(groups.id, groupId));
         }
         results.push({ key, ok: true });
       } catch (err) {

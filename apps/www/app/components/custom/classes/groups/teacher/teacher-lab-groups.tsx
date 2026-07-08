@@ -516,14 +516,15 @@ function GroupDrawer({
         <Text variant="overline">Group actions</Text>
         {group.teamMissing ? (
           <Text variant="caption">
-            Its GitHub team is gone, so its students can't push.{" "}
+            Its GitHub team was deleted, so its members and their repository
+            access are gone.{" "}
             <Link
               to={`/classes/${g.classId}/reconcile`}
               className="underline underline-offset-2"
             >
               Reconcile the class
             </Link>{" "}
-            to recreate it.
+            to remove it. The repository is kept.
           </Text>
         ) : null}
         <ConfirmDialog
