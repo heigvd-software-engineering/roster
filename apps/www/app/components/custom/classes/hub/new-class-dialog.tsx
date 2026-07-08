@@ -21,7 +21,12 @@ const MAPPING = [
   },
   {
     term: "Teachers = organization Owners",
-    detail: "Every Owner of the organization manages the class.",
+    // labs has no way to make someone a teacher: the only org-membership write
+    // in the app invites as `member`, and every teacher check is a live
+    // isOrgAdmin call. Say so here, or a teacher hunts for a button that will
+    // never exist.
+    detail:
+      "Every Owner of the organization manages the class. To add a teacher, invite them to the organization on GitHub and promote them to Owner — labs never changes roles.",
   },
   {
     term: "Students = organization Members",

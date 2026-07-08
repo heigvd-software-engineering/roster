@@ -18,6 +18,11 @@ describe("NewClassDialog", () => {
     expect(
       screen.getByText("Teachers = organization Owners"),
     ).toBeInTheDocument();
+    // labs has no promote button and never will — every teacher check is a live
+    // isOrgAdmin call. The dialog is the only place that says where to go.
+    expect(
+      screen.getByText(/promote them to Owner — labs never changes roles/),
+    ).toBeInTheDocument();
     expect(
       screen.getByText("Students = organization Members"),
     ).toBeInTheDocument();
