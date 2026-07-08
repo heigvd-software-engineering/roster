@@ -2,8 +2,9 @@ import type { ReactNode } from "react";
 import type { GroupLabStatus } from "~/components/custom/classes/groups/shared/use-lab-groups";
 import { UserAvatar } from "~/components/custom/identity/user-avatar";
 import { AvatarGroup } from "~/components/ui/avatar";
-import type { GroupItem } from "~/lib/api";
-import { formatDeadline } from "~/lib/format";
+import type { ClassItem, GroupItem } from "~/lib/api";
+import { formatDeadline, usersByGithubId } from "~/lib/format";
+import { personIdentity } from "~/lib/identity";
 import { cn } from "~/lib/utils";
 
 /** The row's left spine — the same state as the chip, scannable as a color
@@ -109,18 +110,28 @@ export function LastPush({
 }
 
 /** The roster cell's compact face: overlapping member avatars. The full
- *  identities live one click away in the row's drawer. */
-export function AvatarCluster({ members }: { members: GroupItem["members"] }) {
+ *  identities live one click away in the row's drawer — so a member must look
+ *  the same in both: initials once they've linked their edu-ID, their GitHub
+ *  photo while they haven't. */
+export function AvatarCluster({
+  members,
+  users,
+}: {
+  members: GroupItem["members"];
+  users?: ClassItem["users"];
+}) {
+  const userByGithubId = usersByGithubId(users);
   return (
     <AvatarGroup>
-      {members.map((member) => (
-        <UserAvatar
-          key={member.id}
-          name={member.login}
-          src={member.avatarUrl}
-          size="sm"
-        />
-      ))}
+      {members.map((member) => {
+        const { name, avatarUrl } = personIdentity(
+          member,
+          userByGithubId.get(String(member.id)),
+        );
+        return (
+          <UserAvatar key={member.id} name={name} src={avatarUrl} size="sm" />
+        );
+      })}
     </AvatarGroup>
   );
 }

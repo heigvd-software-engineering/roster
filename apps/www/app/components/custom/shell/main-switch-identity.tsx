@@ -1,6 +1,5 @@
 import { LogOut, Monitor, Moon, Sun, Unlink } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { GithubIdentity } from "~/components/custom/identity/github-identity";
 import { UserIdentity } from "~/components/custom/identity/user-identity";
 import { Stack } from "~/components/custom/layout/stack";
 import { Text } from "~/components/custom/typography/text";
@@ -18,16 +17,19 @@ import { useTheme } from "~/contexts/theme-context";
 import type { Theme } from "~/lib/theme";
 
 /**
- * The top-right account control, keyed on the edu-ID (SWITCH) identity. Wraps
- * UserIdentity (always initials) as the trigger; the dropdown lists all edu-ID
- * affiliation emails and incorporates the linked GitHub account (GithubIdentity
- * + unlink) and Sign out. All data/actions come from the auth context.
+ * THE account control, top-right: the app's one edu-ID (SWITCH) identity, and
+ * the menu hanging off it — affiliation emails, the linked GitHub account (with
+ * unlink), theme, sign out. All data and actions come from the auth context.
+ *
+ * It is chrome, not an identity component: `UserIdentity` is what it renders.
+ * The trigger passes no avatarUrl because edu-ID has no picture — so the app's
+ * own user is initials, exactly like every linked student on a roster.
  *
  * Opens on hover — Base UI's Menu has no hover-open prop, so we drive `open`
  * ourselves (short close delay to bridge the trigger→popup gap) while keeping
  * click/keyboard/Escape working.
  */
-export function SwitchIdentity() {
+export function MainSwitchIdentity() {
   const { user, affiliations, github, signOut, unlinkGithub } = useAuth();
   const { theme, setTheme } = useTheme();
   const [open, setOpen] = useState(false);
@@ -69,7 +71,7 @@ export function SwitchIdentity() {
         onMouseLeave={closeSoon}
       >
         {/* edu-ID identity: always initials (no avatarUrl passed). */}
-        <UserIdentity name={user.name} subtitle={user.email} />
+        <UserIdentity name={user.name} subtitle={user.email} size="lg" />
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
@@ -94,7 +96,16 @@ export function SwitchIdentity() {
         <DropdownMenuSeparator />
         <Stack gap="sm" className="px-1.5 py-1.5">
           <Text variant="overline">Linked GitHub</Text>
-          <GithubIdentity />
+          {/* Named by GitHub → it keeps its photo, unlike the edu-ID above. */}
+          {github ? (
+            <UserIdentity
+              name={github.name ?? github.login}
+              handle={github.login}
+              avatarUrl={github.avatarUrl}
+            />
+          ) : (
+            <Text variant="body2">Not linked</Text>
+          )}
         </Stack>
         {github && (
           <DropdownMenuItem

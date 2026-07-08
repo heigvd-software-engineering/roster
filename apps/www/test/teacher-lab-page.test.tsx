@@ -109,6 +109,8 @@ describe("TeacherLabPage", () => {
     expect(
       screen.getByText(/Students without a group for this lab/),
     ).toBeInTheDocument();
+    // The pool collapses at every size — the names are one click away.
+    fireEvent.click(screen.getByRole("button", { name: "Show the student" }));
     expect(screen.getByText("@alice")).toBeInTheDocument();
     // The roster: Team Alpha with 1/2 members → under min.
     expect(screen.getByText("Team Alpha")).toBeInTheDocument();
@@ -176,6 +178,42 @@ describe("TeacherLabPage", () => {
     expect(
       screen.queryByText(/Students without a group/),
     ).not.toBeInTheDocument();
+  });
+
+  it("offers clone commands for the groups that have a repo", () => {
+    mockApi(
+      { classes: [teachingClass], enrolled: [] },
+      {
+        ...groupsData,
+        groups: [
+          grp({
+            id: "g1",
+            members: [alice, bob],
+            repoFullName: "acme/lab1-team-alpha",
+          }),
+          // No repo yet → it contributes no clone line.
+          grp({ id: "g2", name: "Team Beta", members: [alice] }),
+        ],
+      },
+    );
+    render(<TeacherLabPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "More lab actions" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /Clone/ }));
+
+    expect(document.querySelector("pre")?.textContent).toBe(
+      "git clone https://github.com/acme/lab1-team-alpha.git",
+    );
+  });
+
+  it("disables the clone commands when no group has a repo", () => {
+    mockApi({ classes: [teachingClass], enrolled: [] }, groupsData);
+    render(<TeacherLabPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "More lab actions" }));
+    expect(screen.getByRole("menuitem", { name: /Clone/ })).toHaveAttribute(
+      "data-disabled",
+    );
   });
 
   it("redirects an enrolled STUDENT to the student page", () => {

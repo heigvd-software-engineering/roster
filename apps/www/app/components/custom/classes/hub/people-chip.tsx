@@ -74,6 +74,8 @@ export function PeopleChip({
                 >
                   <TableCell>
                     {p.user ? (
+                      // SWITCH identity: initials, never a photo — and its
+                      // second line is an email, so it stays prose.
                       <UserIdentity
                         name={switchDisplayName(p.user)}
                         subtitle={p.user.email}

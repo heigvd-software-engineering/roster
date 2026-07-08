@@ -1,12 +1,13 @@
 import { GitBranch } from "lucide-react";
 import type { ReactNode } from "react";
-import { UserAvatar } from "~/components/custom/identity/user-avatar";
+import { UserIdentity } from "~/components/custom/identity/user-identity";
 import { Row } from "~/components/custom/layout/row";
 import { Stack } from "~/components/custom/layout/stack";
 import { Text } from "~/components/custom/typography/text";
 import { Card } from "~/components/ui/card";
 import type { ClassItem, GroupItem } from "~/lib/api";
-import { switchDisplayName, usersByGithubId } from "~/lib/format";
+import { usersByGithubId } from "~/lib/format";
+import { personIdentity } from "~/lib/identity";
 import { cn } from "~/lib/utils";
 
 /** The groups grid: 3 columns on desktop, collapsing below. */
@@ -96,11 +97,10 @@ export function MissingMembersNote({
 }
 
 /**
- * A group's live roster as small identity blocks: the member's SWITCH
- * identity (real first + last name — THE identity inside the app) over the
- * mono GitHub login. `users` are the raw linked-user rows riding on the
- * groups response, correlated here by github id (an unlinked member falls
- * back to the login). `memberAction` appends a per-member control (e.g.
+ * A group's live roster as identity rows. `users` are the raw linked-user rows
+ * riding on the groups response, correlated here by github id; `personIdentity`
+ * turns that into who we name the member by (and therefore whether they wear a
+ * photo or their initials). `memberAction` appends a per-member control (e.g.
  * the teacher's remove ×).
  */
 export function GroupMembers({
@@ -125,48 +125,14 @@ export function GroupMembers({
   }
   return (
     <Stack gap="sm">
-      {members.map((member) => {
-        const linked = userByGithubId.get(String(member.id));
-        return (
-          <MemberBlock
-            key={member.id}
-            member={member}
-            name={linked ? switchDisplayName(linked) : member.login}
-            action={memberAction?.(member)}
-            className={memberClassName}
-          />
-        );
-      })}
+      {members.map((member) => (
+        <UserIdentity
+          key={member.id}
+          {...personIdentity(member, userByGithubId.get(String(member.id)))}
+          action={memberAction?.(member)}
+          className={memberClassName}
+        />
+      ))}
     </Stack>
-  );
-}
-
-/** A roster member as a small identity block: SWITCH name (THE identity
- *  inside the app) over the mono GitHub login. The action (e.g. remove ×)
- *  rides the row's right edge when the row is given width. */
-function MemberBlock({
-  member,
-  name,
-  action,
-  className,
-}: {
-  member: { id: number; login: string; avatarUrl: string | null };
-  name: string;
-  action?: ReactNode;
-  className?: string;
-}) {
-  return (
-    <Row gap="sm" className={className}>
-      <UserAvatar name={name} src={member.avatarUrl} size="sm" />
-      <Stack gap="none">
-        <Text variant="caption" className="font-medium text-foreground">
-          {name}
-        </Text>
-        <Text variant="caption" className="font-mono">
-          @{member.login}
-        </Text>
-      </Stack>
-      {action ? <span className="ml-auto">{action}</span> : null}
-    </Row>
   );
 }

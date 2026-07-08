@@ -1,4 +1,4 @@
-import { ChevronDown, Search, UserPlus, X } from "lucide-react";
+import { MoreHorizontal, Search, UserPlus, X } from "lucide-react";
 import { Fragment, useState } from "react";
 import {
   GroupMembers,
@@ -10,6 +10,7 @@ import {
   type GroupLabStatus,
   useLabGroups,
 } from "~/components/custom/classes/groups/shared/use-lab-groups";
+import { CloneAllDialog } from "~/components/custom/classes/groups/teacher/clone-all-dialog";
 import { LabStats } from "~/components/custom/classes/groups/teacher/lab-stats";
 import {
   AvatarCluster,
@@ -18,12 +19,19 @@ import {
   StatusChip,
 } from "~/components/custom/classes/groups/teacher/roster";
 import { ConfirmDialog } from "~/components/custom/confirm-dialog";
-import { UserAvatar } from "~/components/custom/identity/user-avatar";
+import { DisclosureToggle } from "~/components/custom/disclosure-toggle";
+import { UserIdentity } from "~/components/custom/identity/user-identity";
 import { Row } from "~/components/custom/layout/row";
 import { Stack } from "~/components/custom/layout/stack";
 import { CAPS_LABEL, Text } from "~/components/custom/typography/text";
 import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "~/components/ui/dropdown-menu";
 import { Input } from "~/components/ui/input";
 import {
   Popover,
@@ -40,7 +48,8 @@ import {
 } from "~/components/ui/table";
 import { ToggleGroup, ToggleGroupItem } from "~/components/ui/toggle-group";
 import type { GroupItem, LabItem } from "~/lib/api";
-import { switchDisplayName, usersByGithubId } from "~/lib/format";
+import { usersByGithubId } from "~/lib/format";
+import { type PersonIdentity, personIdentity } from "~/lib/identity";
 import { cn } from "~/lib/utils";
 
 const HEAD = cn(CAPS_LABEL, "h-9 font-medium text-muted-foreground");
@@ -92,10 +101,12 @@ export function TeacherLabGroups({
     status: g.statusFor(group),
     haystack: [
       group.name,
-      ...group.members.map((m) => m.login),
-      ...group.members.map((m) => {
-        const linked = userByGithubId.get(String(m.id));
-        return linked ? switchDisplayName(linked) : "";
+      ...group.members.flatMap((m) => {
+        const { name, handle } = personIdentity(
+          m,
+          userByGithubId.get(String(m.id)),
+        );
+        return [name, handle];
       }),
     ]
       .join(" ")
@@ -105,6 +116,10 @@ export function TeacherLabGroups({
   const attention = rows.filter((r) => !GOOD_STATUSES.includes(r.status));
   const late = rows.filter((r) => r.status === "late");
   const missingRepos = rows.filter((r) => r.status === "no_repo");
+  // Every work repo of this lab, filter-independent: "clone all" means all.
+  const repos = rows
+    .map((r) => r.repo)
+    .filter((repo): repo is string => repo !== null);
   const matchesFilter = (status: GroupLabStatus) =>
     filter === "all" ||
     (filter === "late" ? status === "late" : !GOOD_STATUSES.includes(status));
@@ -156,6 +171,7 @@ export function TeacherLabGroups({
           attentionCount={attention.length}
           lateCount={late.length}
           missingCount={missingRepos.length}
+          repos={repos}
         />
 
         {rows.length === 0 ? (
@@ -212,7 +228,7 @@ export function TeacherLabGroups({
 }
 
 /** Search + status segments (they filter ONE list) + the toolbar verbs:
- *  batch repo creation, attach an existing group, create a new one. */
+ *  batch repo creation, create a group, and the overflow menu's lab chores. */
 function RosterToolbar({
   g,
   classId,
@@ -225,6 +241,7 @@ function RosterToolbar({
   attentionCount,
   lateCount,
   missingCount,
+  repos,
 }: {
   g: LabGroups;
   classId: string;
@@ -238,7 +255,10 @@ function RosterToolbar({
   lateCount: number;
   /** Complete groups still lacking their repo — the batch button's scope. */
   missingCount: number;
+  /** Full names of every work repo in this lab — the clone block's scope. */
+  repos: string[];
 }) {
+  const [cloneOpen, setCloneOpen] = useState(false);
   return (
     <Row gap="sm" wrap className="w-full">
       <div className="relative">
@@ -306,6 +326,36 @@ function RosterToolbar({
         }
         onCreated={g.revalidate}
       />
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              type="button"
+              aria-label="More lab actions"
+              title="More actions for this lab"
+            />
+          }
+        >
+          <MoreHorizontal className="size-4 text-muted-foreground" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem
+            disabled={repos.length === 0}
+            // Nothing to clone before the first repo exists.
+            onClick={() => setCloneOpen(true)}
+          >
+            Clone
+            <Count n={repos.length} />
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <CloneAllDialog
+        repos={repos}
+        open={cloneOpen}
+        onOpenChange={setCloneOpen}
+      />
     </Row>
   );
 }
@@ -349,7 +399,7 @@ function GroupRow({
           </div>
         </TableCell>
         <TableCell>
-          <AvatarCluster members={group.members} />
+          <AvatarCluster members={group.members} users={g.users} />
         </TableCell>
         <TableCell>
           {repo ? (
@@ -381,22 +431,12 @@ function GroupRow({
           <StatusChip status={status} />
         </TableCell>
         <TableCell className="pr-3 text-right">
-          <Button
-            variant="ghost"
-            size="icon"
-            type="button"
-            aria-expanded={expanded}
-            aria-label={`Manage ${group.name}`}
+          <DisclosureToggle
+            expanded={expanded}
+            onToggle={onToggle}
+            label={`Manage ${group.name}`}
             title="Manage this group's members and lab participation"
-            onClick={onToggle}
-          >
-            <ChevronDown
-              className={cn(
-                "size-4 text-muted-foreground transition-transform",
-                expanded && "rotate-180",
-              )}
-            />
-          </Button>
+          />
         </TableCell>
       </TableRow>
       {expanded ? (
@@ -458,10 +498,7 @@ function GroupDrawer({
         />
         <AddFromPool
           candidates={addCandidates}
-          nameFor={(s) => {
-            const linked = userByGithubId.get(s.githubId);
-            return linked ? switchDisplayName(linked) : `@${s.login}`;
-          }}
+          identityFor={(s) => personIdentity(s, userByGithubId.get(s.githubId))}
           disabled={g.busy}
           onAdd={(login) => g.addMember(group.id, login)}
         />
@@ -504,20 +541,30 @@ function GroupDrawer({
  *  student's SWITCH identity over their login. Stays open for multi-add. */
 function AddFromPool({
   candidates,
-  nameFor,
+  identityFor,
   disabled,
   onAdd,
 }: {
   candidates: AddCandidate[];
-  nameFor: (s: AddCandidate) => string;
+  identityFor: (s: AddCandidate) => PersonIdentity;
   disabled: boolean;
-  onAdd: (login: string) => void;
+  onAdd: (login: string) => Promise<unknown>;
 }) {
   const [query, setQuery] = useState("");
+  const [pending, setPending] = useState<string | null>(null);
   const needle = query.toLowerCase();
   const filtered = candidates.filter((s) =>
-    `${nameFor(s)} ${s.login}`.toLowerCase().includes(needle),
+    `${identityFor(s).name} ${s.login}`.toLowerCase().includes(needle),
   );
+
+  async function add(login: string) {
+    setPending(login);
+    try {
+      await onAdd(login);
+    } finally {
+      setPending(null);
+    }
+  }
   return (
     <Popover>
       <PopoverTrigger
@@ -552,27 +599,26 @@ function AddFromPool({
               No student matches.
             </Text>
           ) : (
-            filtered.map((s) => {
-              const name = nameFor(s);
-              return (
-                <button
-                  key={s.githubId}
-                  type="button"
-                  onClick={() => onAdd(s.login)}
-                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-muted"
-                >
-                  <UserAvatar name={name} src={s.avatarUrl} size="sm" />
-                  <span className="flex min-w-0 flex-col">
-                    <span className="truncate font-medium text-foreground text-xs">
-                      {name}
-                    </span>
-                    <span className="font-mono text-muted-foreground text-xs">
-                      @{s.login}
-                    </span>
-                  </span>
-                </button>
-              );
-            })
+            filtered.map((s) => (
+              <button
+                key={s.githubId}
+                type="button"
+                onClick={() => add(s.login)}
+                disabled={pending !== null}
+                className="w-full rounded-md px-2 py-1.5 text-left transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-60"
+              >
+                <UserIdentity
+                  {...identityFor(s)}
+                  action={
+                    pending === s.login ? (
+                      <span className="font-mono text-muted-foreground text-xs">
+                        adding…
+                      </span>
+                    ) : null
+                  }
+                />
+              </button>
+            ))
           )}
         </div>
       </PopoverContent>

@@ -13,9 +13,12 @@ app/components/
    │              #   hand-writing flex/gap/max-width. Grown as needed (YAGNI).
    ├─ typography/ # text.tsx (<Text variant>) + brand-header.tsx (the branded
    │              #   eyebrow/title/red-rule heading block).
-   ├─ shell/      # app chrome + gating: app-layout, app-header, auth (route guard).
-   ├─ identity/   # who-is-this components: user-avatar, user-identity,
-   │              #   switch-identity (account menu), github-identity.
+   ├─ shell/      # app chrome + gating: app-layout, app-header, auth (route
+   │              #   guard), main-switch-identity (the account menu).
+   ├─ identity/   # who-is-this components: user-avatar (the primitive),
+   │              #   user-identity (THE person row), org-identity.
+   │              #   Who a person is named by — and so whether they wear a
+   │              #   photo or initials — is decided by lib/identity.ts.
    └─ classes/    # classes-domain components: class-card, lab-row, deadline-chip.
 ```
 

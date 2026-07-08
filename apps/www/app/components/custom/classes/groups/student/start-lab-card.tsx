@@ -1,6 +1,5 @@
-import { Check, Copy } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
 import { RepoLink } from "~/components/custom/classes/groups/shared/group-tile";
+import { CommandBlock } from "~/components/custom/command-block";
 import { Stack } from "~/components/custom/layout/stack";
 import { Text } from "~/components/custom/typography/text";
 import { Button } from "~/components/ui/button";
@@ -86,38 +85,11 @@ export function CloneCommands({
   fullName: string;
   className?: string;
 }) {
-  const commands = `git clone https://github.com/${fullName}.git\ncd ${fullName.split("/")[1]}`;
-  const [copied, setCopied] = useState(false);
-  const copyResetTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  useEffect(() => () => clearTimeout(copyResetTimer.current), []);
-
-  async function copy() {
-    await navigator.clipboard.writeText(commands);
-    setCopied(true);
-    clearTimeout(copyResetTimer.current);
-    copyResetTimer.current = setTimeout(() => setCopied(false), 2000);
-  }
-
   return (
-    <div className={cn("relative w-full rounded-md bg-muted", className)}>
-      <pre className="overflow-x-auto p-3 pr-10 font-mono text-foreground text-xs leading-relaxed">
-        {commands}
-      </pre>
-      <Button
-        variant="ghost"
-        size="icon"
-        type="button"
-        className="absolute top-1 right-1"
-        aria-label={copied ? "Copied" : "Copy the git commands"}
-        title={copied ? "Copied" : "Copy the git commands"}
-        onClick={copy}
-      >
-        {copied ? (
-          <Check className="size-4 text-brand" />
-        ) : (
-          <Copy className="size-4 text-muted-foreground" />
-        )}
-      </Button>
-    </div>
+    <CommandBlock
+      className={className}
+      label="Copy the git commands"
+      commands={`git clone https://github.com/${fullName}.git\ncd ${fullName.split("/")[1]}`}
+    />
   );
 }

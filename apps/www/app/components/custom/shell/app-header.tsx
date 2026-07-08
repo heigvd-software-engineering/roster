@@ -1,7 +1,7 @@
 import { Link } from "react-router";
-import { SwitchIdentity } from "~/components/custom/identity/switch-identity";
 import { Container } from "~/components/custom/layout/container";
 import { Row } from "~/components/custom/layout/row";
+import { MainSwitchIdentity } from "~/components/custom/shell/main-switch-identity";
 import { useAuth } from "~/contexts/auth-context";
 
 /**
@@ -23,7 +23,7 @@ export function AppHeader() {
           <Link to="/classes" className="font-bold tracking-tight">
             labs
           </Link>
-          <SwitchIdentity />
+          <MainSwitchIdentity />
         </Row>
       </Container>
       <div className="h-0.5 w-full bg-brand" />

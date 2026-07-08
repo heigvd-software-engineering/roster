@@ -155,10 +155,13 @@ export function JoinPage() {
       <Row gap="md" align="center" wrap>
         {github ? (
           <>
+            {/* Named by GitHub, so it wears the GitHub photo — the whole point
+                is to catch an account-swap before you join as the wrong user. */}
             <UserIdentity
               name={github.name ?? github.login}
-              subtitle={`@${github.login}`}
+              handle={github.login}
               avatarUrl={github.avatarUrl}
+              size="lg"
             />
             <ArrowRightIcon
               aria-label="joins"
