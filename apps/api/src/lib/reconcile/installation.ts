@@ -20,7 +20,9 @@ export const installation: Reconciler = {
         key: KEY,
         reconciler: "installation",
         severity: "broken",
-        title: "The GitHub App was reinstalled",
+        // What we SAW, not why. A reinstall is the usual cause, not the only
+        // one, and the reconciler cannot tell them apart.
+        title: "The class points at an old GitHub App installation",
         detail: `stored ${ctx.cls.installationId} → live ${ctx.installationId}. Until this is repaired, students and lab pages cannot reach this class.`,
         fix: "Repoint the class at the current installation",
         destructive: false,

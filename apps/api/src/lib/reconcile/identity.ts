@@ -5,26 +5,31 @@ import { classes } from "@labs/db";
 import { eq } from "drizzle-orm";
 import type { Reconciler } from "./types";
 
+/** `"login: acme → tweb-2026"` for each field that actually moved. Reporting a
+ *  field that didn't change reads as noise and hides the one that did. */
+const changed = (field: string, was: string | null, now: string | null) =>
+  was === now ? null : `${field}: ${was ?? "—"} → ${now ?? "—"}`;
+
 export const identity: Reconciler = {
   name: "identity",
   async audit(ctx) {
     const org = await ctx.orgInfo();
-    const drifted =
-      org.login !== ctx.cls.login ||
-      org.name !== ctx.cls.name ||
-      org.avatarUrl !== ctx.cls.avatarUrl;
-    if (!drifted) return [];
+    const drift = [
+      changed("login", ctx.cls.login, org.login),
+      changed("name", ctx.cls.name, org.name),
+      changed("avatar", ctx.cls.avatarUrl, org.avatarUrl),
+    ].filter((line): line is string => line !== null);
+    if (drift.length === 0) return [];
     return [
       {
         key: "identity:refresh",
         reconciler: "identity",
         severity: "drift",
-        title: "The organization's details changed on GitHub",
-        detail: `${ctx.cls.login} → ${org.login}${
-          org.name !== ctx.cls.name
-            ? ` · "${ctx.cls.name}" → "${org.name}"`
-            : ""
-        }`,
+        title:
+          drift.length === 1
+            ? "The organization's details changed on GitHub"
+            : `${drift.length} of the organization's details changed on GitHub`,
+        detail: drift.join(" · "),
         fix: "Refresh the class card",
         destructive: false,
       },
