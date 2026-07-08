@@ -18,6 +18,12 @@ export default defineConfig({
         miniflare: {
           d1Databases: ["DB"],
           bindings: { TEST_MIGRATIONS: migrations },
+          // MUST match wrangler.jsonc. Left unset, the pool dates its runner
+          // worker TODAY, and every test file dies the moment the calendar
+          // passes the workerd binary's newest supported date:
+          //   "requires compatibility date X, newest supported is Y".
+          compatibilityDate: "2026-06-30",
+          compatibilityFlags: ["nodejs_compat"],
         },
       };
     }),
