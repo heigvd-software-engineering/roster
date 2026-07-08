@@ -29,38 +29,43 @@ export const classes = sqliteTable("classes", {
   avatarUrl: text("avatar_url"),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
-  // NULL = never reconciled. Cannot be inferred from class_members row count:
-  // the join POSTs insert rows into a class that has never been reconciled, and
-  // a reconciled class with no students still has teacher rows.
-  reconciledAt: integer("reconciled_at", { mode: "timestamp" }),
 });
 
 /** An assignment: deadline + group settings (F6). Visible to students on
  *  creation; the deadline controls timing. Template columns arrive with
  *  accept (F8), which is what consumes them. */
-export const labs = sqliteTable("labs", {
-  id: text("id").primaryKey(),
-  classId: text("class_id")
-    .notNull()
-    .references(() => classes.id),
-  title: text("title").notNull(),
-  // Optional starter code (F8): a template repo in the class org — repos
-  // are created via /generate from it; empty (auto-init) when null.
-  templateRepoId: integer("template_repo_id"),
-  templateRepoFullName: text("template_repo_full_name"),
-  deadline: integer("deadline", { mode: "timestamp" }).notNull(),
-  // `individual` = a group of one (min=max=1); `group` uses min/maxMembers.
-  groupMode: text("group_mode", { enum: ["individual", "group"] })
-    .notNull()
-    .default("individual"),
-  minMembers: integer("min_members"),
-  maxMembers: integer("max_members"),
-  createdByUserId: text("created_by_user_id")
-    .notNull()
-    .references(() => user.id),
-  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
-  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
-});
+export const labs = sqliteTable(
+  "labs",
+  {
+    id: text("id").primaryKey(),
+    classId: text("class_id")
+      .notNull()
+      .references(() => classes.id),
+    title: text("title").notNull(),
+    // Optional starter code (F8): a template repo in the class org — repos
+    // are created via /generate from it; empty (auto-init) when null.
+    templateRepoId: integer("template_repo_id"),
+    templateRepoFullName: text("template_repo_full_name"),
+    deadline: integer("deadline", { mode: "timestamp" }).notNull(),
+    // `individual` = a group of one (min=max=1); `group` uses min/maxMembers.
+    groupMode: text("group_mode", { enum: ["individual", "group"] })
+      .notNull()
+      .default("individual"),
+    minMembers: integer("min_members"),
+    maxMembers: integer("max_members"),
+    createdByUserId: text("created_by_user_id")
+      .notNull()
+      .references(() => user.id),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+  },
+  // A group's slug — and therefore its WORK REPO NAME — is
+  // slugify(lab.title)-slugify(group.name). Without this, two labs in one class
+  // share a repo namespace: their groups compute the same repo name in the same
+  // org, so the work-repos reconciler could adopt one lab's student work into
+  // another lab's group.
+  (t) => [unique().on(t.classId, t.title)],
+);
 
 /**
  * A student group = a GitHub Team, now **per-lab** (owns exactly one lab —

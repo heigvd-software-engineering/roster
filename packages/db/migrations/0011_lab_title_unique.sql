@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `labs_class_id_title_unique` ON `labs` (`class_id`,`title`);

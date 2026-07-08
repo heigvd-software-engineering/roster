@@ -1,1 +1,0 @@
-ALTER TABLE `classes` ADD `reconciled_at` integer;

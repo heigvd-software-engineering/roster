@@ -120,10 +120,14 @@ export function LabDialog({
             json,
           });
       if (!res.ok) {
+        // A duplicate title is the one failure the teacher can act on: the lab
+        // title decides the group repo names, so it must be unique in the class.
         setError(
-          lab
-            ? "Couldn't save the lab — check the fields and try again."
-            : "Couldn't create the lab — check the fields and try again.",
+          res.status === 409
+            ? "A lab with that title already exists in this class."
+            : lab
+              ? "Couldn't save the lab — check the fields and try again."
+              : "Couldn't create the lab — check the fields and try again.",
         );
         return;
       }

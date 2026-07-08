@@ -1,6 +1,6 @@
 import { zValidator } from "@hono/zod-validator";
 import { labs } from "@labs/db";
-import { eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { z } from "zod";
 import { authedFactory } from "../factory";
 import { labInClass, resolveClassAsTeacher } from "../lib/access";
@@ -51,6 +51,15 @@ export const createLab = authedFactory.createHandlers(
     const { db, cls } = access;
 
     const input = c.req.valid("json");
+    // The group slug — and so the WORK REPO NAME — is
+    // slugify(lab.title)-slugify(group.name), so two labs sharing a title share a
+    // repo namespace. The unique index is the backstop; this is the clean answer.
+    const [clash] = await db
+      .select({ id: labs.id })
+      .from(labs)
+      .where(and(eq(labs.classId, cls.id), eq(labs.title, input.title)));
+    if (clash) return c.json({ error: "title_taken" }, 409);
+
     const now = new Date();
     const [lab] = await db
       .insert(labs)
@@ -92,6 +101,20 @@ export const updateLab = authedFactory.createHandlers(
     }
 
     const input = c.req.valid("json");
+    // Same guard as createLab, excluding the lab being edited: keeping your own
+    // title must not read as a clash with yourself.
+    const [clash] = await db
+      .select({ id: labs.id })
+      .from(labs)
+      .where(
+        and(
+          eq(labs.classId, access.cls.id),
+          eq(labs.title, input.title),
+          ne(labs.id, existing.id),
+        ),
+      );
+    if (clash) return c.json({ error: "title_taken" }, 409);
+
     const [lab] = await db
       .update(labs)
       .set({
