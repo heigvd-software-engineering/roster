@@ -12,6 +12,7 @@ const state = vi.hoisted(() => ({
     type: string;
   },
   installations: [{ id: 100 }] as Array<{ id: number }>,
+  org: { login: "acme", name: "Acme", avatarUrl: "http://a" },
 }));
 
 vi.mock("../src/lib/auth/config", () => ({
@@ -35,6 +36,12 @@ vi.mock("../src/lib/github/app", () => ({
 vi.mock("../src/lib/github/user", () => ({
   userHasInstallation: async (_token: string, installationId: number) =>
     state.installations.some((i) => i.id === installationId),
+}));
+
+// The callback seeds the org identity cache: nothing else writes login/name/
+// avatarUrl now that the hub is a pure read.
+vi.mock("../src/lib/github/org", () => ({
+  orgInfo: async () => state.org,
 }));
 
 const { setupRoutes } = await import("../src/routes/setup");

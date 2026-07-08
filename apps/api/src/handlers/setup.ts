@@ -4,6 +4,7 @@ import { factory } from "../factory";
 import { createAuth } from "../lib/auth/config";
 import { githubAccessToken } from "../lib/auth/github-token";
 import { installationAccount } from "../lib/github/app";
+import { orgInfo } from "../lib/github/org";
 import { userHasInstallation } from "../lib/github/user";
 import { mintJoinToken } from "../lib/join-token";
 
@@ -19,9 +20,10 @@ import { mintJoinToken } from "../lib/join-token";
  * arbitrary `installation_id` therefore cannot choose the WHERE: GitHub resolves
  * it to that installation's true org, and an App has exactly one installation per
  * org. The worst achievable write is the correct value, or a no-op. So the repair
- * needs no session, no token, and no ownership check — and it writes the POINTER
- * ONLY: never `status` (a session-less call must not resurrect a deactivated
- * class), never `joinToken` (the cohort's link), never provenance.
+ * needs no session, no token, and no ownership check — and it writes only the
+ * installation pointer and the org identity cache: never `status` (a session-less
+ * call must not resurrect a deactivated class), never `joinToken` (the cohort's
+ * link), never provenance.
  *
  * CREATE (a new class). Now provenance matters. The cookie alone does not prove
  * THIS user installed the App — installation ids are small enumerable ints, so
@@ -50,13 +52,33 @@ export const githubSetupCallback = factory.createHandlers(async (c) => {
     .from(classes)
     .where(eq(classes.orgId, installAccount.id));
 
+  // Seed the org identity cache from the installation we just resolved. The
+  // teacher hub renders `login`/`avatarUrl` live off /user/installations, but
+  // `name` — and the STUDENT hub's whole card, a pure DB read — come from these
+  // columns. Nothing else writes them: the hub no longer does, and the `identity`
+  // reconciler only runs when a teacher opens the page. Without this, a freshly
+  // connected class has no name until someone reconciles it.
+  //
+  // It also covers the one drift reconciliation cannot reach: while the App is
+  // uninstalled the class vanishes from the hub (no installation token, so no way
+  // to authorize the caller), and reconnecting here is the only way back in. If
+  // the org was renamed in the meantime, this is where we notice.
+  const org = await orgInfo(c.env, installationId, installAccount.login);
+  const now = new Date();
+
   if (existing) {
-    if (existing.installationId !== installationId) {
-      await db
-        .update(classes)
-        .set({ installationId, updatedAt: new Date() })
-        .where(eq(classes.orgId, installAccount.id));
-    }
+    await db
+      .update(classes)
+      .set({
+        // Pointer + identity ONLY. Never `status` (a session-less call must not
+        // resurrect a deactivated class), never `joinToken`, never provenance.
+        installationId,
+        login: org.login,
+        name: org.name,
+        avatarUrl: org.avatarUrl,
+        updatedAt: now,
+      })
+      .where(eq(classes.orgId, installAccount.id));
     // Signed out, the SPA's login gate takes over from "/".
     return c.redirect(session ? `/classes/${existing.id}/confirm` : "/");
   }
@@ -68,7 +90,6 @@ export const githubSetupCallback = factory.createHandlers(async (c) => {
     return c.redirect("/?error=not_your_installation");
   }
 
-  const now = new Date();
   const [cls] = await db
     .insert(classes)
     .values({
@@ -78,6 +99,9 @@ export const githubSetupCallback = factory.createHandlers(async (c) => {
       connectedByUserId: session.user.id,
       joinToken: mintJoinToken(),
       status: "active",
+      login: org.login,
+      name: org.name,
+      avatarUrl: org.avatarUrl,
       createdAt: now,
       updatedAt: now,
     })
