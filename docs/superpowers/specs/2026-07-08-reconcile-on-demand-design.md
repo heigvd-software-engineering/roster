@@ -184,10 +184,73 @@ insert-strength checks wrongly applied to a repair.
 `teamMembers` returns `null` (the team 404s on GitHub). A teacher loading their
 lab page destroys rows.
 
-Instead: return the group with `teamMissing: true` and an empty roster. The
-teacher's roster row renders it as broken, with a *Remove group* action wired
-to the existing `DELETE /classes/:id/groups/:groupId`. Deletion becomes a
-`DELETE`, performed by someone who can see what they're destroying.
+It also **contradicts the invariant the explicit delete enforces**.
+`deleteGroup` (`handlers/groups.ts:79-81`) refuses when a work repo exists —
+*"a group whose WORK REPO exists is a deliverable — refuse rather than orphan
+it"* — and the teacher UI disables the button to match
+(`teacher-lab-groups.tsx:487-491`). The GET-path delete drops the row
+regardless. Two code paths, opposite rules; the silent one wins on page load.
+
+Instead: return the group with `teamMissing: true` and an empty roster.
+
+#### Why this state is worse than it looks
+
+Repo access is granted **to the team** (`grantTeamRepo` →
+`PUT /orgs/{org}/teams/{slug}/repos/…`). When the team is deleted on GitHub the
+grant dies with it, so the students lose push on their own work repo. Today the
+row is silently deleted, which hides the breakage *and* orphans the repo. Once
+marked, the group is visible but stuck: it cannot be deleted (`has_repo`),
+cannot be worked in (no team, no grant), and nothing recreates a team.
+
+#### The marker
+
+`GroupLabStatus` gains `team_missing`, ranked **first** in `statusFor` — a
+group whose roster is unknowable has no meaningful size or activity status.
+`STATUS_SPINE` and `CHIP` (`teacher/roster.tsx:52,11`) are both
+`Record<GroupLabStatus, …>`, so the type checker forces the new member into
+both maps.
+
+A fifth `Pill` tone, `broken`, on the existing `destructive` token — distinct
+from `bad` (brand red = late work). Scanning the spine column, a teacher must
+tell *"this group is behind"* from *"this group is broken"* without reading:
+they are different actions.
+
+```
+STATUS_SPINE.team_missing = "border-l-destructive"
+TONE.broken               = "bg-destructive/10 text-destructive"
+CHIP.team_missing         = { label: "team missing", tone: "broken" }
+```
+
+#### The recovery — `POST /classes/:id/groups/:groupId/team`
+
+Recreates the secret team under the group's stored `slug` and re-runs
+`grantTeamRepo` against the existing repo. Students get push back; their work
+was never touched. The roster is genuinely lost — it only ever lived in the
+GitHub team — so the group returns **empty** and the teacher re-adds from the
+pool. `ghTeamId`/`ghTeamSlug` are rewritten from the new team.
+
+`deleteGroup`'s `has_repo` guard is **unchanged**. The repo is the durable
+thing; the group row is not.
+
+#### Two kinds of stray repo — do not conflate them
+
+| | Group row | Repo | Cause | Recovery |
+|---|---|---|---|---|
+| **Unrecorded** | exists, `ghRepoFullName = NULL` | exists | `createWorkRepo` died after creating it | adoption (find-or-create) |
+| **Orphaned** | gone | exists | *only* the GET-path delete | — |
+
+Nothing in `apps/api/src` ever deletes a GitHub repo (verified: no `DELETE
+/repos`, no `deleteRepo`). Student work is never destroyed by the app.
+
+With the `has_repo` guard holding and this GET-path delete removed, **an
+orphaned repo can no longer be created.** Adoption's real job is recovering a
+partial `createWorkRepo` — an *unrecorded* repo, whose row still exists — which
+is exactly what its docstring claims.
+
+> `groups.ghRepoId` is globally `.unique()` (`app-schema.ts:93`) and adoption
+> writes it. Adoption is therefore only safe while no *other* group row holds
+> that repo id — true for the unrecorded case, and guaranteed by §5's lab-title
+> constraint for everything else.
 
 ## 4. Reads after the change
 
@@ -237,11 +300,45 @@ are the only two writers of `classes.installationId`.
 
 ## 5. Schema
 
-One nullable column, migration `0011`:
+Migration `0011`:
 
 ```
-classes.rosterSyncedAt  integer (timestamp), null
+classes.rosterSyncedAt   integer (timestamp), null
+labs: unique(classId, title)
 ```
+
+### `labs: unique(classId, title)`
+
+A group's slug — and therefore its **repo name** — is
+`` `${slugify(lab.title)}-${slugify(group.name)}` `` (`lib/groups.ts:59`). The
+database only enforces `unique(labId, slug)` and `unique(labId, name)`
+(`app-schema.ts:101`): **per lab**, not per org. And `labs.title` has no unique
+constraint within a class, nor any check in `handlers/labs.ts`.
+
+So two labs in one class both titled *"Lab 1"*, each with a group *"Alpha"*,
+compute the same repo name in the same org. GitHub's team-name 422 blocks the
+second *team* today — but only while the first team lives. Once it is gone
+(§3.4), the second lab's group creates its team and then **adopts the first
+lab's repo**: one lab's student work, attached to another lab's group, silently.
+
+`unique(classId, title)` makes `slugify(title)-slugify(name)` genuinely
+org-unique, so adoption can only ever re-attach a repo to the group that owns
+it. `createLab`/`updateLab` return `409 { error: "title_taken" }`.
+
+Repo names stay human-readable, and no existing group's slug changes — which
+matters, because a recomputed slug would stop matching the repo it names, and
+adoption would never find it again.
+
+> Drizzle emits `unique()` on SQLite as `CREATE UNIQUE INDEX` (see `0010`,
+> lines 25-28) — one statement, no table rebuild. It **fails at apply time if
+> duplicates already exist**. Check before deploying:
+>
+> ```sql
+> SELECT class_id, title, COUNT(*) FROM labs GROUP BY class_id, title HAVING COUNT(*) > 1;
+> ```
+>
+> The local dev database is clean (12 labs, no duplicates). Production is
+> unverified.
 
 - `null` ⇒ never reconciled → the card renders **"Roster not synced · [Reconcile]"**.
 - set ⇒ the popover footer renders **"Synced 2 days ago · [Reconcile]"**.
@@ -301,6 +398,10 @@ without ever using the link.
 | Reconcile refuses to wipe on a GitHub failure | `orgPeople` throws → `500`, `class_members` untouched, `rosterSyncedAt` unchanged |
 | A failing `syncRoster` no longer hides the class | force `syncRoster` to throw inside reconcile → `500`, but `GET /api/classes` still lists the class |
 | An orphaned group is surfaced, not deleted | `teamMembers` → `null` → group returned with `teamMissing: true`, row still present |
+| …and its repo is never orphaned | the group had a repo → row and `ghRepoFullName` both survive the GET |
+| Recreate team restores push | `POST .../groups/:groupId/team` → new team under the same slug, `grantTeamRepo` re-run, roster empty, `ghTeamId` rewritten |
+| Delete still refuses a group with a repo | `DELETE .../groups/:groupId` on a `teamMissing` group with a repo → `409 has_repo` |
+| Two labs in a class cannot share a title | `createLab` with an existing title → `409 title_taken` |
 | The join preview writes nothing | `GET /join/:token` for an active member → `class_members` unchanged |
 | `POST /confirm` records acceptance | → row flips `pending` → `active` |
 
