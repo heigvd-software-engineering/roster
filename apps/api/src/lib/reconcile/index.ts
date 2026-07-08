@@ -2,6 +2,7 @@
 // `{ name, audit, apply }`) and one line below — never a change to this file's
 // two functions.
 import { identity } from "./identity";
+import { installation } from "./installation";
 import type {
   AppliedOp,
   ClassContext,
@@ -11,7 +12,10 @@ import type {
   Reconciler,
 } from "./types";
 
-export const RECONCILERS: readonly Reconciler[] = [identity];
+// `installation` runs first, and is listed first: a dead pointer is what every
+// other GitHub reconciler depends on being right, and what the teacher must fix
+// before anything else on the page can succeed.
+export const RECONCILERS: readonly Reconciler[] = [installation, identity];
 
 /** One spelling of a failure, so an audit finding and a failed apply read the
  *  same. `err.message` only — a stack or a request URL is not for a teacher. */
