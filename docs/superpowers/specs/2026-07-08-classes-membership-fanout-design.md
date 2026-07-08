@@ -91,7 +91,7 @@ than a `403`.
    loop.
 3. Keep the existing per-class `try/catch`: an org can still rate-limit or vanish
    between the two calls. A class we cannot decide about is skipped, never shown.
-4. `apps/api/test/classes.test.ts`: assert the Owner gate still holds —
+4. `apps/api/test/classes-list.test.ts`: assert the Owner gate still holds —
    `role: "member"` and `state: "pending"` must both mean "no class", and a class
    whose org is absent from the installations map must be skipped even when the
    caller is its Owner.
