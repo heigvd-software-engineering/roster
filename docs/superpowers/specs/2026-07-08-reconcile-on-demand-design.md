@@ -361,7 +361,10 @@ backstop.
 > SELECT class_id, title, COUNT(*) FROM labs GROUP BY class_id, title HAVING COUNT(*) > 1;
 > ```
 >
-> Local dev is clean (12 labs). **Production is unverified.**
+> Local dev is clean. There is **no production database yet** — `wrangler.jsonc`
+> still carries the placeholder `database_id` (`0000…0000`), so nothing is
+> deployed. Run the query above against `--remote` the first time a real D1 is
+> provisioned, before applying `0011` to it.
 
 ## 7. The page
 
