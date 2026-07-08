@@ -108,8 +108,8 @@ export function ClassCard({
             variant="ghost"
             size="icon"
             type="button"
-            aria-label={copied ? "Copied" : "Copy join link"}
-            title={copied ? "Copied" : "Copy join link"}
+            aria-label={copied ? "Copied" : "Copy student invitation link"}
+            title={copied ? "Copied" : "Copy student invitation link"}
             onClick={copyJoinLink}
           >
             {copied ? (
