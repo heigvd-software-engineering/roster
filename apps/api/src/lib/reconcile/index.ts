@@ -2,6 +2,7 @@
 // `{ name, audit, apply }`) and one line below — never a change to this file's
 // two functions.
 import { basePermissionReconciler } from "./base-permission";
+import { groupTeams } from "./group-teams";
 import { identity } from "./identity";
 import { installation } from "./installation";
 import { roster } from "./roster";
@@ -13,6 +14,7 @@ import type {
   FindingKey,
   Reconciler,
 } from "./types";
+import { workRepos } from "./work-repos";
 
 // `installation` runs first, and is listed first: a dead pointer is what every
 // other GitHub reconciler depends on being right, and what the teacher must fix
@@ -21,6 +23,8 @@ export const RECONCILERS: readonly Reconciler[] = [
   installation,
   identity,
   roster,
+  groupTeams,
+  workRepos,
   basePermissionReconciler,
 ];
 

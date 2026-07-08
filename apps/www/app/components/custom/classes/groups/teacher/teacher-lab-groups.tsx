@@ -1,5 +1,6 @@
 import { MoreHorizontal, Search, UserPlus, X } from "lucide-react";
 import { Fragment, useState } from "react";
+import { Link } from "react-router";
 import {
   GroupMembers,
   RepoLink,
@@ -399,7 +400,12 @@ function GroupRow({
           </div>
         </TableCell>
         <TableCell>
-          <AvatarCluster members={group.members} users={g.users} />
+          {status === "team_missing" ? (
+            // An AvatarCluster of zero reads as "empty group", a different thing.
+            <span className="font-mono text-muted-foreground text-xs">—</span>
+          ) : (
+            <AvatarCluster members={group.members} users={g.users} />
+          )}
         </TableCell>
         <TableCell>
           {repo ? (
@@ -508,6 +514,18 @@ function GroupDrawer({
         className="sm:min-w-48 sm:border-border sm:border-l sm:pl-6"
       >
         <Text variant="overline">Group actions</Text>
+        {group.teamMissing ? (
+          <Text variant="caption">
+            Its GitHub team is gone, so its students can't push.{" "}
+            <Link
+              to={`/classes/${g.classId}/reconcile`}
+              className="underline underline-offset-2"
+            >
+              Reconcile the class
+            </Link>{" "}
+            to recreate it.
+          </Text>
+        ) : null}
         <ConfirmDialog
           title={`Delete ${group.name}?`}
           description="The group and its GitHub team are removed. Students can form a new group for this lab afterwards."

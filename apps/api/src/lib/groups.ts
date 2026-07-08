@@ -252,29 +252,27 @@ export async function createWorkRepo(
 }
 
 /**
- * Live rosters for group rows — one GitHub call per team, in PARALLEL. A
- * team gone on GitHub reconciles HERE: its row is dropped. Returns the
- * group's display data + live members + its work repo (folded onto the row).
+ * Live rosters for group rows — one GitHub call per team, in PARALLEL.
+ *
+ * A team gone on GitHub is REPORTED, never repaired: a GET returns what it sees.
+ * The row survives — its work repo is a deliverable, which is exactly why
+ * `deleteGroup` refuses to remove a group that has one — and `teamMissing` tells
+ * the teacher their students have lost push, because the repo grant lived on that
+ * team. Recreating it is the `group-teams` reconciler's job, and their decision.
  */
 export async function groupsWithRosters(access: ClassAccess, rows: Group[]) {
   const rosters = await Promise.all(
     rows.map((row) => access.team.roster(row.ghTeamSlug)),
   );
-  const out = [];
-  for (const [i, members] of rosters.entries()) {
-    const row = rows[i];
-    if (!row) continue;
-    if (members === null) {
-      await access.db.delete(groups).where(eq(groups.id, row.id));
-      continue;
-    }
-    out.push({
+  return rows.map((row, i) => {
+    const members = rosters[i] ?? null;
+    return {
       id: row.id,
       name: row.name,
       slug: row.ghTeamSlug,
-      members,
+      members: members ?? [],
+      teamMissing: members === null,
       repoFullName: row.ghRepoFullName,
-    });
-  }
-  return out;
+    };
+  });
 }

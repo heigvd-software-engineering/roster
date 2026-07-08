@@ -16,6 +16,9 @@ import {
  * (the org listing failed) — chips degrade, the roster never does.
  */
 export type GroupLabStatus =
+  /** The GitHub team is gone: the roster is unknowable and the students have
+   *  lost push on the work repo, because the grant lived on that team. */
+  | "team_missing"
   | "under_min"
   | "no_repo"
   | "no_pushes"
@@ -65,6 +68,8 @@ export function useLabGroups(classId: string, lab: LabItem) {
     groups.find((g) => g.id === groupId)?.repoFullName ?? null;
   const min = lab.groupMode === "individual" ? 1 : (lab.minMembers ?? 1);
   const statusFor = (group: GroupItem): GroupLabStatus => {
+    // First: a group with no team has no meaningful size or activity.
+    if (group.teamMissing) return "team_missing";
     if (!group.repoFullName) {
       return group.members.length >= min ? "no_repo" : "under_min";
     }
@@ -105,6 +110,9 @@ export function useLabGroups(classId: string, lab: LabItem) {
     error,
     busy,
     act,
+    /** The class these groups belong to — components deep in the tree link to
+     *  its reconcile page without threading the id through every prop. */
+    classId,
     revalidate: mutate,
     users: data?.users,
     groups,
