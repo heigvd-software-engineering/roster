@@ -1,6 +1,5 @@
 import {
   account,
-  type Class,
   classes,
   classMembers,
   getDb,
@@ -16,40 +15,25 @@ import {
   resolveClassAsTeacher,
 } from "../lib/access";
 import { githubAccessToken } from "../lib/auth/github-token";
-import { syncRoster } from "../lib/enrollment";
 import {
   basePermission,
   type OrgPerson,
-  orgPeople,
+  orgMembership,
   setBasePermissionNone,
 } from "../lib/github/org";
-import { userInstallationsByOrgId } from "../lib/github/user";
+import {
+  fetchGithubProfile,
+  userInstallationsByOrgId,
+} from "../lib/github/user";
 
-/** Syncs the enrollment display cache from the live roster — the ONE cache write
- *  still on this read path. The `classes` row is no longer touched here: the
- *  installation pointer belongs to `setup.ts` and the `installation` reconciler,
- *  and the org identity cache to the `identity` reconciler. Both are behind the
- *  teacher's explicit Reconcile action now.
- *
- *  Still a pure cache (data-model spec §2: drift self-heals, it never gates
- *  access), so callers treat it as fail-open — log and continue, never let it
- *  remove a class the caller is demonstrably a teacher of. F4 removes this too. */
-async function refreshCaches(
-  db: ReturnType<typeof getDb>,
-  cls: Class,
-  people: Awaited<ReturnType<typeof orgPeople>>,
-) {
-  const observed = (p: OrgPerson) => ({
-    githubId: String(p.id),
-    login: p.login,
-    avatarUrl: p.avatarUrl,
-  });
-  await syncRoster(db, cls.id, {
-    active: people.students.map(observed),
-    pending: people.pending.map(observed),
-    teacher: people.teachers.map(observed),
-  });
-}
+/** A cached member as the client already expects to see them. `class_members` is
+ *  a DISPLAY cache — it may never authorize, and it does not here: the teacher
+ *  check below is a live GitHub call. */
+const person = (m: typeof classMembers.$inferSelect): OrgPerson => ({
+  id: Number(m.githubId),
+  login: m.login ?? "unknown",
+  avatarUrl: m.avatarUrl,
+});
 
 /** Teacher-only: lock the class org's base repository permission to "none"
  *  and verify it took. */
@@ -93,11 +77,20 @@ export const listClasses = authedFactory.createHandlers(async (c) => {
     return c.json({ classes: [], enrolled: [], hasOlder: false });
   }
 
-  // Reconcile against the user's LIVE installations — the installationId we
-  // stored can go stale on reinstall, and an org the user uninstalled the
-  // App from must be dropped (its class row is skipped, not deleted).
+  // The caller's LIVE installations. An org the user uninstalled the App from
+  // must be dropped (its class row is skipped, not deleted) — without an
+  // installation token there is no way to authorize them against it at all.
+  // NOTE: this lists installations the caller can ACCESS, not ones they own — a
+  // student with push on a work repo appears here — so it decides nothing on its
+  // own. The per-class Owner check below is what grants the class.
   const byOrgId = await userInstallationsByOrgId(token);
   const orgIds = [...byOrgId.keys()];
+
+  // One profile fetch for the whole request; orgMembership is keyed on login.
+  const profile = orgIds.length === 0 ? null : await fetchGithubProfile(token);
+  if (orgIds.length > 0 && !profile) {
+    return c.json({ classes: [], enrolled: [], hasOlder: false });
+  }
 
   const rows =
     orgIds.length === 0
@@ -133,6 +126,21 @@ export const listClasses = authedFactory.createHandlers(async (c) => {
           // order in the response.
           .orderBy(desc(labs.deadline));
 
+  // The people, from the enrollment DISPLAY cache — one query for every
+  // candidate class. Reconcile is what keeps it true; this read never writes.
+  const memberRows =
+    rows.length === 0
+      ? []
+      : await db
+          .select()
+          .from(classMembers)
+          .where(
+            inArray(
+              classMembers.classId,
+              rows.map((r) => r.id),
+            ),
+          );
+
   // TODO: discuss this transformation and propose the move the transformation to frontend
   const out: Array<{
     id: string;
@@ -158,36 +166,35 @@ export const listClasses = authedFactory.createHandlers(async (c) => {
     // ONLY the GitHub fetch is skippable. An org can rate-limit, revoke its
     // installation, or vanish; that is this class's problem. Everything below
     // is ours, and a failure there is a bug, not org state.
-    let people: Awaited<ReturnType<typeof orgPeople>>;
+    let membership: Awaited<ReturnType<typeof orgMembership>>;
     try {
-      // Serves both the teacher check (F5a: only live org Owners see the
-      // class) and the card's people chips. No `orgInfo` call: `login` and
-      // `avatarUrl` ride on the `/user/installations` payload we already have,
-      // and `name` comes from the cached row until a reconcile refreshes it.
-      people = await orgPeople(c.env, live.installationId, live.login);
+      // F5a: only live org Owners see the class. ONE request — `class_members`
+      // may never authorize, and a cached `teacher` row is a display fact, not
+      // a role. No `orgPeople` (three paginated calls) and no `orgInfo`: the
+      // chips come from the cache, `login`/`avatarUrl` ride on the
+      // /user/installations payload, and `name` waits for a reconcile.
+      membership = await orgMembership(
+        c.env,
+        live.installationId,
+        live.login,
+        profile?.login ?? "",
+      );
     } catch {
       continue;
     }
+    if (membership?.role !== "admin") continue;
 
-    // F5a: only live org Owners see the class. Never the cache.
-    if (!people.teachers.some((t) => t.id === caller.ghId)) continue;
-
-    // Best-effort cache refresh (data-model spec §2: drift self-heals, and
-    // never affects access control). A failure must not remove a class the
-    // caller is demonstrably a teacher of. F4 removes this write too.
-    await refreshCaches(db, cls, people).catch((err) => {
-      console.warn("class roster cache refresh failed", {
-        classId: cls.id,
-        err,
-      });
-    });
+    const members = memberRows.filter((m) => m.classId === cls.id);
+    const teachers = members.filter((m) => m.state === "teacher").map(person);
+    const students = members.filter((m) => m.state === "active").map(person);
+    const pending = members.filter((m) => m.state === "pending").map(person);
 
     // SWITCH users linked to the members' GitHub accounts — raw rows, the
     // client correlates. Pending invitees carry an invitation id, not a
     // user id — never looked up.
     const users = await linkedUsers(
       db,
-      [...people.teachers, ...people.students].map((p) => String(p.id)),
+      [...teachers, ...students].map((p) => String(p.id)),
     );
     out.push({
       id: cls.id,
@@ -199,9 +206,9 @@ export const listClasses = authedFactory.createHandlers(async (c) => {
       avatarUrl: live.avatarUrl,
       // NOT on the /user/installations payload. Cached until Reconcile.
       name: cls.name,
-      teachers: people.teachers,
-      students: people.students,
-      pending: people.pending,
+      teachers,
+      students,
+      pending,
       users,
       labs: labRows.filter((l) => l.classId === cls.id),
     });

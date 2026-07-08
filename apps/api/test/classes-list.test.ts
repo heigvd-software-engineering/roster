@@ -13,7 +13,8 @@ const state = vi.hoisted(() => ({
   }>,
   org: { login: "acme", name: "Acme", avatarUrl: "http://a" },
   failInstallationIds: [] as number[],
-  failSyncRoster: false,
+  membershipRole: "admin" as string,
+  profileLogin: "prof",
   people: {
     teachers: [{ id: 111, login: "prof", avatarUrl: "http://p" }],
     students: [{ id: 2, login: "student", avatarUrl: "http://s" }],
@@ -38,13 +39,14 @@ vi.mock("../src/lib/auth/github-token", () => ({
 vi.mock("../src/lib/github/org", () => ({
   isOrgAdmin: async () => true,
   orgInfo: async () => state.org,
-  // The hub's ONLY GitHub call per class now. It carries the failure switch,
-  // because a class is skipped when this fetch fails — not when orgInfo does.
-  orgPeople: vi.fn(async (_env: unknown, installationId: number) => {
+  orgPeople: vi.fn(async () => state.people),
+  // The hub's ONLY GitHub call per class now: one live Owner check. It carries
+  // the failure switch, because that is the fetch whose failure skips a class.
+  orgMembership: vi.fn(async (_env: unknown, installationId: number) => {
     if (state.failInstallationIds.includes(installationId)) {
       throw new Error("simulated GitHub failure");
     }
-    return state.people;
+    return { state: "active", role: state.membershipRole };
   }),
 }));
 
@@ -68,29 +70,12 @@ const userInstallationsByOrgIdMock = vi.hoisted(() =>
 
 vi.mock("../src/lib/github/user", () => ({
   userInstallationsByOrgId: userInstallationsByOrgIdMock,
+  // One profile fetch for the whole request; orgMembership is keyed on login.
+  fetchGithubProfile: async () => ({ login: state.profileLogin }),
 }));
 
-// Delegates to the REAL syncRoster (vi.importActual) unless failSyncRoster is
-// set: "syncs the enrollment cache..." below asserts syncRoster's actual DB
-// effect, so a bare no-op mock would silently break it. Only this one test
-// toggles the failure to prove a D1 hiccup here can't hide the class.
-const syncRosterMock = vi.hoisted(() =>
-  vi.fn(
-    async (
-      ...args: Parameters<typeof import("../src/lib/enrollment").syncRoster>
-    ) => {
-      if (state.failSyncRoster) throw new Error("simulated D1 failure");
-      const actual = await vi.importActual<
-        typeof import("../src/lib/enrollment")
-      >("../src/lib/enrollment");
-      return actual.syncRoster(...args);
-    },
-  ),
-);
-vi.mock("../src/lib/enrollment", () => ({ syncRoster: syncRosterMock }));
-
 const { classesRoutes } = await import("../src/routes/classes");
-const { orgPeople } = await import("../src/lib/github/org");
+const { orgMembership } = await import("../src/lib/github/org");
 
 const app = new Hono().route("/api", classesRoutes);
 const db = getDb(env.DB);
@@ -123,20 +108,46 @@ async function seedClass(args?: {
   });
 }
 
+/** The hub's people chips read the `class_members` DISPLAY cache. Reconcile is
+ *  what keeps it true; the hub itself never writes it. */
+async function seedMembers(
+  classId = "c1",
+  people = state.people,
+): Promise<void> {
+  const rows = [
+    ...people.teachers.map((p) => ({ p, state: "teacher" as const })),
+    ...people.students.map((p) => ({ p, state: "active" as const })),
+    ...people.pending.map((p) => ({ p, state: "pending" as const })),
+  ];
+  if (rows.length === 0) return;
+  await db.insert(classMembers).values(
+    rows.map(({ p, state: memberState }) => ({
+      id: `cm-${classId}-${p.id}`,
+      classId,
+      githubId: String(p.id),
+      login: p.login,
+      avatarUrl: p.avatarUrl,
+      state: memberState,
+      createdAt: now,
+      updatedAt: now,
+    })),
+  );
+}
+
 beforeEach(async () => {
   state.session = { user: { id: "u1" } };
   state.githubToken = "tok";
   state.installations = [{ id: 200, account: { id: 42, login: "acme" } }];
   state.org = { login: "acme", name: "Acme", avatarUrl: "http://a" };
   state.failInstallationIds = [];
-  state.failSyncRoster = false;
+  state.membershipRole = "admin";
+  state.profileLogin = "prof";
   state.people = {
     teachers: [{ id: 111, login: "prof", avatarUrl: "http://p" }],
     students: [{ id: 2, login: "student", avatarUrl: "http://s" }],
     pending: [{ id: 900, login: "invited", avatarUrl: null }],
   };
   userInstallationsByOrgIdMock.mockClear();
-  syncRosterMock.mockClear();
 
   await db.delete(labs);
   await db.delete(classMembers);
@@ -167,6 +178,7 @@ beforeEach(async () => {
 
 test("lists classes with people + linked users, from live installation data", async () => {
   await seedClass({ name: "Acme" });
+  await seedMembers();
   const res = await app.request("/api/classes", {}, env);
   expect(res.status).toBe(200);
   const body = (await res.json()) as {
@@ -253,19 +265,6 @@ test("skips a class whose GitHub fetch fails, without 500ing the rest", async ()
   expect(body.classes.map((c) => c.id)).toEqual(["c2"]);
 });
 
-test("a failing roster sync does not hide the teacher's class", async () => {
-  // syncRoster writes a DISPLAY CACHE. Best-effort, self-healing. It must never
-  // take down a live, authorized read.
-  await seedClass();
-  state.failSyncRoster = true;
-
-  const res = await app.request("/api/classes", {}, env);
-
-  expect(res.status).toBe(200);
-  const body = (await res.json()) as { classes: unknown[] };
-  expect(body.classes).toHaveLength(1);
-});
-
 test("returns a class connected by someone else when the caller is an org owner", async () => {
   await seedClass({ connectedByUserId: "someone-else" });
   // default mocks: callerGithubId 111, orgPeople teachers include 111.
@@ -276,12 +275,12 @@ test("returns a class connected by someone else when the caller is an org owner"
 });
 
 test("skips a class when the caller has installation access but is NOT an org owner (F8 guard)", async () => {
+  // /user/installations lists installations the caller can ACCESS, not ones they
+  // own — a student with push on a work repo appears there. Only the live Owner
+  // check grants the class, and a cached `teacher` row never could.
   await seedClass();
-  vi.mocked(orgPeople).mockResolvedValueOnce({
-    teachers: [{ id: 999, login: "someone-else", avatarUrl: null }],
-    students: [],
-    pending: [],
-  });
+  await seedMembers();
+  state.membershipRole = "member";
   const res = await app.request("/api/classes", {}, env);
   expect(res.status).toBe(200);
   expect(await res.json()).toEqual({
@@ -381,42 +380,6 @@ test("orders classes by creation date, newest first", async () => {
 });
 
 // --- class_members enrollment display cache + the student class list ---
-
-test("syncs the enrollment cache from the live roster (promote, add, drop)", async () => {
-  await seedClass();
-  await db.insert(classMembers).values([
-    // Was invited, has since accepted (roster now lists them active).
-    {
-      id: "m-old",
-      classId: "c1",
-      githubId: "2",
-      state: "pending",
-      createdAt: now,
-      updatedAt: now,
-    },
-    // No longer on the roster at all — must be dropped.
-    {
-      id: "m-gone",
-      classId: "c1",
-      githubId: "999",
-      state: "active",
-      createdAt: now,
-      updatedAt: now,
-    },
-  ]);
-  await app.request("/api/classes", {}, env);
-  const rows = await db
-    .select()
-    .from(classMembers)
-    .orderBy(classMembers.githubId);
-  // Teachers ride the same cache (state "teacher") and everyone carries the
-  // GitHub identity the sync observed (login/avatar for the student card).
-  expect(rows).toMatchObject([
-    { classId: "c1", githubId: "111", state: "teacher", login: "prof" },
-    { classId: "c1", githubId: "2", state: "active", login: "student" },
-    { classId: "c1", githubId: "900", state: "pending", login: "invited" },
-  ]);
-});
 
 test("the hub never writes the classes row", async () => {
   // A GET returns what it sees. The installation pointer belongs to setup.ts and
@@ -541,7 +504,7 @@ test("?from windows the list — no GitHub work for out-of-window classes", asyn
     installationId: 201,
     createdAt: new Date("2025-03-01"),
   });
-  vi.mocked(orgPeople).mockClear();
+  vi.mocked(orgMembership).mockClear();
 
   const res = await app.request(
     "/api/classes?from=2026-02-01T00:00:00Z",
@@ -555,7 +518,8 @@ test("?from windows the list — no GitHub work for out-of-window classes", asyn
   expect(body.classes.map((c) => c.id)).toEqual(["c-new"]);
   expect(body.hasOlder).toBe(true);
   // The saving: the out-of-window class never triggered live GitHub work.
-  expect(vi.mocked(orgPeople)).toHaveBeenCalledTimes(1);
+  // Exactly one live Owner check: the out-of-window class costs no GitHub call.
+  expect(vi.mocked(orgMembership)).toHaveBeenCalledTimes(1);
 
   // Widened window: both classes, nothing older left.
   const all = await app.request(
