@@ -1,6 +1,7 @@
 // THE registry. Adding a reconciliation factor is adding a file (exporting
 // `{ name, audit, apply }`) and one line below — never a change to this file's
 // two functions.
+import { basePermissionReconciler } from "./base-permission";
 import { identity } from "./identity";
 import { installation } from "./installation";
 import { roster } from "./roster";
@@ -20,6 +21,7 @@ export const RECONCILERS: readonly Reconciler[] = [
   installation,
   identity,
   roster,
+  basePermissionReconciler,
 ];
 
 /** One spelling of a failure, so an audit finding and a failed apply read the
