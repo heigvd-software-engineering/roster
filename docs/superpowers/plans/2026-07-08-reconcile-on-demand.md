@@ -4,11 +4,37 @@
 
 **Goal:** Stop every `GET` route from mutating the database, and give teachers an explicit Reconcile action that owns the roster.
 
-**Architecture:** Six gates, each independently shippable and browser-verifiable. Writes move out of read paths one at a time: first the live `catch {}` bug is fenced (Gate 0), then `installationId` repair moves to the install callback (Gate 1), then repo-name uniqueness is enforced (Gate 2), then the destructive group delete becomes a marker plus a recovery action (Gate 3), then join observation becomes a `POST` (Gate 4), and finally the roster/identity caches move behind the Reconcile button (Gate 5).
+**Architecture:** Six features, each independently shippable and verifiable in a browser. Each owns one thing GitHub is authoritative for, and moves its cache write out of a `GET` and behind an explicit action.
 
 **Tech Stack:** Hono + Cloudflare Workers + D1, Drizzle ORM, Vitest (`@cloudflare/vitest-pool-workers` for the API, jsdom for the SPA), React Router 7, Tailwind v4, Biome.
 
 **Spec:** `docs/superpowers/specs/2026-07-08-reconcile-on-demand-design.md`
+
+## Features
+
+| # | Feature | Owns | Depends on |
+|---|---|---|---|
+| **F1** | Read-path safety net | the `catch {}` bug; `callerGithub` | — |
+| **F2** | Repo-name uniqueness | `labs: unique(classId, title)`; `409 title_taken` | — |
+| **F3** | Class reconcile | the `classes` row — `installationId`, `login`, `name`, `avatarUrl` | F1 |
+| **F4** | Roster reconcile | `class_members`; `rosterSyncedAt`; the popover button | F1, F3 |
+| **F5** | Group team recovery | `teamMissing`; `POST .../groups/:groupId/team` | F2 |
+| **F6** | Join confirmation | `POST /join/:token/confirm` | — |
+
+```
+F1 ──▶ F3 ──▶ F4      writes leave the hub, one cache at a time
+F2 ──▶ F5             the constraint, then the marker that makes it reachable
+F6                    independent; ship anywhere
+```
+
+**F3 and F4 share one endpoint and one button.** `POST /api/classes/:id/reconcile` is introduced by F3 (class row) and extended by F4 (roster). The teacher sees a single *Reconcile* in the students popover — `login` and `avatarUrl` free-ride off `/user/installations`, so only `name` and the roster need the button. Two buttons would put two chores in front of a teacher who thinks of it as one thing: *make this class right*.
+
+**F2 must precede F5.** Once a missing team stops deleting the group row, a re-created group can adopt an existing repo. Without `unique(classId, title)`, two labs sharing a title let that adoption cross labs — one lab's student work under another lab's group. F5 is what makes that path reachable.
+
+**F1 is a prerequisite, not a feature.** It fixes a live bug: a failing `syncRoster` currently deletes a teacher's class from their own hub. It also extracts `callerGithub`, which F3 and F4 both consume.
+
+**Intermediate states are honest, not broken.** After F3 the hub still calls `orgPeople` and still runs `syncRoster` (fail-open, from F1) — it just no longer writes the `classes` row. After F4 the hub makes one GitHub call per class and writes nothing at all.
+
 
 ## Global Constraints
 
@@ -24,26 +50,14 @@
 - `class_members` is a **display cache**. No endpoint may authorize against it. Authorization always reads live GitHub state.
 - Never delete a GitHub repository. Nothing in `apps/api/src` does today; keep it that way.
 
-## Gate Overview
 
-| Gate | Deliverable | Feature test |
-|---|---|---|
-| 0 | Fence the `catch {}`; extract `callerGithub` | A failing cache write no longer hides a class |
-| 1 | `setup.ts` repairs `installationId` without a session; hub backstop deleted | Reinstall the App while logged out |
-| 2 | `labs: unique(classId, title)` + `409 title_taken` | Create two labs with the same title |
-| 3 | `teamMissing` marker + `POST .../groups/:groupId/team` | Delete a team on GitHub, reload the lab page |
-| 4 | `GET /join/:token` pure; `POST /join/:token/confirm` | Join a class end to end |
-| 5 | Reconcile endpoint + `rosterSyncedAt` + hub reads the cache | Reconcile a class; watch the hub write nothing |
-
----
-
-## Gate 0 — Fence the read path
+## F1 — Read-path safety net
 
 `classes.ts:132-198` wraps the teacher check, three cache writes, and the DTO build in one `try { … } catch {}`. A failing `syncRoster` — a best-effort, self-healing, non-authoritative cache write — currently removes the teacher's class from their own hub. This is a live bug, independent of the rest of the spec.
 
 The narrowing must be **structural**: wrap only the GitHub fetches. `classes-list.test.ts:39-45` mocks `orgInfo` to throw a plain `Error` with no `.status`, so any "does the error have a status?" heuristic silently breaks the existing skip-on-GitHub-failure test.
 
-### Task 0.1: Extract `callerGithub`
+### Task 1.1: Extract `callerGithub`
 
 The caller's GitHub identity is derived twice — `handlers/classes.ts:60-67` and `lib/access.ts:131-137` — each re-deriving the `Number.isFinite` invariant on a TEXT column. `classes.ts` also needs the raw string (`classMembers.githubId` comparisons at `:213`, `:290`), so return both.
 
@@ -199,14 +213,14 @@ EOF
 )"
 ```
 
-### Task 0.2: Fence the per-class loop
+### Task 1.2: Fence the per-class loop
 
 **Files:**
 - Modify: `apps/api/src/handlers/classes.ts:129-198`
 - Test: `apps/api/test/classes-list.test.ts`
 
 **Interfaces:**
-- Consumes: `callerGithub` (Task 0.1)
+- Consumes: `callerGithub` (Task 1.1)
 - Produces: nothing new; behavior change only
 
 - [ ] **Step 1: Write the failing test**
@@ -311,7 +325,7 @@ And add, above `listClasses`:
  * The three cache writes a teacher's visit pays for, in one named place: the
  * installation pointer (§backstop), the org identity cache, and the enrollment
  * display cache. All best-effort — the caller's own view does not depend on any
- * of them succeeding. Gate 5 moves this behind the Reconcile button.
+ * of them succeeding. F3 and F4 move these behind the Reconcile button.
  */
 async function reconcileClass(
   db: ReturnType<typeof getDb>,
@@ -404,7 +418,7 @@ EOF
 )"
 ```
 
-### Gate 0 feature test
+### F1 feature test
 
 Automated:
 
@@ -425,264 +439,9 @@ Manual, in the browser:
 
 ---
 
-## Gate 1 — `installationId` repair moves to the callback
+## F2 — Repo-name uniqueness
 
-`githubSetupCallback` bails on four preconditions before its upsert (`setup.ts:24,27,31,34`). Three are insert-strength checks — session, linked GitHub, `userHasInstallation` — wrongly applied to a *repair*. `installationAccount` runs on the App's own JWT, so **GitHub names the org**, not the caller: the `WHERE` is not attacker-controlled.
-
-### Task 1.1: Session-less repair
-
-**Files:**
-- Modify: `apps/api/src/handlers/setup.ts`
-- Test: `apps/api/test/setup.test.ts`
-
-**Interfaces:**
-- Consumes: `installationAccount(env, installationId): Promise<{ id, login, isOrganization } | null>` (`lib/github/app.ts:11`)
-
-- [ ] **Step 1: Write the failing tests**
-
-Add to `apps/api/test/setup.test.ts` (match the file's existing mock/seed helpers):
-
-```ts
-test("repairs a stale installationId with NO session", async () => {
-  await seedClass({ orgId: 42, installationId: 200, status: "active" });
-  state.session = null;                       // logged out
-  state.githubToken = null;                   // no linked GitHub either
-  state.installAccount = { id: 42, login: "acme", isOrganization: true };
-
-  const res = await app.request("/api/github/setup?installation_id=999", {}, env);
-
-  expect(res.status).toBe(302);
-  const [row] = await db.select().from(classes).where(eq(classes.orgId, 42));
-  expect(row?.installationId).toBe(999);
-});
-
-test("a session-less repair never touches status, joinToken or provenance", async () => {
-  await seedClass({
-    orgId: 42,
-    installationId: 200,
-    status: "active",
-    joinToken: "keep-me",
-    connectedByUserId: "u1",
-  });
-  state.session = null;
-  state.installAccount = { id: 42, login: "acme", isOrganization: true };
-
-  await app.request("/api/github/setup?installation_id=999", {}, env);
-
-  const [row] = await db.select().from(classes).where(eq(classes.orgId, 42));
-  expect(row).toMatchObject({
-    installationId: 999,
-    joinToken: "keep-me",
-    connectedByUserId: "u1",
-    status: "active",
-  });
-});
-
-test("a session-less callback cannot CREATE a class", async () => {
-  state.session = null;
-  state.installAccount = { id: 77, login: "other", isOrganization: true };
-
-  const res = await app.request("/api/github/setup?installation_id=999", {}, env);
-
-  expect(res.status).toBe(302);
-  expect(await db.select().from(classes)).toHaveLength(0);
-});
-```
-
-- [ ] **Step 2: Run and watch them fail**
-
-```bash
-pnpm --filter @labs/api exec vitest run test/setup.test.ts
-```
-
-Expected: the first two FAIL (`installationId` still `200` — the handler redirected at `if (!session)`).
-
-- [ ] **Step 3: Implement**
-
-Rewrite `apps/api/src/handlers/setup.ts`'s handler body:
-
-```ts
-export const githubSetupCallback = factory.createHandlers(async (c) => {
-  const installationId = Number(c.req.query("installation_id"));
-  if (!installationId) return c.redirect("/?error=no_installation");
-
-  // The App's own JWT answers "which account owns this installation?". GitHub,
-  // not the caller, names the org — so nothing below is attacker-controlled.
-  const acct = await installationAccount(c.env, installationId);
-  if (!acct?.isOrganization) return c.redirect("/?error=not_an_org");
-
-  const db = getDb(c.env.DB);
-  const session = await createAuth(c.env).api.getSession({
-    headers: c.req.raw.headers,
-  });
-  const [existing] = await db
-    .select()
-    .from(classes)
-    .where(eq(classes.orgId, acct.id));
-
-  if (existing) {
-    // REPAIR. A reinstall mints a new installation id, and the Setup URL fires
-    // in whatever browser performed it — possibly with no labs cookie (org
-    // settings page; a second org owner who never signed in here). The repair
-    // needs no session because the org id came from GitHub.
-    //
-    // Pointer ONLY. `status` is excluded so a session-less call can never
-    // resurrect a deactivated class; joinToken and provenance are never touched.
-    if (existing.installationId !== installationId) {
-      await db
-        .update(classes)
-        .set({ installationId, updatedAt: new Date() })
-        .where(eq(classes.orgId, acct.id));
-    }
-    return c.redirect(session ? `/classes/${existing.id}/confirm` : "/");
-  }
-
-  // CREATE. Now provenance matters: attribute the class, and prove the caller
-  // really holds this installation (ids are small enumerable ints, so a signed-in
-  // user could otherwise claim any org's installation as their own class).
-  if (!session) return c.redirect("/");
-  const token = await githubAccessToken(c.env, session.user.id);
-  if (!token) return c.redirect("/?error=github_not_linked");
-  if (!(await userHasInstallation(token, installationId))) {
-    return c.redirect("/?error=not_your_installation");
-  }
-
-  const now = new Date();
-  const [cls] = await db
-    .insert(classes)
-    .values({
-      id: crypto.randomUUID(),
-      orgId: acct.id,
-      installationId,
-      connectedByUserId: session.user.id,
-      joinToken: mintJoinToken(),
-      status: "active",
-      createdAt: now,
-      updatedAt: now,
-    })
-    .returning();
-  if (!cls) throw new Error("class insert returned no row");
-  return c.redirect(`/classes/${cls.id}/confirm`);
-});
-```
-
-- [ ] **Step 4: Run and watch them pass**
-
-```bash
-pnpm --filter @labs/api test
-```
-
-Expected: all pass, including the pre-existing "upsert is keyed on orgId (reinstall updates, no duplicate)" and "reinstall must not rotate the join token" tests.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add apps/api/src/handlers/setup.ts apps/api/test/setup.test.ts
-git commit -m "$(cat <<'EOF'
-fix(api): repair a stale installationId without a session
-
-A reinstall mints a new installation id. githubSetupCallback recorded it, but
-bailed on four preconditions first — no labs session, no linked GitHub, the
-caller doesn't hold the installation, not an org. A teacher reinstalling from
-GitHub's org-settings page without a labs cookie, or a second org owner who has
-never signed in here, trips them: GitHub fires the Setup URL, the callback
-redirects, and the row keeps the dead id.
-
-Three of those four are insert-strength checks applied to a repair.
-installationAccount() runs on the App's own JWT, so GitHub — not the caller —
-names the org that owns the installation. An attacker passing an arbitrary
-installation_id cannot choose the WHERE: GitHub resolves it to that
-installation's true org, and an App has exactly one installation per org. The
-worst achievable write is the correct value, or a no-op.
-
-Repair now runs before any session check, and writes the pointer ONLY: `status`
-is excluded so a session-less call can never resurrect a deactivated class;
-joinToken and connectedByUserId are never touched. Create still requires a
-session and userHasInstallation.
-
-Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
-EOF
-)"
-```
-
-### Task 1.2: Delete the hub backstop
-
-**Files:**
-- Modify: `apps/api/src/handlers/classes.ts` (`reconcileClass`, from Task 0.2)
-- Test: `apps/api/test/classes-list.test.ts`
-
-- [ ] **Step 1: Write the failing test**
-
-```ts
-test("the hub does not repair a stale installationId", async () => {
-  // Repair belongs to the install callback (setup.ts) and to Reconcile.
-  // A GET returns what it sees.
-  await seedClass({ orgId: 42, installationId: 111 });  // live is 200
-  await app.request("/api/classes", {}, env);
-
-  const [row] = await db.select().from(classes).where(eq(classes.orgId, 42));
-  expect(row?.installationId).toBe(111);
-});
-```
-
-- [ ] **Step 2: Run and watch it fail**
-
-```bash
-pnpm --filter @labs/api exec vitest run test/classes-list.test.ts -t "does not repair"
-```
-
-Expected: FAIL — `expected 200 to be 111`.
-
-- [ ] **Step 3: Implement**
-
-In `reconcileClass`, delete the `if (live.installationId !== cls.installationId) { … }` block and drop the now-unused `live` parameter and `cls.orgId` usage. Update the docstring: it now covers two caches, not three.
-
-- [ ] **Step 4: Run and watch it pass**
-
-```bash
-pnpm --filter @labs/api test
-pnpm --filter @labs/api exec tsc --noEmit
-pnpm biome
-```
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add apps/api/src/handlers/classes.ts apps/api/test/classes-list.test.ts
-git commit -m "$(cat <<'EOF'
-refactor(api): drop the hub's installationId backstop
-
-setup.ts now repairs the pointer without a session, so the backstop that
-existed only to cover its early returns is redundant. One less write on a GET.
-
-Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
-EOF
-)"
-```
-
-### Gate 1 feature test
-
-Automated: `pnpm --filter @labs/api test`, `tsc`, `pnpm biome`.
-
-Manual — this is the one that matters:
-
-1. In GitHub, **uninstall** the `HeigVdLabs` App from `Test-TWeb-2026`.
-2. Open a **private/incognito window** (no labs cookie).
-3. Reinstall the App on the org from `https://github.com/organizations/Test-TWeb-2026/settings/installations`.
-4. GitHub redirects to `/api/github/setup?installation_id=<new>`. You land on `/`, not signed in.
-5. Check the row:
-   ```bash
-   cd apps/api && pnpm exec wrangler d1 execute DB --local \
-     --command "SELECT org_id, installation_id, join_token, connected_by_user_id, status FROM classes;"
-   ```
-   `installation_id` is the **new** id. `join_token`, `connected_by_user_id`, `status` are **unchanged**.
-6. Sign in as the teacher. The hub loads and the class works.
-
----
-
-## Gate 2 — Repo names become org-unique
-
-A group's slug — and therefore its repo name — is `` `${slugify(lab.title)}-${slugify(group.name)}` `` (`lib/groups.ts:59`). The DB enforces only `unique(labId, slug)` (`app-schema.ts:101`) — per lab, not per org — and `labs.title` has no constraint at all. Two labs titled "Lab 1", each with a group "Alpha", compute the same repo name in the same org. GitHub's team-name 422 hides this only while the first team lives; once it is gone (Gate 3), the second lab's group **adopts the first lab's repo**.
+A group's slug — and therefore its repo name — is `` `${slugify(lab.title)}-${slugify(group.name)}` `` (`lib/groups.ts:59`). The DB enforces only `unique(labId, slug)` (`app-schema.ts:101`) — per lab, not per org — and `labs.title` has no constraint at all. Two labs titled "Lab 1", each with a group "Alpha", compute the same repo name in the same org. GitHub's team-name 422 hides this only while the first team lives; once it is gone (F5), the second lab's group **adopts the first lab's repo**.
 
 ### Task 2.1: Check production first
 
@@ -888,7 +647,7 @@ EOF
 )"
 ```
 
-### Gate 2 feature test
+### F2 feature test
 
 1. Teacher hub → a class → **New lab**, title `Lab 1`. Created.
 2. **New lab** again, title `Lab 1`. The dialog shows *"A lab with that title already exists in this class."* and the lab is not created.
@@ -897,13 +656,1108 @@ EOF
 
 ---
 
-## Gate 3 — Broken groups are marked, not deleted
+## F3 — Class reconcile
+
+`githubSetupCallback` bails on four preconditions before its upsert (`setup.ts:24,27,31,34`). Three are insert-strength checks — session, linked GitHub, `userHasInstallation` — wrongly applied to a *repair*. `installationAccount` runs on the App's own JWT, so **GitHub names the org**, not the caller: the `WHERE` is not attacker-controlled.
+
+### Task 3.1: Session-less repair
+
+**Files:**
+- Modify: `apps/api/src/handlers/setup.ts`
+- Test: `apps/api/test/setup.test.ts`
+
+**Interfaces:**
+- Consumes: `installationAccount(env, installationId): Promise<{ id, login, isOrganization } | null>` (`lib/github/app.ts:11`)
+
+- [ ] **Step 1: Write the failing tests**
+
+Add to `apps/api/test/setup.test.ts` (match the file's existing mock/seed helpers):
+
+```ts
+test("repairs a stale installationId with NO session", async () => {
+  await seedClass({ orgId: 42, installationId: 200, status: "active" });
+  state.session = null;                       // logged out
+  state.githubToken = null;                   // no linked GitHub either
+  state.installAccount = { id: 42, login: "acme", isOrganization: true };
+
+  const res = await app.request("/api/github/setup?installation_id=999", {}, env);
+
+  expect(res.status).toBe(302);
+  const [row] = await db.select().from(classes).where(eq(classes.orgId, 42));
+  expect(row?.installationId).toBe(999);
+});
+
+test("a session-less repair never touches status, joinToken or provenance", async () => {
+  await seedClass({
+    orgId: 42,
+    installationId: 200,
+    status: "active",
+    joinToken: "keep-me",
+    connectedByUserId: "u1",
+  });
+  state.session = null;
+  state.installAccount = { id: 42, login: "acme", isOrganization: true };
+
+  await app.request("/api/github/setup?installation_id=999", {}, env);
+
+  const [row] = await db.select().from(classes).where(eq(classes.orgId, 42));
+  expect(row).toMatchObject({
+    installationId: 999,
+    joinToken: "keep-me",
+    connectedByUserId: "u1",
+    status: "active",
+  });
+});
+
+test("a session-less callback cannot CREATE a class", async () => {
+  state.session = null;
+  state.installAccount = { id: 77, login: "other", isOrganization: true };
+
+  const res = await app.request("/api/github/setup?installation_id=999", {}, env);
+
+  expect(res.status).toBe(302);
+  expect(await db.select().from(classes)).toHaveLength(0);
+});
+```
+
+- [ ] **Step 2: Run and watch them fail**
+
+```bash
+pnpm --filter @labs/api exec vitest run test/setup.test.ts
+```
+
+Expected: the first two FAIL (`installationId` still `200` — the handler redirected at `if (!session)`).
+
+- [ ] **Step 3: Implement**
+
+Rewrite `apps/api/src/handlers/setup.ts`'s handler body:
+
+```ts
+export const githubSetupCallback = factory.createHandlers(async (c) => {
+  const installationId = Number(c.req.query("installation_id"));
+  if (!installationId) return c.redirect("/?error=no_installation");
+
+  // The App's own JWT answers "which account owns this installation?". GitHub,
+  // not the caller, names the org — so nothing below is attacker-controlled.
+  const acct = await installationAccount(c.env, installationId);
+  if (!acct?.isOrganization) return c.redirect("/?error=not_an_org");
+
+  const db = getDb(c.env.DB);
+  const session = await createAuth(c.env).api.getSession({
+    headers: c.req.raw.headers,
+  });
+  const [existing] = await db
+    .select()
+    .from(classes)
+    .where(eq(classes.orgId, acct.id));
+
+  if (existing) {
+    // REPAIR. A reinstall mints a new installation id, and the Setup URL fires
+    // in whatever browser performed it — possibly with no labs cookie (org
+    // settings page; a second org owner who never signed in here). The repair
+    // needs no session because the org id came from GitHub.
+    //
+    // Pointer ONLY. `status` is excluded so a session-less call can never
+    // resurrect a deactivated class; joinToken and provenance are never touched.
+    if (existing.installationId !== installationId) {
+      await db
+        .update(classes)
+        .set({ installationId, updatedAt: new Date() })
+        .where(eq(classes.orgId, acct.id));
+    }
+    return c.redirect(session ? `/classes/${existing.id}/confirm` : "/");
+  }
+
+  // CREATE. Now provenance matters: attribute the class, and prove the caller
+  // really holds this installation (ids are small enumerable ints, so a signed-in
+  // user could otherwise claim any org's installation as their own class).
+  if (!session) return c.redirect("/");
+  const token = await githubAccessToken(c.env, session.user.id);
+  if (!token) return c.redirect("/?error=github_not_linked");
+  if (!(await userHasInstallation(token, installationId))) {
+    return c.redirect("/?error=not_your_installation");
+  }
+
+  const now = new Date();
+  const [cls] = await db
+    .insert(classes)
+    .values({
+      id: crypto.randomUUID(),
+      orgId: acct.id,
+      installationId,
+      connectedByUserId: session.user.id,
+      joinToken: mintJoinToken(),
+      status: "active",
+      createdAt: now,
+      updatedAt: now,
+    })
+    .returning();
+  if (!cls) throw new Error("class insert returned no row");
+  return c.redirect(`/classes/${cls.id}/confirm`);
+});
+```
+
+- [ ] **Step 4: Run and watch them pass**
+
+```bash
+pnpm --filter @labs/api test
+```
+
+Expected: all pass, including the pre-existing "upsert is keyed on orgId (reinstall updates, no duplicate)" and "reinstall must not rotate the join token" tests.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add apps/api/src/handlers/setup.ts apps/api/test/setup.test.ts
+git commit -m "$(cat <<'EOF'
+fix(api): repair a stale installationId without a session
+
+A reinstall mints a new installation id. githubSetupCallback recorded it, but
+bailed on four preconditions first — no labs session, no linked GitHub, the
+caller doesn't hold the installation, not an org. A teacher reinstalling from
+GitHub's org-settings page without a labs cookie, or a second org owner who has
+never signed in here, trips them: GitHub fires the Setup URL, the callback
+redirects, and the row keeps the dead id.
+
+Three of those four are insert-strength checks applied to a repair.
+installationAccount() runs on the App's own JWT, so GitHub — not the caller —
+names the org that owns the installation. An attacker passing an arbitrary
+installation_id cannot choose the WHERE: GitHub resolves it to that
+installation's true org, and an App has exactly one installation per org. The
+worst achievable write is the correct value, or a no-op.
+
+Repair now runs before any session check, and writes the pointer ONLY: `status`
+is excluded so a session-less call can never resurrect a deactivated class;
+joinToken and connectedByUserId are never touched. Create still requires a
+session and userHasInstallation.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+EOF
+)"
+```
+
+### Task 3.2: The class-reconcile endpoint
+
+**Files:**
+- Create: `apps/api/src/handlers/reconcile.ts`
+- Modify: `apps/api/src/routes/classes.ts`
+- Test: `apps/api/test/reconcile.test.ts` (create)
+
+**Interfaces:**
+- Consumes: `callerGithub` (Task 1.1)
+- Produces: `POST /api/classes/:id/reconcile` → `200 { login, name, avatarUrl, installationId }`. F4 extends this response with the roster counts.
+
+- [ ] **Step 1: Write the failing tests**
+
+Create `apps/api/test/reconcile.test.ts`. Mock `../src/lib/github/org` with `isOrgAdmin: async () => state.isOrgAdmin` and `orgInfo`, and `../src/lib/github/user` with `userInstallationsByOrgId` — copy the mock shapes from `classes-list.test.ts:37-66`.
+
+```ts
+test("reconcile refreshes the class row and returns it", async () => {
+  await seedClass({ orgId: 42, installationId: 200, login: "stale", name: "Stale" });
+  state.org = { login: "acme", name: "Acme", avatarUrl: "http://a" };
+
+  const res = await app.request("/api/classes/c1/reconcile", { method: "POST" }, env);
+
+  expect(res.status).toBe(200);
+  expect(await res.json()).toMatchObject({ login: "acme", name: "Acme" });
+  const [row] = await db.select().from(classes);
+  expect(row).toMatchObject({ login: "acme", name: "Acme", avatarUrl: "http://a" });
+});
+
+test("reconcile repairs a stale installationId it needed to authorize", async () => {
+  // resolveClassAsTeacher authorizes via orgLogin(cls.installationId) — the
+  // STORED pointer. If reconcile used it, the button advertised by
+  // `class_needs_reconcile` could never fix the class it names. Reconcile
+  // derives the live id from /user/installations first, then authorizes.
+  await seedClass({ orgId: 42, installationId: 111 });   // live is 200
+
+  const res = await app.request("/api/classes/c1/reconcile", { method: "POST" }, env);
+
+  expect(res.status).toBe(200);
+  const [row] = await db.select().from(classes);
+  expect(row?.installationId).toBe(200);
+});
+
+test("reconcile is teacher-only", async () => {
+  await seedClass({ orgId: 42, installationId: 200 });
+  state.isOrgAdmin = false;
+
+  const res = await app.request("/api/classes/c1/reconcile", { method: "POST" }, env);
+
+  expect(res.status).toBe(404);
+});
+
+test("reconcile reports no_installation when the App is gone from the org", async () => {
+  await seedClass({ orgId: 42, installationId: 200 });
+  state.installations = [];   // /user/installations no longer lists it
+
+  const res = await app.request("/api/classes/c1/reconcile", { method: "POST" }, env);
+
+  expect(res.status).toBe(403);
+  expect(await res.json()).toEqual({ error: "no_installation" });
+});
+```
+
+- [ ] **Step 2: Run and watch them fail**
+
+```bash
+pnpm --filter @labs/api exec vitest run test/reconcile.test.ts
+```
+
+Expected: all four 404 — the route does not exist.
+
+- [ ] **Step 3: Implement**
+
+Create `apps/api/src/handlers/reconcile.ts`:
+
+```ts
+/**
+ * Teacher-only: make this class right. Refreshes everything GitHub owns about
+ * the class row — the installation pointer and the org identity cache — that a
+ * GET is no longer allowed to touch.
+ *
+ * Derives the installation id LIVE before authorizing. `resolveClassAsTeacher`
+ * authorizes via `orgLogin(cls.installationId)` — the stored pointer — so a
+ * stale one would make the button advertised by `class_needs_reconcile` unable
+ * to fix the class it names.
+ *
+ * F4 extends this with the roster sync.
+ */
+export const reconcileClass = authedFactory.createHandlers(async (c) => {
+  const db = getDb(c.env.DB);
+  const userId = c.get("user").id;
+  const caller = await callerGithub(db, userId);
+  const token = await githubAccessToken(c.env, userId);
+  if (!caller || !token) return c.json({ error: "not_found" }, 404);
+
+  const [cls] = await db
+    .select()
+    .from(classes)
+    .where(eq(classes.id, c.req.param("id")));
+  if (!cls) return c.json({ error: "not_found" }, 404);
+
+  // NOT cls.installationId — that is the value we may be here to repair.
+  const live = (await userInstallationsByOrgId(token)).get(cls.orgId);
+  if (!live) return c.json({ error: "no_installation" }, 403);
+
+  // Live org Owner check. `class_members` may never authorize.
+  if (!(await isOrgAdmin(c.env, live.installationId, live.login, caller.ghId))) {
+    return c.json({ error: "not_found" }, 404);
+  }
+
+  const org = await orgInfo(c.env, live.installationId, live.login);
+  const now = new Date();
+  await db
+    .update(classes)
+    .set({
+      installationId: live.installationId,
+      login: org.login,
+      name: org.name,
+      avatarUrl: org.avatarUrl,
+      updatedAt: now,
+    })
+    .where(eq(classes.id, cls.id));
+
+  return c.json({
+    installationId: live.installationId,
+    login: org.login,
+    name: org.name,
+    avatarUrl: org.avatarUrl,
+  });
+});
+```
+
+Register in `apps/api/src/routes/classes.ts`:
+
+```ts
+  .post("/classes/:id/reconcile", ...reconcileClass)
+```
+
+- [ ] **Step 4: Run and watch them pass**
+
+```bash
+pnpm --filter @labs/api test
+```
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add apps/api/src/handlers/reconcile.ts apps/api/src/routes/classes.ts apps/api/test/reconcile.test.ts
+git commit -m "$(cat <<'EOF'
+feat(api): POST /classes/:id/reconcile — refresh the class row
+
+The teacher's explicit "make this class right" action. Refreshes the
+installation pointer and the org identity cache — the two things a GET is about
+to stop writing.
+
+It derives the installation id live from /user/installations BEFORE authorizing.
+resolveClassAsTeacher authorizes via orgLogin(cls.installationId), the stored
+pointer, so a stale one would make this endpoint unable to fix the very class
+that a `class_needs_reconcile` error pointed the user at.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+EOF
+)"
+```
+
+### Task 3.3: The hub stops writing the `classes` row
+
+**Files:**
+- Modify: `apps/api/src/handlers/classes.ts` (`reconcileClass` helper from Task 1.2 — rename it to `syncRosterCache`, since the class-row writes leave)
+- Modify: `apps/api/src/lib/github/user.ts:51-73`
+- Test: `apps/api/test/classes-list.test.ts`
+
+- [ ] **Step 1: Write the failing tests**
+
+```ts
+test("the hub does not repair a stale installationId", async () => {
+  // Repair belongs to the install callback (setup.ts) and to Reconcile.
+  // A GET returns what it sees.
+  await seedClass({ orgId: 42, installationId: 111 });  // live is 200
+  await app.request("/api/classes", {}, env);
+
+  const [row] = await db.select().from(classes).where(eq(classes.orgId, 42));
+  expect(row?.installationId).toBe(111);
+});
+
+test("the hub does not refresh the org identity cache", async () => {
+  await seedClass({ orgId: 42, installationId: 200, login: "stale", name: "Stale" });
+  await app.request("/api/classes", {}, env);
+
+  const [row] = await db.select().from(classes);
+  expect(row).toMatchObject({ login: "stale", name: "Stale" });
+});
+
+test("the hub still renders a stale class correctly", async () => {
+  // login and avatarUrl free-ride off /user/installations, which is already
+  // fetched. `name` is optional on that payload, so it comes from the row.
+  await seedClass({ orgId: 42, installationId: 200, login: "stale", name: "Stale" });
+  const res = await app.request("/api/classes", {}, env);
+  const body = (await res.json()) as { classes: Array<{ login: string; name: string | null }> };
+  expect(body.classes[0]).toMatchObject({ login: "acme", name: "Stale" });
+});
+```
+
+- [ ] **Step 2: Run and watch them fail**
+
+```bash
+pnpm --filter @labs/api exec vitest run test/classes-list.test.ts -t "hub does not"
+```
+
+Expected: `expected 200 to be 111` and `expected "acme" to be "stale"`.
+
+- [ ] **Step 3: Widen `UserInstallation`**
+
+`inst.account.avatar_url` is a **required `string`** on `GET /user/installations` (typechecked). `inst.account.name` is `string | null | undefined` there — optional, and therefore not trustworthy. Read the first two; never the third.
+
+```ts
+type UserInstallation = {
+  installationId: number;
+  login: string;
+  avatarUrl: string;
+};
+```
+
+and in `userInstallationsByOrgId`, add `avatarUrl: inst.account.avatar_url`.
+
+- [ ] **Step 4: Implement**
+
+In `apps/api/src/handlers/classes.ts`:
+
+- Delete both `db.update(classes)` blocks from the `reconcileClass` helper, and rename it `syncRosterCache` — it now writes only `class_members`. (F4 deletes it entirely.)
+- Delete the `orgInfo` call from the loop. `org.login`/`org.avatarUrl` become `live.login`/`live.avatarUrl`; `org.name` becomes `cls.name`.
+- The `try` now wraps only `orgPeople`.
+
+- [ ] **Step 5: Run and watch them pass**
+
+```bash
+pnpm --filter @labs/api test
+pnpm --filter @labs/api exec tsc --noEmit
+pnpm biome
+```
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add apps/api/src/handlers/classes.ts apps/api/src/lib/github/user.ts apps/api/test/classes-list.test.ts
+git commit -m "$(cat <<'EOF'
+refactor(api): the hub stops writing the classes row
+
+Two writes leave the GET. The installationId backstop is redundant now that
+setup.ts repairs without a session, and Reconcile owns the org identity cache.
+
+The card still renders correctly against a stale row: GET /user/installations is
+already fetched to find the caller's orgs, and its payload carries each org's
+login and avatar_url — userInstallationsByOrgId was throwing the avatar away.
+`name` is optional on that payload (string | null | undefined), so it is NOT
+trusted there and comes from the cached row until Reconcile refreshes it.
+
+This also deletes one GitHub call per class from the hub: orgInfo existed only
+to refresh a cache the GET no longer writes.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+EOF
+)"
+```
+
+### F3 feature test
+
+Automated: `pnpm --filter @labs/api test`, `tsc`, `pnpm biome`.
+
+**A. The install callback repairs without a session** — the case `setup.ts` used to miss.
+
+1. In GitHub, **uninstall** the `HeigVdLabs` App from `Test-TWeb-2026`.
+2. Open a **private/incognito window** (no labs cookie).
+3. Reinstall the App from `https://github.com/organizations/Test-TWeb-2026/settings/installations`.
+4. GitHub redirects to `/api/github/setup?installation_id=<new>`. You land on `/`, not signed in.
+5. Check the row:
+   ```bash
+   cd apps/api && pnpm exec wrangler d1 execute DB --local \
+     --command "SELECT org_id, installation_id, join_token, connected_by_user_id, status FROM classes;"
+   ```
+   `installation_id` is the **new** id. `join_token`, `connected_by_user_id`, `status` are **unchanged**.
+6. Sign in as the teacher. The hub loads and the class works.
+
+**B. The hub no longer writes the class row.**
+
+7. Corrupt it by hand:
+   ```bash
+   pnpm exec wrangler d1 execute DB --local \
+     --command "UPDATE classes SET login='stale', name='Stale', installation_id=1;"
+   ```
+8. Reload the teacher hub. **The card still renders correctly** — `login` and the avatar come from `/user/installations`, which the hub already fetches. The class *name* shows `Stale`, because `name` is not on that payload.
+9. Re-query. **All three columns are unchanged.** The GET read and wrote nothing.
+
+**C. Reconcile fixes it.** In the browser console, on the app's origin (so the session cookie rides along):
+
+```js
+await fetch(`/api/classes/${classId}/reconcile`, { method: "POST" }).then(r => r.json())
+```
+
+10. Re-query: `login`, `name`, `installation_id` are all corrected. Note that step 7 set `installation_id=1` — a dead pointer — and Reconcile still authorized and fixed it, because it derives the live id before checking your role.
+
+---
+
+## F4 — Roster reconcile
+
+### Task 4.1: `rosterSyncedAt`
+
+**Files:**
+- Modify: `packages/db/src/app-schema.ts` (`classes`)
+- Create: `packages/db/migrations/0012_roster_synced_at.sql` (generated)
+
+- [ ] **Step 1: Add the column**
+
+```ts
+  // NULL = never reconciled. Cannot be inferred from class_members row count:
+  // the join POSTs insert rows into a class that has never been reconciled, and
+  // a reconciled class with no students still has teacher rows.
+  rosterSyncedAt: integer("roster_synced_at", { mode: "timestamp" }),
+```
+
+- [ ] **Step 2: Generate and apply**
+
+```bash
+pnpm --filter @labs/db db:generate
+pnpm --filter @labs/api exec wrangler d1 migrations apply labs --local
+```
+
+Confirm the generated SQL is `ALTER TABLE \`classes\` ADD \`roster_synced_at\` integer;`
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add packages/db
+git commit -m "$(cat <<'EOF'
+feat(db): classes.rosterSyncedAt
+
+NULL means the class roster has never been reconciled. It cannot be inferred
+from class_members row count: the join POSTs insert rows into a class that has
+never been reconciled, and a reconciled class with no students still has teacher
+rows. The column states the fact directly, and doubles as the "Synced 2 days
+ago" label.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+EOF
+)"
+```
+
+### Task 4.2: `syncRoster` reports what it did
+
+**Files:**
+- Modify: `apps/api/src/lib/enrollment.ts:68-117`
+- Test: `apps/api/test/enrollment.test.ts` (create)
+
+**Interfaces:**
+- Produces: `syncRoster(...): Promise<{ added: number; removed: number }>`
+
+- [ ] **Step 1: Write the failing test**
+
+```ts
+test("syncRoster reports what it added and removed", async () => {
+  await observeMember(db, "c1", { githubId: "1", login: "old", avatarUrl: null }, "active");
+
+  const result = await syncRoster(db, "c1", {
+    active: [{ githubId: "2", login: "new", avatarUrl: null }],
+    pending: [],
+    teacher: [],
+  });
+
+  expect(result).toEqual({ added: 1, removed: 1 });
+});
+
+test("syncRoster promotes a member who became an org Owner", async () => {
+  await observeMember(db, "c1", { githubId: "1", login: "prof", avatarUrl: null }, "active");
+
+  const result = await syncRoster(db, "c1", {
+    active: [],
+    pending: [],
+    teacher: [{ githubId: "1", login: "prof", avatarUrl: null }],
+  });
+
+  expect(result).toEqual({ added: 0, removed: 0 });
+  const [row] = await db.select().from(classMembers);
+  expect(row?.state).toBe("teacher");
+});
+```
+
+- [ ] **Step 2: Run and watch them fail**
+
+```bash
+pnpm --filter @labs/api exec vitest run test/enrollment.test.ts
+```
+
+Expected: `expected undefined to deeply equal { added: 1, removed: 1 }`.
+
+- [ ] **Step 3: Implement**
+
+In `apps/api/src/lib/enrollment.ts`, change `syncRoster`'s signature to
+`Promise<{ added: number; removed: number }>`. Read the cached ids **before**
+the delete, then diff. Every existing statement stays:
+
+```ts
+  const keep = [...roster.active, ...roster.pending, ...roster.teacher].map(
+    (p) => p.githubId,
+  );
+  // Read before the delete: the counts describe what this sync changed, and the
+  // button reports them. A silent destructive sync is how a teacher fails to
+  // notice a student vanished.
+  const before = await db
+    .select({ githubId: classMembers.githubId })
+    .from(classMembers)
+    .where(eq(classMembers.classId, classId));
+  const had = new Set(before.map((r) => r.githubId));
+  const added = keep.filter((id) => !had.has(id)).length;
+  const removed = before.filter((r) => !keep.includes(r.githubId)).length;
+
+  // …existing delete + insert/onConflictDoUpdate, unchanged…
+
+  return { added, removed };
+```
+
+A member who merely changes `state` (active → teacher) counts as neither: they
+were there before and after. The second test pins that.
+
+- [ ] **Step 4: Run and watch them pass**
+
+```bash
+pnpm --filter @labs/api test
+```
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add apps/api/src/lib/enrollment.ts apps/api/test/enrollment.test.ts
+git commit -m "$(cat <<'EOF'
+feat(api): syncRoster reports what it added and removed
+
+The Reconcile button must say what it did. syncRoster returned nothing, so a
+destructive sync — it deletes everyone no longer on the org roster — was silent.
+
+Counts are taken before the delete and diffed against the live roster. A member
+who only changes state (active -> teacher) counts as neither added nor removed.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+EOF
+)"
+```
+
+### Task 4.3: Extend reconcile with the roster
+
+`POST /api/classes/:id/reconcile` already exists (Task 3.2) and refreshes the
+class row. This adds the roster sync and the `rosterSyncedAt` stamp to the same
+endpoint, so the teacher keeps one button.
+
+**Files:**
+- Modify: `apps/api/src/handlers/reconcile.ts`
+- Test: `apps/api/test/reconcile.test.ts`
+
+**Interfaces:**
+- Consumes: `syncRoster(...) -> { added, removed }` (Task 4.2), `rosterSyncedAt` (Task 4.1)
+- Produces: `POST /api/classes/:id/reconcile` -> `200 { installationId, login, name, avatarUrl, students, pending, teachers, added, removed, syncedAt }`
+
+- [ ] **Step 1: Write the failing tests**
+
+Add to `apps/api/test/reconcile.test.ts`:
+
+```ts
+test("reconcile syncs the roster and reports both directions", async () => {
+  await seedClass({ orgId: 42, installationId: 200 });
+  // A cached student who has since left the org.
+  await observeMember(db, "c1", { githubId: "9", login: "gone", avatarUrl: null }, "active");
+  state.people = {
+    teachers: [{ id: 111, login: "prof", avatarUrl: null }],
+    students: [{ id: 2, login: "student", avatarUrl: null }],
+    pending: [],
+  };
+
+  const res = await app.request("/api/classes/c1/reconcile", { method: "POST" }, env);
+
+  expect(res.status).toBe(200);
+  expect(await res.json()).toMatchObject({
+    students: 1, pending: 0, teachers: 1, added: 2, removed: 1,
+  });
+  const rows = await db.select().from(classMembers);
+  expect(rows.map((r) => r.githubId).sort()).toEqual(["111", "2"]);
+});
+
+test("reconcile stamps rosterSyncedAt", async () => {
+  await seedClass({ orgId: 42, installationId: 200 });
+  await app.request("/api/classes/c1/reconcile", { method: "POST" }, env);
+
+  const [cls] = await db.select().from(classes);
+  expect(cls?.rosterSyncedAt).not.toBeNull();
+});
+
+test("reconcile discovers a member who never used the join link", async () => {
+  // Every OTHER write point observes exactly one person: the caller. Reconcile
+  // is the only whole-roster operation, so it is the only thing that can find
+  // someone a teacher invited directly on GitHub.
+  await seedClass({ orgId: 42, installationId: 200 });
+  state.people = {
+    teachers: [],
+    students: [{ id: 2, login: "walkin", avatarUrl: null }],
+    pending: [],
+  };
+
+  const res = await app.request("/api/classes/c1/reconcile", { method: "POST" }, env);
+
+  expect(await res.json()).toMatchObject({ added: 1, removed: 0 });
+  const [row] = await db.select().from(classMembers);
+  expect(row).toMatchObject({ githubId: "2", state: "active" });
+});
+
+test("reconcile promotes a member who became an org Owner", async () => {
+  await seedClass({ orgId: 42, installationId: 200 });
+  await observeMember(db, "c1", { githubId: "1", login: "prof", avatarUrl: null }, "active");
+  state.people = {
+    teachers: [{ id: 1, login: "prof", avatarUrl: null }],
+    students: [], pending: [],
+  };
+
+  await app.request("/api/classes/c1/reconcile", { method: "POST" }, env);
+
+  const [row] = await db.select().from(classMembers);
+  expect(row?.state).toBe("teacher");
+});
+
+test("reconcile refuses to wipe the cache when GitHub fails", async () => {
+  // syncRoster deletes EVERY row when the roster is empty (enrollment.ts:84-85).
+  // orgPeople throws rather than returning empty, and that throw must propagate:
+  // swallowing it would turn a rate limit into a roster wipe.
+  await seedClass({ orgId: 42, installationId: 200 });
+  await observeMember(db, "c1", { githubId: "7", login: "alice", avatarUrl: null }, "active");
+  state.orgPeopleThrows = true;
+
+  const res = await app.request("/api/classes/c1/reconcile", { method: "POST" }, env);
+
+  expect(res.status).toBe(500);
+  expect(await db.select().from(classMembers)).toHaveLength(1);
+  const [cls] = await db.select().from(classes);
+  expect(cls?.rosterSyncedAt).toBeNull();
+});
+```
+
+Add `orgPeopleThrows: false` to `state`, reset it in `beforeEach`, and make the
+`orgPeople` mock throw when it is set.
+
+- [ ] **Step 2: Run and watch them fail**
+
+```bash
+pnpm --filter @labs/api exec vitest run test/reconcile.test.ts
+```
+
+Expected: `expected {...} to match object { students: 1, ... }` — the response
+has no roster fields yet, and `class_members` is untouched.
+
+- [ ] **Step 3: Implement**
+
+In `apps/api/src/handlers/reconcile.ts`, fetch the people alongside the org info,
+sync, and stamp. `orgPeople` is NOT wrapped in a try: if GitHub fails, the whole
+request must fail, or an empty roster would delete every cached member.
+
+```ts
+  const [people, org] = await Promise.all([
+    orgPeople(c.env, live.installationId, live.login),
+    orgInfo(c.env, live.installationId, live.login),
+  ]);
+
+  const observed = (p: OrgPerson) => ({
+    githubId: String(p.id),
+    login: p.login,
+    avatarUrl: p.avatarUrl,
+  });
+  const { added, removed } = await syncRoster(db, cls.id, {
+    active: people.students.map(observed),
+    pending: people.pending.map(observed),
+    teacher: people.teachers.map(observed),
+  });
+
+  const syncedAt = new Date();
+  await db
+    .update(classes)
+    .set({
+      installationId: live.installationId,
+      login: org.login,
+      name: org.name,
+      avatarUrl: org.avatarUrl,
+      rosterSyncedAt: syncedAt,
+      updatedAt: syncedAt,
+    })
+    .where(eq(classes.id, cls.id));
+
+  return c.json({
+    installationId: live.installationId,
+    login: org.login,
+    name: org.name,
+    avatarUrl: org.avatarUrl,
+    students: people.students.length,
+    pending: people.pending.length,
+    teachers: people.teachers.length,
+    added,
+    removed,
+    syncedAt: syncedAt.toISOString(),
+  });
+```
+
+Update the docstring: this is now THE roster's only CRUD authority.
+
+- [ ] **Step 4: Run and watch them pass**
+
+```bash
+pnpm --filter @labs/api test
+```
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add apps/api/src/handlers/reconcile.ts apps/api/test/reconcile.test.ts
+git commit -m "$(cat <<'EOF'
+feat(api): reconcile syncs the roster
+
+Extends POST /classes/:id/reconcile with syncRoster and the rosterSyncedAt stamp.
+One endpoint, one button: the teacher thinks "make this class right", not "which
+of these two refreshes do I need".
+
+This is the roster's only CRUD authority. Every other write point observes
+exactly one person -- the caller -- so reconcile is the only operation that can
+add a member who joined the org out of band, promote a new org Owner, refresh a
+changed login, or remove a departed student. Tests pin all four.
+
+orgPeople is deliberately NOT wrapped in a try. syncRoster deletes every row when
+the roster is empty (enrollment.ts:84-85), and orgPeople throws rather than
+returning empty -- so swallowing that throw would turn a rate limit into a roster
+wipe. A test pins it: the cache survives and rosterSyncedAt stays null.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+EOF
+)"
+```
+
+### Task 4.4: The hub reads the roster from the cache
+
+F3 already stopped the hub writing the `classes` row. This removes the last
+write — `syncRoster` — and, because the people no longer need to come from
+GitHub, drops the hub from four GitHub calls per class to one.
+
+**Files:**
+- Modify: `apps/api/src/handlers/classes.ts`
+- Test: `apps/api/test/classes-list.test.ts`
+
+**Interfaces:**
+- Consumes: `class_members` rows; `callerGithub` (Task 1.1)
+- Produces: each class in `GET /api/classes` gains `rosterSyncedAt: string | null`
+
+- [ ] **Step 1: Write the failing tests**
+
+```ts
+test("the hub writes nothing at all", async () => {
+  await seedClass({ orgId: 42, installationId: 111, login: "stale", name: "Stale" });
+
+  await app.request("/api/classes", {}, env);
+
+  const [row] = await db.select().from(classes);
+  expect(row).toMatchObject({ installationId: 111, login: "stale", name: "Stale" });
+  expect(await db.select().from(classMembers)).toHaveLength(0);
+});
+
+test("the hub reads people from class_members, not from GitHub", async () => {
+  await seedClass({ orgId: 42, installationId: 200 });
+  await observeMember(db, "c1", { githubId: "7", login: "alice", avatarUrl: "http://a" }, "active");
+  await observeMember(db, "c1", { githubId: "111", login: "prof", avatarUrl: null }, "teacher");
+
+  const res = await app.request("/api/classes", {}, env);
+
+  const body = (await res.json()) as {
+    classes: Array<{ students: Array<{ id: number; login: string }>; rosterSyncedAt: string | null }>;
+  };
+  expect(body.classes[0]?.students).toEqual([
+    { id: 7, login: "alice", avatarUrl: "http://a" },
+  ]);
+  expect(body.classes[0]?.rosterSyncedAt).toBeNull();
+  // orgPeople is three paginated calls. It must not be made.
+  expect(orgPeople).not.toHaveBeenCalled();
+});
+
+test("the teacher check stays live", async () => {
+  // class_members may NEVER authorize. A cached `teacher` row is not a role.
+  await seedClass({ orgId: 42, installationId: 200 });
+  await observeMember(db, "c1", { githubId: "111", login: "prof", avatarUrl: null }, "teacher");
+  state.membershipRole = "member";   // GitHub says: not an Owner
+
+  const res = await app.request("/api/classes", {}, env);
+
+  const body = (await res.json()) as { classes: unknown[] };
+  expect(body.classes).toHaveLength(0);
+});
+```
+
+Add an `orgMembership` mock returning `{ state: "active", role: state.membershipRole }`
+and a `fetchGithubProfile` mock returning `{ login: "prof" }`.
+
+- [ ] **Step 2: Run and watch them fail**
+
+```bash
+pnpm --filter @labs/api exec vitest run test/classes-list.test.ts
+```
+
+Expected: `class_members` has 0 rows written but `orgPeople` *was* called, and
+`students` came from GitHub rather than the cache.
+
+- [ ] **Step 3: Implement**
+
+In `apps/api/src/handlers/classes.ts`:
+
+- Delete the `syncRosterCache` helper and its call. The hub now writes nothing.
+- Fetch the caller's login **once** for the whole request: `const profile = await fetchGithubProfile(token)`.
+- Replace the per-class `orgPeople` call with one `orgMembership`:
+
+```ts
+    // F5a: only live org Owners see the class. class_members may never
+    // authorize — a cached `teacher` row is a display fact, not a role.
+    let membership: Awaited<ReturnType<typeof orgMembership>>;
+    try {
+      membership = await orgMembership(
+        c.env,
+        live.installationId,
+        live.login,
+        profile.login,
+      );
+    } catch {
+      continue; // this org's problem, not the request's
+    }
+    if (membership?.role !== "admin") continue;
+```
+
+- Read the people from `class_members` in ONE query for all candidate classes
+  (mirroring how `labRows` is fetched), and map each row back to the client's
+  existing `OrgPerson` shape so the SPA needs no change:
+
+```ts
+const person = (m: typeof classMembers.$inferSelect) => ({
+  id: Number(m.githubId),
+  login: m.login ?? "unknown",
+  avatarUrl: m.avatarUrl,
+});
+```
+
+  `teachers` = rows with `state === "teacher"`, `students` = `"active"`,
+  `pending` = `"pending"`.
+
+- Add `rosterSyncedAt: cls.rosterSyncedAt` to each class in the response.
+
+> `/user/installations` returns installations the caller can **access**, not ones
+> they own — a student with push on a work repo can appear there. The live
+> `orgMembership` check is therefore not optional, and the third test pins it.
+
+- [ ] **Step 4: Run and watch them pass**
+
+```bash
+pnpm --filter @labs/api test
+pnpm --filter @labs/api exec tsc --noEmit
+pnpm biome
+```
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add apps/api/src/handlers/classes.ts apps/api/test/classes-list.test.ts
+git commit -m "$(cat <<'EOF'
+refactor(api): the teacher hub writes nothing, and reads the roster from cache
+
+The last write leaves the GET: syncRoster now belongs to the Reconcile button.
+The card's people chips read class_members -- which is what an enrollment DISPLAY
+cache is for.
+
+Authorization stays live, and must: /user/installations returns installations the
+caller can ACCESS, not ones they own (a student with push on a work repo can
+appear there), and a cached `teacher` row is a display fact, not a role. The
+per-class check is now one orgMembership call instead of orgPeople's three
+paginated ones.
+
+Hub cost: ~4N GitHub calls -> N+1 (one profile fetch, one membership check per
+class), and zero writes.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+EOF
+)"
+```
+
+### Task 4.5: The Reconcile button
+
+**Files:**
+- Modify: `apps/www/app/components/custom/classes/hub/people-chip.tsx`
+- Modify: `apps/www/app/components/custom/classes/hub/class-card.tsx`
+- Test: `apps/www/test/people-chip.test.tsx`, `apps/www/test/class-card.test.tsx`
+
+- [ ] **Step 1: Write the failing tests**
+
+```tsx
+it("offers Reconcile in the students popover, with the last sync", () => {
+  render(<PeopleChip … syncedAt="2026-07-06T10:00:00.000Z" onReconcile={spy} />);
+  fireEvent.click(screen.getByRole("button", { name: /students/ }));
+  expect(screen.getByText(/Synced 2 days ago/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Reconcile" }));
+  expect(spy).toHaveBeenCalled();
+});
+
+it("says the roster was never synced", () => {
+  render(<ClassCard … rosterSyncedAt={null} />);
+  expect(screen.getByText("Roster not synced")).toBeInTheDocument();
+  expect(screen.queryByText(/0 students/)).not.toBeInTheDocument();
+});
+```
+
+- [ ] **Step 2: Run and watch them fail**
+
+```bash
+pnpm --filter @labs/www exec vitest run test/people-chip.test.tsx test/class-card.test.tsx
+```
+
+Expected: `Unable to find an accessible element with the role "button" and name "Reconcile"`.
+
+- [ ] **Step 3: Implement**
+
+`PeopleChip` gains two props and a footer:
+
+```tsx
+  /** null = the roster has never been reconciled. */
+  syncedAt?: string | null;
+  onReconcile?: () => Promise<unknown>;
+```
+
+```tsx
+      <div className="mt-2 flex items-center justify-between border-border border-t pt-2">
+        <Text variant="caption">
+          {syncedAt ? `Synced ${formatRelative(syncedAt)}` : "Roster not synced"}
+        </Text>
+        <Button size="sm" variant="outline" type="button"
+                disabled={busy} onClick={reconcile}>
+          {busy ? "Reconciling…" : "Reconcile"}
+        </Button>
+      </div>
+```
+
+On success, surface both directions on the global message strip:
+`"+2 added, 3 removed · 12 students, 1 pending"`. A silent destructive sync is
+how a teacher fails to notice a student vanished.
+
+`ClassCard` renders `"Roster not synced"` in place of the people chips when
+`rosterSyncedAt === null` — never `"0 students"`, which is indistinguishable
+from a real empty class.
+
+- [ ] **Step 4: Run and watch them pass**
+
+```bash
+pnpm --filter @labs/www test
+pnpm --filter @labs/www exec tsc --noEmit
+pnpm biome
+```
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add apps/www
+git commit -m "$(cat <<'EOF'
+feat(www): Reconcile button in the students popover
+
+The teacher hub no longer sweeps the org roster on every card read. The popover
+footer shows when the roster was last reconciled and offers to do it now,
+reporting both directions ("+2 added, 3 removed").
+
+A class whose roster has never been reconciled reads "Roster not synced" rather
+than "0 students" — which is indistinguishable from a class nobody has joined.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+EOF
+)"
+```
+
+### F4 feature test
+
+F3's test already proved the hub does not write the `classes` row. This proves it
+does not write the roster either, and that the button is the only thing that can.
+
+**A. Cold start is honest.**
+
+1. ```bash
+   cd apps/api && pnpm exec wrangler d1 execute DB --local \
+     --command "UPDATE classes SET roster_synced_at = NULL; DELETE FROM class_members;"
+   ```
+2. Reload the teacher hub. Every card reads **"Roster not synced"** — *not* `0 students`, which is indistinguishable from a class nobody joined.
+3. Open the students popover → **Reconcile**. It reports `+N added, 0 removed · N students…`.
+4. The card shows real counts; the popover footer reads **"Synced just now"**.
+
+**B. The GET writes nothing.**
+
+5. Delete a student's cache row by hand:
+   ```bash
+   pnpm exec wrangler d1 execute DB --local \
+     --command "DELETE FROM class_members WHERE state='active' LIMIT 1;"
+   ```
+6. Reload the hub. The count drops by one — the card is reading the cache. Re-query `class_members`: **still one row short.** The GET did not re-sync it.
+7. Press **Reconcile**. The row is back, counted in `added`.
+
+**C. Reconcile is the roster's only CRUD authority.** This is the whole point of the button — nothing else can do any of it:
+
+8. **Add** — add a student to the org **directly on github.com** (not via the join link). Reload the hub: absent. Reconcile: present, in `added`.
+9. **Promote** — make a student an org **Owner** on github.com. Reconcile: they move from the students chip to the teachers chip.
+10. **Remove** — remove them from the org. Reconcile: `removed: 1`, and they are gone from the cache.
+11. **Refresh** — rename that GitHub account. Reconcile: the popover shows the new `@login`.
+
+**D. The cache survives a GitHub failure.** With `syncRoster` deleting everyone absent from the roster, a swallowed error would be a roster wipe.
+
+12. Stop your network (or point `GITHUB_API_URL` at a dead host) and press **Reconcile**. It fails visibly. Re-query `class_members`: **every row survives**, and `roster_synced_at` is unchanged.
+
+---
+
+## F5 — Group team recovery
 
 `groupsWithRosters` (`lib/groups.ts:261-273`) deletes the group row when `teamMembers` returns `null` (the team 404s). It does so **regardless of the work repo**, contradicting `deleteGroup`'s own invariant (`handlers/groups.ts:79-81`, *"refuse rather than orphan it"*) and the UI that enforces it (`teacher-lab-groups.tsx:487-491`).
 
 Worse: repo access is granted **to the team** (`grantTeamRepo`). When the team dies, the students lose push on their own work repo. Today that is hidden by the silent delete.
 
-### Task 3.1: Surface `teamMissing` instead of deleting
+### Task 5.1: Surface `teamMissing` instead of deleting
 
 **Files:**
 - Modify: `apps/api/src/lib/groups.ts:261-273`
@@ -1015,7 +1869,7 @@ EOF
 )"
 ```
 
-### Task 3.2: Recreate the team
+### Task 5.2: Recreate the team
 
 **Files:**
 - Create: `apps/api/src/handlers/…` — add `recreateGroupTeam` to `apps/api/src/handlers/groups.ts`
@@ -1152,7 +2006,7 @@ EOF
 )"
 ```
 
-### Task 3.3: The marker in the SPA
+### Task 5.3: The marker in the SPA
 
 **Files:**
 - Modify: `apps/www/app/components/custom/classes/groups/shared/use-lab-groups.ts`
@@ -1161,7 +2015,7 @@ EOF
 - Test: `apps/www/test/teacher-lab-page.test.tsx`
 
 **Interfaces:**
-- Consumes: `GroupItem.teamMissing: boolean` (Task 3.1)
+- Consumes: `GroupItem.teamMissing: boolean` (Task 5.1)
 - Produces: `GroupLabStatus` gains `"team_missing"`
 
 - [ ] **Step 1: Write the failing test**
@@ -1302,7 +2156,7 @@ EOF
 )"
 ```
 
-### Gate 3 feature test
+### F5 feature test
 
 1. Teacher hub → a class → a lab with a group that has a work repo.
 2. On **github.com**, delete that group's team (`Test-TWeb-2026` → Teams → the group's team → Delete).
@@ -1317,11 +2171,11 @@ EOF
 
 ---
 
-## Gate 4 — The join preview stops writing
+## F6 — Join confirmation
 
 `GET /join/:token` calls `observeMembership` (`join.ts:126`) and refreshes the org identity cache (`join.ts:135`). Both are writes on a `GET`.
 
-### Task 4.1: `POST /join/:token/confirm`
+### Task 6.1: `POST /join/:token/confirm`
 
 **Files:**
 - Modify: `apps/api/src/handlers/join.ts`
@@ -1440,7 +2294,7 @@ EOF
 )"
 ```
 
-### Task 4.2: "Finish joining"
+### Task 6.2: "Finish joining"
 
 **Files:**
 - Modify: `apps/www/app/pages/join-page.tsx`
@@ -1490,7 +2344,7 @@ EOF
 )"
 ```
 
-### Gate 4 feature test
+### F6 feature test
 
 Use the two GitHub accounts (`Ovich` = teacher, `OvichHeigVD` = student).
 
@@ -1509,476 +2363,17 @@ Use the two GitHub accounts (`Ovich` = teacher, `OvichHeigVD` = student).
 
 ---
 
-## Gate 5 — Reconcile owns the roster
-
-### Task 5.1: `rosterSyncedAt`
-
-**Files:**
-- Modify: `packages/db/src/app-schema.ts` (`classes`)
-- Create: `packages/db/migrations/0012_roster_synced_at.sql` (generated)
-
-- [ ] **Step 1: Add the column**
-
-```ts
-  // NULL = never reconciled. Cannot be inferred from class_members row count:
-  // the join POSTs insert rows into a class that has never been reconciled, and
-  // a reconciled class with no students still has teacher rows.
-  rosterSyncedAt: integer("roster_synced_at", { mode: "timestamp" }),
-```
-
-- [ ] **Step 2: Generate and apply**
-
-```bash
-pnpm --filter @labs/db db:generate
-pnpm --filter @labs/api exec wrangler d1 migrations apply labs --local
-```
-
-Confirm the generated SQL is `ALTER TABLE \`classes\` ADD \`roster_synced_at\` integer;`
-
-- [ ] **Step 3: Commit**
-
-```bash
-git add packages/db
-git commit -m "$(cat <<'EOF'
-feat(db): classes.rosterSyncedAt
-
-NULL means the class roster has never been reconciled. It cannot be inferred
-from class_members row count: the join POSTs insert rows into a class that has
-never been reconciled, and a reconciled class with no students still has teacher
-rows. The column states the fact directly, and doubles as the "Synced 2 days
-ago" label.
-
-Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
-EOF
-)"
-```
-
-### Task 5.2: `syncRoster` reports what it did
-
-**Files:**
-- Modify: `apps/api/src/lib/enrollment.ts:68-117`
-- Test: `apps/api/test/enrollment.test.ts` (create)
-
-**Interfaces:**
-- Produces: `syncRoster(...): Promise<{ added: number; removed: number }>`
-
-- [ ] **Step 1: Write the failing test**
-
-```ts
-test("syncRoster reports what it added and removed", async () => {
-  await observeMember(db, "c1", { githubId: "1", login: "old", avatarUrl: null }, "active");
-
-  const result = await syncRoster(db, "c1", {
-    active: [{ githubId: "2", login: "new", avatarUrl: null }],
-    pending: [],
-    teacher: [],
-  });
-
-  expect(result).toEqual({ added: 1, removed: 1 });
-});
-
-test("syncRoster promotes a member who became an org Owner", async () => {
-  await observeMember(db, "c1", { githubId: "1", login: "prof", avatarUrl: null }, "active");
-
-  const result = await syncRoster(db, "c1", {
-    active: [],
-    pending: [],
-    teacher: [{ githubId: "1", login: "prof", avatarUrl: null }],
-  });
-
-  expect(result).toEqual({ added: 0, removed: 0 });
-  const [row] = await db.select().from(classMembers);
-  expect(row?.state).toBe("teacher");
-});
-```
-
-- [ ] **Step 2: Run and watch them fail**
-
-```bash
-pnpm --filter @labs/api exec vitest run test/enrollment.test.ts
-```
-
-Expected: `expected undefined to deeply equal { added: 1, removed: 1 }`.
-
-- [ ] **Step 3: Implement**
-
-In `apps/api/src/lib/enrollment.ts`, change `syncRoster`'s signature to
-`Promise<{ added: number; removed: number }>`. Read the cached ids **before**
-the delete, then diff. Every existing statement stays:
-
-```ts
-  const keep = [...roster.active, ...roster.pending, ...roster.teacher].map(
-    (p) => p.githubId,
-  );
-  // Read before the delete: the counts describe what this sync changed, and the
-  // button reports them. A silent destructive sync is how a teacher fails to
-  // notice a student vanished.
-  const before = await db
-    .select({ githubId: classMembers.githubId })
-    .from(classMembers)
-    .where(eq(classMembers.classId, classId));
-  const had = new Set(before.map((r) => r.githubId));
-  const added = keep.filter((id) => !had.has(id)).length;
-  const removed = before.filter((r) => !keep.includes(r.githubId)).length;
-
-  // …existing delete + insert/onConflictDoUpdate, unchanged…
-
-  return { added, removed };
-```
-
-A member who merely changes `state` (active → teacher) counts as neither: they
-were there before and after. The second test pins that.
-
-- [ ] **Step 4: Run and watch them pass**
-
-```bash
-pnpm --filter @labs/api test
-```
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add apps/api/src/lib/enrollment.ts apps/api/test/enrollment.test.ts
-git commit -m "$(cat <<'EOF'
-feat(api): syncRoster reports what it added and removed
-
-The Reconcile button must say what it did. syncRoster returned nothing, so a
-destructive sync — it deletes everyone no longer on the org roster — was silent.
-
-Counts are taken before the delete and diffed against the live roster. A member
-who only changes state (active -> teacher) counts as neither added nor removed.
-
-Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
-EOF
-)"
-```
-
-### Task 5.3: The reconcile endpoint
-
-**Files:**
-- Create: `apps/api/src/handlers/roster.ts`
-- Modify: `apps/api/src/routes/classes.ts`
-- Test: `apps/api/test/roster-reconcile.test.ts` (create)
-
-**Interfaces:**
-- Consumes: `callerGithub` (0.1), `syncRoster` → `{ added, removed }` (5.2)
-- Produces: `POST /api/classes/:id/roster/reconcile` → `200 { students, pending, teachers, added, removed, syncedAt }`
-
-- [ ] **Step 1: Write the failing tests**
-
-```ts
-test("reconcile syncs, stamps, and reports both directions", async () => {
-  await seedClass({ orgId: 42, installationId: 200 });
-  // A cached student who has since left the org.
-  await observeMember(db, "c1", { githubId: "9", login: "gone", avatarUrl: null }, "active");
-  state.people = {
-    teachers: [{ id: 111, login: "prof", avatarUrl: null }],
-    students: [{ id: 2, login: "student", avatarUrl: null }],
-    pending: [],
-  };
-
-  const res = await app.request("/api/classes/c1/roster/reconcile", { method: "POST" }, env);
-
-  expect(res.status).toBe(200);
-  expect(await res.json()).toMatchObject({
-    students: 1, pending: 0, teachers: 1, added: 2, removed: 1,
-  });
-  const rows = await db.select().from(classMembers);
-  expect(rows.map((r) => r.githubId).sort()).toEqual(["111", "2"]);
-  const [cls] = await db.select().from(classes);
-  expect(cls?.rosterSyncedAt).not.toBeNull();
-});
-
-test("reconcile repairs a stale installationId it needed to authorize", async () => {
-  // resolveClassAsTeacher reads the STORED pointer. If reconcile used it, the
-  // button advertised by class_needs_reconcile could never fix the class it
-  // names. Reconcile derives the live id first.
-  await seedClass({ orgId: 42, installationId: 111 });   // live is 200
-  const res = await app.request("/api/classes/c1/roster/reconcile", { method: "POST" }, env);
-  expect(res.status).toBe(200);
-  const [row] = await db.select().from(classes);
-  expect(row?.installationId).toBe(200);
-});
-
-test("reconcile refuses to wipe the cache when GitHub fails", async () => {
-  await seedClass();
-  await observeMember(db, "c1", { githubId: "7", login: "alice", avatarUrl: null }, "active");
-  state.orgPeopleThrows = true;
-
-  const res = await app.request("/api/classes/c1/roster/reconcile", { method: "POST" }, env);
-
-  expect(res.status).toBe(500);
-  expect(await db.select().from(classMembers)).toHaveLength(1);
-  const [row] = await db.select().from(classes);
-  expect(row?.rosterSyncedAt).toBeNull();
-});
-
-test("reconcile is teacher-only", async () => {
-  await seedClass({ orgId: 42, installationId: 200 });
-  state.isOrgAdmin = false;   // a student, or a member who is not an Owner
-
-  const res = await app.request("/api/classes/c1/roster/reconcile", { method: "POST" }, env);
-
-  expect(res.status).toBe(404);
-  expect(await db.select().from(classMembers)).toHaveLength(0);
-});
-
-test("reconcile reports no_installation when the App is gone from the org", async () => {
-  await seedClass({ orgId: 42, installationId: 200 });
-  state.installations = [];   // /user/installations no longer lists it
-
-  const res = await app.request("/api/classes/c1/roster/reconcile", { method: "POST" }, env);
-
-  expect(res.status).toBe(403);
-  expect(await res.json()).toEqual({ error: "no_installation" });
-});
-```
-
-The mock module for `../src/lib/github/org` must expose `isOrgAdmin: async () => state.isOrgAdmin` and an `orgPeople` that throws when `state.orgPeopleThrows` — copy the shape from `classes-list.test.ts:37-46`.
-
-- [ ] **Step 2: Run and watch them fail**
-
-```bash
-pnpm --filter @labs/api exec vitest run test/roster-reconcile.test.ts
-```
-
-Expected: all five 404 — the route does not exist.
-
-- [ ] **Step 3: Implement**
-
-```ts
-/**
- * Teacher-only: make this class right. THE roster's only CRUD authority —
- * every other write point observes exactly one person (the caller), so this is
- * the only operation that can add a member who joined the org out of band,
- * promote a new org Owner, refresh a changed login, or remove a departed
- * student.
- *
- * Derives the installation id LIVE before authorizing: resolveClassAsTeacher
- * reads the stored pointer, so a stale one would make the button advertised by
- * `class_needs_reconcile` unable to fix the class it names.
- *
- * orgPeople throws rather than returning an empty roster, and that throw must
- * propagate: syncRoster deletes every row when the roster is empty, so
- * swallowing it would turn a rate-limit into a roster wipe.
- */
-export const reconcileRoster = authedFactory.createHandlers(async (c) => {
-  const db = getDb(c.env.DB);
-  const caller = await callerGithub(db, c.get("user").id);
-  const token = await githubAccessToken(c.env, c.get("user").id);
-  if (!caller || !token) return c.json({ error: "not_found" }, 404);
-
-  const [cls] = await db.select().from(classes).where(eq(classes.id, c.req.param("id")));
-  if (!cls) return c.json({ error: "not_found" }, 404);
-
-  const live = (await userInstallationsByOrgId(token)).get(cls.orgId);
-  if (!live) return c.json({ error: "no_installation" }, 403);
-  if (!(await isOrgAdmin(c.env, live.installationId, live.login, caller.ghId))) {
-    return c.json({ error: "not_found" }, 404);
-  }
-
-  const [people, org] = await Promise.all([
-    orgPeople(c.env, live.installationId, live.login),
-    orgInfo(c.env, live.installationId, live.login),
-  ]);
-
-  const observed = (p: OrgPerson) => ({
-    githubId: String(p.id), login: p.login, avatarUrl: p.avatarUrl,
-  });
-  const { added, removed } = await syncRoster(db, cls.id, {
-    active: people.students.map(observed),
-    pending: people.pending.map(observed),
-    teacher: people.teachers.map(observed),
-  });
-
-  const syncedAt = new Date();
-  await db.update(classes).set({
-    installationId: live.installationId,
-    login: org.login, name: org.name, avatarUrl: org.avatarUrl,
-    rosterSyncedAt: syncedAt, updatedAt: syncedAt,
-  }).where(eq(classes.id, cls.id));
-
-  return c.json({
-    students: people.students.length,
-    pending: people.pending.length,
-    teachers: people.teachers.length,
-    added, removed,
-    syncedAt: syncedAt.toISOString(),
-  });
-});
-```
-
-- [ ] **Step 4: Run, watch pass, commit.**
-
-### Task 5.4: The hub stops writing
-
-**Files:**
-- Modify: `apps/api/src/handlers/classes.ts`
-- Modify: `apps/api/src/lib/github/user.ts:51-73`
-- Test: `apps/api/test/classes-list.test.ts`
-
-- [ ] **Step 1: Write the failing test**
-
-```ts
-test("the hub writes nothing", async () => {
-  await seedClass({ orgId: 42, installationId: 111, login: "stale", name: "Stale" });
-  await app.request("/api/classes", {}, env);
-
-  const [row] = await db.select().from(classes);
-  expect(row).toMatchObject({ installationId: 111, login: "stale", name: "Stale" });
-  expect(await db.select().from(classMembers)).toHaveLength(0);
-});
-
-test("the hub renders a stale class from live installation data", async () => {
-  await seedClass({ orgId: 42, installationId: 111, login: "stale" });
-  const res = await app.request("/api/classes", {}, env);
-  const body = (await res.json()) as { classes: Array<{ login: string }> };
-  // login/avatarUrl free-ride off /user/installations, which is already fetched.
-  expect(body.classes[0]?.login).toBe("acme");
-});
-```
-
-- [ ] **Step 2: Run and watch them fail.**
-
-- [ ] **Step 3: Implement**
-
-Widen `UserInstallation` (`lib/github/user.ts:51`) — `avatar_url` is a required `string` on `GET /user/installations`; `name` is `string | null | undefined` there, so it is **not** trustworthy and must not be read:
-
-```ts
-type UserInstallation = {
-  installationId: number;
-  login: string;
-  avatarUrl: string;
-};
-```
-
-Delete `reconcileClass` entirely. The per-class body becomes: authorize with `orgMembership(c.env, live.installationId, live.login, callerLogin).role === "admin"` (one call, replacing `orgPeople`'s three), read `students`/`pending`/`teachers` from `class_members`, take `login`/`avatarUrl` from `live`, `name` from `cls`, and add `rosterSyncedAt: cls.rosterSyncedAt`.
-
-`callerLogin` comes from one `fetchGithubProfile(token)` for the whole request, not per class.
-
-Map cached rows back to the client's existing `OrgPerson` shape (`{ id: number; login: string; avatarUrl: string | null }`) with `id: Number(githubId)` so the SPA needs no shape change.
-
-- [ ] **Step 4: Run, watch pass, commit.**
-
-### Task 5.5: The Reconcile button
-
-**Files:**
-- Modify: `apps/www/app/components/custom/classes/hub/people-chip.tsx`
-- Modify: `apps/www/app/components/custom/classes/hub/class-card.tsx`
-- Test: `apps/www/test/people-chip.test.tsx`, `apps/www/test/class-card.test.tsx`
-
-- [ ] **Step 1: Write the failing tests**
-
-```tsx
-it("offers Reconcile in the students popover, with the last sync", () => {
-  render(<PeopleChip … syncedAt="2026-07-06T10:00:00.000Z" onReconcile={spy} />);
-  fireEvent.click(screen.getByRole("button", { name: /students/ }));
-  expect(screen.getByText(/Synced 2 days ago/)).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "Reconcile" }));
-  expect(spy).toHaveBeenCalled();
-});
-
-it("says the roster was never synced", () => {
-  render(<ClassCard … rosterSyncedAt={null} />);
-  expect(screen.getByText("Roster not synced")).toBeInTheDocument();
-  expect(screen.queryByText(/0 students/)).not.toBeInTheDocument();
-});
-```
-
-- [ ] **Step 2: Run and watch them fail**
-
-```bash
-pnpm --filter @labs/www exec vitest run test/people-chip.test.tsx test/class-card.test.tsx
-```
-
-Expected: `Unable to find an accessible element with the role "button" and name "Reconcile"`.
-
-- [ ] **Step 3: Implement**
-
-`PeopleChip` gains two props and a footer:
-
-```tsx
-  /** null = the roster has never been reconciled. */
-  syncedAt?: string | null;
-  onReconcile?: () => Promise<unknown>;
-```
-
-```tsx
-      <div className="mt-2 flex items-center justify-between border-border border-t pt-2">
-        <Text variant="caption">
-          {syncedAt ? `Synced ${formatRelative(syncedAt)}` : "Roster not synced"}
-        </Text>
-        <Button size="sm" variant="outline" type="button"
-                disabled={busy} onClick={reconcile}>
-          {busy ? "Reconciling…" : "Reconcile"}
-        </Button>
-      </div>
-```
-
-On success, surface both directions on the global message strip:
-`"+2 added, 3 removed · 12 students, 1 pending"`. A silent destructive sync is
-how a teacher fails to notice a student vanished.
-
-`ClassCard` renders `"Roster not synced"` in place of the people chips when
-`rosterSyncedAt === null` — never `"0 students"`, which is indistinguishable
-from a real empty class.
-
-- [ ] **Step 4: Run and watch them pass**
-
-```bash
-pnpm --filter @labs/www test
-pnpm --filter @labs/www exec tsc --noEmit
-pnpm biome
-```
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add apps/www
-git commit -m "$(cat <<'EOF'
-feat(www): Reconcile button in the students popover
-
-The teacher hub no longer sweeps the org roster on every card read. The popover
-footer shows when the roster was last reconciled and offers to do it now,
-reporting both directions ("+2 added, 3 removed").
-
-A class whose roster has never been reconciled reads "Roster not synced" rather
-than "0 students" — which is indistinguishable from a class nobody has joined.
-
-Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
-EOF
-)"
-```
-
-### Gate 5 feature test
-
-1. `wrangler d1 execute DB --local --command "UPDATE classes SET roster_synced_at = NULL;"`
-2. Reload the teacher hub. Every card reads **"Roster not synced"** — *not* "0 students".
-3. Open the students popover → **Reconcile**. It reports `"+N added, 0 removed · N students…"`.
-4. Card now shows real counts; popover footer reads **"Synced just now"**.
-5. **Prove the GET writes nothing:**
-   ```bash
-   cd apps/api && pnpm exec wrangler d1 execute DB --local \
-     --command "UPDATE classes SET login='stale', name='Stale', installation_id=1;"
-   ```
-   Reload the hub. The card still renders correctly (login and avatar free-ride off `/user/installations`). Now re-query:
-   ```bash
-   pnpm exec wrangler d1 execute DB --local \
-     --command "SELECT login, name, installation_id, roster_synced_at FROM classes;"
-   ```
-   **All four are unchanged.** The GET read, and wrote nothing.
-6. Press **Reconcile**. Re-query: `login`, `name`, `installation_id` are corrected and `roster_synced_at` is stamped.
-7. Add a student to the org **directly on GitHub** (not via the link). Reload the hub — they do not appear. Press **Reconcile** — they appear, counted in `added`. *This is the whole point of the button.*
-8. Remove them on GitHub. Reconcile — `removed: 1`.
-
----
-
 ## Self-review
 
-**Spec coverage.** §1 audit → Gates 0-5. §2 (`class_members` write points, CRUD authority) → 5.2, 5.3. §3.1 reconcile → 5.3. §3.2 confirm → 4.1, 4.2. §3.3 session-less repair → 1.1, 1.2. §3.4 `teamMissing` + marker + recreate → 3.1, 3.2, 3.3. §4 reads → 5.4. §5 schema → 2.2 (`unique(classId, title)`), 5.1 (`rosterSyncedAt`). §6 UI → 5.5. §8 testing → each task's tests. §9 follow-ups: `callerGithubId` → 0.1 ✅; `catch {}` → 0.2 ✅; `enrolledTeachers` inline join → **not covered, deliberately deferred** (it is a duplication, not a defect).
+**Spec coverage.** §1 audit → F1-F6. §2 (`class_members` write points, CRUD authority) → 4.2, 4.3. §3.1 reconcile → 3.2 (class row) + 4.3 (roster). §3.2 confirm → 6.1, 6.2. §3.3 session-less repair → 3.1, 3.3. §3.4 `teamMissing` + marker + recreate → 5.1, 5.2, 5.3. §4 reads → 3.3 (class row) + 4.4 (roster, authorization). §5 schema → 2.2 (`unique(classId, title)`), 4.1 (`rosterSyncedAt`). §6 UI → 4.5. §8 testing → each task's tests. §9 follow-ups: `callerGithubId` → 1.1 ✅; `catch {}` → 1.2 ✅; `enrolledTeachers` inline join → **not covered, deliberately deferred** (a duplication, not a defect).
 
-**Deviation from the spec.** §5 specifies one migration (`0011`) carrying both schema changes. This plan splits them — `0011` lab-title uniqueness (Gate 2), `0012` `rosterSyncedAt` (Gate 5) — so each gate ships independently. Update §5 when Gate 2 lands.
+**Deviations from the spec.**
 
-**Not covered by any gate, still open:** the `listClasses` decomposition into `teachingClass` / `enrolledClasses` / `hasOlderThan`, and parallelising the per-class fan-out. Gate 5 shrinks the loop enough that this may no longer be worth doing; re-assess after it lands.
+1. §5 specifies one migration (`0011`) carrying both schema changes. This plan splits them — `0011` lab-title uniqueness (F2), `0012` `rosterSyncedAt` (F4) — so each feature ships alone. **If F4 lands before F2 the numbers swap**, and the SQL filenames must swap with them. Update §5 when F2 lands.
+2. §3.1 names the endpoint `POST /api/classes/:id/roster/reconcile`. It is `POST /api/classes/:id/reconcile` here: F3 introduces it for the class row, F4 extends it with the roster, and the teacher gets one button. Update §3.1 when F3 lands.
 
-**Type consistency.** `callerGithub` returns `{ ghId, githubId }` in 0.1 and is consumed with those names in 0.2, 1.2, 5.3, 5.4. `syncRoster` returns `{ added, removed }` in 5.2 and is destructured with those names in 5.3. `teamMissing: boolean` is produced in 3.1 and consumed in 3.3. `UserInstallation.avatarUrl` is added in 5.4 and consumed there only.
+**Intermediate states.** After F3 the hub still calls `orgPeople` and still runs `syncRoster` (fail-open, from F1) — it just no longer writes the `classes` row. That is a coherent shipping state, not a half-migration. After F4 the hub makes one GitHub call per class and writes nothing.
+
+**Not covered by any feature, still open:** the `listClasses` decomposition into `teachingClass` / `enrolledClasses` / `hasOlderThan`, and parallelizing the per-class fan-out. F4 shrinks the loop to one GitHub call and no writes, so this may no longer earn its keep; re-assess after it lands.
+
+**Type consistency.** `callerGithub` returns `{ ghId, githubId }` in 1.1, consumed with those names in 1.2, 3.2, 3.3, 4.4. `syncRoster` returns `{ added, removed }` in 4.2, destructured with those names in 4.3. `teamMissing: boolean` is produced in 5.1 and consumed in 5.3. `UserInstallation.avatarUrl` is added in 3.3 and consumed there and in 4.4. `rosterSyncedAt` is added in 4.1, written in 4.3, read in 4.4, rendered in 4.5.
