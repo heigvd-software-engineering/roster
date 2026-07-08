@@ -10,7 +10,6 @@ import { cn } from "~/lib/utils";
 /** The row's left spine — the same state as the chip, scannable as a color
  *  column without reading (the class cards' role-spine trick). */
 export const STATUS_SPINE: Record<GroupLabStatus, string> = {
-  team_missing: "border-l-destructive",
   on_track: "border-l-role-enrolled",
   on_time: "border-l-role-enrolled",
   ready: "border-l-role-enrolled",
@@ -25,9 +24,6 @@ const TONE = {
   warn: "bg-warning/12 text-warning",
   bad: "bg-brand/10 text-brand",
   muted: "bg-foreground/6 text-muted-foreground",
-  // Broken infrastructure, not late work. Scanning the spine column, a teacher
-  // must tell "this group is behind" from "this group is broken" without reading.
-  broken: "bg-destructive/10 text-destructive",
 } as const;
 export type PillTone = keyof typeof TONE;
 
@@ -54,7 +50,6 @@ export function Pill({
 }
 
 const CHIP: Record<GroupLabStatus, { label: string; tone: PillTone }> = {
-  team_missing: { label: "team missing", tone: "broken" },
   on_track: { label: "on track", tone: "good" },
   on_time: { label: "on time", tone: "good" },
   ready: { label: "repo created", tone: "good" },

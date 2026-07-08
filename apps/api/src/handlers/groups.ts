@@ -7,11 +7,16 @@ import { alreadyInLabGroup } from "../lib/groups";
 /**
  * Group MEMBERSHIP + lifecycle (per-lab model, spec 2026-07-07). A group is
  * a GitHub Team (secret, students always role `member`) that belongs to ONE
- * lab; the roster lives in the team, read live. Permission model: any live
- * ACTIVE org member joins/leaves THEMSELVES; only a live org Owner (teacher)
- * manages other members or deletes groups. Creating a group is lab-scoped —
- * see handlers/lab-groups.ts. `groupId` is globally unique, so these stay
+ * lab; the team OWNS the roster. Permission model: any live ACTIVE org member
+ * joins/leaves THEMSELVES; only a live org Owner (teacher) manages other
+ * members or deletes groups. Creating a group is lab-scoped — see
+ * handlers/lab-groups.ts. `groupId` is globally unique, so these stay
  * class-scoped by id; the group carries its own `labId` for the invariant.
+ *
+ * Every mutation here ends in `team.syncMembers(group)`: GitHub accepted the
+ * change, so we re-read that one team and mirror it into `group_members`. The
+ * read paths then cost zero GitHub calls. The mirror is display-only — push on
+ * the work repo comes from the team, never from the table.
  */
 
 /** Join the group — the caller only ever adds THEMSELVES. Refused when it
@@ -26,6 +31,7 @@ export const joinGroup = authedFactory.createHandlers(async (c) => {
     return c.json({ error: "member_already_participating" }, 409);
   }
   await access.team.add(group.ghTeamSlug, access.login);
+  await access.team.syncMembers(group);
   return c.json({ ok: true });
 });
 
@@ -37,6 +43,7 @@ export const leaveGroup = authedFactory.createHandlers(async (c) => {
   if (!group) return c.json({ error: "not_found" }, 404);
 
   await access.team.remove(group.ghTeamSlug, access.login);
+  await access.team.syncMembers(group);
   return c.json({ ok: true });
 });
 
@@ -53,6 +60,7 @@ export const addGroupMember = authedFactory.createHandlers(async (c) => {
     return c.json({ error: "member_already_participating" }, 409);
   }
   await access.team.add(group.ghTeamSlug, login);
+  await access.team.syncMembers(group);
   return c.json({ ok: true });
 });
 
@@ -65,6 +73,7 @@ export const removeGroupMember = authedFactory.createHandlers(async (c) => {
   if (!group || !login) return c.json({ error: "not_found" }, 404);
 
   await access.team.remove(group.ghTeamSlug, login);
+  await access.team.syncMembers(group);
   return c.json({ ok: true });
 });
 
@@ -86,6 +95,7 @@ export const deleteGroup = authedFactory.createHandlers(async (c) => {
   } catch (err) {
     if ((err as { status?: number }).status !== 404) throw err;
   }
+  // group_members rows go with it (FK ON DELETE CASCADE).
   await access.db.delete(groups).where(eq(groups.id, group.id));
   return c.json({ ok: true });
 });

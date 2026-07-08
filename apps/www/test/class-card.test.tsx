@@ -116,3 +116,28 @@ describe("ClassCard labs (F6)", () => {
     ).toBeInTheDocument();
   });
 });
+
+describe("ClassCard audit + reconcile", () => {
+  it("offers the audit beside the join link, not behind an ellipsis", () => {
+    renderCard();
+    expect(
+      screen.getByRole("button", { name: "Audit this class against GitHub" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "More class actions" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("says the audit only reads before offering the link", () => {
+    renderCard();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Audit this class against GitHub" }),
+    );
+    // The refresh icon reads as "repair now" — the copy has to say it doesn't.
+    expect(screen.getByText(/audit only reads/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Run the audit" })).toHaveAttribute(
+      "href",
+      "/classes/c1/reconcile",
+    );
+  });
+});

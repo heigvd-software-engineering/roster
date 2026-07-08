@@ -2,6 +2,7 @@ import {
   account,
   type Class,
   classes,
+  type Group,
   getDb,
   groups,
   labs,
@@ -13,7 +14,7 @@ import type { AuthEnv } from "./auth/config";
 import { githubAccessToken } from "./auth/github-token";
 import type { AuthedEnv } from "./auth/require-auth";
 import { orgLogin } from "./github/app";
-import { isOrgAdmin, orgMembership } from "./github/org";
+import { isOrgAdmin, type OrgPerson, orgMembership } from "./github/org";
 import {
   addTeamMember,
   deleteTeam,
@@ -21,6 +22,7 @@ import {
   teamMembers,
 } from "./github/team";
 import { fetchGithubProfile } from "./github/user";
+import { syncGroupMembers } from "./group-members";
 
 /**
  * Class-scoped access resolution — the ONE home for "who is the caller to
@@ -63,13 +65,23 @@ export async function callerGithub(
 }
 
 /** The class org's GitHub Team API, pre-bound to this class's installation +
- *  org — so handlers call `access.team.roster(slug)` instead of threading
- *  `(env, cls.installationId, org, …)` through every call. */
+ *  org — so handlers call `access.team.add(slug, login)` instead of threading
+ *  `(env, cls.installationId, org, …)` through every call.
+ *
+ *  `roster` is the LIVE team. Display reads take the `group_members` cache
+ *  (`lib/group-members.ts`) instead — that is the whole point of the cache. Use
+ *  `roster` only where the answer AUTHORIZES or gates an irreversible write:
+ *  "is the caller in this group", "does this team still exist", "is the group
+ *  complete enough to get a repo". A cache may never decide those. */
 export type ClassTeam = {
   roster: (slug: string) => ReturnType<typeof teamMembers>;
   add: (slug: string, login: string) => Promise<void>;
   remove: (slug: string, login: string) => Promise<void>;
   delete: (slug: string) => Promise<void>;
+  /** Mirror ONE team's live roster into `group_members`. Null = team gone. */
+  syncMembers: (
+    group: Pick<Group, "id" | "ghTeamSlug">,
+  ) => Promise<OrgPerson[] | null>;
 };
 
 export type ClassAccess = {
@@ -85,6 +97,7 @@ export type ClassAccess = {
 };
 
 function classTeam(
+  db: Db,
   env: AuthEnv,
   installationId: number,
   org: string,
@@ -95,6 +108,8 @@ function classTeam(
     remove: (slug, login) =>
       removeTeamMember(env, installationId, org, slug, login),
     delete: (slug) => deleteTeam(env, installationId, org, slug),
+    syncMembers: (group) =>
+      syncGroupMembers(db, env, installationId, org, group),
   };
 }
 
@@ -131,7 +146,7 @@ export async function resolveClassAccess(
       org,
       login: profile.login,
       admin: membership.role === "admin",
-      team: classTeam(c.env, cls.installationId, org),
+      team: classTeam(db, c.env, cls.installationId, org),
     };
   } catch {
     // Dead installation — the class effectively doesn't exist.

@@ -1,4 +1,4 @@
-import { Check, Link2, MoreHorizontal } from "lucide-react";
+import { Check, Link2, RefreshCw } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { PeopleChip } from "~/components/custom/classes/hub/people-chip";
@@ -7,15 +7,15 @@ import { LabRow, LabsHeader } from "~/components/custom/classes/labs/lab-row";
 import { RoleChip, roleSpine } from "~/components/custom/classes/role-marker";
 import { OrgIdentity } from "~/components/custom/identity/org-identity";
 import { Row } from "~/components/custom/layout/row";
+import { Stack } from "~/components/custom/layout/stack";
 import { Text } from "~/components/custom/typography/text";
 import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "~/components/ui/dropdown-menu";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "~/components/ui/popover";
 import type { ClassItem } from "~/lib/api";
 import { cn } from "~/lib/utils";
 
@@ -118,29 +118,7 @@ export function ClassCard({
               <Link2 className="size-4 text-muted-foreground" />
             )}
           </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  type="button"
-                  aria-label="More class actions"
-                  title="More actions for this class"
-                />
-              }
-            >
-              <MoreHorizontal className="size-4 text-muted-foreground" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {/* An ellipsis: it navigates to the audit, it does not repair. */}
-              <DropdownMenuItem
-                render={<Link to={`/classes/${id}/reconcile`} />}
-              >
-                Reconcile…
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <ReconcileAction classId={id} />
           <RoleChip kind="teaching" />
         </Row>
       </Row>
@@ -171,5 +149,56 @@ export function ClassCard({
         </div>
       </div>
     </Card>
+  );
+}
+
+/**
+ * Audit + reconcile, beside the join link rather than behind an ellipsis: a
+ * teacher whose class has drifted needs to FIND this, and a drifted class is the
+ * failure they came to fix.
+ *
+ * The popover exists because the refresh icon is a lie on its own — this button
+ * opens an AUDIT and repairs nothing. Consent is the whole design, and the one
+ * place to say so is before the click.
+ */
+function ReconcileAction({ classId }: { classId: string }) {
+  return (
+    <Popover>
+      <PopoverTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="icon"
+            type="button"
+            aria-label="Audit this class against GitHub"
+            title="Audit this class against GitHub"
+          />
+        }
+      >
+        <RefreshCw className="size-4 text-muted-foreground" />
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-80">
+        <Stack gap="sm">
+          <Text variant="body2" className="font-medium text-foreground">
+            Audit this class
+          </Text>
+          <Text variant="caption">
+            GitHub owns this class. labs keeps a copy, and it drifts when GitHub
+            changes directly.
+          </Text>
+          <Text variant="caption">
+            The audit only reads. You choose what to reconcile; anything that
+            removes data stays unticked.
+          </Text>
+          <Button
+            size="sm"
+            className="mt-1 w-full"
+            render={<Link to={`/classes/${classId}/reconcile`} />}
+          >
+            Run the audit
+          </Button>
+        </Stack>
+      </PopoverContent>
+    </Popover>
   );
 }

@@ -1,5 +1,13 @@
 import { env } from "cloudflare:test";
-import { account, classes, getDb, groups, labs, user } from "@labs/db";
+import {
+  account,
+  classes,
+  getDb,
+  groupMembers,
+  groups,
+  labs,
+  user,
+} from "@labs/db";
 import { Hono } from "hono";
 import { beforeEach, expect, test, vi } from "vitest";
 
@@ -170,11 +178,15 @@ async function seedLab(args?: {
   });
 }
 
+/** A group as it really exists: the row, the GitHub team roster, and the
+ *  `group_members` mirror that read paths serve from. Stating `members` once
+ *  keeps the two in sync, which is what every non-drift test wants. */
 async function seedGroup(args: {
   id: string;
   labId: string;
   name?: string;
   repo?: boolean;
+  members?: { id: number; login: string; avatarUrl: string | null }[];
 }) {
   await db.insert(groups).values({
     id: args.id,
@@ -189,6 +201,27 @@ async function seedGroup(args: {
     createdAt: now,
     updatedAt: now,
   });
+  if (args.members) await seedRoster(args.id, args.members);
+}
+
+/** GitHub's team roster + the cache that mirrors it. */
+async function seedRoster(
+  groupId: string,
+  people: { id: number; login: string; avatarUrl: string | null }[],
+) {
+  state.rosters[`${groupId}-slug`] = people;
+  if (people.length === 0) return;
+  await db.insert(groupMembers).values(
+    people.map((p) => ({
+      id: `${groupId}-${p.id}`,
+      groupId,
+      githubId: String(p.id),
+      login: p.login,
+      avatarUrl: p.avatarUrl,
+      createdAt: now,
+      updatedAt: now,
+    })),
+  );
 }
 
 function createGroup(labId: string, body: object) {
@@ -220,6 +253,7 @@ beforeEach(async () => {
   state.activity = {};
   state.orgRepos = {};
 
+  await db.delete(groupMembers);
   await db.delete(groups);
   await db.delete(labs);
   await db.delete(classes);
@@ -294,11 +328,14 @@ test("copy-forward seeds the roster, skipping members already in this lab", asyn
   await seedLab({ id: "l1" });
   await seedLab({ id: "l2" });
   // Source group on another lab: alice + bob.
-  await seedGroup({ id: "src", labId: "l2", name: "Team" });
-  state.rosters["src-slug"] = [alice, bob];
+  await seedGroup({
+    id: "src",
+    labId: "l2",
+    name: "Team",
+    members: [alice, bob],
+  });
   // bob is already placed in a group of THIS lab (l1).
-  await seedGroup({ id: "here", labId: "l1", name: "Here" });
-  state.rosters["here-slug"] = [bob];
+  await seedGroup({ id: "here", labId: "l1", name: "Here", members: [bob] });
 
   const res = await createGroup("l1", { name: "Team", copyFromGroupId: "src" });
   expect(res.status).toBe(200);
@@ -309,12 +346,21 @@ test("copy-forward seeds the roster, skipping members already in this lab", asyn
 test("reusable lists the caller's groups from OTHER labs only", async () => {
   await seedLab({ id: "l1" });
   await seedLab({ id: "l2" });
-  await seedGroup({ id: "mine", labId: "l2", name: "Team Alpha" });
-  await seedGroup({ id: "theirs", labId: "l2", name: "Team Beta" });
-  await seedGroup({ id: "here", labId: "l1", name: "Here" }); // current lab
-  state.rosters["mine-slug"] = [alice, bob];
-  state.rosters["theirs-slug"] = [carol]; // alice not in it
-  state.rosters["here-slug"] = [alice]; // current lab → excluded
+  await seedGroup({
+    id: "mine",
+    labId: "l2",
+    name: "Team Alpha",
+    members: [alice, bob],
+  });
+  // alice not in it
+  await seedGroup({
+    id: "theirs",
+    labId: "l2",
+    name: "Team Beta",
+    members: [carol],
+  });
+  // current lab → excluded
+  await seedGroup({ id: "here", labId: "l1", name: "Here", members: [alice] });
 
   const res = await app.request("/api/classes/c1/labs/l1/reusable", {}, env);
   const body = (await res.json()) as {
@@ -331,10 +377,15 @@ test("reusable lists the caller's groups from OTHER labs only", async () => {
 test("lists only THIS lab's groups, with roster + repo + activity", async () => {
   await seedLab({ id: "l1" });
   await seedLab({ id: "l2" });
-  await seedGroup({ id: "g1", labId: "l1", name: "A", repo: true });
-  await seedGroup({ id: "g2", labId: "l2", name: "B" }); // other lab
-  state.rosters["g1-slug"] = [alice, bob];
-  state.rosters["g2-slug"] = [carol];
+  await seedGroup({
+    id: "g1",
+    labId: "l1",
+    name: "A",
+    repo: true,
+    members: [alice, bob],
+  });
+  // other lab
+  await seedGroup({ id: "g2", labId: "l2", name: "B", members: [carol] });
   state.activity["acme/g1"] = {
     pushedAt: "2099-02-01T00:00:00Z",
     createdAt: "2099-01-15T00:00:00Z",
@@ -430,6 +481,29 @@ test("accept creates the solo group + repo and reuses on replay", async () => {
   const again = await accept("l2");
   expect((await asRepo(again)).repo.fullName).toBe("acme/lab-l2-alice");
   expect(await db.select().from(groups)).toHaveLength(1);
+});
+
+test("accept on an EXISTING solo group mirrors its roster into the cache", async () => {
+  // The student's own page finds their group by looking for THEMSELVES in its
+  // roster. An accept that answers 200 while `group_members` stays empty is a
+  // silent no-op on screen — observed live on lab-6-inidividual-tigoes44.
+  await seedLab({
+    id: "l2",
+    groupMode: "individual",
+    minMembers: null,
+    maxMembers: null,
+  });
+  // A solo group whose team exists on GitHub, but with NO cached roster (made
+  // before the cache existed).
+  await seedGroup({ id: "solo", labId: "l2", name: "alice" });
+  state.rosters["solo-slug"] = [alice];
+
+  const res = await accept("l2");
+
+  expect(res.status).toBe(200);
+  expect(await db.select().from(groupMembers)).toMatchObject([
+    { groupId: "solo", githubId: "7", login: "alice" },
+  ]);
 });
 
 test("accept adopts a repo that exists on GitHub but was never recorded", async () => {

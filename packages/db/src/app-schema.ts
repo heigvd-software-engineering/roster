@@ -111,6 +111,39 @@ export const groups = sqliteTable(
 );
 
 /**
+ * Group-roster DISPLAY CACHE — a cache of what GitHub owns (the backing Team's
+ * member list). Written by `syncGroupMembers` after every membership mutation,
+ * which re-reads the one team it just changed; drift from out-of-band GitHub
+ * edits is caught by the `group-members` reconciler.
+ *
+ * INVARIANT: never used to authorize anything. Team membership grants PUSH on
+ * the group's work repo, so a stale row here would be a stale grant — the same
+ * hazard `class_members` carries, and the same rule. Push comes from the team,
+ * never from this table.
+ *
+ * A team GitHub 404s is UNKNOWABLE, not empty: sync leaves the rows alone
+ * rather than deleting a roster we merely failed to read.
+ */
+export const groupMembers = sqliteTable(
+  "group_members",
+  {
+    id: text("id").primaryKey(),
+    groupId: text("group_id")
+      .notNull()
+      // The group row IS the group; a deleted group has no roster to cache.
+      .references(() => groups.id, { onDelete: "cascade" }),
+    // GitHub USER account id — stable across login renames, like class_members.
+    githubId: text("github_id").notNull(),
+    // Identity cache. `login` is what the GitHub Team API takes for add/remove.
+    login: text("login").notNull(),
+    avatarUrl: text("avatar_url"),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+  },
+  (t) => [unique().on(t.groupId, t.githubId)],
+);
+
+/**
  * Enrollment DISPLAY CACHE (data-model spec §2) — a cache of what GitHub
  * owns (org membership), written where the app already observes it (join
  * flow, the teacher hub's roster fetch) and lazily repaired. INVARIANT:

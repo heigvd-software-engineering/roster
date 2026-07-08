@@ -10,6 +10,7 @@ import {
   grantTeamRepo,
 } from "./github/repo";
 import { addTeamMember, createTeam } from "./github/team";
+import { cachedRosters, syncGroupMembers } from "./group-members";
 
 type Db = ReturnType<typeof getDb>;
 
@@ -94,14 +95,28 @@ export async function createGroupInLab(
     })
     .returning();
   if (!group) throw new Error("group insert returned no row");
+  // Seed the roster cache from the team we just built — after the row exists,
+  // since group_members references it. One call, on a write path.
+  await syncGroupMembers(
+    scope.db,
+    env,
+    scope.cls.installationId,
+    scope.org,
+    group,
+  );
   return group;
 }
 
 /**
  * The one-group-per-student-per-LAB invariant, checked within a SINGLE lab
  * (per-lab model — no cross-lab reach): is `login` already in another group
- * of `labId`? Live rosters, in parallel. `exceptGroupId` skips the group
- * being joined itself.
+ * of `labId`? `exceptGroupId` skips the group being joined itself.
+ *
+ * Reads the `group_members` cache: ONE query, where this used to be one GitHub
+ * team-roster call per group in the lab. The cache is display state, and this
+ * is not an authorization check — it enforces a product rule, and the join it
+ * guards is itself idempotent on GitHub. Drift here can at worst let a student
+ * double-book until the next reconcile.
  */
 export async function alreadyInLabGroup(
   access: ClassAccess,
@@ -110,15 +125,17 @@ export async function alreadyInLabGroup(
   exceptGroupId: string,
 ): Promise<boolean> {
   const labGroups = await access.db
-    .select()
+    .select({ id: groups.id })
     .from(groups)
     .where(and(eq(groups.labId, labId), ne(groups.id, exceptGroupId)));
-  const rosters = await Promise.all(
-    labGroups.map((g) => access.team.roster(g.ghTeamSlug)),
+  const rosters = await cachedRosters(
+    access.db,
+    labGroups.map((g) => g.id),
   );
-  return rosters.some(
-    (roster) => roster?.some((m) => m.login === login) ?? false,
-  );
+  for (const members of rosters.values()) {
+    if (members.some((m) => m.login === login)) return true;
+  }
+  return false;
 }
 
 /**
@@ -252,27 +269,24 @@ export async function createWorkRepo(
 }
 
 /**
- * Live rosters for group rows — one GitHub call per team, in PARALLEL.
+ * Rosters for group rows — ONE query against the `group_members` cache, where
+ * this used to be one GitHub team-roster call per group.
  *
- * A team gone on GitHub is REPORTED, never repaired: a GET returns what it sees.
- * The row survives — its work repo is a deliverable, which is exactly why
- * `deleteGroup` refuses to remove a group that has one — and `teamMissing` tells
- * the teacher their students have lost push, because the repo grant lived on that
- * team. Recreating it is the `group-teams` reconciler's job, and their decision.
+ * A team deleted on GitHub is therefore no longer visible from here, and that is
+ * deliberate: detecting it required the very call this removes. The `group-teams`
+ * reconciler is the one place that observes a vanished team, and the teacher's
+ * decision is the one place it is acted on.
  */
 export async function groupsWithRosters(access: ClassAccess, rows: Group[]) {
-  const rosters = await Promise.all(
-    rows.map((row) => access.team.roster(row.ghTeamSlug)),
+  const rosters = await cachedRosters(
+    access.db,
+    rows.map((r) => r.id),
   );
-  return rows.map((row, i) => {
-    const members = rosters[i] ?? null;
-    return {
-      id: row.id,
-      name: row.name,
-      slug: row.ghTeamSlug,
-      members: members ?? [],
-      teamMissing: members === null,
-      repoFullName: row.ghRepoFullName,
-    };
-  });
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    slug: row.ghTeamSlug,
+    members: rosters.get(row.id) ?? [],
+    repoFullName: row.ghRepoFullName,
+  }));
 }

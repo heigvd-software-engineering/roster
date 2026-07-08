@@ -13,6 +13,11 @@ import {
 import type { AuthedEnv } from "../lib/auth/require-auth";
 import { orgRepoActivity } from "../lib/github/repo";
 import {
+  cachedRoster,
+  cachedRosters,
+  replaceGroupMembers,
+} from "../lib/group-members";
+import {
   createGroupInLab,
   createWorkRepo,
   groupsWithRosters,
@@ -124,17 +129,19 @@ export const listReusableGroups = authedFactory.createHandlers(async (c) => {
     .innerJoin(labs, eq(groups.labId, labs.id))
     .where(and(eq(labs.classId, access.cls.id), ne(groups.labId, lab.id)))
     .orderBy(desc(groups.createdAt));
-  const rosters = await Promise.all(
-    rows.map((r) => access.team.roster(r.group.ghTeamSlug)),
+  // Cached rosters: ONE query, where this was one GitHub call per other-lab group.
+  const rosters = await cachedRosters(
+    access.db,
+    rows.map((r) => r.group.id),
   );
   const mine = rows
-    .map((r, i) => ({ r, members: rosters[i] }))
-    .filter(({ members }) => members?.some((m) => m.login === access.login))
+    .map((r) => ({ r, members: rosters.get(r.group.id) ?? [] }))
+    .filter(({ members }) => members.some((m) => m.login === access.login))
     .map(({ r, members }) => ({
       id: r.group.id,
       name: r.group.name,
       labTitle: r.labTitle,
-      members: members ?? [],
+      members,
     }));
   return c.json({ groups: mine });
 });
@@ -142,7 +149,7 @@ export const listReusableGroups = authedFactory.createHandlers(async (c) => {
 /**
  * Create a group IN this lab (any active member). A creating STUDENT
  * auto-joins; a teacher stays out. `copyFromGroupId` seeds the roster from
- * another group's live members — members already placed in a group OF THIS
+ * another group's members — members already placed in a group OF THIS
  * lab are skipped (the one-group-per-lab invariant).
  */
 export const createLabGroup = authedFactory.createHandlers(
@@ -158,18 +165,18 @@ export const createLabGroup = authedFactory.createHandlers(
     if (copyFromGroupId) {
       const source = await groupInClass(access, copyFromGroupId);
       if (!source) return c.json({ error: "not_found" }, 404);
-      const sourceMembers = await access.team.roster(source.ghTeamSlug);
-      if (sourceMembers === null) return c.json({ error: "not_found" }, 404);
+      const sourceMembers = await cachedRoster(access.db, source.id);
       // Skip anyone already in a group of THIS lab (invariant).
       const labGroups = await access.db
-        .select()
+        .select({ id: groups.id })
         .from(groups)
         .where(eq(groups.labId, lab.id));
-      const rosters = await Promise.all(
-        labGroups.map((g) => access.team.roster(g.ghTeamSlug)),
+      const rosters = await cachedRosters(
+        access.db,
+        labGroups.map((g) => g.id),
       );
       const placed = new Set(
-        rosters.flatMap((r) => r?.map((m) => m.login) ?? []),
+        [...rosters.values()].flatMap((r) => r.map((m) => m.login)),
       );
       copyFromLogins = sourceMembers
         .map((m) => m.login)
@@ -211,6 +218,8 @@ export const createLabRepo = authedFactory.createHandlers(async (c) => {
     return c.json({ repo: { fullName: group.ghRepoFullName } });
   }
 
+  // LIVE roster, not the cache: this authorizes (only a member or the teacher
+  // may create the group's repo) and gates an irreversible create.
   const members = await access.team.roster(group.ghTeamSlug);
   if (members === null) return c.json({ error: "not_found" }, 404);
   if (!access.admin && !members.some((m) => m.login === access.login)) {
@@ -219,6 +228,9 @@ export const createLabRepo = authedFactory.createHandlers(async (c) => {
   if (members.length < labMin(lab)) {
     return c.json({ error: "group_incomplete" }, 409);
   }
+  // We hold the live roster; mirror it. Free, and it keeps the cache honest on a
+  // path a student reaches without ever touching the membership endpoints.
+  await replaceGroupMembers(access.db, group.id, members);
 
   const repo = await createWorkRepo(c.env, access, lab, group);
   if (typeof repo === "string") return repoFailure(c, repo);
@@ -251,6 +263,7 @@ export const createMissingLabRepos = authedFactory.createHandlers(async (c) => {
     reason: "group_gone" | "group_incomplete" | "repo_name_taken";
   }[] = [];
   for (const group of missing) {
+    // LIVE roster: "is the group complete" gates an irreversible repo create.
     const members = await access.team.roster(group.ghTeamSlug);
     if (members === null) {
       skipped.push({ groupId: group.id, reason: "group_gone" });
@@ -260,6 +273,7 @@ export const createMissingLabRepos = authedFactory.createHandlers(async (c) => {
       skipped.push({ groupId: group.id, reason: "group_incomplete" });
       continue;
     }
+    await replaceGroupMembers(access.db, group.id, members);
     const repo = await createWorkRepo(c.env, access, lab, group);
     if (repo === "name_taken") {
       skipped.push({ groupId: group.id, reason: "repo_name_taken" });
@@ -311,10 +325,15 @@ export const acceptIndividualLab = authedFactory.createHandlers(async (c) => {
     .from(groups)
     .where(and(eq(groups.labId, lab.id), eq(groups.name, access.login)));
   if (existing) {
+    // LIVE roster: this decides whether the solo team is really the caller's.
     const members = await access.team.roster(existing.ghTeamSlug);
     if (members?.length !== 1 || members[0]?.login !== access.login) {
       return c.json({ error: "solo_name_taken" }, 409);
     }
+    // Mirror it. Without this an accept on an ALREADY-EXISTING solo group answers
+    // 200 while `group_members` stays empty — and the student's own page, which
+    // finds their group by looking for themselves in its roster, shows nothing.
+    await replaceGroupMembers(access.db, existing.id, members);
     return finish(existing);
   }
 

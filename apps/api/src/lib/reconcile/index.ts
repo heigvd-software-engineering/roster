@@ -2,6 +2,7 @@
 // `{ name, audit, apply }`) and one line below — never a change to this file's
 // two functions.
 import { basePermissionReconciler } from "./base-permission";
+import { groupMembersReconciler } from "./group-members";
 import { groupTeams } from "./group-teams";
 import { identity } from "./identity";
 import { installation } from "./installation";
@@ -24,6 +25,9 @@ export const RECONCILERS: readonly Reconciler[] = [
   identity,
   roster,
   groupTeams,
+  // After `groupTeams`: a group whose team is gone has no roster to reconcile,
+  // and the teacher should see the team finding first.
+  groupMembersReconciler,
   workRepos,
   basePermissionReconciler,
 ];

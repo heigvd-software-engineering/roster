@@ -1,5 +1,13 @@
 import { env } from "cloudflare:test";
-import { account, classes, getDb, groups, labs, user } from "@labs/db";
+import {
+  account,
+  classes,
+  getDb,
+  groupMembers,
+  groups,
+  labs,
+  user,
+} from "@labs/db";
 import { Hono } from "hono";
 import { beforeEach, expect, test, vi } from "vitest";
 
@@ -91,7 +99,13 @@ async function seedLab(id: string) {
   });
 }
 
-async function seedGroup(args: { id: string; labId: string; repo?: boolean }) {
+/** The row, the GitHub team roster, and the `group_members` mirror. */
+async function seedGroup(args: {
+  id: string;
+  labId: string;
+  repo?: boolean;
+  members?: { id: number; login: string; avatarUrl: string | null }[];
+}) {
   await db.insert(groups).values({
     id: args.id,
     labId: args.labId,
@@ -105,6 +119,21 @@ async function seedGroup(args: { id: string; labId: string; repo?: boolean }) {
     createdAt: now,
     updatedAt: now,
   });
+  const people = args.members ?? [];
+  state.rosters[`${args.id}-slug`] = people;
+  if (people.length > 0) {
+    await db.insert(groupMembers).values(
+      people.map((p) => ({
+        id: `${args.id}-${p.id}`,
+        groupId: args.id,
+        githubId: String(p.id),
+        login: p.login,
+        avatarUrl: p.avatarUrl,
+        createdAt: now,
+        updatedAt: now,
+      })),
+    );
+  }
 }
 
 beforeEach(async () => {
@@ -120,6 +149,7 @@ beforeEach(async () => {
   state.rosters = {};
   state.calls = [];
 
+  await db.delete(groupMembers);
   await db.delete(groups);
   await db.delete(labs);
   await db.delete(classes);
@@ -200,11 +230,9 @@ test("leave removes the CALLER from the team", async () => {
 
 test("join is refused when it would double-book the SAME lab", async () => {
   await seedLab("l1");
-  await seedGroup({ id: "g1", labId: "l1" });
-  await seedGroup({ id: "g2", labId: "l1" });
   // alice already in g1 (same lab l1) → joining g2 double-books l1.
-  state.rosters["g1-slug"] = [alice];
-  state.rosters["g2-slug"] = [];
+  await seedGroup({ id: "g1", labId: "l1", members: [alice] });
+  await seedGroup({ id: "g2", labId: "l1", members: [] });
 
   const res = await join("g2");
   expect(res.status).toBe(409);
@@ -231,10 +259,8 @@ test("joining a group in ANOTHER lab stays allowed (cross-lab is free)", async (
 test("a teacher's add-member is refused for the same within-lab double-book", async () => {
   state.membership = { state: "active", role: "admin" };
   await seedLab("l1");
-  await seedGroup({ id: "g1", labId: "l1" });
-  await seedGroup({ id: "g2", labId: "l1" });
-  state.rosters["g1-slug"] = [bob];
-  state.rosters["g2-slug"] = [];
+  await seedGroup({ id: "g1", labId: "l1", members: [bob] });
+  await seedGroup({ id: "g2", labId: "l1", members: [] });
 
   const res = await app.request(
     "/api/classes/c1/groups/g2/members/bob",
