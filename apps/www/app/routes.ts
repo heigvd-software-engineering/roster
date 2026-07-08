@@ -7,5 +7,6 @@ export default [
   route("classes/:classId/labs/:labId/manage", "routes/lab-manage.tsx"),
   route("onboarding/github", "routes/onboarding.tsx"),
   route("classes/:id/confirm", "routes/class-confirm.tsx"),
+  route("classes/:id/reconcile", "routes/reconcile.tsx"),
   route("join/:token", "routes/join.tsx"),
 ] satisfies RouteConfig;

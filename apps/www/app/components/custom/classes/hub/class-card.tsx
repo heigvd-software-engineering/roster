@@ -1,5 +1,6 @@
-import { Check, Link2 } from "lucide-react";
+import { Check, Link2, MoreHorizontal } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router";
 import { PeopleChip } from "~/components/custom/classes/hub/people-chip";
 import { LabDialog } from "~/components/custom/classes/labs/lab-dialog";
 import { LabRow, LabsHeader } from "~/components/custom/classes/labs/lab-row";
@@ -9,6 +10,12 @@ import { Row } from "~/components/custom/layout/row";
 import { Text } from "~/components/custom/typography/text";
 import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "~/components/ui/dropdown-menu";
 import type { ClassItem } from "~/lib/api";
 import { cn } from "~/lib/utils";
 
@@ -111,6 +118,29 @@ export function ClassCard({
               <Link2 className="size-4 text-muted-foreground" />
             )}
           </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  type="button"
+                  aria-label="More class actions"
+                  title="More actions for this class"
+                />
+              }
+            >
+              <MoreHorizontal className="size-4 text-muted-foreground" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {/* An ellipsis: it navigates to the audit, it does not repair. */}
+              <DropdownMenuItem
+                render={<Link to={`/classes/${id}/reconcile`} />}
+              >
+                Reconcile…
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <RoleChip kind="teaching" />
         </Row>
       </Row>
