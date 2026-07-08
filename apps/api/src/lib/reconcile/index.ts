@@ -11,7 +11,12 @@ import type {
   Reconciler,
 } from "./types";
 
-export const RECONCILERS: Reconciler[] = [identity];
+export const RECONCILERS: readonly Reconciler[] = [identity];
+
+/** One spelling of a failure, so an audit finding and a failed apply read the
+ *  same. `err.message` only — a stack or a request URL is not for a teacher. */
+const reason = (err: unknown) =>
+  err instanceof Error ? err.message : String(err);
 
 function unavailable(r: Reconciler, err: unknown): Finding {
   return {
@@ -19,7 +24,7 @@ function unavailable(r: Reconciler, err: unknown): Finding {
     reconciler: r.name,
     severity: "info",
     title: `${r.name} could not be checked`,
-    detail: err instanceof Error ? err.message : String(err),
+    detail: reason(err),
     fix: null,
     destructive: false,
   };
@@ -33,10 +38,21 @@ function unavailable(r: Reconciler, err: unknown): Finding {
  */
 export async function runAudit(
   ctx: ClassContext,
-  reconcilers: Reconciler[] = RECONCILERS,
+  reconcilers: readonly Reconciler[] = RECONCILERS,
 ): Promise<Finding[]> {
   const results = await Promise.all(
-    reconcilers.map((r) => r.audit(ctx).catch((err) => [unavailable(r, err)])),
+    // try/catch around the CALL, not `.catch()` on its result: a reconciler
+    // declared without `async` that throws outright never returns a promise to
+    // attach a handler to, and would reject runAudit — breaking the one
+    // invariant this function exists to hold. `never` is assignable to
+    // Promise<Finding[]>, so the compiler will not stop the next author.
+    reconcilers.map(async (r) => {
+      try {
+        return await r.audit(ctx);
+      } catch (err) {
+        return [unavailable(r, err)];
+      }
+    }),
   );
   return results.flat();
 }
@@ -52,7 +68,7 @@ export async function runAudit(
 export async function applyFindings(
   ctx: ClassContext,
   keys: FindingKey[],
-  reconcilers: Reconciler[] = RECONCILERS,
+  reconcilers: readonly Reconciler[] = RECONCILERS,
 ): Promise<(AppliedOp | FailedOp)[]> {
   const byName = new Map(reconcilers.map((r) => [r.name, r] as const));
   // Grouped by the reconciler object itself (not its name): the map's value
@@ -70,13 +86,16 @@ export async function applyFindings(
     grouped.set(reconciler, [...(grouped.get(reconciler) ?? []), key]);
   }
   const applied = await Promise.all(
-    [...grouped].map(([reconciler, ks]) =>
-      reconciler
-        .apply(ctx, ks)
-        .catch((err): FailedOp[] =>
-          ks.map((key) => ({ key, ok: false, error: String(err) })),
-        ),
-    ),
+    // Same reason as runAudit: catch the CALL, not the promise it may never
+    // return. One reconciler blowing up must not lose the other's results.
+    [...grouped].map(async (entry): Promise<(AppliedOp | FailedOp)[]> => {
+      const [reconciler, ks] = entry;
+      try {
+        return await reconciler.apply(ctx, ks);
+      } catch (err) {
+        return ks.map((key) => ({ key, ok: false, error: reason(err) }));
+      }
+    }),
   );
   return [...unknown, ...applied.flat()];
 }
