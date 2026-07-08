@@ -43,7 +43,9 @@ export function useLabGroups(classId: string, lab: LabItem) {
       case "group_incomplete":
         return "The group hasn't reached this lab's minimum size yet.";
       case "repo_name_taken":
-        return "A repository with that name already exists in the organization — ask your teacher.";
+        // An existing repo is normally ADOPTED — this only fires when labs
+        // can't read it back, which is an access problem, not a naming one.
+        return "A repository with that name exists in the organization but labs can't access it — ask your teacher.";
       case "template_error":
         return "The lab's starter-code template can't be used — it's likely empty or unavailable. Ask your teacher to add a file to it (or remove the template).";
       case "app_permissions":

@@ -6,6 +6,7 @@ import {
   type CreatedRepo,
   createOrgRepo,
   generateFromTemplate,
+  getOrgRepo,
   grantTeamRepo,
 } from "./github/repo";
 import { addTeamMember, createTeam } from "./github/team";
@@ -121,16 +122,70 @@ export async function alreadyInLabGroup(
 }
 
 /**
- * Create the group's WORK REPO: named by the group's lab-scoped `slug`
- * (already unique — no lab prefix to re-add), private, from the lab's
- * template when set (else empty auto-init), team granted push, recorded on
- * the group row. Failure sentinels: "name_taken" (repo name already in the
- * org), "template_error" (the /generate call refused — usually the template
- * repo is EMPTY or gone; the name 422 and this one are BOTH 422 but mean
- * opposite things, so we read the message), "app_permissions" (App lacks
- * Repository write).
+ * Why a work repo couldn't be created. "name_taken" = the repo exists but we
+ * can't read it back; "template_error" = the /generate call refused (the
+ * template repo is EMPTY or gone) and is ONLY ever returned when the lab has a
+ * template; "app_permissions" = the App lacks Repository write.
  */
 export type RepoFailure = "name_taken" | "template_error" | "app_permissions";
+
+/** Everything GitHub said about a failure. A 422 body carries a GENERIC
+ *  summary ("Repository creation failed.") plus the actual reason in
+ *  `errors[]` ("name already exists on this account") — so reading `message`
+ *  alone tells you nothing. Octokit flattens both into `err.message`; we join
+ *  every source rather than depend on which. */
+function githubErrorText(err: unknown): string {
+  const e = err as {
+    message?: string;
+    response?: { data?: { message?: string; errors?: { message?: string }[] } };
+  };
+  const data = e.response?.data;
+  return [
+    e.message ?? "",
+    data?.message ?? "",
+    ...(data?.errors ?? []).map((x) => x.message ?? ""),
+  ].join(" ");
+}
+
+/** GitHub repo names are case-insensitive; `null` never matches anything. */
+export function isSameRepo(a: string | null, b: string | null): boolean {
+  return a !== null && b !== null && a.toLowerCase() === b.toLowerCase();
+}
+
+/**
+ * Turn a GitHub repo-creation error into one of our sentinels, or `null` when
+ * we don't recognize it (the caller rethrows — a 500 with the real error beats
+ * a friendly lie). `usedTemplate` matters: a lab with no template calls
+ * `POST /orgs/{org}/repos`, where a template error is impossible by
+ * construction, so we must never blame one.
+ */
+export function classifyRepoFailure(
+  err: unknown,
+  usedTemplate: boolean,
+): RepoFailure | null {
+  const status = (err as { status?: number }).status;
+  // "Resource not accessible by integration": the App installation lacks
+  // Repository Administration/Contents write — an admin problem, surface it.
+  if (status === 403) return "app_permissions";
+  if (status !== 422) return null;
+  if (/already exists/i.test(githubErrorText(err))) return "name_taken";
+  return usedTemplate ? "template_error" : null;
+}
+
+/**
+ * Create the group's WORK REPO: named by the group's lab-scoped `slug`
+ * (already unique — no lab prefix to re-add), private, from the lab's template
+ * when set (else empty auto-init), team granted push, recorded on the group row.
+ *
+ * FIND-or-create: if the repo already exists in the org we adopt it. The only
+ * way that happens is an earlier attempt that created the repo and then failed
+ * to record it — and without adoption that group could never accept the lab
+ * again. The remaining steps (grant, row write) are idempotent, so adoption
+ * re-runs them safely. The lab's own template is never adopted.
+ *
+ * Returns a `RepoFailure` for the three conditions we can explain; anything
+ * else is rethrown.
+ */
 export async function createWorkRepo(
   env: AuthEnv,
   scope: { db: Db; cls: Class; org: string },
@@ -150,22 +205,33 @@ export async function createWorkRepo(
         )
       : await createOrgRepo(env, scope.cls.installationId, scope.org, name);
   } catch (err) {
-    const e = err as {
-      status?: number;
-      response?: { data?: { message?: string } };
-      message?: string;
-    };
-    if (e.status === 422) {
-      // A 422 means either the name is taken OR the template can't be used
-      // (empty/gone). Only the message tells them apart.
-      const msg = e.response?.data?.message ?? e.message ?? "";
-      return /already exists/i.test(msg) ? "name_taken" : "template_error";
+    const failure = classifyRepoFailure(err, Boolean(lab.templateRepoFullName));
+    if (failure !== "name_taken") {
+      if (failure) return failure;
+      throw err; // unrecognized — don't invent a reason for it
     }
-    // "Resource not accessible by integration": the App installation lacks
-    // Repository Administration/Contents write — an admin problem, surface
-    // it instead of 500ing.
-    if (e.status === 403) return "app_permissions";
-    throw err;
+    // NEVER adopt the lab's own template. Adoption ends in grantTeamRepo, so a
+    // group whose slug collides with the template's name (same org) would hand
+    // the students PUSH on the starter code.
+    if (isSameRepo(lab.templateRepoFullName, `${scope.org}/${name}`)) {
+      return "name_taken";
+    }
+    // The repo is already there. That means an earlier attempt created it and
+    // died before recording it (the grant or the row write failed), leaving the
+    // group permanently unable to accept the lab. The slug is lab-scoped and
+    // unique, so this repo IS this group's — adopt it and fall through to the
+    // grant + row write, which are both idempotent.
+    try {
+      repo = await getOrgRepo(env, scope.cls.installationId, scope.org, name);
+    } catch (readErr) {
+      const status = (readErr as { status?: number }).status;
+      // 404/403: it exists but we can't see it (App not installed on it, or the
+      // name belongs to someone else). Now the sentinel is honest. Anything
+      // else — a 500, a network fault — is NOT a naming problem: rethrow it
+      // rather than blame the student's repo name.
+      if (status === 404 || status === 403) return "name_taken";
+      throw readErr;
+    }
   }
   await grantTeamRepo(
     env,

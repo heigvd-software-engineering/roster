@@ -19,6 +19,9 @@ const state = vi.hoisted(() => ({
     string,
     { pushedAt: string | null; createdAt: string | null }
   >,
+  // Repo names ALREADY in the org — creating them 422s. `visible` says whether
+  // the App installation can then read the repo back (adoption) or not.
+  orgRepos: {} as Record<string, { visible: boolean }>,
 }));
 
 vi.mock("../src/lib/auth/config", () => ({
@@ -41,23 +44,60 @@ vi.mock("../src/lib/github/org", () => ({
 }));
 
 const repoSeq = vi.hoisted(() => ({ next: 9000 }));
-vi.mock("../src/lib/github/repo", () => ({
-  createOrgRepo: async (
-    _env: unknown,
-    _inst: number,
-    org: string,
-    name: string,
-  ) => ({ id: repoSeq.next++, fullName: `${org}/${name}` }),
-  generateFromTemplate: async (
-    _env: unknown,
-    _inst: number,
-    _template: string,
-    org: string,
-    name: string,
-  ) => ({ id: repoSeq.next++, fullName: `${org}/${name}` }),
-  grantTeamRepo: async () => {},
-  orgRepoActivity: async () => new Map(Object.entries(state.activity)),
-}));
+vi.mock("../src/lib/github/repo", () => {
+  /** The REAL 422 GitHub sends when an org repo name is taken: the reason is
+   *  in `errors[]`, NOT in the top-level `message`. */
+  const nameTaken = () =>
+    Object.assign(
+      new Error(
+        'Repository creation failed.: {"field":"name","message":"name already exists on this account"}',
+      ),
+      {
+        status: 422,
+        response: {
+          data: {
+            message: "Repository creation failed.",
+            errors: [
+              { field: "name", message: "name already exists on this account" },
+            ],
+          },
+        },
+      },
+    );
+  const create = async (org: string, name: string) => {
+    if (state.orgRepos[name]) throw nameTaken();
+    return { id: repoSeq.next++, fullName: `${org}/${name}` };
+  };
+  return {
+    createOrgRepo: async (
+      _env: unknown,
+      _inst: number,
+      org: string,
+      name: string,
+    ) => create(org, name),
+    generateFromTemplate: async (
+      _env: unknown,
+      _inst: number,
+      _template: string,
+      org: string,
+      name: string,
+    ) => create(org, name),
+    getOrgRepo: async (
+      _env: unknown,
+      _inst: number,
+      org: string,
+      name: string,
+    ) => {
+      const existing = state.orgRepos[name];
+      if (!existing?.visible) {
+        throw Object.assign(new Error("Not Found"), { status: 404 });
+      }
+      return { id: repoSeq.next++, fullName: `${org}/${name}` };
+    },
+    grantTeamRepo: async () => {},
+    orgRepoActivity: async () => new Map(Object.entries(state.activity)),
+  };
+});
 
 vi.mock("../src/lib/github/team", () => ({
   teamMembers: async (
@@ -112,6 +152,7 @@ async function seedLab(args?: {
   groupMode?: "individual" | "group";
   minMembers?: number | null;
   maxMembers?: number | null;
+  templateRepoFullName?: string;
 }) {
   const id = args?.id ?? "l1";
   await db.insert(labs).values({
@@ -122,6 +163,7 @@ async function seedLab(args?: {
     groupMode: args?.groupMode ?? "group",
     minMembers: args?.minMembers ?? 1,
     maxMembers: args?.maxMembers ?? 3,
+    templateRepoFullName: args?.templateRepoFullName ?? null,
     createdByUserId: "u1",
     createdAt: now,
     updatedAt: now,
@@ -176,6 +218,7 @@ beforeEach(async () => {
   state.membership = { state: "active", role: "member" };
   state.rosters = {};
   state.activity = {};
+  state.orgRepos = {};
 
   await db.delete(groups);
   await db.delete(labs);
@@ -387,6 +430,65 @@ test("accept creates the solo group + repo and reuses on replay", async () => {
   const again = await accept("l2");
   expect((await asRepo(again)).repo.fullName).toBe("acme/lab-l2-alice");
   expect(await db.select().from(groups)).toHaveLength(1);
+});
+
+test("accept adopts a repo that exists on GitHub but was never recorded", async () => {
+  // An earlier attempt created the repo and died before writing the row —
+  // exactly the state that left lab ccc4262b unacceptable. The lab has NO
+  // template, so the old code answered "template_error" here.
+  await seedLab({
+    id: "l2",
+    groupMode: "individual",
+    minMembers: null,
+    maxMembers: null,
+  });
+  state.orgRepos["lab-l2-alice"] = { visible: true };
+
+  const res = await accept("l2");
+
+  expect(res.status).toBe(200);
+  expect((await asRepo(res)).repo.fullName).toBe("acme/lab-l2-alice");
+  expect(await db.select().from(groups)).toMatchObject([
+    { labId: "l2", ghRepoFullName: "acme/lab-l2-alice" },
+  ]);
+});
+
+test("accept reports a name collision it cannot read, and never blames a template the lab lacks", async () => {
+  await seedLab({
+    id: "l2",
+    groupMode: "individual",
+    minMembers: null,
+    maxMembers: null,
+  });
+  // The name is taken by a repo the App can't see — adoption is impossible.
+  state.orgRepos["lab-l2-alice"] = { visible: false };
+
+  const res = await accept("l2");
+
+  expect(res.status).toBe(409);
+  expect(await res.json()).toEqual({ error: "repo_name_taken" });
+});
+
+test("accept never adopts the lab's own template repo", async () => {
+  // A slug that collides with the template's name, template in the same org.
+  // Adopting it would grant the student team PUSH on the starter code.
+  await seedLab({
+    id: "l2",
+    groupMode: "individual",
+    minMembers: null,
+    maxMembers: null,
+    templateRepoFullName: "acme/lab-l2-alice",
+  });
+  state.orgRepos["lab-l2-alice"] = { visible: true };
+
+  const res = await accept("l2");
+
+  expect(res.status).toBe(409);
+  expect(await res.json()).toEqual({ error: "repo_name_taken" });
+  // Nothing was recorded, and no grant was made against the template.
+  expect(await db.select().from(groups)).toMatchObject([
+    { labId: "l2", ghRepoFullName: null },
+  ]);
 });
 
 test("accept refuses group labs", async () => {

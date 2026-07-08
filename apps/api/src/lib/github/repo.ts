@@ -25,6 +25,23 @@ export async function createOrgRepo(
   return { id: data.id, fullName: data.full_name };
 }
 
+/** Read a repo the org already owns. Used to ADOPT a work repo whose creation
+ *  succeeded but never got recorded (see `createWorkRepo`). Throws 404 when the
+ *  App installation can't see it. */
+export async function getOrgRepo(
+  env: AuthEnv,
+  installationId: number,
+  org: string,
+  name: string,
+): Promise<CreatedRepo> {
+  const gh = await installationOctokit(env, installationId);
+  const { data } = await gh.request("GET /repos/{owner}/{repo}", {
+    owner: org,
+    repo: name,
+  });
+  return { id: data.id, fullName: data.full_name };
+}
+
 /** Create a private repo from a TEMPLATE repo (starter code). */
 export async function generateFromTemplate(
   env: AuthEnv,
