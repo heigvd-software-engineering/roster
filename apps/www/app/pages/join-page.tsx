@@ -1,7 +1,7 @@
 import { ArrowRightIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
-import { Link, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 import { OrgIdentity } from "~/components/custom/identity/org-identity";
 import { UserIdentity } from "~/components/custom/identity/user-identity";
 import { Row } from "~/components/custom/layout/row";
@@ -50,6 +50,7 @@ function asMembership(value: unknown): Membership | null {
  */
 export function JoinPage() {
   const { token = "" } = useParams();
+  const navigate = useNavigate();
   const { github } = useAuth();
   const [state, setState] = useState<JoinState>({ kind: "loading" });
   const [submitting, setSubmitting] = useState(false);
@@ -90,6 +91,28 @@ export function JoinPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  /** The preview is a pure read, so accepting the GitHub invite records nothing
+   *  by itself. This is the student saying "I've accepted" — an explicit action,
+   *  not an effect on page load, so a failure is visible and retryable. */
+  async function finishJoining(then?: () => void) {
+    setSubmitting(true);
+    try {
+      const res = await api.api.join[":token"].confirm.$post({
+        param: { token },
+      });
+      if (!res.ok) {
+        if (res.status === 409) setState({ kind: "needs_reconcile" });
+        else setState({ kind: "error" });
+        return;
+      }
+      then ? then() : await load();
+    } catch {
+      setState({ kind: "error" });
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   async function join(cls: ClassIdentity) {
     setSubmitting(true);
@@ -249,10 +272,11 @@ export function JoinPage() {
             <Button
               size="lg"
               variant="outline"
-              title="Re-check whether your invitation is accepted"
-              onClick={() => void load()}
+              disabled={submitting}
+              title="Record that you've accepted the invitation on GitHub"
+              onClick={() => void finishJoining()}
             >
-              Check my enrollment
+              {submitting ? "Checking…" : "I've accepted — finish joining"}
             </Button>
           </Row>
         </>
@@ -277,10 +301,11 @@ export function JoinPage() {
           </Text>
           <Button
             size="lg"
-            title="Open your class list"
-            render={<Link to="/classes" />}
+            disabled={submitting}
+            title="Record your enrolment and open your class list"
+            onClick={() => void finishJoining(() => navigate("/classes"))}
           >
-            Go to your classes
+            {submitting ? "Finishing…" : "Go to your classes"}
           </Button>
         </>
       )}

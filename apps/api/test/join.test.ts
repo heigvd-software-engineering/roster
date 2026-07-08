@@ -216,22 +216,34 @@ test("POST: a fresh invite records a pending enrollment", async () => {
   ]);
 });
 
-test("GET: an active membership is cached; org identity lands on the class row", async () => {
+test("GET: the preview writes nothing", async () => {
+  // A GET returns what it sees. Recording the acceptance is POST /confirm's job,
+  // and the org identity cache belongs to the `identity` reconciler.
   state.membership = { state: "active", role: "member" };
+
   await app.request("/api/join/tok123", {}, env);
-  const rows = await db.select().from(classMembers);
-  expect(rows).toMatchObject([
-    { classId: "c1", githubId: "7", state: "active" },
-  ]);
+
+  expect(await db.select().from(classMembers)).toEqual([]);
   const [cls] = await db.select().from(classes).where(eq(classes.id, "c1"));
-  expect(cls).toMatchObject({
-    login: "acme",
-    name: "Acme",
-    avatarUrl: "http://a",
-  });
+  expect(cls).toMatchObject({ login: null, name: null });
 });
 
-test("GET: observed non-membership drops the stale row (lazy repair)", async () => {
+test("POST /confirm: records an active membership", async () => {
+  state.membership = { state: "active", role: "member" };
+
+  const res = await app.request(
+    "/api/join/tok123/confirm",
+    { method: "POST" },
+    env,
+  );
+
+  expect(res.status).toBe(200);
+  expect(await db.select().from(classMembers)).toMatchObject([
+    { classId: "c1", githubId: "7", state: "active" },
+  ]);
+});
+
+test("POST /confirm: observed non-membership drops the stale row (lazy repair)", async () => {
   const now = new Date(0);
   await db.insert(classMembers).values({
     id: "m1",
@@ -242,13 +254,17 @@ test("GET: observed non-membership drops the stale row (lazy repair)", async () 
     updatedAt: now,
   });
   state.membership = null;
-  await app.request("/api/join/tok123", {}, env);
+
+  await app.request("/api/join/tok123/confirm", { method: "POST" }, env);
+
   expect(await db.select().from(classMembers)).toEqual([]);
 });
 
-test("GET: an org owner is cached as a TEACHER, never as an enrollee", async () => {
+test("POST /confirm: an org owner is cached as a TEACHER, never as an enrollee", async () => {
   state.membership = { state: "active", role: "admin" };
-  await app.request("/api/join/tok123", {}, env);
+
+  await app.request("/api/join/tok123/confirm", { method: "POST" }, env);
+
   expect(await db.select().from(classMembers)).toMatchObject([
     { classId: "c1", githubId: "7", state: "teacher", login: "alice" },
   ]);

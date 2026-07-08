@@ -116,7 +116,10 @@ async function observeMembership(
   }
 }
 
-/** Class preview + the caller's live membership state for a join link. */
+/** Class preview + the caller's live membership state for a join link. A GET
+ *  returns what it sees: this writes NOTHING. The student's page POSTs
+ *  /join/:token/confirm to record what the preview observed, and the `identity`
+ *  reconciler owns the org identity cache. */
 export const previewJoin = authedFactory.createHandlers(async (c) => {
   const token = c.req.param("token");
   if (!token) return c.json({ error: "invalid_link" }, 404);
@@ -131,26 +134,6 @@ export const previewJoin = authedFactory.createHandlers(async (c) => {
     login,
     username,
   );
-
-  const db = getDb(c.env.DB);
-  await observeMembership(db, cls, r.ctx, membership);
-  // Keep the org identity cache fresh — the student class list reads it
-  // with zero GitHub calls (data-model spec §2).
-  if (
-    org.login !== cls.login ||
-    org.name !== cls.name ||
-    org.avatarUrl !== cls.avatarUrl
-  ) {
-    await db
-      .update(classes)
-      .set({
-        login: org.login,
-        name: org.name,
-        avatarUrl: org.avatarUrl,
-        updatedAt: new Date(),
-      })
-      .where(eq(classes.id, cls.id));
-  }
 
   // `role` lets the UI tell an org owner (teacher on their own link) apart
   // from an enrolled student — "active" alone reads as "enrolled".
@@ -197,4 +180,33 @@ export const requestJoin = authedFactory.createHandlers(async (c) => {
   );
   // A fresh invite is always role "member" (the PUT above requests it).
   return c.json({ membership, role: "member" });
+});
+
+/**
+ * Records what the preview observed. `previewJoin` is a GET and writes nothing;
+ * once it reports the caller is already a member, the page POSTs here.
+ *
+ * Re-reads live membership rather than trusting the client, and reuses
+ * `observeMembership` — so the `teacher` branch and `forgetMember` (a member
+ * GitHub no longer knows) come along for free.
+ */
+export const confirmJoin = authedFactory.createHandlers(async (c) => {
+  const token = c.req.param("token");
+  if (!token) return c.json({ error: "invalid_link" }, 404);
+  const r = await resolveJoin(c.env, c.get("user").id, token);
+  if (!r.ok) return c.json({ error: r.error }, r.status);
+  const { cls, login, username } = r.ctx;
+
+  const membership = await orgMembership(
+    c.env,
+    cls.installationId,
+    login,
+    username,
+  );
+  await observeMembership(getDb(c.env.DB), cls, r.ctx, membership);
+
+  return c.json({
+    membership: membership?.state ?? null,
+    role: membership?.role ?? null,
+  });
 });
