@@ -46,18 +46,26 @@ pnpm install
 # one-time / after schema changes: apply migrations to the local D1
 pnpm --filter @labs/api exec wrangler d1 migrations apply labs --local
 
-# run the app (build the SPA first — the Worker serves apps/www/build/client)
-pnpm --filter @labs/www build
-pnpm --filter @labs/api dev        # → https://localhost:3000
+# run the app (two terminals)
+pnpm --filter @labs/api dev        # Worker (API) on :8788
+pnpm --filter @labs/www dev        # SPA with HMR → https://localhost:3000
 ```
 
-The Worker origin `https://localhost:3000` is the ONLY origin where sign-in
-works (SWITCH redirect URIs and cookies are registered for it). For pure-UI
-iteration with HMR there's also `pnpm --filter @labs/www dev` (proxies `/api`
-to :3000), but auth flows must be exercised on :3000.
+`https://localhost:3000` is the ONLY origin where sign-in works (SWITCH
+redirect URIs and cookies are registered for it). In dev, Vite owns that
+origin and serves the SPA with HMR, proxying `/api` to the Worker on :8788 —
+so auth flows work live, no rebuild needed. The HTTPS cert is self-signed;
+accept the browser warning once.
 
-> Windows gotcha: the running Worker locks `apps/www/build/client` — stop it
-> (and any lingering `workerd` process) before rebuilding the SPA.
+To exercise the prod setup (Worker serving the built SPA, no proxy):
+
+```bash
+pnpm --filter @labs/www build
+pnpm --filter @labs/api preview    # → https://localhost:3000
+```
+
+> Windows gotcha: a running `preview` Worker locks `apps/www/build/client` —
+> stop it (and any lingering `workerd` process) before rebuilding the SPA.
 
 ### Checks
 
@@ -86,4 +94,4 @@ The local D1 is a plain SQLite file under
 - Design specs: [`docs/superpowers/specs/`](docs/superpowers/specs/)
 - Implementation plans & feature tracker: [`docs/superpowers/plans/`](docs/superpowers/plans/)
 - GitHub App setup & gotchas: [`GITHUB_APP_SETUP.md`](GITHUB_APP_SETUP.md)
-- Per-package rules: [`packages/db/README.md`](packages/db/README.md), [`apps/api/src/github/README.md`](apps/api/src/github/README.md)
+- Per-package rules: [`packages/db/README.md`](packages/db/README.md), [`apps/api/src/lib/github/README.md`](apps/api/src/lib/github/README.md)

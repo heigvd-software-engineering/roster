@@ -18,7 +18,7 @@ const state = vi.hoisted(() => ({
   }>,
 }));
 
-vi.mock("../src/github/clients", () => ({
+vi.mock("../src/lib/github/clients", () => ({
   appJwtOctokit: () => ({
     request: async () => ({
       data: { account: { id: 42, login: "acme", type: "Organization" } },
@@ -58,9 +58,9 @@ vi.mock("../src/github/clients", () => ({
   }),
 }));
 
-const { installationAccount, orgLogin } = await import("../src/github/app");
+const { installationAccount, orgLogin } = await import("../src/lib/github/app");
 const { inviteOrgMember, isOrgAdmin, orgMembership, orgPeople } = await import(
-  "../src/github/org"
+  "../src/lib/github/org"
 );
 
 test("installationAccount narrows the installation's org account", async () => {

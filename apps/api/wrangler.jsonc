@@ -6,7 +6,10 @@
   "compatibility_flags": ["nodejs_compat"],
   "vars": {
     "BETTER_AUTH_URL": "https://localhost:3000",
-    "EDUID_ISSUER": "https://login.eduid.ch"
+    "EDUID_ISSUER": "https://login.eduid.ch",
+    // The labs GitHub App's public slug (install URL path segment) — public
+    // config, not a secret. Delivered to the SPA via /api/me.
+    "GITHUB_APP_SLUG": "heigvdlabs"
   },
   "assets": {
     "directory": "../www/build/client",

@@ -1,17 +1,20 @@
 import { env } from "cloudflare:test";
-import { account, classes, getDb, user } from "@labs/db";
+import { account, classes, classMembers, getDb, labs, user } from "@labs/db";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { beforeEach, expect, test, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
   session: { user: { id: "u1" } } as { user: { id: string } } | null,
+  githubToken: "tok" as string | null,
   installations: [{ id: 200, account: { id: 42, login: "acme" } }] as Array<{
     id: number;
     account: { id: number; login: string };
   }>,
   org: { login: "acme", name: "Acme", avatarUrl: "http://a" },
   failInstallationIds: [] as number[],
+  membershipRole: "admin" as string,
+  profileLogin: "prof",
   people: {
     teachers: [{ id: 111, login: "prof", avatarUrl: "http://p" }],
     students: [{ id: 2, login: "student", avatarUrl: "http://s" }],
@@ -23,45 +26,56 @@ const state = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("../src/auth/config", () => ({
+vi.mock("../src/lib/auth/config", () => ({
   createAuth: () => ({
     api: { getSession: async () => state.session },
   }),
 }));
 
-vi.mock("../src/github/org", () => ({
+vi.mock("../src/lib/auth/github-token", () => ({
+  githubAccessToken: async () => state.githubToken,
+}));
+
+vi.mock("../src/lib/github/org", () => ({
   isOrgAdmin: async () => true,
-  orgInfo: async (_env: unknown, installationId: number) => {
+  orgInfo: async () => state.org,
+  orgPeople: vi.fn(async () => state.people),
+  // The hub's ONLY GitHub call per class now: one live Owner check. It carries
+  // the failure switch, because that is the fetch whose failure skips a class.
+  orgMembership: vi.fn(async (_env: unknown, installationId: number) => {
     if (state.failInstallationIds.includes(installationId)) {
       throw new Error("simulated GitHub failure");
     }
-    return state.org;
-  },
-  orgPeople: vi.fn(async () => state.people),
+    return { state: "active", role: state.membershipRole };
+  }),
 }));
 
 const userInstallationsByOrgIdMock = vi.hoisted(() =>
   vi.fn(async (_token: string) => {
     const byOrgId = new Map<
       number,
-      { installationId: number; login: string }
+      { installationId: number; login: string; avatarUrl: string }
     >();
     for (const inst of state.installations) {
       byOrgId.set(inst.account.id, {
         installationId: inst.id,
         login: inst.account.login,
+        // GET /user/installations really does carry this; the hub renders it.
+        avatarUrl: "http://a",
       });
     }
     return byOrgId;
   }),
 );
 
-vi.mock("../src/github/user", () => ({
+vi.mock("../src/lib/github/user", () => ({
   userInstallationsByOrgId: userInstallationsByOrgIdMock,
+  // One profile fetch for the whole request; orgMembership is keyed on login.
+  fetchGithubProfile: async () => ({ login: state.profileLogin }),
 }));
 
 const { classesRoutes } = await import("../src/routes/classes");
-const { orgPeople } = await import("../src/github/org");
+const { orgMembership } = await import("../src/lib/github/org");
 
 const app = new Hono().route("/api", classesRoutes);
 const db = getDb(env.DB);
@@ -74,6 +88,10 @@ async function seedClass(args?: {
   installationId?: number;
   connectedByUserId?: string;
   joinToken?: string;
+  login?: string;
+  name?: string;
+  avatarUrl?: string;
+  createdAt?: Date;
 }) {
   await db.insert(classes).values({
     id: args?.id ?? "c1",
@@ -82,16 +100,48 @@ async function seedClass(args?: {
     connectedByUserId: args?.connectedByUserId ?? "u1",
     joinToken: args?.joinToken ?? `tok-${args?.id ?? "c1"}`,
     status: "active",
-    createdAt: now,
+    login: args?.login ?? null,
+    name: args?.name ?? null,
+    avatarUrl: args?.avatarUrl ?? null,
+    createdAt: args?.createdAt ?? now,
     updatedAt: now,
   });
 }
 
+/** The hub's people chips read the `class_members` DISPLAY cache. Reconcile is
+ *  what keeps it true; the hub itself never writes it. */
+async function seedMembers(
+  classId = "c1",
+  people = state.people,
+): Promise<void> {
+  const rows = [
+    ...people.teachers.map((p) => ({ p, state: "teacher" as const })),
+    ...people.students.map((p) => ({ p, state: "active" as const })),
+    ...people.pending.map((p) => ({ p, state: "pending" as const })),
+  ];
+  if (rows.length === 0) return;
+  await db.insert(classMembers).values(
+    rows.map(({ p, state: memberState }) => ({
+      id: `cm-${classId}-${p.id}`,
+      classId,
+      githubId: String(p.id),
+      login: p.login,
+      avatarUrl: p.avatarUrl,
+      state: memberState,
+      createdAt: now,
+      updatedAt: now,
+    })),
+  );
+}
+
 beforeEach(async () => {
   state.session = { user: { id: "u1" } };
+  state.githubToken = "tok";
   state.installations = [{ id: 200, account: { id: 42, login: "acme" } }];
   state.org = { login: "acme", name: "Acme", avatarUrl: "http://a" };
   state.failInstallationIds = [];
+  state.membershipRole = "admin";
+  state.profileLogin = "prof";
   state.people = {
     teachers: [{ id: 111, login: "prof", avatarUrl: "http://p" }],
     students: [{ id: 2, login: "student", avatarUrl: "http://s" }],
@@ -99,6 +149,8 @@ beforeEach(async () => {
   };
   userInstallationsByOrgIdMock.mockClear();
 
+  await db.delete(labs);
+  await db.delete(classMembers);
   await db.delete(classes);
   await db.delete(account);
   await db.delete(user);
@@ -124,8 +176,9 @@ beforeEach(async () => {
   });
 });
 
-test("lists classes with people + linked users, reconciles stale installationId", async () => {
-  await seedClass();
+test("lists classes with people + linked users, from live installation data", async () => {
+  await seedClass({ name: "Acme" });
+  await seedMembers();
   const res = await app.request("/api/classes", {}, env);
   expect(res.status).toBe(200);
   const body = (await res.json()) as {
@@ -140,13 +193,16 @@ test("lists classes with people + linked users, reconciles stale installationId"
   expect(body.classes[0]).toMatchObject({
     id: "c1",
     orgId: 42,
+    // login + avatarUrl ride on the /user/installations payload, already fetched.
     login: "acme",
-    name: "Acme",
     avatarUrl: "http://a",
+    // `name` is NOT on that payload — it comes from the cached row.
+    name: "Acme",
     joinToken: "tok-c1",
     teachers: state.people.teachers,
     students: state.people.students,
     pending: state.people.pending,
+    labs: [],
   });
   // The linked-users query result rides along raw; only the teacher's
   // GitHub account (111) is linked to a labs user here.
@@ -162,9 +218,11 @@ test("lists classes with people + linked users, reconciles stale installationId"
     },
   });
 
-  // Reconciled: stored installationId 100 → live 200.
+  // NOT reconciled: the stored pointer stays 100 even though the live id is 200.
+  // A GET returns what it sees; repairing it is the `installation` reconciler's
+  // job, and the teacher's decision.
   const [row] = await db.select().from(classes).where(eq(classes.id, "c1"));
-  expect(row?.installationId).toBe(200);
+  expect(row?.installationId).toBe(100);
 });
 
 test("skips classes whose org is no longer in the user's installations", async () => {
@@ -172,11 +230,20 @@ test("skips classes whose org is no longer in the user's installations", async (
   state.installations = [];
   const res = await app.request("/api/classes", {}, env);
   expect(res.status).toBe(200);
-  expect(await res.json()).toEqual({ classes: [] });
+  expect(await res.json()).toEqual({
+    classes: [],
+    enrolled: [],
+    hasOlder: false,
+  });
 });
 
-test("does not touch the row when installationId is unchanged", async () => {
-  await seedClass({ installationId: 200 });
+test("does not touch the row when installationId and org cache are current", async () => {
+  await seedClass({
+    installationId: 200,
+    login: "acme",
+    name: "Acme",
+    avatarUrl: "http://a",
+  });
   const res = await app.request("/api/classes", {}, env);
   expect(res.status).toBe(200);
   const [row] = await db.select().from(classes).where(eq(classes.id, "c1"));
@@ -184,7 +251,7 @@ test("does not touch the row when installationId is unchanged", async () => {
   expect(row?.updatedAt).toEqual(now);
 });
 
-test("skips a class whose live-enrich call fails, without 500ing the rest", async () => {
+test("skips a class whose GitHub fetch fails, without 500ing the rest", async () => {
   await seedClass({ id: "c1", orgId: 42, installationId: 100 });
   await seedClass({ id: "c2", orgId: 43, installationId: 101 });
   state.installations = [
@@ -208,15 +275,19 @@ test("returns a class connected by someone else when the caller is an org owner"
 });
 
 test("skips a class when the caller has installation access but is NOT an org owner (F8 guard)", async () => {
+  // /user/installations lists installations the caller can ACCESS, not ones they
+  // own — a student with push on a work repo appears there. Only the live Owner
+  // check grants the class, and a cached `teacher` row never could.
   await seedClass();
-  vi.mocked(orgPeople).mockResolvedValueOnce({
-    teachers: [{ id: 999, login: "someone-else", avatarUrl: null }],
-    students: [],
-    pending: [],
-  });
+  await seedMembers();
+  state.membershipRole = "member";
   const res = await app.request("/api/classes", {}, env);
   expect(res.status).toBe(200);
-  expect(await res.json()).toEqual({ classes: [] });
+  expect(await res.json()).toEqual({
+    classes: [],
+    enrolled: [],
+    hasOlder: false,
+  });
 });
 
 test("returns [] when the caller has no linked GitHub account", async () => {
@@ -224,6 +295,273 @@ test("returns [] when the caller has no linked GitHub account", async () => {
   await db.delete(account);
   const res = await app.request("/api/classes", {}, env);
   expect(res.status).toBe(200);
-  expect(await res.json()).toEqual({ classes: [] });
+  expect(await res.json()).toEqual({
+    classes: [],
+    enrolled: [],
+    hasOlder: false,
+  });
   expect(userInstallationsByOrgIdMock).not.toHaveBeenCalled();
+});
+
+test("returns [] when the GitHub token is dead and unrefreshable", async () => {
+  await seedClass();
+  state.githubToken = null;
+  const res = await app.request("/api/classes", {}, env);
+  expect(res.status).toBe(200);
+  expect(await res.json()).toEqual({
+    classes: [],
+    enrolled: [],
+    hasOlder: false,
+  });
+  expect(userInstallationsByOrgIdMock).not.toHaveBeenCalled();
+});
+
+test("orders a class's labs by deadline, latest first", async () => {
+  await seedClass();
+  await db.insert(labs).values([
+    {
+      id: "lab-early",
+      classId: "c1",
+      title: "Early deadline",
+      deadline: new Date("2099-01-15T23:59:00Z"),
+      createdByUserId: "u1",
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: "lab-late",
+      classId: "c1",
+      title: "Late deadline",
+      deadline: new Date("2099-06-15T23:59:00Z"),
+      createdByUserId: "u1",
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: "lab-mid",
+      classId: "c1",
+      title: "Mid deadline",
+      deadline: new Date("2099-03-15T23:59:00Z"),
+      createdByUserId: "u1",
+      createdAt: now,
+      updatedAt: now,
+    },
+  ]);
+  const res = await app.request("/api/classes", {}, env);
+  const body = (await res.json()) as {
+    classes: Array<{ labs: Array<{ id: string }> }>;
+  };
+  expect(body.classes[0]?.labs.map((l) => l.id)).toEqual([
+    "lab-late",
+    "lab-mid",
+    "lab-early",
+  ]);
+});
+
+test("orders classes by creation date, newest first", async () => {
+  await seedClass({ id: "c-old", orgId: 42 });
+  await db.insert(classes).values({
+    id: "c-new",
+    orgId: 43,
+    installationId: 101,
+    connectedByUserId: "u1",
+    joinToken: "tok-c-new",
+    status: "active",
+    createdAt: new Date(1000),
+    updatedAt: new Date(1000),
+  });
+  state.installations = [
+    { id: 100, account: { id: 42, login: "acme" } },
+    { id: 101, account: { id: 43, login: "beta" } },
+  ];
+  const res = await app.request("/api/classes", {}, env);
+  const body = (await res.json()) as { classes: Array<{ id: string }> };
+  expect(body.classes.map((c) => c.id)).toEqual(["c-new", "c-old"]);
+});
+
+// --- class_members enrollment display cache + the student class list ---
+
+test("the hub never writes the classes row", async () => {
+  // A GET returns what it sees. The installation pointer belongs to setup.ts and
+  // the `installation` reconciler; the org identity cache to the `identity`
+  // reconciler. Both are behind the teacher's explicit Reconcile action.
+  await seedClass({ installationId: 999, login: "stale", name: "Stale" });
+
+  await app.request("/api/classes", {}, env);
+
+  const [row] = await db.select().from(classes).where(eq(classes.id, "c1"));
+  expect(row).toMatchObject({
+    installationId: 999,
+    login: "stale",
+    name: "Stale",
+  });
+});
+
+test("a stale class still renders correctly", async () => {
+  // The card is right even though the row is wrong: login/avatarUrl come from
+  // /user/installations. Only `name` waits for a reconcile.
+  await seedClass({ installationId: 999, login: "stale", name: "Stale" });
+
+  const res = await app.request("/api/classes", {}, env);
+
+  const body = (await res.json()) as {
+    classes: Array<{ login: string; name: string | null; avatarUrl: string }>;
+  };
+  expect(body.classes[0]).toMatchObject({
+    login: "acme",
+    avatarUrl: "http://a",
+    name: "Stale",
+  });
+});
+
+test("returns the caller's enrolled classes (with labs) from the cache alone", async () => {
+  await seedClass(); // teaching c1 (org 42, in installations)
+  // c2: a class the caller is enrolled in but does NOT teach — its org is
+  // not among the caller's installations, so only the cache can surface it.
+  await db.insert(classes).values({
+    id: "c2",
+    orgId: 43,
+    installationId: 300,
+    connectedByUserId: "someone-else",
+    joinToken: "tok-c2",
+    status: "active",
+    login: "beta",
+    name: "Beta",
+    avatarUrl: "http://b",
+    createdAt: new Date(500),
+    updatedAt: new Date(500),
+  });
+  await db.insert(labs).values({
+    id: "l1",
+    classId: "c2",
+    title: "Lab 1",
+    deadline: new Date("2099-01-01T23:59:00Z"),
+    createdByUserId: "someone-else",
+    createdAt: now,
+    updatedAt: now,
+  });
+  await db.insert(classMembers).values({
+    id: "m1",
+    classId: "c2",
+    githubId: "111",
+    state: "active",
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  const res = await app.request("/api/classes", {}, env);
+  const body = (await res.json()) as {
+    classes: Array<{ id: string }>;
+    enrolled: Array<Record<string, unknown>>;
+  };
+  expect(body.classes.map((c) => c.id)).toEqual(["c1"]);
+  expect(body.enrolled).toMatchObject([
+    {
+      id: "c2",
+      login: "beta",
+      name: "Beta",
+      avatarUrl: "http://b",
+      state: "active",
+      labs: [{ id: "l1", title: "Lab 1" }],
+    },
+  ]);
+  // The join token must never leak to enrollees.
+  expect(body.enrolled[0]).not.toHaveProperty("joinToken");
+});
+
+test("a class the caller teaches never doubles as an enrolled class", async () => {
+  await seedClass();
+  await db.insert(classMembers).values({
+    id: "m1",
+    classId: "c1",
+    githubId: "111",
+    state: "active",
+    createdAt: now,
+    updatedAt: now,
+  });
+  const res = await app.request("/api/classes", {}, env);
+  const body = (await res.json()) as {
+    classes: Array<{ id: string }>;
+    enrolled: unknown[];
+  };
+  expect(body.classes.map((c) => c.id)).toEqual(["c1"]);
+  expect(body.enrolled).toEqual([]);
+});
+
+test("?from windows the list — no GitHub work for out-of-window classes", async () => {
+  state.installations = [
+    { id: 200, account: { id: 42, login: "acme" } },
+    { id: 201, account: { id: 43, login: "oldies" } },
+  ];
+  await seedClass({
+    id: "c-new",
+    orgId: 42,
+    createdAt: new Date("2026-03-01"),
+  });
+  await seedClass({
+    id: "c-old",
+    orgId: 43,
+    installationId: 201,
+    createdAt: new Date("2025-03-01"),
+  });
+  vi.mocked(orgMembership).mockClear();
+
+  const res = await app.request(
+    "/api/classes?from=2026-02-01T00:00:00Z",
+    {},
+    env,
+  );
+  const body = (await res.json()) as {
+    classes: Array<{ id: string }>;
+    hasOlder: boolean;
+  };
+  expect(body.classes.map((c) => c.id)).toEqual(["c-new"]);
+  expect(body.hasOlder).toBe(true);
+  // The saving: the out-of-window class never triggered live GitHub work.
+  // Exactly one live Owner check: the out-of-window class costs no GitHub call.
+  expect(vi.mocked(orgMembership)).toHaveBeenCalledTimes(1);
+
+  // Widened window: both classes, nothing older left.
+  const all = await app.request(
+    "/api/classes?from=2025-02-01T00:00:00Z",
+    {},
+    env,
+  );
+  const allBody = (await all.json()) as {
+    classes: Array<{ id: string }>;
+    hasOlder: boolean;
+  };
+  expect(allBody.classes.map((c) => c.id)).toEqual(["c-new", "c-old"]);
+  expect(allBody.hasOlder).toBe(false);
+});
+
+test("hasOlder also sees older ENROLLED classes; bad from is a 400", async () => {
+  await seedClass({ id: "c-new", createdAt: new Date("2026-03-01") });
+  // An older class the caller is only enrolled in (org not installed).
+  await seedClass({
+    id: "c-enr",
+    orgId: 99,
+    createdAt: new Date("2024-10-01"),
+  });
+  await db.insert(classMembers).values({
+    id: "m-enr",
+    classId: "c-enr",
+    githubId: "111",
+    state: "active",
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  const res = await app.request(
+    "/api/classes?from=2026-02-01T00:00:00Z",
+    {},
+    env,
+  );
+  const body = (await res.json()) as { enrolled: unknown[]; hasOlder: boolean };
+  expect(body.enrolled).toEqual([]);
+  expect(body.hasOlder).toBe(true);
+
+  expect(
+    (await app.request("/api/classes?from=not-a-date", {}, env)).status,
+  ).toBe(400);
 });

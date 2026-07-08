@@ -1,23 +1,44 @@
+import { ArrowRightIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
-import { useParams } from "react-router";
-import { UserAvatar } from "~/components/custom/identity/user-avatar";
+import { Link, useNavigate, useParams } from "react-router";
+import { OrgIdentity } from "~/components/custom/identity/org-identity";
+import { UserIdentity } from "~/components/custom/identity/user-identity";
 import { Row } from "~/components/custom/layout/row";
 import { Stack } from "~/components/custom/layout/stack";
 import { Loading } from "~/components/custom/loading";
 import { BrandHeader } from "~/components/custom/typography/brand-header";
 import { Text } from "~/components/custom/typography/text";
 import { Button } from "~/components/ui/button";
+import { useAuth } from "~/contexts/auth-context";
 import { api } from "~/lib/api";
 
-type Membership = "none" | "pending" | "active";
+const MEMBERSHIPS = ["none", "pending", "active"] as const;
+type Membership = (typeof MEMBERSHIPS)[number];
 type ClassIdentity = { login: string; name: string | null; avatarUrl: string };
 
 type JoinState =
   | { kind: "loading" }
   | { kind: "invalid" }
+  /** The link is fine; the class can't be reached from GitHub. Only a teacher
+   *  can fix it, so tell the student that rather than blaming their link. */
+  | { kind: "needs_reconcile" }
   | { kind: "error" }
-  | { kind: "ready"; cls: ClassIdentity; membership: Membership };
+  | {
+      kind: "ready";
+      cls: ClassIdentity;
+      membership: Membership;
+      /** GitHub org role when membership exists — "admin" = owner (teacher). */
+      role: string | null;
+    };
+
+/** Narrow an API value to a known membership — anything else is an error
+ *  state, never silently rendered as "enrolled". */
+function asMembership(value: unknown): Membership | null {
+  return MEMBERSHIPS.includes(value as Membership)
+    ? (value as Membership)
+    : null;
+}
 
 /**
  * /join/:token — the student side of the class join link (spec: F4 design).
@@ -29,6 +50,8 @@ type JoinState =
  */
 export function JoinPage() {
   const { token = "" } = useParams();
+  const navigate = useNavigate();
+  const { github } = useAuth();
   const [state, setState] = useState<JoinState>({ kind: "loading" });
   const [submitting, setSubmitting] = useState(false);
 
@@ -40,12 +63,26 @@ export function JoinPage() {
         setState({ kind: "invalid" });
         return;
       }
+      if (res.status === 409) {
+        setState({ kind: "needs_reconcile" });
+        return;
+      }
       if (!res.ok) {
         setState({ kind: "error" });
         return;
       }
       const body = await res.json();
-      setState({ kind: "ready", cls: body.class, membership: body.membership });
+      const membership = asMembership(body.membership);
+      if (!membership) {
+        setState({ kind: "error" });
+        return;
+      }
+      setState({
+        kind: "ready",
+        cls: body.class,
+        membership,
+        role: body.role ?? null,
+      });
     } catch {
       setState({ kind: "error" });
     }
@@ -55,16 +92,45 @@ export function JoinPage() {
     void load();
   }, [load]);
 
+  /** The preview is a pure read, so accepting the GitHub invite records nothing
+   *  by itself. This is the student saying "I've accepted" — an explicit action,
+   *  not an effect on page load, so a failure is visible and retryable. */
+  async function finishJoining(then?: () => void) {
+    setSubmitting(true);
+    try {
+      const res = await api.api.join[":token"].confirm.$post({
+        param: { token },
+      });
+      if (!res.ok) {
+        if (res.status === 409) setState({ kind: "needs_reconcile" });
+        else setState({ kind: "error" });
+        return;
+      }
+      then ? then() : await load();
+    } catch {
+      setState({ kind: "error" });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   async function join(cls: ClassIdentity) {
     setSubmitting(true);
     try {
       const res = await api.api.join[":token"].$post({ param: { token } });
       if (!res.ok) {
-        setState(res.status === 404 ? { kind: "invalid" } : { kind: "error" });
+        if (res.status === 404) setState({ kind: "invalid" });
+        else if (res.status === 409) setState({ kind: "needs_reconcile" });
+        else setState({ kind: "error" });
         return;
       }
       const body = await res.json();
-      setState({ kind: "ready", cls, membership: body.membership });
+      const membership = asMembership(body.membership);
+      if (!membership) {
+        setState({ kind: "error" });
+        return;
+      }
+      setState({ kind: "ready", cls, membership, role: body.role ?? null });
     } catch {
       setState({ kind: "error" });
     } finally {
@@ -86,38 +152,87 @@ export function JoinPage() {
     );
   }
 
+  if (state.kind === "needs_reconcile") {
+    return (
+      <Shell title="This class needs attention">
+        <Text variant="subtitle" className="max-w-md">
+          Your link is fine, but labs can't reach this class on GitHub right
+          now. Ask your teacher to open the class and reconcile it — then try
+          again.
+        </Text>
+        <Button
+          size="lg"
+          title="Try this join link again"
+          onClick={() => void load()}
+        >
+          Try again
+        </Button>
+      </Shell>
+    );
+  }
+
   if (state.kind === "error") {
     return (
       <Shell title="Something went wrong">
         <Text variant="error">Couldn't load this join link.</Text>
-        <Button size="lg" onClick={() => void load()}>
+        <Button
+          size="lg"
+          title="Try loading this join link again"
+          onClick={() => void load()}
+        >
           Retry
         </Button>
       </Shell>
     );
   }
 
-  const { cls, membership } = state;
+  const { cls, membership, role } = state;
   const className = cls.name ?? cls.login;
+  const isOwner = membership === "active" && role === "admin";
 
   return (
-    <Shell title={membership === "active" ? "Enrolled" : `Join ${className}`}>
-      <a
-        href={`https://github.com/${cls.login}`}
-        target="_blank"
-        rel="noreferrer"
-        className="-m-2 rounded-md p-2 transition-colors hover:bg-muted"
-      >
-        <Row gap="sm">
-          <UserAvatar name={className} src={cls.avatarUrl} size="lg" />
-          <Stack gap="none">
-            <Text variant="body1" className="font-semibold">
-              {className}
-            </Text>
-            <Text variant="body2">@{cls.login}</Text>
-          </Stack>
-        </Row>
-      </a>
+    <Shell
+      title={
+        isOwner
+          ? "This is your class"
+          : membership === "active"
+            ? "Enrolled"
+            : `Join ${className}`
+      }
+    >
+      {/* You → the class: the acting GitHub identity on the left — with
+          account switching (e.g. teacher vs student test accounts), the
+          membership shown below is meaningless without it. */}
+      <Row gap="md" align="center" wrap>
+        {github ? (
+          <>
+            {/* Named by GitHub, so it wears the GitHub photo — the whole point
+                is to catch an account-swap before you join as the wrong user. */}
+            <UserIdentity
+              name={github.name ?? github.login}
+              handle={github.login}
+              avatarUrl={github.avatarUrl}
+              size="lg"
+            />
+            <ArrowRightIcon
+              aria-label="joins"
+              className="size-5 text-muted-foreground"
+            />
+          </>
+        ) : null}
+        <a
+          href={`https://github.com/${cls.login}`}
+          target="_blank"
+          rel="noreferrer"
+          className="-m-2 rounded-md p-2 transition-colors hover:bg-muted"
+        >
+          <OrgIdentity
+            name={className}
+            login={cls.login}
+            avatarUrl={cls.avatarUrl}
+          />
+        </a>
+      </Row>
 
       {membership === "none" ? (
         <>
@@ -125,7 +240,12 @@ export function JoinPage() {
             You've been invited to join this class. Joining makes you a member
             of its GitHub organization.
           </Text>
-          <Button size="lg" disabled={submitting} onClick={() => join(cls)}>
+          <Button
+            size="lg"
+            disabled={submitting}
+            title="Request to join — you'll get a GitHub organization invitation"
+            onClick={() => join(cls)}
+          >
             Join class
           </Button>
         </>
@@ -138,6 +258,7 @@ export function JoinPage() {
           <Row gap="sm" wrap>
             <Button
               size="lg"
+              title="Opens your invitation on GitHub in a new tab"
               render={
                 <a
                   href={`https://github.com/orgs/${cls.login}/invitation`}
@@ -148,15 +269,45 @@ export function JoinPage() {
             >
               Open the invitation on GitHub
             </Button>
-            <Button size="lg" variant="outline" onClick={() => void load()}>
-              Check my enrollment
+            <Button
+              size="lg"
+              variant="outline"
+              disabled={submitting}
+              title="Record that you've accepted the invitation on GitHub"
+              onClick={() => void finishJoining()}
+            >
+              {submitting ? "Checking…" : "I've accepted — finish joining"}
             </Button>
           </Row>
         </>
+      ) : isOwner ? (
+        <>
+          <Text variant="subtitle" className="max-w-md">
+            You're an owner of this organization — this join link is for
+            students.
+          </Text>
+          <Button
+            size="lg"
+            title="Open your class list"
+            render={<Link to="/classes" />}
+          >
+            Go to your classes
+          </Button>
+        </>
       ) : (
-        <Text variant="subtitle" className="max-w-md">
-          You're enrolled in {className}.
-        </Text>
+        <>
+          <Text variant="subtitle" className="max-w-md">
+            You're enrolled in {className}.
+          </Text>
+          <Button
+            size="lg"
+            disabled={submitting}
+            title="Record your enrolment and open your class list"
+            onClick={() => void finishJoining(() => navigate("/classes"))}
+          >
+            {submitting ? "Finishing…" : "Go to your classes"}
+          </Button>
+        </>
       )}
     </Shell>
   );

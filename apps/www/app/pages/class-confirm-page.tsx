@@ -58,9 +58,15 @@ export function ClassConfirmPage() {
           <Text variant="subtitle" className="max-w-md">
             labs will set this organization's base repository permission to{" "}
             <strong>No access</strong>, so students only see repos they're
-            granted.
+            granted — their own lab repos, never other students' work or the
+            organization's private repos.
           </Text>
-          <Button size="lg" onClick={handleConfirm} disabled={submitting}>
+          <Button
+            size="lg"
+            title="Lock the organization's base permission and finish the class setup"
+            onClick={handleConfirm}
+            disabled={submitting}
+          >
             Set up & continue
           </Button>
           {submitError ? <Text variant="error">{submitError}</Text> : null}

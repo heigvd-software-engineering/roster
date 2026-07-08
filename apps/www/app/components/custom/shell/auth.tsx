@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Navigate, useLocation } from "react-router";
 import { Loading } from "~/components/custom/loading";
-import { useAuth } from "~/lib/auth-context";
+import { useAuth } from "~/contexts/auth-context";
 import { LoginPage } from "~/pages/login-page";
 
 type AuthProps = {

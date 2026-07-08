@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { PeopleChip } from "~/components/custom/classes/people-chip";
+import { PeopleChip } from "~/components/custom/classes/hub/people-chip";
 
 const aliceUser = {
   id: "u1",
@@ -46,7 +46,11 @@ describe("PeopleChip", () => {
     expect(screen.getByText("pending")).toBeInTheDocument();
   });
 
-  it("opens via keyboard (non-native button trigger)", async () => {
+  it("is a native button, so keyboard activation is built in", () => {
+    // The stat-text trigger must stay a real <button> (not a styled span):
+    // Enter/Space activation then comes from the browser, no synthetic
+    // key handling to guard. jsdom can't simulate Enter→click, so we assert
+    // the element itself.
     render(
       <PeopleChip
         label="1 student"
@@ -55,10 +59,7 @@ describe("PeopleChip", () => {
       />,
     );
     const trigger = screen.getByRole("button", { name: "1 student" });
-    trigger.focus();
-    fireEvent.keyDown(trigger, { key: "Enter" });
-    fireEvent.keyUp(trigger, { key: "Enter" });
-    expect(await screen.findByText("@alice")).toBeInTheDocument();
+    expect(trigger.tagName).toBe("BUTTON");
   });
 
   it("shows the empty text when there is nobody", async () => {

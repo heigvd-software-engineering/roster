@@ -1,12 +1,15 @@
 import { Hono } from "hono";
-import type { Env } from "./auth/config";
+import type { Env } from "./lib/auth/config";
 
-export type { Auth } from "./auth/config";
+export type { Auth } from "./lib/auth/config";
 
 import { authRoutes } from "./routes/auth";
 import { classesRoutes } from "./routes/classes";
+import { groupsRoutes } from "./routes/groups";
 import { healthRoutes } from "./routes/health";
 import { joinRoutes } from "./routes/join";
+import { labGroupsRoutes } from "./routes/lab-groups";
+import { labsRoutes } from "./routes/labs";
 import { meRoutes } from "./routes/me";
 import { setupRoutes } from "./routes/setup";
 
@@ -20,6 +23,9 @@ const app = new Hono<Env>()
   .route("/api", meRoutes)
   .route("/api", setupRoutes)
   .route("/api", classesRoutes)
+  .route("/api", groupsRoutes)
+  .route("/api", labGroupsRoutes)
+  .route("/api", labsRoutes)
   .route("/api", joinRoutes)
   // Unknown API routes return JSON 404s (registered last, so it only catches
   // paths no module above matched).

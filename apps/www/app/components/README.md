@@ -13,9 +13,12 @@ app/components/
    │              #   hand-writing flex/gap/max-width. Grown as needed (YAGNI).
    ├─ typography/ # text.tsx (<Text variant>) + brand-header.tsx (the branded
    │              #   eyebrow/title/red-rule heading block).
-   ├─ shell/      # app chrome + gating: app-layout, app-header, auth (route guard).
-   ├─ identity/   # who-is-this components: user-avatar, user-identity,
-   │              #   switch-identity (account menu), github-identity.
+   ├─ shell/      # app chrome + gating: app-layout, app-header, auth (route
+   │              #   guard), main-switch-identity (the account menu).
+   ├─ identity/   # who-is-this components: user-avatar (the primitive),
+   │              #   user-identity (THE person row), org-identity.
+   │              #   Who a person is named by — and so whether they wear a
+   │              #   photo or initials — is decided by lib/identity.ts.
    └─ classes/    # classes-domain components: class-card, lab-row, deadline-chip.
 ```
 
@@ -73,4 +76,18 @@ gets regenerated, and where our own work lives.
 ## Import aliases
 
 - Generated: `~/components/ui/<name>` (e.g. `~/components/ui/button`)
-- Ours: `~/components/custom/<group>/<name>` (e.g. `~/components/custom/classes/class-card`)
+- Ours: `~/components/custom/<group>/<name>` (e.g. `~/components/custom/classes/hub/class-card`)
+
+Large groups split further by use case: `classes/` holds `hub/` (the classes
+page cards + dialogs), `labs/` (lab row, header, and the create/edit
+`lab-dialog`), and `groups/` (everything both lab pages compose), itself
+split by role:
+
+- `groups/shared/` — used by both roles: the `use-lab-groups` hook, and the
+  shared `group-tile` / `unassigned-pool` / `new-group-dialog`.
+- `groups/teacher/` — the teacher's assignment roster: `teacher-lab-groups`
+  + its `roster` / `lab-stats` bits.
+- `groups/student/` — the student's view: `student-lab-groups` +
+  `start-lab-card`.
+
+Cross-cutting pieces (`role-marker`) stay at the `classes/` root.

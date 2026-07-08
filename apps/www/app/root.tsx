@@ -12,7 +12,9 @@ import { Stack } from "~/components/custom/layout/stack";
 import { AppLayout } from "~/components/custom/shell/app-layout";
 import { BrandHeader } from "~/components/custom/typography/brand-header";
 import { Text } from "~/components/custom/typography/text";
-import { AuthProvider } from "~/lib/auth-context";
+import { AuthProvider } from "~/contexts/auth-context";
+import { MessageProvider } from "~/contexts/message-context";
+import { ThemeProvider } from "~/contexts/theme-context";
 import type { Route } from "./+types/root";
 import "./app.css";
 
@@ -24,6 +26,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <Meta />
         <Links />
+        {/* Paint-time theme bootstrap ONLY — everything after hydration lives
+            in ThemeProvider. React runs after first paint, so a context alone
+            would flash the wrong scheme; and an inline script in JSX requires
+            dangerouslySetInnerHTML (string children of <script> are escaped).
+            Static string, no user input. */}
+        <script
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: static scheme snippet, no user input
+          dangerouslySetInnerHTML={{
+            __html: `(function(){var s=localStorage.getItem("theme");var dark=s==="dark"||(s!=="light"&&matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.classList.toggle("dark",dark)})();`,
+          }}
+        />
       </head>
       <body className="graph-paper min-h-screen">
         {children}
@@ -36,11 +49,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <AppLayout>
-        <Outlet />
-      </AppLayout>
-    </AuthProvider>
+    <ThemeProvider>
+      <MessageProvider>
+        <AuthProvider>
+          <AppLayout>
+            <Outlet />
+          </AppLayout>
+        </AuthProvider>
+      </MessageProvider>
+    </ThemeProvider>
   );
 }
 

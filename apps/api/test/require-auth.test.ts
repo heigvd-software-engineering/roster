@@ -1,8 +1,8 @@
 import { Hono } from "hono";
 import { expect, test, vi } from "vitest";
-import { requireAuth } from "../src/auth/require-auth";
+import { requireAuth } from "../src/lib/auth/require-auth";
 
-vi.mock("../src/auth/config", () => ({
+vi.mock("../src/lib/auth/config", () => ({
   createAuth: () => ({
     api: {
       getSession: async ({ headers }: { headers: Headers }) =>

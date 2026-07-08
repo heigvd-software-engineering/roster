@@ -1,7 +1,10 @@
 import { Hono } from "hono";
-import { createAuth, type Env } from "../auth/config";
+import { betterAuthHandler } from "../handlers/auth";
+import type { Env } from "../lib/auth/config";
 
-/** Better Auth handles everything under /api/auth/* (mounted at that prefix). */
-export const authRoutes = new Hono<Env>().on(["GET", "POST"], "/*", (c) =>
-  createAuth(c.env).handler(c.req.raw),
+/** Better Auth owns everything under /api/auth/* (mounted at that prefix). */
+export const authRoutes = new Hono<Env>().on(
+  ["GET", "POST"],
+  "/*",
+  ...betterAuthHandler,
 );

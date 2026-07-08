@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { OnboardingGitHubPage } from "~/pages/onboarding-github-page";
 
 const linkGithub = vi.fn();
-vi.mock("~/lib/auth-context", () => ({
+vi.mock("~/contexts/auth-context", () => ({
   useAuth: () => ({ linkGithub }),
 }));
 

@@ -3,7 +3,7 @@ import { Stack } from "~/components/custom/layout/stack";
 import { BrandHeader } from "~/components/custom/typography/brand-header";
 import { Text } from "~/components/custom/typography/text";
 import { Button } from "~/components/ui/button";
-import { useAuth } from "~/lib/auth-context";
+import { useAuth } from "~/contexts/auth-context";
 
 /** Onboarding gate: link GitHub before using the app. */
 export function OnboardingGitHubPage() {
@@ -16,6 +16,7 @@ export function OnboardingGitHubPage() {
     raw.startsWith("/") && !raw.startsWith("//") && !raw.includes("\\")
       ? raw
       : "/";
+  const failed = params.get("error") !== null;
   return (
     <Stack gap="lg" align="start" justify="center" className="flex-1">
       <BrandHeader title="Connect GitHub" />
@@ -23,8 +24,18 @@ export function OnboardingGitHubPage() {
         labs runs your classes and labs on your own GitHub account. Link it to
         continue.
       </Text>
-      <Button size="lg" onClick={() => linkGithub(returnTo)}>
-        Connect GitHub
+      {failed ? (
+        <Text variant="error" className="max-w-md">
+          GitHub didn't share your profile. If the account is brand new, verify
+          its email address on GitHub first — then try again.
+        </Text>
+      ) : null}
+      <Button
+        size="lg"
+        title="Link your GitHub account to labs"
+        onClick={() => linkGithub(returnTo)}
+      >
+        {failed ? "Try connecting again" : "Connect GitHub"}
       </Button>
     </Stack>
   );
