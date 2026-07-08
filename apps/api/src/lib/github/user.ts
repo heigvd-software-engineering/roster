@@ -48,12 +48,21 @@ export async function fetchGithubProfile(
   }
 }
 
-type UserInstallation = { installationId: number; login: string };
+type UserInstallation = {
+  installationId: number;
+  login: string;
+  avatarUrl: string;
+};
 
 /**
  * The App installations accessible to the user, keyed by org account id.
  * GitHub includes an org's installation for every org Owner (and, later,
  * members with repo access) — callers layer their own role checks on top.
+ *
+ * The payload already carries each org's `login` and `avatar_url`, so the teacher
+ * hub renders those without paying for a per-class `orgInfo` call. `name` is
+ * OPTIONAL on this endpoint (`string | null | undefined`) and therefore not
+ * trustworthy — it comes from the cached class row until a reconcile refreshes it.
  */
 export async function userInstallationsByOrgId(
   token: string,
@@ -66,6 +75,7 @@ export async function userInstallationsByOrgId(
       byOrgId.set(inst.account.id, {
         installationId: inst.id,
         login: inst.account.login,
+        avatarUrl: inst.account.avatar_url,
       });
     }
   }

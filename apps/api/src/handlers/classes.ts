@@ -20,49 +20,25 @@ import { syncRoster } from "../lib/enrollment";
 import {
   basePermission,
   type OrgPerson,
-  orgInfo,
   orgPeople,
   setBasePermissionNone,
 } from "../lib/github/org";
 import { userInstallationsByOrgId } from "../lib/github/user";
 
-/** Best-effort cache writes for one class: reconcile a stale installationId,
- *  sync the enrollment display cache from the live roster, and refresh the
- *  cached org identity. All three are pure caches — the data-model spec §2
- *  says drift self-heals and none of them ever gate access — so callers must
- *  treat this as fail-open: log and continue, never let it remove a class
- *  the caller is demonstrably a teacher of. Kept as one self-contained
- *  function; later features (F2-F4) move these writes behind an explicit
- *  Reconcile action and pare this down. */
+/** Syncs the enrollment display cache from the live roster — the ONE cache write
+ *  still on this read path. The `classes` row is no longer touched here: the
+ *  installation pointer belongs to `setup.ts` and the `installation` reconciler,
+ *  and the org identity cache to the `identity` reconciler. Both are behind the
+ *  teacher's explicit Reconcile action now.
+ *
+ *  Still a pure cache (data-model spec §2: drift self-heals, it never gates
+ *  access), so callers treat it as fail-open — log and continue, never let it
+ *  remove a class the caller is demonstrably a teacher of. F4 removes this too. */
 async function refreshCaches(
   db: ReturnType<typeof getDb>,
   cls: Class,
-  live: { installationId: number; login: string },
-  org: Awaited<ReturnType<typeof orgInfo>>,
   people: Awaited<ReturnType<typeof orgPeople>>,
 ) {
-  // A reinstall mints a NEW installation id. `githubSetupCallback` already
-  // records it (keyed on the stable orgId) — but it bails before that write
-  // on four preconditions (no labs session, no linked GitHub, the caller
-  // doesn't hold the installation, not an org). A teacher who reinstalls
-  // from GitHub's org-settings page without a labs cookie, or a SECOND org
-  // owner who has never signed in here, trips them: GitHub fires the Setup
-  // URL, the callback redirects, and the row keeps the dead id.
-  //
-  // So this is the backstop, and it's free: `userInstallationsByOrgId`
-  // above already told us the live id for every org, and this runs whenever
-  // ANY teacher opens the hub — a strictly wider net than the callback.
-  // Keyed on orgId, like the callback: it's the only handle a reinstall
-  // preserves.
-  if (live.installationId !== cls.installationId) {
-    await db
-      .update(classes)
-      .set({ installationId: live.installationId, updatedAt: new Date() })
-      .where(eq(classes.orgId, cls.orgId));
-  }
-  // Every teacher visit reconciles the enrollment display cache against the
-  // live roster and refreshes the org identity cache — both keep the
-  // STUDENT class list a pure DB read (data-model spec §2).
   const observed = (p: OrgPerson) => ({
     githubId: String(p.id),
     login: p.login,
@@ -73,21 +49,6 @@ async function refreshCaches(
     pending: people.pending.map(observed),
     teacher: people.teachers.map(observed),
   });
-  if (
-    org.login !== cls.login ||
-    org.name !== cls.name ||
-    org.avatarUrl !== cls.avatarUrl
-  ) {
-    await db
-      .update(classes)
-      .set({
-        login: org.login,
-        name: org.name,
-        avatarUrl: org.avatarUrl,
-        updatedAt: new Date(),
-      })
-      .where(eq(classes.id, cls.id));
-  }
 }
 
 /** Teacher-only: lock the class org's base repository permission to "none"
@@ -194,19 +155,16 @@ export const listClasses = authedFactory.createHandlers(async (c) => {
     const live = byOrgId.get(cls.orgId);
     if (!live) continue; // App uninstalled from this org — skip.
 
-    // ONLY the GitHub fetches are skippable. An org can rate-limit, revoke
-    // its installation, or vanish; that is this class's problem. Everything
-    // below is ours, and a failure there is a bug, not org state.
+    // ONLY the GitHub fetch is skippable. An org can rate-limit, revoke its
+    // installation, or vanish; that is this class's problem. Everything below
+    // is ours, and a failure there is a bug, not org state.
     let people: Awaited<ReturnType<typeof orgPeople>>;
-    let org: Awaited<ReturnType<typeof orgInfo>>;
     try {
-      // One people fetch serves both the teacher check (F5a: only live org
-      // Owners see the class) and the card's people chips. Independent of
-      // the org info fetch, so they run in parallel.
-      [people, org] = await Promise.all([
-        orgPeople(c.env, live.installationId, live.login),
-        orgInfo(c.env, live.installationId, live.login),
-      ]);
+      // Serves both the teacher check (F5a: only live org Owners see the
+      // class) and the card's people chips. No `orgInfo` call: `login` and
+      // `avatarUrl` ride on the `/user/installations` payload we already have,
+      // and `name` comes from the cached row until a reconcile refreshes it.
+      people = await orgPeople(c.env, live.installationId, live.login);
     } catch {
       continue;
     }
@@ -216,10 +174,12 @@ export const listClasses = authedFactory.createHandlers(async (c) => {
 
     // Best-effort cache refresh (data-model spec §2: drift self-heals, and
     // never affects access control). A failure must not remove a class the
-    // caller is demonstrably a teacher of. F2-F4 move these writes behind
-    // an explicit Reconcile action.
-    await refreshCaches(db, cls, live, org, people).catch((err) => {
-      console.warn("class cache refresh failed", { classId: cls.id, err });
+    // caller is demonstrably a teacher of. F4 removes this write too.
+    await refreshCaches(db, cls, people).catch((err) => {
+      console.warn("class roster cache refresh failed", {
+        classId: cls.id,
+        err,
+      });
     });
 
     // SWITCH users linked to the members' GitHub accounts — raw rows, the
@@ -234,9 +194,11 @@ export const listClasses = authedFactory.createHandlers(async (c) => {
       orgId: cls.orgId,
       createdAt: cls.createdAt,
       joinToken: cls.joinToken,
-      login: org.login,
-      name: org.name,
-      avatarUrl: org.avatarUrl,
+      // Live, and free: already fetched to find the caller's orgs.
+      login: live.login,
+      avatarUrl: live.avatarUrl,
+      // NOT on the /user/installations payload. Cached until Reconcile.
+      name: cls.name,
       teachers: people.teachers,
       students: people.students,
       pending: people.pending,

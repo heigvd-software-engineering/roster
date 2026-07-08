@@ -37,25 +37,29 @@ vi.mock("../src/lib/auth/github-token", () => ({
 
 vi.mock("../src/lib/github/org", () => ({
   isOrgAdmin: async () => true,
-  orgInfo: async (_env: unknown, installationId: number) => {
+  orgInfo: async () => state.org,
+  // The hub's ONLY GitHub call per class now. It carries the failure switch,
+  // because a class is skipped when this fetch fails — not when orgInfo does.
+  orgPeople: vi.fn(async (_env: unknown, installationId: number) => {
     if (state.failInstallationIds.includes(installationId)) {
       throw new Error("simulated GitHub failure");
     }
-    return state.org;
-  },
-  orgPeople: vi.fn(async () => state.people),
+    return state.people;
+  }),
 }));
 
 const userInstallationsByOrgIdMock = vi.hoisted(() =>
   vi.fn(async (_token: string) => {
     const byOrgId = new Map<
       number,
-      { installationId: number; login: string }
+      { installationId: number; login: string; avatarUrl: string }
     >();
     for (const inst of state.installations) {
       byOrgId.set(inst.account.id, {
         installationId: inst.id,
         login: inst.account.login,
+        // GET /user/installations really does carry this; the hub renders it.
+        avatarUrl: "http://a",
       });
     }
     return byOrgId;
@@ -161,8 +165,8 @@ beforeEach(async () => {
   });
 });
 
-test("lists classes with people + linked users, reconciles stale installationId", async () => {
-  await seedClass();
+test("lists classes with people + linked users, from live installation data", async () => {
+  await seedClass({ name: "Acme" });
   const res = await app.request("/api/classes", {}, env);
   expect(res.status).toBe(200);
   const body = (await res.json()) as {
@@ -177,9 +181,11 @@ test("lists classes with people + linked users, reconciles stale installationId"
   expect(body.classes[0]).toMatchObject({
     id: "c1",
     orgId: 42,
+    // login + avatarUrl ride on the /user/installations payload, already fetched.
     login: "acme",
-    name: "Acme",
     avatarUrl: "http://a",
+    // `name` is NOT on that payload — it comes from the cached row.
+    name: "Acme",
     joinToken: "tok-c1",
     teachers: state.people.teachers,
     students: state.people.students,
@@ -200,9 +206,11 @@ test("lists classes with people + linked users, reconciles stale installationId"
     },
   });
 
-  // Reconciled: stored installationId 100 → live 200.
+  // NOT reconciled: the stored pointer stays 100 even though the live id is 200.
+  // A GET returns what it sees; repairing it is the `installation` reconciler's
+  // job, and the teacher's decision.
   const [row] = await db.select().from(classes).where(eq(classes.id, "c1"));
-  expect(row?.installationId).toBe(200);
+  expect(row?.installationId).toBe(100);
 });
 
 test("skips classes whose org is no longer in the user's installations", async () => {
@@ -231,7 +239,7 @@ test("does not touch the row when installationId and org cache are current", asy
   expect(row?.updatedAt).toEqual(now);
 });
 
-test("skips a class whose live-enrich call fails, without 500ing the rest", async () => {
+test("skips a class whose GitHub fetch fails, without 500ing the rest", async () => {
   await seedClass({ id: "c1", orgId: 42, installationId: 100 });
   await seedClass({ id: "c2", orgId: 43, installationId: 101 });
   state.installations = [
@@ -410,14 +418,36 @@ test("syncs the enrollment cache from the live roster (promote, add, drop)", asy
   ]);
 });
 
-test("caches the org identity on the class row for DB-only student reads", async () => {
-  await seedClass();
+test("the hub never writes the classes row", async () => {
+  // A GET returns what it sees. The installation pointer belongs to setup.ts and
+  // the `installation` reconciler; the org identity cache to the `identity`
+  // reconciler. Both are behind the teacher's explicit Reconcile action.
+  await seedClass({ installationId: 999, login: "stale", name: "Stale" });
+
   await app.request("/api/classes", {}, env);
+
   const [row] = await db.select().from(classes).where(eq(classes.id, "c1"));
   expect(row).toMatchObject({
+    installationId: 999,
+    login: "stale",
+    name: "Stale",
+  });
+});
+
+test("a stale class still renders correctly", async () => {
+  // The card is right even though the row is wrong: login/avatarUrl come from
+  // /user/installations. Only `name` waits for a reconcile.
+  await seedClass({ installationId: 999, login: "stale", name: "Stale" });
+
+  const res = await app.request("/api/classes", {}, env);
+
+  const body = (await res.json()) as {
+    classes: Array<{ login: string; name: string | null; avatarUrl: string }>;
+  };
+  expect(body.classes[0]).toMatchObject({
     login: "acme",
-    name: "Acme",
     avatarUrl: "http://a",
+    name: "Stale",
   });
 });
 
