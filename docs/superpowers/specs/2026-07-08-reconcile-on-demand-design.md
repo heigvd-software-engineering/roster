@@ -38,15 +38,49 @@ a `POST`. The cache is populated at its source, not by a background sweep.
 
 Write points after this change (all `POST`):
 
-| Trigger | Effect |
-|---|---|
-| `POST /join/:token` — invite sent | upsert `pending` |
-| `POST /join/:token` — already a member | `observeMembership` (upsert active/pending/teacher, or forget) |
-| `POST /join/:token/confirm` — student accepted | `observeMembership` |
-| `POST /classes/:id/roster/reconcile` | full sync: upsert roster, **delete departed** |
-| lazy repair (`observeMembership`, membership `null`) | `forgetMember` |
+| Trigger | Sees | Effect |
+|---|---|---|
+| `POST /join/:token` — invite sent | the caller | insert `pending` |
+| `POST /join/:token` — already a member | the caller | `observeMembership` |
+| `POST /join/:token/confirm` — student accepted | the caller | `observeMembership` |
+| lazy repair (`observeMembership`, membership `null`) | the caller | `forgetMember` |
+| `POST /classes/:id/roster/reconcile` | **the whole org roster** | `syncRoster` |
 
-Only reconcile deletes rows for people who left; the rest converge from below.
+### Reconcile is the roster's only CRUD authority
+
+Every write point except reconcile observes **exactly one person: the caller**.
+`observeMember` and `forgetMember` cannot know about anybody else. They converge
+the cache from below, one student at a time, and only for students who visit.
+
+`syncRoster` (`lib/enrollment.ts:68-117`) is the only whole-roster operation, and
+it does all of it:
+
+| | How |
+|---|---|
+| **Create** | insert every person on the live org roster |
+| **Update** | `onConflictDoUpdate` → `state`, `login`, `avatarUrl` |
+| **Delete** | `notInArray(githubId, keep)` → everyone no longer on the roster |
+
+So reconcile is the *only* mechanism that can:
+
+- **add** a member who joined the org out of band — a teacher who invited them
+  directly on GitHub, or a student who accepted the invite from their email and
+  never came back to the join page;
+- **promote** someone to `teacher` after they were made an org Owner, or demote
+  them back;
+- **refresh** a changed `login` or `avatarUrl` for someone who never returns;
+- **remove** a student the teacher removed on GitHub.
+
+The join `POST`s can never do any of these, because they never see the roster.
+That is precisely why the button exists, and why it is not merely "flush the
+cache": it is the class's write path for everything GitHub owns about membership.
+
+> **Destructive edge.** With `keep.length === 0`, `syncRoster` deletes every row
+> for the class (`enrollment.ts:84-85`). That is correct — an org with no members
+> has no members — but it means a reconcile against a transiently empty
+> `orgPeople` response would wipe the cache. `orgPeople` throws rather than
+> returning empty on failure, so this cannot happen silently; the reconcile
+> handler must let that throw propagate, never swallow it into an empty roster.
 
 ## 3. Endpoints
 
@@ -69,8 +103,12 @@ orgPeople(org)  → syncRoster(class_members)   upsert active/pending/teacher,
 orgInfo(org)    → persist classes.{login,name,avatarUrl}
                 → set classes.rosterSyncedAt = now
 
-→ 200 { students, pending, teachers, removed, syncedAt }
+→ 200 { students, pending, teachers, added, removed, syncedAt }
 ```
+
+`syncRoster` returns nothing today. It must report `added` and `removed` so the
+button can say what it did (§6) — read the cached github ids before the sync and
+diff against `keep`.
 
 Five GitHub calls (`/user/installations`, `orgPeople`'s three paginated
 endpoints, `orgInfo`), for **one** class. Per-class, never hub-wide: a
@@ -234,9 +272,11 @@ Always reachable, because the card always renders (§4). A class with
 `rosterSyncedAt === null` renders the not-synced state on the card itself, so
 the first reconcile does not require opening a popover.
 
-On success the button reports what changed: *"12 students, 1 pending · 3
-removed"*. Silent success on a destructive sync is how a teacher fails to
-notice that reconcile deleted a student who was never really in the org.
+On success the button reports what changed, in both directions: *"+2 added, 3
+removed · 12 students, 1 pending"*. Reconcile creates, updates and deletes
+(§2), and a silent success on a destructive sync is how a teacher fails to
+notice it removed a student — or that it discovered two who had joined the org
+without ever using the link.
 
 ## 7. Non-goals
 
@@ -256,6 +296,9 @@ notice that reconcile deleted a student who was never really in the org.
 | Reconcile repairs a stale pointer it needed to authorize | seed a stale `installationId`, `POST .../reconcile` → authorizes off the live id, persists it, syncs |
 | The hub GET writes nothing | seed a stale `installationId`, hit `GET /api/classes`, assert the row is untouched and the card still renders |
 | Reconcile syncs and stamps | `POST .../reconcile` → rows written, departed deleted, `rosterSyncedAt` set |
+| Reconcile discovers an out-of-band member | a student on the org roster who never used the join link → row created, counted in `added` |
+| Reconcile promotes a new org Owner | a member whose GitHub role became `admin` → row updated to `teacher` |
+| Reconcile refuses to wipe on a GitHub failure | `orgPeople` throws → `500`, `class_members` untouched, `rosterSyncedAt` unchanged |
 | A failing `syncRoster` no longer hides the class | force `syncRoster` to throw inside reconcile → `500`, but `GET /api/classes` still lists the class |
 | An orphaned group is surfaced, not deleted | `teamMembers` → `null` → group returned with `teamMissing: true`, row still present |
 | The join preview writes nothing | `GET /join/:token` for an active member → `class_members` unchanged |
@@ -280,7 +323,16 @@ routes and are the regression net for the refactor.
 
 ## 10. Rollout
 
-No backfill. Every existing class shows "Roster not synced" until its teacher
-clicks once — which is honest, since we genuinely do not know their roster.
-Classes created after the change populate `class_members` from the join `POST`s
-as students arrive, and get a full sync on the first reconcile.
+No backfill script. **Reconcile is the backfill** — per class, on demand, run by
+the person who knows whether the roster is right. Every existing class shows
+"Roster not synced" until its teacher clicks once, which is honest: we genuinely
+do not know their roster.
+
+Classes created after the change fill `class_members` from the join `POST`s as
+students arrive. That covers students who use the link — the normal path — but
+never anyone added to the org directly on GitHub. Those appear on the first
+reconcile (§2), which is the only operation that reads the whole roster.
+
+So the cache converges from two directions: upward from each student's own join,
+and downward from the teacher's reconcile. Neither alone is sufficient, and
+neither runs on a `GET`.
