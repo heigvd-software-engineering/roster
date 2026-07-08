@@ -13,6 +13,7 @@ const state = vi.hoisted(() => ({
   }>,
   org: { login: "acme", name: "Acme", avatarUrl: "http://a" },
   failInstallationIds: [] as number[],
+  failSyncRoster: false,
   people: {
     teachers: [{ id: 111, login: "prof", avatarUrl: "http://p" }],
     students: [{ id: 2, login: "student", avatarUrl: "http://s" }],
@@ -65,6 +66,25 @@ vi.mock("../src/lib/github/user", () => ({
   userInstallationsByOrgId: userInstallationsByOrgIdMock,
 }));
 
+// Delegates to the REAL syncRoster (vi.importActual) unless failSyncRoster is
+// set: "syncs the enrollment cache..." below asserts syncRoster's actual DB
+// effect, so a bare no-op mock would silently break it. Only this one test
+// toggles the failure to prove a D1 hiccup here can't hide the class.
+const syncRosterMock = vi.hoisted(() =>
+  vi.fn(
+    async (
+      ...args: Parameters<typeof import("../src/lib/enrollment").syncRoster>
+    ) => {
+      if (state.failSyncRoster) throw new Error("simulated D1 failure");
+      const actual = await vi.importActual<
+        typeof import("../src/lib/enrollment")
+      >("../src/lib/enrollment");
+      return actual.syncRoster(...args);
+    },
+  ),
+);
+vi.mock("../src/lib/enrollment", () => ({ syncRoster: syncRosterMock }));
+
 const { classesRoutes } = await import("../src/routes/classes");
 const { orgPeople } = await import("../src/lib/github/org");
 
@@ -105,12 +125,14 @@ beforeEach(async () => {
   state.installations = [{ id: 200, account: { id: 42, login: "acme" } }];
   state.org = { login: "acme", name: "Acme", avatarUrl: "http://a" };
   state.failInstallationIds = [];
+  state.failSyncRoster = false;
   state.people = {
     teachers: [{ id: 111, login: "prof", avatarUrl: "http://p" }],
     students: [{ id: 2, login: "student", avatarUrl: "http://s" }],
     pending: [{ id: 900, login: "invited", avatarUrl: null }],
   };
   userInstallationsByOrgIdMock.mockClear();
+  syncRosterMock.mockClear();
 
   await db.delete(labs);
   await db.delete(classMembers);
@@ -221,6 +243,19 @@ test("skips a class whose live-enrich call fails, without 500ing the rest", asyn
   expect(res.status).toBe(200);
   const body = (await res.json()) as { classes: Array<{ id: string }> };
   expect(body.classes.map((c) => c.id)).toEqual(["c2"]);
+});
+
+test("a failing roster sync does not hide the teacher's class", async () => {
+  // syncRoster writes a DISPLAY CACHE. Best-effort, self-healing. It must never
+  // take down a live, authorized read.
+  await seedClass();
+  state.failSyncRoster = true;
+
+  const res = await app.request("/api/classes", {}, env);
+
+  expect(res.status).toBe(200);
+  const body = (await res.json()) as { classes: unknown[] };
+  expect(body.classes).toHaveLength(1);
 });
 
 test("returns a class connected by someone else when the caller is an org owner", async () => {
