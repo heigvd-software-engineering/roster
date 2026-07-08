@@ -1,258 +1,287 @@
-# Reconcile on demand — design
+# Class reconciliation — audit, consent, apply
 
 **Status:** approved, not implemented
-**Date:** 2026-07-08
+**Date:** 2026-07-08 (rewritten — supersedes the per-concern button design)
 
-## 0. The principle
+## 0. Two principles
 
-> A `GET` returns what it sees. Reconciliation is a verb a human performs.
+> **A `GET` returns what it sees.** Reconciliation is a verb a human performs.
+>
+> **Nothing is repaired without consent.** The app proposes; the teacher accepts.
 
 Today four `GET` routes mutate the database. Three do it as a side effect of
-rendering; one destroys rows. This design removes all three and relocates the
-fourth, so the only writes left on a `GET` are the ones the HTTP protocol
-forces on us.
+rendering; one destroys rows. This design removes all three, relocates the
+fourth, and replaces the scattered silent repairs with **one per-class action**:
+audit the class, show what drifted, apply only what the teacher accepts.
 
 ## 1. Audit — every mutation on a GET path
 
 | Route | Mutates | Character | Verdict |
 |---|---|---|---|
 | `GET /api/classes` | `classes.installationId` (`classes.ts:139-144`) | pointer repair | → `setup.ts` + reconcile |
-| | `classes.{login,name,avatarUrl}` (`:159-173`) | identity cache | → reconcile button |
-| | `class_members` via `syncRoster` (`:154-158`) | roster cache | → reconcile button |
+| | `classes.{login,name,avatarUrl}` (`:159-173`) | identity cache | → reconcile |
+| | `class_members` via `syncRoster` (`:154-158`) | roster cache | → reconcile |
 | `GET /api/join/:token` | `class_members` via `observeMembership` (`join.ts:126`) | roster cache | → `POST /confirm` |
-| | `classes.{login,name,avatarUrl}` (`join.ts:135`) | identity cache | → deleted (see §5) |
-| `GET /classes/:id/labs/:labId/groups` | `DELETE FROM groups` (`lib/groups.ts:268`) | **destructive** | → `teamMissing` flag |
+| | `classes.{login,name,avatarUrl}` (`join.ts:135`) | identity cache | → deleted |
+| `GET /classes/:id/labs/:labId/groups` | `DELETE FROM groups` (`lib/groups.ts:268`) | **destructive** | → `teamMissing` flag + reconcile |
 | `GET /api/github/setup` | `INSERT INTO classes` | install callback | **kept** |
 
 `/api/github/setup` is GitHub's App-install Setup URL. GitHub redirects the
 browser there; the `GET` *is* the command. Not a violation.
 
-## 2. What `class_members` is, and why it stays
+## 2. The reconciliation subsystem
 
-`class_members` is an enrollment **display cache**: it exists so a student's
-class list is a pure DB read (`class_members ⋈ classes ⋈ labs`), zero GitHub
-calls. It is never authorization — the teacher check reads live org membership.
-
-It stays because **students join through the teacher's link**, and that flow is
-a `POST`. The cache is populated at its source, not by a background sweep.
-
-Write points after this change (all `POST`):
-
-| Trigger | Sees | Effect |
-|---|---|---|
-| `POST /join/:token` — invite sent | the caller | insert `pending` |
-| `POST /join/:token` — already a member | the caller | `observeMembership` |
-| `POST /join/:token/confirm` — student accepted | the caller | `observeMembership` |
-| lazy repair (`observeMembership`, membership `null`) | the caller | `forgetMember` |
-| `POST /classes/:id/roster/reconcile` | **the whole org roster** | `syncRoster` |
-
-### Reconcile is the roster's only CRUD authority
-
-Every write point except reconcile observes **exactly one person: the caller**.
-`observeMember` and `forgetMember` cannot know about anybody else. They converge
-the cache from below, one student at a time, and only for students who visit.
-
-`syncRoster` (`lib/enrollment.ts:68-117`) is the only whole-roster operation, and
-it does all of it:
-
-| | How |
-|---|---|
-| **Create** | insert every person on the live org roster |
-| **Update** | `onConflictDoUpdate` → `state`, `login`, `avatarUrl` |
-| **Delete** | `notInArray(githubId, keep)` → everyone no longer on the roster |
-
-So reconcile is the *only* mechanism that can:
-
-- **add** a member who joined the org out of band — a teacher who invited them
-  directly on GitHub, or a student who accepted the invite from their email and
-  never came back to the join page;
-- **promote** someone to `teacher` after they were made an org Owner, or demote
-  them back;
-- **refresh** a changed `login` or `avatarUrl` for someone who never returns;
-- **remove** a student the teacher removed on GitHub.
-
-The join `POST`s can never do any of these, because they never see the roster.
-That is precisely why the button exists, and why it is not merely "flush the
-cache": it is the class's write path for everything GitHub owns about membership.
-
-> **Destructive edge.** With `keep.length === 0`, `syncRoster` deletes every row
-> for the class (`enrollment.ts:84-85`). That is correct — an org with no members
-> has no members — but it means a reconcile against a transiently empty
-> `orgPeople` response would wipe the cache. `orgPeople` throws rather than
-> returning empty on failure, so this cannot happen silently; the reconcile
-> handler must let that throw propagate, never swallow it into an empty roster.
-
-## 3. Endpoints
-
-### 3.1 `POST /api/classes/:id/roster/reconcile` (teacher-only)
-
-The code that runs today at `classes.ts:135,139,145,154`, lifted out of the read
-path. It is the single "make this class right" action, so it must not depend on
-the very pointer it may need to repair:
-
-```
-userInstallationsByOrgId(callerToken)     → live installationId for cls.orgId
-  absent → 403 { error: "no_installation" }   (App uninstalled, or caller has no access)
-
-isOrgAdmin(live.installationId, org, ghId) → authorize (live, never the cache)
-  false  → 404
-
-persist classes.installationId  when it differs from live
-orgPeople(org)  → syncRoster(class_members)   upsert active/pending/teacher,
-                                              delete rows no longer on the roster
-orgInfo(org)    → persist classes.{login,name,avatarUrl}
-                → set classes.rosterSyncedAt = now
-
-→ 200 { students, pending, teachers, added, removed, syncedAt }
-```
-
-`syncRoster` returns nothing today. It must report `added` and `removed` so the
-button can say what it did (§6) — read the cached github ids before the sync and
-diff against `keep`.
-
-Five GitHub calls (`/user/installations`, `orgPeople`'s three paginated
-endpoints, `orgInfo`), for **one** class. Per-class, never hub-wide: a
-"reconcile everything" button is `3N` calls on one click, which is the cost this
-design removes.
-
-**Why not `resolveClassAsTeacher`.** That helper (`access.ts:122`) authorizes
-via `orgLogin(cls.installationId)` — the *stored* pointer. If the pointer is
-stale, it 404s, and the button advertised by `class_needs_reconcile` (§4) would
-be unable to fix the class it was pointed at. Reconcile therefore derives the
-installation id live, exactly as the hub does, and authorizes against that.
-
-This makes reconcile a superset of the `setup.ts` repair (§3.3): the callback
-fixes the pointer when GitHub redirects through it, and the button fixes it when
-GitHub never did.
-
-### 3.2 `POST /api/join/:token/confirm`
-
-`GET /join/:token` becomes a pure preview: live `orgInfo` + `orgMembership`,
-zero writes. When it reports the caller is already `active`, the page shows a
-**"Finish joining"** button, which POSTs here. The handler re-reads live
-membership and calls the existing `observeMembership` (`join.ts:85`) — so it
-also handles the `teacher` and `forgetMember` branches for free.
-
-Explicit rather than auto-fired on load: a mutation triggered by navigation is
-the pattern we are removing, and a silent failure leaves the student's row
-`pending` with nothing on screen to retry.
-
-### 3.3 `GET /api/github/setup` — repair without a session
-
-`installationAccount(env, installationId)` (`app.ts:11`) runs on the **App's
-own JWT**. GitHub — not the caller — names the org that owns the installation.
-The repair therefore needs no user session:
+### 2.1 Findings are content-addressed
 
 ```ts
-const acct = await installationAccount(c.env, installationId);   // App JWT
-if (!acct?.isOrganization) return c.redirect("/?error=not_an_org");
+/** Stable and derived from content, NOT a random id. Two audits of the same
+ *  drift produce the same key; a changed drift is a different finding. */
+export type FindingKey = string;        // "roster:remove:githubId=9"
 
-const [existing] = await db.select().from(classes).where(eq(classes.orgId, acct.id));
-
-if (existing) {
-  // REPAIR. GitHub confirmed this installation belongs to this org, so the
-  // WHERE is not attacker-controlled. Pointer only: never `status`, never
-  // `connectedByUserId`, never `joinToken`.
-  await db.update(classes)
-    .set({ installationId, updatedAt: now })
-    .where(eq(classes.orgId, acct.id));
-  return c.redirect(session ? `/classes/${existing.id}/confirm` : "/");
-}
-
-// CREATE. Provenance matters: session + the caller really holds this install.
-if (!session) return c.redirect("/");
-if (!token) return c.redirect("/?error=github_not_linked");
-if (!(await userHasInstallation(token, installationId)))
-  return c.redirect("/?error=not_your_installation");
-…insert…
+export type Finding = {
+  key: FindingKey;
+  reconciler: string;                   // "roster" | "class-identity" | …
+  severity: "broken" | "drift" | "info";
+  /** One line, for the checkbox. "Alice Dupont left the organization" */
+  title: string;
+  /** What we saw, precisely. Shown under the title. */
+  detail: string;
+  /** What Apply will do. `null` = we can see it, we cannot fix it. */
+  fix: string | null;
+  /** Deletes rows or revokes access. Starts UNCHECKED in the UI. */
+  destructive: boolean;
+};
 ```
 
-**Security argument.** An attacker hitting the callback with an arbitrary
-`installation_id` cannot choose the `WHERE`: GitHub resolves it to that
-installation's true org, and an App has exactly one installation per org. The
-worst achievable write is the correct value, or a no-op. `status` is excluded
-so a session-less call can never resurrect a deactivated class.
+### 2.2 Apply executes enumerated operations — never a bulk sweep
 
-**Consequence:** the `listClasses` backstop (`classes.ts:139-144`) is deleted.
-It exists solely because `setup.ts` bails on four preconditions before its
-write; three of them (`!session`, `!token`, `!userHasInstallation`) are
-insert-strength checks wrongly applied to a repair.
-
-### 3.4 `GET /classes/:id/labs/:labId/groups` — stop deleting
-
-`groupsWithRosters` (`lib/groups.ts:261-273`) drops the group row when
-`teamMembers` returns `null` (the team 404s on GitHub). A teacher loading their
-lab page destroys rows.
-
-It also **contradicts the invariant the explicit delete enforces**.
-`deleteGroup` (`handlers/groups.ts:79-81`) refuses when a work repo exists —
-*"a group whose WORK REPO exists is a deliverable — refuse rather than orphan
-it"* — and the teacher UI disables the button to match
-(`teacher-lab-groups.tsx:487-491`). The GET-path delete drops the row
-regardless. Two code paths, opposite rules; the silent one wins on page load.
-
-Instead: return the group with `teamMissing: true` and an empty roster.
-
-#### Why this state is worse than it looks
-
-Repo access is granted **to the team** (`grantTeamRepo` →
-`PUT /orgs/{org}/teams/{slug}/repos/…`). When the team is deleted on GitHub the
-grant dies with it, so the students lose push on their own work repo. Today the
-row is silently deleted, which hides the breakage *and* orphans the repo. Once
-marked, the group is visible but stuck: it cannot be deleted (`has_repo`),
-cannot be worked in (no team, no grant), and nothing recreates a team.
-
-#### The marker
-
-`GroupLabStatus` gains `team_missing`, ranked **first** in `statusFor` — a
-group whose roster is unknowable has no meaningful size or activity status.
-`STATUS_SPINE` and `CHIP` (`teacher/roster.tsx:52,11`) are both
-`Record<GroupLabStatus, …>`, so the type checker forces the new member into
-both maps.
-
-A fifth `Pill` tone, `broken`, on the existing `destructive` token — distinct
-from `bad` (brand red = late work). Scanning the spine column, a teacher must
-tell *"this group is behind"* from *"this group is broken"* without reading:
-they are different actions.
+**This is the safety property of the whole design.** `apply` acts on exactly the
+keys the teacher accepted:
 
 ```
-STATUS_SPINE.team_missing = "border-l-destructive"
-TONE.broken               = "bg-destructive/10 text-destructive"
-CHIP.team_missing         = { label: "team missing", tone: "broken" }
+roster:remove:githubId=9      →  delete that one row
+roster:add:githubId=41        →  insert that one row
+roster:promote:githubId=111   →  update that one row to `teacher`
 ```
 
-#### The recovery — `POST /classes/:id/groups/:groupId/team`
+It must **not** call `syncRoster`, whose semantics are *"delete everyone absent
+from the live roster"* (`enrollment.ts:84-85`). `syncRoster` becomes an internal
+detail of `audit` — diffing live GitHub against the cache — and disappears from
+the write path entirely.
 
-Recreates the secret team under the group's stored `slug` and re-runs
-`grantTeamRepo` against the existing repo. Students get push back; their work
-was never touched. The roster is genuinely lost — it only ever lived in the
-GitHub team — so the group returns **empty** and the teacher re-adds from the
-pool. `ghTeamId`/`ghTeamSlug` are rewritten from the new team.
+Consequence: a proposal that has gone stale between audit and apply can only ever
+do **too little**, never too much. It cannot touch a student it never named. The
+blast radius is bounded by the proposal the teacher actually read. Apply therefore
+does not need a stale-plan check, and takes the payload at face value.
 
-`deleteGroup`'s `has_repo` guard is **unchanged**. The repo is the durable
-thing; the group row is not.
+Every operation must be individually **idempotent**. The residual races are all
+benign and self-healing:
 
-#### Two kinds of stray repo — do not conflate them
+| Race | Result |
+|---|---|
+| student left, then rejoined between audit and apply | removed from the cache; re-added by their next join `POST`, or the next audit |
+| `adopt repo X`, repo since deleted | `404` → reported as a failed operation |
+| `recreate team`, team since recreated | `422` → absorbed, treated as already done |
 
-| | Group row | Repo | Cause | Recovery |
-|---|---|---|---|---|
-| **Unrecorded** | exists, `ghRepoFullName = NULL` | exists | `createWorkRepo` died after creating it | adoption (find-or-create) |
-| **Orphaned** | gone | exists | *only* the GET-path delete | — |
+### 2.3 The context is lazy and memoized
 
-Nothing in `apps/api/src` ever deletes a GitHub repo (verified: no `DELETE
-/repos`, no `deleteRepo`). Student work is never destroyed by the app.
+Several reconcilers want the same expensive fetches. `orgPeople` alone is three
+paginated calls.
 
-With the `has_repo` guard holding and this GET-path delete removed, **an
-orphaned repo can no longer be created.** Adoption's real job is recovering a
-partial `createWorkRepo` — an *unrecorded* repo, whose row still exists — which
-is exactly what its docstring claims.
+```ts
+export type ClassContext = {
+  db: Db;
+  env: AuthEnv;
+  cls: Class;
+  org: string;
+  installationId: number;      // the LIVE one — see `installation` reconciler
+  /** Each fetched at most once per audit, memoized on the context. */
+  people(): Promise<OrgPeople>;
+  groups(): Promise<Group[]>;
+  orgRepos(): Promise<Map<string, RepoSummary>>;
+  basePermission(): Promise<string>;
+  members(): Promise<ClassMember[]>;   // the class_members cache
+};
+```
 
-> `groups.ghRepoId` is globally `.unique()` (`app-schema.ts:93`) and adoption
-> writes it. Adoption is therefore only safe while no *other* group row holds
-> that repo id — true for the unrecorded case, and guaranteed by §5's lab-title
-> constraint for everything else.
+A reconciler declares nothing; it asks. Adding a reconciler that needs a new
+source means adding one getter. No reconciler pays for data it does not touch.
 
-## 4. Reads after the change
+### 2.4 A reconciler is a file
+
+```ts
+export type Reconciler = {
+  name: string;
+  audit(ctx: ClassContext): Promise<Finding[]>;
+  /** Only ever called with keys THIS reconciler produced. */
+  apply(ctx: ClassContext, keys: FindingKey[]): Promise<AppliedOp[]>;
+};
+```
+
+```
+apps/api/src/lib/reconcile/
+  types.ts            Finding, FindingKey, Reconciler, ClassContext
+  context.ts          the lazy, memoized ClassContext
+  index.ts            the registry (a list) + runAudit + applyFindings
+  installation.ts
+  identity.ts
+  roster.ts
+  group-teams.ts
+  work-repos.ts
+  base-permission.ts
+```
+
+`index.ts` is a list. **Adding a reconciliation factor is adding a file and one
+line.** That is the extensibility requirement, discharged.
+
+### 2.5 A failing reconciler is a finding, not a 502
+
+A reconciler that throws yields one `info` finding with `fix: null`:
+
+> ⚠ **Roster could not be checked** — GitHub rate limit, retry in 12 min.
+
+The rest of the audit renders and remains applicable. Nothing silently reads as
+"all clear", and one flaky module never blocks the fix the teacher came for. This
+matters most in the worst case: a dead installation pointer makes *every* GitHub
+reconciler fail, which is exactly when the page is needed.
+
+`runAudit` therefore never rejects. `applyFindings` may — a failed operation is
+reported per key, and the response says what was applied and what was not.
+
+## 3. The reconcilers
+
+Each is a real invariant the app establishes once and never re-checks.
+
+### 3.1 `installation`
+
+Stored `classes.installationId` ≠ the live id from `GET /user/installations`.
+
+A reinstall mints a new id. `setup.ts` records it (§4), but only if the browser
+that performed the reinstall reached the Setup URL. Nothing else does.
+
+`ctx.installationId` is **always the live value**, derived once before any
+reconciler runs — otherwise every other reconciler fails against a dead
+installation, and the page that fixes it cannot load.
+
+- `installation:repair` — `drift`, not destructive. Rewrites the pointer.
+
+### 3.2 `identity`
+
+`classes.{login,name,avatarUrl}` vs `orgInfo`. Orgs get renamed; avatars change.
+
+- `identity:refresh` — `drift`. Rewrites the three fields.
+
+### 3.3 `roster`
+
+The live org roster vs `class_members`. **The only whole-roster observer** —
+every other write point (`observeMember`, `forgetMember`, the join `POST`s) sees
+exactly one person: the caller. So this is the only thing that can notice:
+
+| Finding | Severity | Destructive |
+|---|---|---|
+| `roster:add:githubId=41` | `drift` | no — someone joined the org out of band |
+| `roster:promote:githubId=111` | `drift` | no — a member became an org Owner |
+| `roster:demote:githubId=7` | `drift` | no |
+| `roster:refresh:githubId=7` | `info` | no — login or avatar changed |
+| `roster:remove:githubId=9` | `drift` | **yes** — left the org |
+
+### 3.4 `group-teams`
+
+A group row whose GitHub team 404s.
+
+Repo access is granted **to the team** (`grantTeamRepo`), so when the team dies
+the students lose push on their own work repo. The group is stuck: it cannot be
+deleted (`has_repo`), cannot be worked in, and nothing recreates a team.
+
+- `group-teams:recreate:groupId=…` — `broken`, not destructive. Recreates the
+  secret team under the group's stored `slug`, re-runs `grantTeamRepo`. The
+  roster died with the team, so the group returns **empty**; the teacher re-adds
+  from the pool.
+
+### 3.5 `work-repos`
+
+A repo exists in the org at `group.slug`, but `group.ghRepoFullName` is `NULL` —
+`createWorkRepo` died after creating it, before recording it.
+
+- `work-repos:adopt:groupId=…` — `broken`, not destructive. Adopts the repo,
+  re-grants the team, records the row. This is `createWorkRepo`'s find-or-create
+  path, surfaced.
+
+> Distinguish two states, and never conflate them:
+>
+> | | Group row | Repo | Cause | Recovery |
+> |---|---|---|---|---|
+> | **Unrecorded** | exists, `ghRepoFullName = NULL` | exists | partial `createWorkRepo` | adopt |
+> | **Orphaned** | gone | exists | *only* the GET-path delete | — |
+>
+> Nothing in `apps/api/src` deletes a GitHub repo (verified: no `DELETE /repos`,
+> no `deleteRepo`). With `deleteGroup`'s `has_repo` guard holding and the
+> GET-path delete removed (§1), an **orphaned** repo can no longer be created.
+
+### 3.6 `base-permission`
+
+The org's base repository permission is not `none`.
+
+`confirmClass` (`classes.ts:26-40`) sets it and verifies it **once, at class
+creation.** Nothing re-checks it. A teacher can flip it back on GitHub and every
+student silently gains read access to every repository in the org.
+
+- `base-permission:reset` — `broken`. Destructive in the sense that it *revokes*
+  access, so it starts unchecked, but leaving it is the actual hazard. Copy says
+  so.
+
+**This reconciler is why the abstraction earns its keep.** It was invisible in
+the previous design because there was no surface to hang it on.
+
+## 4. Endpoints and routes
+
+```
+GET  /api/classes/:id/audit        teacher-only. Runs every reconciler. WRITES NOTHING.
+                                   → { auditedAt, findings: Finding[] }
+
+POST /api/classes/:id/reconcile    teacher-only. { keys: FindingKey[] }
+                                   → { applied: AppliedOp[], failed: FailedOp[], reconciledAt }
+```
+
+`GET /audit` is an authed XHR from a page the teacher navigated to deliberately;
+no prefetcher will trip it. It writes nothing, so `GET` is honest.
+
+Both derive the live `installationId` **before authorizing** (`isOrgAdmin`
+against the live installation). `resolveClassAsTeacher` authorizes via the
+*stored* pointer, so a stale one would make the page that fixes it refuse to
+load. `class_members` may never authorize.
+
+### `setup.ts` — repair without a session
+
+`installationAccount` (`app.ts:11`) runs on the **App's own JWT**: GitHub, not
+the caller, names the org that owns an installation. So the repair needs no user
+session, and an attacker passing an arbitrary `installation_id` cannot choose the
+`WHERE` — GitHub resolves it to that installation's true org, and an App has
+exactly one installation per org. The worst achievable write is the correct
+value, or a no-op.
+
+Repair: narrow `UPDATE` of the pointer only. Never `status` (a session-less call
+must not resurrect a deactivated class), never `joinToken`, never
+`connectedByUserId`. **Create** still requires a session and `userHasInstallation`.
+
+### `GET /join/:token` and `POST /join/:token/confirm`
+
+The preview becomes a pure read. When it reports the caller is already `active`,
+the page shows **"Finish joining"**, which POSTs `/confirm`. That handler
+re-reads live membership and calls the existing `observeMembership` — so the
+`teacher` and `forgetMember` branches come along for free.
+
+Explicit, not auto-fired on load: a mutation triggered by navigation is the
+pattern this design removes, and a silent failure would leave the row `pending`
+with nothing on screen to retry.
+
+### `GET /classes/:id/labs/:labId/groups`
+
+Returns `teamMissing: true` and an empty roster instead of deleting the row. The
+`group-teams` reconciler is the fix. `deleteGroup`'s `has_repo` guard is
+**unchanged** — the repo is the durable thing, the group row is not.
+
+## 5. Reads after the change
 
 ### Teacher hub — `GET /api/classes`
 
@@ -263,177 +292,181 @@ is exactly what its docstring claims.
 | `login`, `avatarUrl` | `/user/installations` payload | free (already fetched) |
 | `name` | cached `classes` row | free |
 | students / pending / teachers | `class_members` | free |
-| linked SWITCH users | `linkedUsers` | 1 DB query |
-| labs | DB | 1 DB query |
+| `reconciledAt` | cached `classes` row | free |
 
-Writes: **none.**
+Writes: **none.** Cost: **~4N GitHub calls → N + 1.**
 
-Two verified facts this rests on:
+Two facts this rests on, both verified by typecheck:
 
-- `inst.account.avatar_url` is a required `string` on `GET /user/installations`
-  (typechecked). `inst.account.name` is `string | null | undefined` — optional,
-  so `name` cannot be trusted from that payload and must come from `orgInfo`
-  (hence: the button).
-- `/user/installations` returns installations the caller can *access*, not ones
-  they own — a student with push on a work repo may appear there. So the live
-  `orgMembership` check per class is **not optional**. `class_members` may never
-  authorize.
+- `inst.account.avatar_url` is a **required `string`** on `GET /user/installations`.
+- `inst.account.name` is `string | null | undefined` — optional, therefore not
+  trustworthy. `name` comes from the cached row until reconcile refreshes it.
 
-Cost: **~4N GitHub calls → N + 1** (one profile fetch for the caller's login,
-one membership check per class).
-
-The teacher's card renders from `live.installationId`, never the stored value,
-so a stale pointer cannot break the page that carries the fix.
+And one that is not negotiable: `/user/installations` returns installations the
+caller can **access**, not ones they own — a student with push on a work repo can
+appear there. The live `orgMembership` check per class is mandatory.
 
 ### Everyone else
 
-Routes that don't fetch `/user/installations` (student hub, join, lab pages)
-read the stored `installationId`. If it is stale, the GitHub call 404s. Surface
+Routes that don't fetch `/user/installations` (student hub, join, lab pages) read
+the stored `installationId`. If it is stale, the GitHub call 404s. Surface
 `409 { error: "class_needs_reconcile" }` → *"This class needs reconciling — ask
-your teacher."* Students structurally cannot repair it: re-deriving the id
-requires `GET /user/installations`, which only lists installations the caller
-administers.
+your teacher."* Students structurally cannot repair it: re-deriving the id needs
+`GET /user/installations`, which only lists installations the caller administers.
 
-The teacher can, from either end: reinstalling through the Setup URL (§3.3), or
-pressing Reconcile, which derives the live id before it authorizes (§3.1). Those
-are the only two writers of `classes.installationId`.
+The teacher can, from either end: reinstalling through the Setup URL, or the
+reconcile page. Those are the only two writers of `classes.installationId`.
 
-## 5. Schema
-
-Migration `0011`:
+## 6. Schema
 
 ```
-classes.rosterSyncedAt   integer (timestamp), null
-labs: unique(classId, title)
+classes.reconciledAt   integer (timestamp), null   -- migration 0011
+labs: unique(classId, title)                       -- migration 0012
 ```
+
+### `classes.reconciledAt`
+
+`null` = never reconciled. The class card reads **"Never reconciled"** rather
+than presenting a partial roster as complete.
+
+It cannot be inferred from `class_members` row count: the join `POST`s insert
+rows into a class that has never been reconciled, and a reconciled class with no
+students still has teacher rows.
 
 ### `labs: unique(classId, title)`
 
 A group's slug — and therefore its **repo name** — is
-`` `${slugify(lab.title)}-${slugify(group.name)}` `` (`lib/groups.ts:59`). The
-database only enforces `unique(labId, slug)` and `unique(labId, name)`
-(`app-schema.ts:101`): **per lab**, not per org. And `labs.title` has no unique
-constraint within a class, nor any check in `handlers/labs.ts`.
+`` `${slugify(lab.title)}-${slugify(group.name)}` `` (`lib/groups.ts:59`). The DB
+enforces only `unique(labId, slug)` and `unique(labId, name)`
+(`app-schema.ts:101`): **per lab**, not per org. `labs.title` has no constraint at
+all.
 
-So two labs in one class both titled *"Lab 1"*, each with a group *"Alpha"*,
-compute the same repo name in the same org. GitHub's team-name 422 blocks the
-second *team* today — but only while the first team lives. Once it is gone
-(§3.4), the second lab's group creates its team and then **adopts the first
-lab's repo**: one lab's student work, attached to another lab's group, silently.
+Two labs in one class both titled *"Lab 1"*, each with a group *"Alpha"*, compute
+the same repo name in the same org. GitHub's team-name 422 blocks the second
+*team* only while the first team lives. Once it is gone (§3.4), the `work-repos`
+reconciler would offer to adopt **the first lab's repo** into the second lab's
+group: one lab's student work, under another lab's group.
 
-`unique(classId, title)` makes `slugify(title)-slugify(name)` genuinely
-org-unique, so adoption can only ever re-attach a repo to the group that owns
-it. `createLab`/`updateLab` return `409 { error: "title_taken" }`.
+`createLab`/`updateLab` return `409 { error: "title_taken" }`; the index is the
+backstop.
 
-Repo names stay human-readable, and no existing group's slug changes — which
-matters, because a recomputed slug would stop matching the repo it names, and
-adoption would never find it again.
-
-> Drizzle emits `unique()` on SQLite as `CREATE UNIQUE INDEX` (see `0010`,
-> lines 25-28) — one statement, no table rebuild. It **fails at apply time if
-> duplicates already exist**. Check before deploying:
+> Drizzle emits `unique()` on SQLite as `CREATE UNIQUE INDEX` (see `0010`, lines
+> 25-28) — one statement, no table rebuild. It **fails at apply time on existing
+> duplicates**:
 >
 > ```sql
 > SELECT class_id, title, COUNT(*) FROM labs GROUP BY class_id, title HAVING COUNT(*) > 1;
 > ```
 >
-> The local dev database is clean (12 labs, no duplicates). Production is
-> unverified.
+> Local dev is clean (12 labs). **Production is unverified.**
 
-- `null` ⇒ never reconciled → the card renders **"Roster not synced · [Reconcile]"**.
-- set ⇒ the popover footer renders **"Synced 2 days ago · [Reconcile]"**.
+## 7. The page
 
-It cannot be inferred from `class_members` row count: the join flow inserts rows
-into a class that has never been reconciled, and a reconciled class with no
-students has only teacher rows. The column states the fact directly.
+`/classes/:id/reconcile` — a real route, not a popover. Six reconcilers of
+per-finding checkboxes do not fit in one.
 
-`join.ts:135` (the identity-cache refresh on the preview GET) is **deleted**
-rather than moved. The join page already fetches `orgInfo` live for its own
-render; persisting it there was opportunistic. Reconcile owns that write now.
-
-## 6. UI
-
-`PeopleChip` popover footer, on the teacher's class card:
+Entry points:
+- the class card's `⋯` → **Reconcile…** (ellipsis: it navigates, it does not act)
+- the `class_needs_reconcile` error, anywhere it surfaces
 
 ```
-┌─ 12 students · 1 pending ──────────────┐
-│  Switch identity      GitHub identity  │
-│  Alice Dupont         @alice           │
-│  …                                     │
-├────────────────────────────────────────┤
-│  Synced 2 days ago      [ Reconcile ]  │
-└────────────────────────────────────────┘
+Reconcile — Test TWeb 2026
+Last reconciled 2 days ago · audited just now
+
+CLASS
+  ☑ Organization was renamed to “TWeb 2026”
+      login acme → tweb-2026 · refresh the class card
+  ☑ Installation was reinstalled
+      stored 143979064 → live 152003411 · repoint the class
+
+ROSTER
+  ☑ 2 students joined the organization directly
+      @walkin, @latejoiner · add to the class roster
+  ☑ Prof Dupont became an organization Owner
+      promote to teacher
+  ☐ 3 students left the organization
+      @gone, @quit, @dropped · remove from the class roster
+
+GROUPS
+  ☑ Team “Alpha” no longer exists on GitHub
+      its students cannot push to acme/lab1-alpha · recreate + re-grant
+  ☑ Repository acme/lab1-beta is not recorded
+      created but never linked · adopt it
+
+SECURITY
+  ☐ Base repository permission is “read”, not “none”
+      every member can read every repository · set it back to none
+
+⚠ Work repositories could not be checked
+    GitHub rate limit — retry in 12 min
+
+                                          [ Apply 6 selected ]
 ```
 
-Always reachable, because the card always renders (§4). A class with
-`rosterSyncedAt === null` renders the not-synced state on the card itself, so
-the first reconcile does not require opening a popover.
+Destructive findings start **unchecked** and wear the `destructive` tone. The
+teacher opts *into* deletion, never out of it. `base-permission:reset` is
+destructive in the sense that it revokes access — the copy says which way the
+hazard runs.
 
-On success the button reports what changed, in both directions: *"+2 added, 3
-removed · 12 students, 1 pending"*. Reconcile creates, updates and deletes
-(§2), and a silent success on a destructive sync is how a teacher fails to
-notice it removed a student — or that it discovered two who had joined the org
-without ever using the link.
+On success: *"6 applied · 1 failed"*, with the failures named. Silent success on a
+destructive apply is how a teacher fails to notice a student was removed.
 
-## 7. Non-goals
+## 8. Non-goals
 
-- **Webhooks.** Still not adopted. Drift self-heals at the join `POST`s and at
-  reconcile.
-- **Promoting `class_members` to authority.** That belongs to the
-  student-owned-repos proposal, which is an idea, not a plan. This design keeps
-  it a display cache with the never-authorize invariant intact.
-- **The `listClasses` decomposition.** Tracked separately (§9).
+- **Webhooks.** Drift self-heals at the join `POST`s and at reconcile.
+- **Automatic reconciliation.** Nothing repairs itself on a read. Ever. The one
+  exception is `setup.ts`, where GitHub itself hands us the truth.
+- **Promoting `class_members` to authority.** It stays a display cache with the
+  never-authorize invariant intact.
+- **A hub-wide "reconcile everything".** Per class, proportional to what the
+  teacher actually doubts.
 
-## 8. Testing
+## 9. Testing
 
 | Claim | Test |
 |---|---|
-| A session-less callback repairs an existing row | `POST` the callback with no cookie → `installationId` updated, `status`/`joinToken`/`connectedByUserId` unchanged |
-| A session-less callback cannot create a class | no cookie, unknown `orgId` → redirect, no row |
-| Reconcile repairs a stale pointer it needed to authorize | seed a stale `installationId`, `POST .../reconcile` → authorizes off the live id, persists it, syncs |
-| The hub GET writes nothing | seed a stale `installationId`, hit `GET /api/classes`, assert the row is untouched and the card still renders |
-| Reconcile syncs and stamps | `POST .../reconcile` → rows written, departed deleted, `rosterSyncedAt` set |
-| Reconcile discovers an out-of-band member | a student on the org roster who never used the join link → row created, counted in `added` |
-| Reconcile promotes a new org Owner | a member whose GitHub role became `admin` → row updated to `teacher` |
-| Reconcile refuses to wipe on a GitHub failure | `orgPeople` throws → `500`, `class_members` untouched, `rosterSyncedAt` unchanged |
-| A failing `syncRoster` no longer hides the class | force `syncRoster` to throw inside reconcile → `500`, but `GET /api/classes` still lists the class |
-| An orphaned group is surfaced, not deleted | `teamMembers` → `null` → group returned with `teamMissing: true`, row still present |
-| …and its repo is never orphaned | the group had a repo → row and `ghRepoFullName` both survive the GET |
-| Recreate team restores push | `POST .../groups/:groupId/team` → new team under the same slug, `grantTeamRepo` re-run, roster empty, `ghTeamId` rewritten |
-| Delete still refuses a group with a repo | `DELETE .../groups/:groupId` on a `teamMissing` group with a repo → `409 has_repo` |
-| Two labs in a class cannot share a title | `createLab` with an existing title → `409 title_taken` |
+| `runAudit` writes nothing | seed drift in every reconciler, `GET /audit`, assert every table byte-identical |
+| A failing reconciler becomes a finding | `orgPeople` throws → `200`, one `info` finding, other reconcilers still report |
+| `runAudit` never rejects | every reconciler throws → `200` with six `info` findings |
+| Apply executes only accepted keys | accept 1 of 3 roster removals → exactly one row deleted |
+| Apply never bulk-sweeps | accept `roster:add:41`; a student absent from the payload and from GitHub is **not** deleted |
+| Apply is idempotent | apply the same keys twice → second is a no-op, no error |
+| Stale key, subject gone | accept `roster:remove:9`, delete the row first → reported failed, nothing else touched |
+| Findings are content-addressed | two audits over unchanged state produce identical keys |
+| Audit and apply authorize live | `isOrgAdmin` false → `404`; a cached `teacher` row does not grant access |
+| Both work against a dead pointer | stored `installationId` bogus → audit loads, `installation:repair` offered, apply fixes it |
+| `base-permission` detects drift | set org base perm to `read` → `broken` finding, unchecked by default |
+| A session-less callback repairs, cannot create | `setup.ts`, no cookie |
 | The join preview writes nothing | `GET /join/:token` for an active member → `class_members` unchanged |
-| `POST /confirm` records acceptance | → row flips `pending` → `active` |
-
-`apps/api/test/classes-list.test.ts` and `join.test.ts` already cover these
-routes and are the regression net for the refactor.
-
-## 9. Follow-ups (not in this spec)
-
-- **`listClasses` decomposition** — `callerGithubId` (extract; two call sites at
-  `classes.ts:60` and `access.ts:131`, both re-deriving the `Number.isFinite`
-  invariant on a TEXT column), `teachingClass`, `reconcileClass`,
-  `enrolledClasses`, `hasOlderThan`; parallelize the per-class fan-out with
-  `Promise.all`.
-- **The `catch {}` at `classes.ts:195`** swallows Drizzle errors as "org
-  failure" and drops the class from the teacher's hub. This design fixes it by
-  construction (the writes leave the read path), but the bare catch should still
-  narrow to GitHub errors and log what it swallows.
-- **`enrolledTeachers`' inline join** (`classes.ts:243-257`) reimplements
-  `linkedUsers` with a left join.
+| An orphaned group is surfaced, not deleted | `teamMembers` → `null` → row survives, `teamMissing: true` |
+| Delete still refuses a group with a repo | `409 has_repo` |
+| Two labs cannot share a title | `409 title_taken` |
 
 ## 10. Rollout
 
 No backfill script. **Reconcile is the backfill** — per class, on demand, run by
-the person who knows whether the roster is right. Every existing class shows
-"Roster not synced" until its teacher clicks once, which is honest: we genuinely
-do not know their roster.
+the person who knows whether the roster is right. Every existing class reads
+"Never reconciled" until its teacher opens the page once, which is honest: we
+genuinely do not know their roster.
 
-Classes created after the change fill `class_members` from the join `POST`s as
-students arrive. That covers students who use the link — the normal path — but
-never anyone added to the org directly on GitHub. Those appear on the first
-reconcile (§2), which is the only operation that reads the whole roster.
+Classes fill `class_members` from the join `POST`s as students arrive. That covers
+students who use the link — the normal path — but never anyone added to the org
+directly on GitHub. Those appear on the first audit.
 
-So the cache converges from two directions: upward from each student's own join,
-and downward from the teacher's reconcile. Neither alone is sufficient, and
-neither runs on a `GET`.
+The cache converges from two directions: upward from each student's own join, and
+downward from the teacher's reconcile. Neither alone is sufficient, and neither
+runs on a `GET`.
+
+## 11. Follow-ups (not in this spec)
+
+- **`classes.ts:195`'s bare `catch {}`** swallows Drizzle errors as "org failure"
+  and drops the class from the teacher's hub. This design fixes it by
+  construction (the writes leave the read path), but the catch should still narrow
+  to the GitHub fetches and log what it swallows.
+- **`callerGithub` extraction** — the caller's numeric GitHub id is derived twice
+  (`classes.ts:60`, `access.ts:131`), each re-deriving the `Number.isFinite`
+  invariant on a TEXT column.
+- **`enrolledTeachers`' inline join** (`classes.ts:243-257`) reimplements
+  `linkedUsers` with a left join.
+- **The `listClasses` decomposition.** After §5 the loop is one GitHub call and no
+  writes; re-assess whether it still earns a split.
