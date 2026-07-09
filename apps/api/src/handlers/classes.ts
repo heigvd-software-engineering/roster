@@ -1,12 +1,4 @@
-import {
-  account,
-  classes,
-  classMembers,
-  getDb,
-  type Lab,
-  labs,
-  user,
-} from "@labs/db";
+import { account, classes, classMembers, getDb, labs, user } from "@labs/db";
 import { and, desc, eq, gte, inArray, lt } from "drizzle-orm";
 import { authedFactory } from "../factory";
 import {
@@ -18,12 +10,11 @@ import { githubAccessToken } from "../lib/auth/github-token";
 import {
   basePermission,
   type OrgPerson,
-  orgMembership,
   setBasePermissionNone,
 } from "../lib/github/org";
 import {
-  fetchGithubProfile,
   userInstallationsByOrgId,
+  userOrgMemberships,
 } from "../lib/github/user";
 
 /** A cached member as the client already expects to see them. `class_members` is
@@ -77,20 +68,31 @@ export const listClasses = authedFactory.createHandlers(async (c) => {
     return c.json({ classes: [], enrolled: [], hasOlder: false });
   }
 
-  // The caller's LIVE installations. An org the user uninstalled the App from
-  // must be dropped (its class row is skipped, not deleted) — without an
-  // installation token there is no way to authorize them against it at all.
-  // NOTE: this lists installations the caller can ACCESS, not ones they own — a
-  // student with push on a work repo appears here — so it decides nothing on its
-  // own. The per-class Owner check below is what grants the class.
-  const byOrgId = await userInstallationsByOrgId(token);
+  // The caller's LIVE reach in TWO bulk GitHub calls — a fixed cost however
+  // many classes there are (fan-out spec 2026-07-08). Independent questions,
+  // so they run in parallel:
+  //
+  // - `userInstallationsByOrgId` (GET /user/installations) — which orgs the
+  //   App can still reach FOR THIS CALLER. An org the user uninstalled the
+  //   App from is dropped (its class row is skipped, not deleted): without
+  //   an installation token there is no way to authorize anyone against it.
+  //   It lists orgs the caller can ACCESS, not ones they own — a student
+  //   with push on a work repo appears here too — so it decides nothing on
+  //   its own. Its payload also carries each org's login/avatar, which the
+  //   class cards render for free.
+  //
+  // - `userOrgMemberships` (GET /user/memberships/orgs) — the caller's role
+  //   and state in EVERY org they belong to, answered at once. Implicitly
+  //   scoped to the token's user, so no profile fetch to learn the login.
+  //
+  // The Owner check is their intersection (the `visible` filter below): the
+  // org is in both maps AND the membership says admin + active. As live as
+  // the old per-class check — same question, 2 calls instead of 2 + N.
+  const [byOrgId, membershipByLogin] = await Promise.all([
+    userInstallationsByOrgId(token),
+    userOrgMemberships(token),
+  ]);
   const orgIds = [...byOrgId.keys()];
-
-  // One profile fetch for the whole request; orgMembership is keyed on login.
-  const profile = orgIds.length === 0 ? null : await fetchGithubProfile(token);
-  if (orgIds.length > 0 && !profile) {
-    return c.json({ classes: [], enrolled: [], hasOlder: false });
-  }
 
   const rows =
     orgIds.length === 0
@@ -141,64 +143,45 @@ export const listClasses = authedFactory.createHandlers(async (c) => {
             ),
           );
 
-  // TODO: discuss this transformation and propose the move the transformation to frontend
-  const out: Array<{
-    id: string;
-    orgId: number;
-    /** The client groups classes into semesters by creation date. */
-    createdAt: Date;
-    login: string;
-    name: string | null;
-    avatarUrl: string;
-    joinToken: string;
-    teachers: OrgPerson[];
-    students: OrgPerson[];
-    pending: OrgPerson[];
-    /** Labs users linked to the members' GitHub accounts — raw query rows;
-     *  the client correlates them with the people lists by github id. */
-    users: Array<{ githubId: string; user: typeof user.$inferSelect }>;
-    labs: Lab[];
-  }> = [];
-  for (const cls of rows) {
+  // F5a: only live org Owners see the class — `class_members` may never
+  // authorize, and a cached `teacher` row is a display fact, not a role. The
+  // check is the intersection of the two bulk maps: the App still reaches the
+  // org AND the caller is an active admin in it. An org that answered neither
+  // call (rate-limited, revoked, vanished) is simply absent — skipped, never
+  // shown. No `orgPeople` (three paginated calls) and no `orgInfo`: the chips
+  // come from the cache, `login`/`avatarUrl` ride on the /user/installations
+  // payload, and `name` waits for a reconcile.
+  const visible = rows.flatMap((cls) => {
     const live = byOrgId.get(cls.orgId);
-    if (!live) continue; // App uninstalled from this org — skip.
+    if (!live) return []; // App uninstalled from this org — skip.
+    const membership = membershipByLogin.get(live.login.toLowerCase());
+    // An invited-but-pending Owner is not an Owner yet.
+    if (membership?.role !== "admin" || membership.state !== "active")
+      return [];
+    return [{ cls, live }];
+  });
 
-    // ONLY the GitHub fetch is skippable. An org can rate-limit, revoke its
-    // installation, or vanish; that is this class's problem. Everything below
-    // is ours, and a failure there is a bug, not org state.
-    let membership: Awaited<ReturnType<typeof orgMembership>>;
-    try {
-      // F5a: only live org Owners see the class. ONE request — `class_members`
-      // may never authorize, and a cached `teacher` row is a display fact, not
-      // a role. No `orgPeople` (three paginated calls) and no `orgInfo`: the
-      // chips come from the cache, `login`/`avatarUrl` ride on the
-      // /user/installations payload, and `name` waits for a reconcile.
-      membership = await orgMembership(
-        c.env,
-        live.installationId,
-        live.login,
-        profile?.login ?? "",
-      );
-    } catch {
-      continue;
-    }
-    if (membership?.role !== "admin") continue;
+  // SWITCH users linked to the visible members' GitHub accounts — ONE query
+  // for all classes; raw rows, the client correlates by github id. Pending
+  // invitees carry an invitation id, not a user id — never looked up.
+  const visibleIds = new Set(visible.map((v) => v.cls.id));
+  const activeMembers = memberRows.filter(
+    (m) => visibleIds.has(m.classId) && m.state !== "pending",
+  );
+  const allLinked = await linkedUsers(db, [
+    ...new Set(activeMembers.map((m) => m.githubId)),
+  ]);
 
+  // TODO: discuss this transformation and propose the move the transformation to frontend
+  const out = visible.map(({ cls, live }) => {
     const members = memberRows.filter((m) => m.classId === cls.id);
-    const teachers = members.filter((m) => m.state === "teacher").map(person);
-    const students = members.filter((m) => m.state === "active").map(person);
-    const pending = members.filter((m) => m.state === "pending").map(person);
-
-    // SWITCH users linked to the members' GitHub accounts — raw rows, the
-    // client correlates. Pending invitees carry an invitation id, not a
-    // user id — never looked up.
-    const users = await linkedUsers(
-      db,
-      [...teachers, ...students].map((p) => String(p.id)),
+    const memberIds = new Set(
+      members.filter((m) => m.state !== "pending").map((m) => m.githubId),
     );
-    out.push({
+    return {
       id: cls.id,
       orgId: cls.orgId,
+      /** The client groups classes into semesters by creation date. */
       createdAt: cls.createdAt,
       joinToken: cls.joinToken,
       // Live, and free: already fetched to find the caller's orgs.
@@ -206,13 +189,13 @@ export const listClasses = authedFactory.createHandlers(async (c) => {
       avatarUrl: live.avatarUrl,
       // NOT on the /user/installations payload. Cached until Reconcile.
       name: cls.name,
-      teachers,
-      students,
-      pending,
-      users,
+      teachers: members.filter((m) => m.state === "teacher").map(person),
+      students: members.filter((m) => m.state === "active").map(person),
+      pending: members.filter((m) => m.state === "pending").map(person),
+      users: allLinked.filter((u) => memberIds.has(u.githubId)),
       labs: labRows.filter((l) => l.classId === cls.id),
-    });
-  }
+    };
+  });
 
   // The caller's own enrollments — the student side of the hub. Pure DB
   // read (enrollment display cache ⋈ org identity cache ⋈ labs): zero

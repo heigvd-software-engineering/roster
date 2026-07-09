@@ -1,6 +1,9 @@
 # Collapsing `GET /classes`'s per-class Owner check
 
-**Status:** proposed, blocked on one empirical check.
+**Status:** implemented (2026-07-09, `milestone-5-quality`). The empirical
+check passed: the stored user-to-server token got a `200` from
+`GET /user/memberships/orgs`, with `role` readable (`admin` on the org the
+caller owns, `member` elsewhere).
 **Date:** 2026-07-08.
 **Owner question:** does a GitHub App *user-to-server* token reach
 `GET /user/memberships/orgs`?

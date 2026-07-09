@@ -82,6 +82,33 @@ export async function userInstallationsByOrgId(
   return byOrgId;
 }
 
+/**
+ * Every org the caller belongs to — role + state, keyed by org login,
+ * LOWERCASED (GitHub logins are case-insensitive, cf. `isSameRepo`). ONE
+ * bulk call answers the hub's per-class Owner question for all classes at
+ * once (spec 2026-07-08): a class is the caller's iff its org is in the
+ * installations map AND this map says `role: "admin", state: "active"`.
+ * Authorization stays LIVE — this swaps one live shape for another; it
+ * introduces no cache. Empirically verified reachable with a user-to-server
+ * token (2026-07-09; the spec records the check).
+ */
+export async function userOrgMemberships(
+  token: string,
+): Promise<Map<string, { role: string; state: string }>> {
+  const gh = new WorkersOctokit({ auth: token });
+  const memberships = await gh.paginate("GET /user/memberships/orgs", {
+    per_page: 100,
+  });
+  const byLogin = new Map<string, { role: string; state: string }>();
+  for (const m of memberships) {
+    byLogin.set(m.organization.login.toLowerCase(), {
+      role: m.role,
+      state: m.state,
+    });
+  }
+  return byLogin;
+}
+
 /** True iff the user can access this installation id (owns the install). */
 export async function userHasInstallation(
   token: string,
