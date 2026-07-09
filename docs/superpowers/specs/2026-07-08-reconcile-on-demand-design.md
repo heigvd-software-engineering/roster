@@ -1,6 +1,8 @@
 # Class reconciliation — audit, consent, apply
 
-**Status:** approved, not implemented
+**Status:** implemented (2026-07-08, `milestone-4-labs`; merged to `main` in
+PR #4) — the reconcilers under `lib/reconcile/`, the audit/apply endpoints,
+and the `/classes/:id/reconcile` page.
 **Date:** 2026-07-08 (rewritten — supersedes the per-concern button design)
 
 ## 0. Two principles
