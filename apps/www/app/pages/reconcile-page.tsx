@@ -1,3 +1,4 @@
+import type { InferResponseType } from "hono/client";
 import { AlertTriangle, ArrowRight } from "lucide-react";
 import { useState } from "react";
 import { Link, useParams } from "react-router";
@@ -13,17 +14,14 @@ import { Card } from "~/components/ui/card";
 import { api, useApi } from "~/lib/api";
 import { cn } from "~/lib/utils";
 
-type Severity = "broken" | "drift" | "info";
-
-type Finding = {
-  key: string;
-  reconciler: string;
-  severity: Severity;
-  title: string;
-  detail: string;
-  fix: string | null;
-  destructive: boolean;
-};
+/** INFERRED from the audit endpoint (the server's `lib/reconcile/types.ts` is
+ *  the one source) — hand-modeling this shape would sever the compile-time
+ *  link the type spine exists to keep. */
+type Finding = InferResponseType<
+  (typeof api.api.classes)[":id"]["audit"]["$get"],
+  200
+>["findings"][number];
+type Severity = Finding["severity"];
 
 /** The reconcilers, in the order a teacher should read them: what the class IS,
  *  then who is in it, then what they work in, then who can see what. */
@@ -86,7 +84,7 @@ export function ReconcilePage() {
   const classes = useApi(api.api.classes);
   const cls = classes.data?.classes.find((c) => c.id === id);
 
-  const findings = (data?.findings ?? []) as Finding[];
+  const findings = data?.findings ?? [];
   const [selected, setSelected] = useState<Set<string> | null>(null);
   const [applying, setApplying] = useState(false);
   const [result, setResult] = useState<string | null>(null);
