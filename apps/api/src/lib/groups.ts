@@ -4,10 +4,12 @@ import type { ClassAccess } from "./access";
 import type { AuthEnv } from "./auth/config";
 import {
   type CreatedRepo,
+  classifyRepoFailure,
   createOrgRepo,
   generateFromTemplate,
   getOrgRepo,
   grantTeamRepo,
+  type RepoFailure,
 } from "./github/repo";
 import { addTeamMember, createTeam } from "./github/team";
 import { cachedRosters, syncGroupMembers } from "./group-members";
@@ -138,55 +140,9 @@ export async function alreadyInLabGroup(
   return false;
 }
 
-/**
- * Why a work repo couldn't be created. "name_taken" = the repo exists but we
- * can't read it back; "template_error" = the /generate call refused (the
- * template repo is EMPTY or gone) and is ONLY ever returned when the lab has a
- * template; "app_permissions" = the App lacks Repository write.
- */
-export type RepoFailure = "name_taken" | "template_error" | "app_permissions";
-
-/** Everything GitHub said about a failure. A 422 body carries a GENERIC
- *  summary ("Repository creation failed.") plus the actual reason in
- *  `errors[]` ("name already exists on this account") — so reading `message`
- *  alone tells you nothing. Octokit flattens both into `err.message`; we join
- *  every source rather than depend on which. */
-function githubErrorText(err: unknown): string {
-  const e = err as {
-    message?: string;
-    response?: { data?: { message?: string; errors?: { message?: string }[] } };
-  };
-  const data = e.response?.data;
-  return [
-    e.message ?? "",
-    data?.message ?? "",
-    ...(data?.errors ?? []).map((x) => x.message ?? ""),
-  ].join(" ");
-}
-
 /** GitHub repo names are case-insensitive; `null` never matches anything. */
 export function isSameRepo(a: string | null, b: string | null): boolean {
   return a !== null && b !== null && a.toLowerCase() === b.toLowerCase();
-}
-
-/**
- * Turn a GitHub repo-creation error into one of our sentinels, or `null` when
- * we don't recognize it (the caller rethrows — a 500 with the real error beats
- * a friendly lie). `usedTemplate` matters: a lab with no template calls
- * `POST /orgs/{org}/repos`, where a template error is impossible by
- * construction, so we must never blame one.
- */
-export function classifyRepoFailure(
-  err: unknown,
-  usedTemplate: boolean,
-): RepoFailure | null {
-  const status = (err as { status?: number }).status;
-  // "Resource not accessible by integration": the App installation lacks
-  // Repository Administration/Contents write — an admin problem, surface it.
-  if (status === 403) return "app_permissions";
-  if (status !== 422) return null;
-  if (/already exists/i.test(githubErrorText(err))) return "name_taken";
-  return usedTemplate ? "template_error" : null;
 }
 
 /**

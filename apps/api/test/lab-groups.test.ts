@@ -52,7 +52,12 @@ vi.mock("../src/lib/github/org", () => ({
 }));
 
 const repoSeq = vi.hoisted(() => ({ next: 9000 }));
-vi.mock("../src/lib/github/repo", () => {
+vi.mock("../src/lib/github/repo", async (importOriginal) => {
+  // The REAL module also exports `classifyRepoFailure` — pure, no GitHub
+  // call — and these tests exercise it for real: only the API-calling
+  // operations below are faked.
+  const actual =
+    await importOriginal<typeof import("../src/lib/github/repo")>();
   /** The REAL 422 GitHub sends when an org repo name is taken: the reason is
    *  in `errors[]`, NOT in the top-level `message`. */
   const nameTaken = () =>
@@ -77,6 +82,7 @@ vi.mock("../src/lib/github/repo", () => {
     return { id: repoSeq.next++, fullName: `${org}/${name}` };
   };
   return {
+    ...actual,
     createOrgRepo: async (
       _env: unknown,
       _inst: number,

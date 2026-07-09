@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { classifyRepoFailure, isSameRepo } from "../src/lib/groups";
+import { classifyRepoFailure } from "../src/lib/github/repo";
+import { isSameRepo } from "../src/lib/groups";
 
 /**
  * The REAL 422 GitHub returns when an org repo name is taken. The summary sits

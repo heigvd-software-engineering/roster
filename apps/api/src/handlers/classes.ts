@@ -172,7 +172,6 @@ export const listClasses = authedFactory.createHandlers(async (c) => {
     ...new Set(activeMembers.map((m) => m.githubId)),
   ]);
 
-  // TODO: discuss this transformation and propose the move the transformation to frontend
   const out = visible.map(({ cls, live }) => {
     const members = memberRows.filter((m) => m.classId === cls.id);
     const memberIds = new Set(

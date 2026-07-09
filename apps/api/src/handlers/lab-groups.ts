@@ -11,7 +11,7 @@ import {
   resolveClassAccess,
 } from "../lib/access";
 import type { AuthedEnv } from "../lib/auth/require-auth";
-import { orgRepoActivity } from "../lib/github/repo";
+import { orgRepoActivity, type RepoFailure } from "../lib/github/repo";
 import {
   cachedRoster,
   cachedRosters,
@@ -21,7 +21,6 @@ import {
   createGroupInLab,
   createWorkRepo,
   groupsWithRosters,
-  type RepoFailure,
 } from "../lib/groups";
 
 /**
