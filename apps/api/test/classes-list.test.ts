@@ -84,14 +84,25 @@ const userOrgMembershipsMock = vi.hoisted(() =>
   }),
 );
 
-vi.mock("../src/lib/github/user", () => ({
-  userInstallationsByOrgId: userInstallationsByOrgIdMock,
-  userOrgMemberships: userOrgMembershipsMock,
-}));
+vi.mock("../src/lib/github/user", async (importOriginal) => {
+  // Spread the real module so `GithubUnavailableError` stays the REAL class —
+  // the on-error translator recognizes throws by instanceof.
+  const actual =
+    await importOriginal<typeof import("../src/lib/github/user")>();
+  return {
+    ...actual,
+    userInstallationsByOrgId: userInstallationsByOrgIdMock,
+    userOrgMemberships: userOrgMembershipsMock,
+  };
+});
 
 const { classesRoutes } = await import("../src/routes/classes");
+const { apiOnError } = await import("../src/on-error");
+const { GithubUnavailableError } = await import("../src/lib/github/user");
 
-const app = new Hono().route("/api", classesRoutes);
+const app = new Hono<import("../src/lib/auth/config").Env>()
+  .route("/api", classesRoutes)
+  .onError(apiOnError);
 const db = getDb(env.DB);
 
 const now = new Date(0);
@@ -236,6 +247,16 @@ test("lists classes with people + linked users, from live installation data", as
   // job, and the teacher's decision.
   const [row] = await db.select().from(classes).where(eq(classes.id, "c1"));
   expect(row?.installationId).toBe(100);
+});
+
+test("a GitHub outage on the bulk calls is a 503, not a 500 or an empty hub", async () => {
+  await seedClass();
+  userOrgMembershipsMock.mockRejectedValueOnce(
+    new GithubUnavailableError("simulated outage"),
+  );
+  const res = await app.request("/api/classes", {}, env);
+  expect(res.status).toBe(503);
+  expect(await res.json()).toEqual({ error: "github_unavailable" });
 });
 
 test("skips classes whose org is no longer in the user's installations", async () => {

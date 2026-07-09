@@ -2,8 +2,17 @@ import { getDb } from "@labs/db";
 import { factory } from "../factory";
 import { createAuth } from "../lib/auth/config";
 import { githubAccessToken } from "../lib/auth/github-token";
-import { fetchGithubProfile } from "../lib/github/user";
+import {
+  fetchGithubProfile,
+  type GithubProfile,
+  GithubUnavailableError,
+} from "../lib/github/user";
 import { readAffiliationEmails } from "../lib/switch/claims";
+
+/** The GitHub link's LIVE state. "unknown" = GitHub couldn't answer — the
+ *  gate fails OPEN on it (banner, not onboarding): only a PROVEN-dead token
+ *  ("unlinked") may send a user back to re-link. */
+type GithubState = "linked" | "unlinked" | "unknown";
 
 /**
  * Current user (Drizzle-inferred `User`) + their linked GitHub profile + edu-ID
@@ -21,7 +30,7 @@ export const getMe = factory.createHandlers(async (c) => {
     return c.json({
       user: null,
       github: null,
-      githubLinked: false,
+      githubState: "unlinked" as GithubState,
       affiliations: [] as string[],
       githubAppInstallUrl,
     });
@@ -41,18 +50,30 @@ export const getMe = factory.createHandlers(async (c) => {
   // expired one with the stored refresh token, so a stale link self-heals
   // here instead of bouncing the user back to onboarding.
   const token = await githubAccessToken(c.env, session.user.id);
-  const github = token ? await fetchGithubProfile(token) : null;
+  let github: GithubProfile | null = null;
+  let githubState: GithubState = "unlinked";
+  if (token) {
+    try {
+      github = await fetchGithubProfile(token);
+      // "linked" = GitHub is USABLE right now (we read the profile with the
+      // refreshed token). A null profile is a PROVEN-dead token (401) — the
+      // gate sends the user to (re)link on that, and only on that.
+      githubState = github ? "linked" : "unlinked";
+    } catch (err) {
+      if (!(err instanceof GithubUnavailableError)) throw err;
+      // /api/me is the boot fetch — it must answer. An outage is not a dead
+      // link: report "unknown" and let the SPA fail open with a warning.
+      githubState = "unknown";
+    }
+  }
   const affiliations = switchAccount?.idToken
     ? readAffiliationEmails(switchAccount.idToken)
     : [];
 
-  // `githubLinked` = GitHub is USABLE right now (we read the profile with the
-  // refreshed token). A null profile — no link at all, or a dead/unrefreshable
-  // token — reports false, so the onboarding gate sends the user to (re)link.
   return c.json({
     user: user ?? null,
     github,
-    githubLinked: github !== null,
+    githubState,
     affiliations,
     githubAppInstallUrl,
   });

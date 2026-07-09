@@ -19,6 +19,8 @@ const state = vi.hoisted(() => ({
     avatarUrl: string;
   } | null,
   orgLoginFails: false,
+  /** Simulates a GitHub outage on the profile fetch (throws unavailable). */
+  githubDown: false,
   inviteCalls: [] as unknown[],
 }));
 
@@ -32,9 +34,21 @@ vi.mock("../src/lib/auth/github-token", () => ({
   githubAccessToken: async () => state.githubToken,
 }));
 
-vi.mock("../src/lib/github/user", () => ({
-  fetchGithubProfile: async () => state.profile,
-}));
+vi.mock("../src/lib/github/user", async (importOriginal) => {
+  // Spread the real module: `GithubUnavailableError` must be the REAL class,
+  // or the on-error translator's instanceof check can't recognize the throw.
+  const actual =
+    await importOriginal<typeof import("../src/lib/github/user")>();
+  return {
+    ...actual,
+    fetchGithubProfile: async () => {
+      if (state.githubDown) {
+        throw new actual.GithubUnavailableError("simulated outage");
+      }
+      return state.profile;
+    },
+  };
+});
 
 vi.mock("../src/lib/github/app", () => ({
   orgLogin: async () => {
@@ -53,8 +67,11 @@ vi.mock("../src/lib/github/org", () => ({
 }));
 
 const { joinRoutes } = await import("../src/routes/join");
+const { apiOnError } = await import("../src/on-error");
 
-const app = new Hono().route("/api", joinRoutes);
+const app = new Hono<import("../src/lib/auth/config").Env>()
+  .route("/api", joinRoutes)
+  .onError(apiOnError);
 const db = getDb(env.DB);
 
 beforeEach(async () => {
@@ -68,6 +85,7 @@ beforeEach(async () => {
     avatarUrl: "http://p",
   };
   state.orgLoginFails = false;
+  state.githubDown = false;
   state.inviteCalls = [];
 
   const now = new Date(0);
@@ -95,6 +113,15 @@ beforeEach(async () => {
     createdAt: now,
     updatedAt: now,
   });
+});
+
+test("GET: a GitHub outage is a 503, never 'invalid link'", async () => {
+  // The link is VALID and the student's link is healthy — GitHub just can't
+  // answer. Blaming the link would send them to their teacher for nothing.
+  state.githubDown = true;
+  const res = await app.request("/api/join/tok123", {}, env);
+  expect(res.status).toBe(503);
+  expect(await res.json()).toEqual({ error: "github_unavailable" });
 });
 
 test("GET: unknown token → 404 invalid_link", async () => {

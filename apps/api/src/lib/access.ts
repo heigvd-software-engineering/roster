@@ -21,7 +21,7 @@ import {
   removeTeamMember,
   teamMembers,
 } from "./github/team";
-import { fetchGithubProfile } from "./github/user";
+import { fetchGithubProfile, GithubUnavailableError } from "./github/user";
 import { syncGroupMembers } from "./group-members";
 
 /**
@@ -148,7 +148,10 @@ export async function resolveClassAccess(
       admin: membership.role === "admin",
       team: classTeam(db, c.env, cls.installationId, org),
     };
-  } catch {
+  } catch (err) {
+    // GitHub being unreachable is NOT "this class doesn't exist" — let the
+    // 503 translator (on-error.ts) answer honestly instead of a 404.
+    if (err instanceof GithubUnavailableError) throw err;
     // Dead installation — the class effectively doesn't exist.
     return null;
   }

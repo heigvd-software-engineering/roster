@@ -81,6 +81,14 @@ export function useAction(
         });
         return;
       }
+      if (res.status === 503) {
+        // The API's honest "GitHub can't answer right now" (on-error.ts) —
+        // transient and retryable, not the user's fault.
+        push("GitHub is unreachable right now — try again in a minute.", {
+          variant: "warning",
+        });
+        return;
+      }
       if (!res.ok) {
         push("That didn't go through — refresh and try again.", {
           variant: "error",
