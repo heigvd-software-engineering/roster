@@ -1,10 +1,12 @@
 import { classes, getDb } from "@labs/db";
 import { eq } from "drizzle-orm";
 import { factory } from "../factory";
+import type { AuthEnv } from "../lib/auth/config";
 import { createAuth } from "../lib/auth/config";
 import { githubAccessToken } from "../lib/auth/github-token";
+import { observeMember } from "../lib/enrollment";
 import { installationAccount } from "../lib/github/app";
-import { orgInfo } from "../lib/github/org";
+import { orgInfo, orgPeople } from "../lib/github/org";
 import { userHasInstallation } from "../lib/github/user";
 import { mintJoinToken } from "../lib/join-token";
 
@@ -33,6 +35,43 @@ import { mintJoinToken } from "../lib/join-token";
  * also supersedes the spec's `state` CSRF param: it binds the caller to the
  * installation directly.
  */
+/**
+ * Best-effort roster seed: mirror the org's live people into the
+ * `class_members` display cache so a fresh class card names its teachers
+ * and students immediately, instead of showing 0/0 until a reconcile.
+ * Same mapping as the roster reconciler (Owner → teacher, member → active,
+ * invitee → pending), ADD/UPDATE only — removals stay reconcile's job,
+ * behind a teacher's consent. Display cache: never authorizes anything.
+ * A failure here must never break the connect — reconcile can backfill.
+ */
+async function seedRoster(
+  db: ReturnType<typeof getDb>,
+  env: AuthEnv,
+  classId: string,
+  installationId: number,
+  org: string,
+) {
+  try {
+    const people = await orgPeople(env, installationId, org);
+    const rows = [
+      ...people.students.map((p) => ({ p, state: "active" as const })),
+      ...people.pending.map((p) => ({ p, state: "pending" as const })),
+      // Owners LAST: an Owner who also lists as a member reads as teacher.
+      ...people.teachers.map((p) => ({ p, state: "teacher" as const })),
+    ];
+    for (const { p, state } of rows) {
+      await observeMember(
+        db,
+        classId,
+        { githubId: String(p.id), login: p.login, avatarUrl: p.avatarUrl },
+        state,
+      );
+    }
+  } catch {
+    // Seeding is a nicety; the class works without it.
+  }
+}
+
 export const githubSetupCallback = factory.createHandlers(async (c) => {
   const installationId = Number(c.req.query("installation_id"));
   if (!installationId) return c.redirect("/?error=no_installation");
@@ -79,6 +118,7 @@ export const githubSetupCallback = factory.createHandlers(async (c) => {
         updatedAt: now,
       })
       .where(eq(classes.orgId, installAccount.id));
+    await seedRoster(db, c.env, existing.id, installationId, org.login);
     // Signed out, the SPA's login gate takes over from "/".
     return c.redirect(session ? `/classes/${existing.id}/confirm` : "/");
   }
@@ -110,5 +150,6 @@ export const githubSetupCallback = factory.createHandlers(async (c) => {
     // `.returning()` after an insert always yields one row.
     throw new Error("class insert returned no row");
   }
+  await seedRoster(db, c.env, cls.id, installationId, org.login);
   return c.redirect(`/classes/${cls.id}/confirm`);
 });
