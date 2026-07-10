@@ -1,7 +1,6 @@
 import {
   api,
   type GroupItem,
-  type LabItem,
   labGroupsApi,
   useAction,
   useApi,
@@ -30,13 +29,16 @@ export type GroupLabStatus =
  * The lab page's group data + actions (per-lab model, spec 2026-07-07):
  * groups belong to THIS lab, so the list IS the lab's groups — no attach,
  * no cross-lab reach. Each group carries its live roster + work repo + push
- * activity. Shared by the teacher and student sections; every action
- * revalidates; failures surface on the global message strip.
+ * activity, and the response carries the lab row, class identity, and the
+ * caller's role — the page's ONE request. Shared by the teacher and student
+ * sections; every action revalidates; failures surface on the global
+ * message strip.
  */
-export function useLabGroups(classId: string, lab: LabItem) {
+export function useLabGroups(classId: string, labId: string) {
   const { data, isLoading, error, mutate } = useApi(labGroupsApi, {
-    param: { id: classId, labId: lab.id },
+    param: { id: classId, labId },
   });
+  const lab = data?.lab;
 
   const { busy, act } = useAction(mutate, (body) => {
     switch (body.error) {
@@ -65,13 +67,16 @@ export function useLabGroups(classId: string, lab: LabItem) {
   /** The group's work repo full name, once created. */
   const repoFor = (groupId: string) =>
     groups.find((g) => g.id === groupId)?.repoFullName ?? null;
-  const min = lab.groupMode === "individual" ? 1 : (lab.minMembers ?? 1);
+  const min =
+    !lab || lab.groupMode === "individual" ? 1 : (lab.minMembers ?? 1);
   const statusFor = (group: GroupItem): GroupLabStatus => {
     // First: a group with no team has no meaningful size or activity.
     if (!group.repoFullName) {
       return group.members.length >= min ? "no_repo" : "under_min";
     }
-    if (group.pushedAt === null && group.repoCreatedAt === null) {
+    // `lab` always accompanies `groups` in the response — the !lab arm is
+    // for the type only.
+    if (!lab || (group.pushedAt === null && group.repoCreatedAt === null)) {
       return "ready"; // repo exists, activity unknown
     }
     const pushedAt = group.pushedAt ? Date.parse(group.pushedAt) : null;
@@ -99,7 +104,7 @@ export function useLabGroups(classId: string, lab: LabItem) {
 
   const groupParam = (groupId: string) => ({ param: { id: classId, groupId } });
   const labGroupParam = (groupId: string) => ({
-    param: { id: classId, labId: lab.id, groupId },
+    param: { id: classId, labId, groupId },
   });
   const classGroupsApi = api.api.classes[":id"].groups;
 
@@ -109,6 +114,14 @@ export function useLabGroups(classId: string, lab: LabItem) {
     busy,
     act,
     revalidate: mutate,
+    /** The lab row — rides on the response, present once loaded. */
+    lab,
+    /** The caller's role in this class (drives the page redirects). */
+    role: data?.role,
+    /** Live org membership — "pending" renders the accept-invitation prompt. */
+    membershipState: data?.membershipState,
+    /** The class's display name for the breadcrumb. */
+    className: data ? (data.class.name ?? data.class.login) : null,
     users: data?.users,
     groups,
     unassignedStudents,
@@ -117,7 +130,8 @@ export function useLabGroups(classId: string, lab: LabItem) {
     repoFor,
     statusFor,
     min,
-    max: lab.groupMode === "individual" ? 1 : (lab.maxMembers ?? Infinity),
+    max:
+      !lab || lab.groupMode === "individual" ? 1 : (lab.maxMembers ?? Infinity),
     join: (groupId: string) =>
       act(() =>
         classGroupsApi[":groupId"].membership.$put(groupParam(groupId)),
@@ -147,13 +161,13 @@ export function useLabGroups(classId: string, lab: LabItem) {
     createMissingRepos: () =>
       act(() =>
         api.api.classes[":id"].labs[":labId"].repos.$post({
-          param: { id: classId, labId: lab.id },
+          param: { id: classId, labId },
         }),
       ),
     acceptIndividual: () =>
       act(() =>
         api.api.classes[":id"].labs[":labId"].accept.$post({
-          param: { id: classId, labId: lab.id },
+          param: { id: classId, labId },
         }),
       ),
   };

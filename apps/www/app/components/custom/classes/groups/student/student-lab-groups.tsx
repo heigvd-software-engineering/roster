@@ -31,7 +31,7 @@ export function StudentLabGroups({
 }) {
   const { github } = useAuth();
   const me = github?.login;
-  const g = useLabGroups(classId, lab);
+  const g = useLabGroups(classId, lab.id);
 
   const mine = g.groups.find((group) =>
     group.members.some((m) => m.login === me),

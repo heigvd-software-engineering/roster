@@ -2,12 +2,14 @@ import { env } from "cloudflare:test";
 import {
   account,
   classes,
+  classMembers,
   getDb,
   groupMembers,
   groups,
   labs,
   user,
 } from "@labs/db";
+import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { beforeEach, expect, test, vi } from "vitest";
 
@@ -30,6 +32,9 @@ const state = vi.hoisted(() => ({
   // Repo names ALREADY in the org — creating them 422s. `visible` says whether
   // the App installation can then read the repo back (adoption) or not.
   orgRepos: {} as Record<string, { visible: boolean }>,
+  // Call counters: the cached-identity hot path must NOT spend these.
+  profileCalls: 0,
+  orgLoginCalls: 0,
 }));
 
 vi.mock("../src/lib/auth/config", () => ({
@@ -39,14 +44,17 @@ vi.mock("../src/lib/auth/github-token", () => ({
   githubAccessToken: async () => "tok",
 }));
 vi.mock("../src/lib/github/user", () => ({
-  fetchGithubProfile: async () => ({
-    login: "alice",
-    id: 7,
-    name: "Alice",
-    avatarUrl: "http://a",
-  }),
+  fetchGithubProfile: async () => {
+    state.profileCalls++;
+    return { login: "alice", id: 7, name: "Alice", avatarUrl: "http://a" };
+  },
 }));
-vi.mock("../src/lib/github/app", () => ({ orgLogin: async () => "acme" }));
+vi.mock("../src/lib/github/app", () => ({
+  orgLogin: async () => {
+    state.orgLoginCalls++;
+    return "acme";
+  },
+}));
 vi.mock("../src/lib/github/org", () => ({
   orgMembership: async () => state.membership,
 }));
@@ -258,10 +266,13 @@ beforeEach(async () => {
   state.rosters = {};
   state.activity = {};
   state.orgRepos = {};
+  state.profileCalls = 0;
+  state.orgLoginCalls = 0;
 
   await db.delete(groupMembers);
   await db.delete(groups);
   await db.delete(labs);
+  await db.delete(classMembers);
   await db.delete(classes);
   await db.delete(account);
   await db.delete(user);
@@ -416,6 +427,74 @@ test("lists only THIS lab's groups, with roster + repo + activity", async () => 
     repoCreatedAt: "2099-01-15T00:00:00Z",
   });
   expect(body.groups[0]?.members).toEqual([alice, bob]);
+});
+
+// --- the merged head (lab + class + role + membership state) ---
+
+test("the list carries the lab, class identity, role, and membership state", async () => {
+  await seedLab();
+  const res = await app.request("/api/classes/c1/labs/l1/groups", {}, env);
+  expect(res.status).toBe(200);
+  expect(await res.json()).toMatchObject({
+    lab: { id: "l1", title: "Lab l1", groupMode: "group" },
+    class: { name: null, login: "acme" },
+    role: "student",
+    membershipState: "active",
+  });
+
+  // A live org Owner reads as the teacher.
+  state.membership = { state: "active", role: "admin" };
+  const asAdmin = await app.request("/api/classes/c1/labs/l1/groups", {}, env);
+  expect(await asAdmin.json()).toMatchObject({ role: "teacher" });
+});
+
+test("a PENDING invitee gets the header data and an empty roster, not a 404", async () => {
+  await seedLab();
+  await seedGroup({ id: "g1", labId: "l1", name: "A", members: [bob] });
+  state.membership = { state: "pending", role: "member" };
+
+  const res = await app.request("/api/classes/c1/labs/l1/groups", {}, env);
+  expect(res.status).toBe(200);
+  expect(await res.json()).toMatchObject({
+    lab: { id: "l1" },
+    membershipState: "pending",
+    groups: [],
+    students: [],
+  });
+
+  // allowPending is LIST-only: a pending invitee still can't act.
+  expect((await createGroup("l1", { name: "Alpha" })).status).toBe(404);
+});
+
+// --- cached identities (classes.login + class_members) ---
+
+test("cached logins answer the hot path — no profile fetch, no installation lookup", async () => {
+  await db.update(classes).set({ login: "acme" }).where(eq(classes.id, "c1"));
+  await db.insert(classMembers).values({
+    id: "cm1",
+    classId: "c1",
+    githubId: "7",
+    state: "active",
+    login: "alice",
+    avatarUrl: "http://a",
+    createdAt: now,
+    updatedAt: now,
+  });
+  await seedLab();
+
+  const res = await app.request("/api/classes/c1/labs/l1/groups", {}, env);
+  expect(res.status).toBe(200);
+  expect(state.profileCalls).toBe(0);
+  expect(state.orgLoginCalls).toBe(0);
+});
+
+test("without cached identities the resolution falls back to the live lookups", async () => {
+  // beforeEach seeds no classMembers row and no classes.login.
+  await seedLab();
+  const res = await app.request("/api/classes/c1/labs/l1/groups", {}, env);
+  expect(res.status).toBe(200);
+  expect(state.profileCalls).toBe(1);
+  expect(state.orgLoginCalls).toBe(1);
 });
 
 // --- repo creation ---

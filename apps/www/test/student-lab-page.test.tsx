@@ -55,22 +55,13 @@ const individualLab = {
 const alice = { id: 7, login: "alice", avatarUrl: "http://a" };
 const bob = { id: 8, login: "bob", avatarUrl: null };
 
-const enrolledClass = {
-  id: "c1",
-  createdAt: "2026-03-10T00:00:00.000Z",
-  login: "acme",
-  name: "Acme",
-  avatarUrl: null,
-  state: "active",
-  teachers: [],
-  labs: [groupLab, individualLab],
-};
-
-function mockApi(classesData: unknown, labGroupsData: unknown) {
+/** The page is ONE request now — a single groups response (or its error). */
+function mockApi(labGroupsData: unknown, error?: unknown) {
   vi.mocked(useApi).mockImplementation(
-    (_endpoint, args) =>
+    () =>
       ({
-        data: args === undefined ? classesData : labGroupsData,
+        data: labGroupsData,
+        error,
         mutate: vi.fn(),
       }) as unknown as ReturnType<typeof useApi>,
   );
@@ -88,7 +79,12 @@ const grp = (over: Record<string, unknown>) => ({
   ...over,
 });
 
-const groupsData = (over?: { groups?: unknown[] }) => ({
+const groupsData = (over?: Record<string, unknown>) => ({
+  // The header data rides on the groups response (merged endpoint).
+  lab: groupLab,
+  class: { name: "Acme", login: "acme" },
+  role: "student",
+  membershipState: "active",
   groups: [] as unknown[],
   users: [],
   // The pool source: the class_members cache riding on the response.
@@ -106,10 +102,7 @@ beforeEach(() => {
 
 describe("StudentLabPage — group lab", () => {
   it("offers Join on a group with room, plus New group", () => {
-    mockApi(
-      { classes: [], enrolled: [enrolledClass] },
-      groupsData({ groups: [grp({ members: [bob] })] }),
-    );
+    mockApi(groupsData({ groups: [grp({ members: [bob] })] }));
     render(<StudentLabPage />);
 
     expect(screen.getByText("enrolled")).toBeInTheDocument();
@@ -125,7 +118,6 @@ describe("StudentLabPage — group lab", () => {
 
   it("collapses to YOUR group once you're in one; hides the others", () => {
     mockApi(
-      { classes: [], enrolled: [enrolledClass] },
       groupsData({
         groups: [
           grp({ id: "g1", name: "Team Alpha", members: [alice, bob] }),
@@ -147,10 +139,7 @@ describe("StudentLabPage — group lab", () => {
   });
 
   it("keeps the start card away while your group is under the minimum", () => {
-    mockApi(
-      { classes: [], enrolled: [enrolledClass] },
-      groupsData({ groups: [grp({ members: [alice] })] }),
-    );
+    mockApi(groupsData({ groups: [grp({ members: [alice] })] }));
     render(<StudentLabPage />);
 
     expect(screen.getByText("needs 1 more member")).toBeInTheDocument();
@@ -159,7 +148,6 @@ describe("StudentLabPage — group lab", () => {
 
   it("start card turns to the clone instructions once the repo exists", () => {
     mockApi(
-      { classes: [], enrolled: [enrolledClass] },
       groupsData({
         groups: [
           grp({
@@ -188,10 +176,7 @@ describe("StudentLabPage — group lab", () => {
 describe("StudentLabPage — individual lab", () => {
   it("is one-click: Accept lab, no group machinery", () => {
     params.labId = "l2";
-    mockApi(
-      { classes: [], enrolled: [enrolledClass] },
-      groupsData({ groups: [] }),
-    );
+    mockApi(groupsData({ lab: individualLab, groups: [] }));
     render(<StudentLabPage />);
 
     expect(
@@ -203,8 +188,8 @@ describe("StudentLabPage — individual lab", () => {
   it("shows Accepted + the work repo link once the solo group has one", () => {
     params.labId = "l2";
     mockApi(
-      { classes: [], enrolled: [enrolledClass] },
       groupsData({
+        lab: individualLab,
         groups: [
           grp({
             id: "solo",
@@ -235,10 +220,8 @@ describe("StudentLabPage — individual lab", () => {
 
 describe("StudentLabPage — edges", () => {
   it("gates a pending enrollee", () => {
-    mockApi(
-      { classes: [], enrolled: [{ ...enrolledClass, state: "pending" }] },
-      groupsData(),
-    );
+    // The pending branch: live membership state on the response, no 404.
+    mockApi(groupsData({ membershipState: "pending" }));
     render(<StudentLabPage />);
     expect(
       screen.getByText(/Accept your invitation on GitHub first/),
@@ -246,7 +229,8 @@ describe("StudentLabPage — edges", () => {
   });
 
   it("redirects a TEACHER to the manage page", () => {
-    mockApi({ classes: [{ id: "c1", labs: [] }], enrolled: [] }, groupsData());
+    // The response's role decides the redirect — no class list involved.
+    mockApi(groupsData({ role: "teacher" }));
     render(<StudentLabPage />);
     expect(screen.getByTestId("navigate")).toHaveTextContent(
       "/classes/c1/labs/l1/manage",
@@ -254,8 +238,12 @@ describe("StudentLabPage — edges", () => {
   });
 
   it("shows a not-found message for an unknown lab", () => {
+    // Unknown lab (or class, or no access) = a 404 from the one endpoint.
     params.labId = "nope";
-    mockApi({ classes: [], enrolled: [enrolledClass] }, groupsData());
+    mockApi(
+      undefined,
+      Object.assign(new Error("GET /api/… failed (404)"), { status: 404 }),
+    );
     render(<StudentLabPage />);
     expect(
       screen.getByText("This lab doesn't exist (or you're not in its class)."),

@@ -2,6 +2,7 @@ import {
   account,
   type Class,
   classes,
+  classMembers,
   type Group,
   getDb,
   groups,
@@ -30,12 +31,20 @@ import { syncGroupMembers } from "./group-members";
  * deliberately different mechanisms:
  *
  * - `resolveClassAccess` — routes where the caller acts as THEMSELVES
- *   (join/leave a group): needs their GitHub LOGIN, so it spends their
- *   OAuth token on a profile fetch and reads membership + role from one
- *   live orgMembership call. Active members only.
+ *   (join/leave a group): needs their GitHub LOGIN. The login normally
+ *   comes from the class's own member cache (`class_members`, keyed by the
+ *   stored GitHub id) — zero calls; their OAuth token is spent on a live
+ *   profile fetch only when the cache has no row or the membership check
+ *   misses (renamed login). Membership + role stay one live orgMembership
+ *   call. Active members only.
  * - `resolveClassAsTeacher` — teacher-only routes: stored account id + the
  *   org's live admin list; NO user-token dependence, so a teacher with an
  *   expired OAuth link can still manage labs/classes.
+ *
+ * Both read the ORG's login from the class row's identity cache
+ * (`classes.login`, kept true by setup.ts + the identity reconciler) and
+ * fall back to a live `orgLogin` when it's unfilled or proven stale — so
+ * the hot path costs ONE GitHub call: the authorization itself.
  *
  * Both deny with null → routes answer 404, never confirming that a class
  * exists to someone outside it. Authorization is always live GitHub state,
@@ -92,6 +101,9 @@ export type ClassAccess = {
   login: string;
   /** Live org Owner (teacher). */
   admin: boolean;
+  /** Live org membership state. "pending" only ever reaches the callers
+   *  that opted in via `allowPending` — everyone else never sees it. */
+  membershipState: "active" | "pending";
   /** This class's GitHub Team API, pre-bound to its installation + org. */
   team: ClassTeam;
 };
@@ -116,36 +128,84 @@ function classTeam(
 export async function resolveClassAccess(
   c: Context<AuthedEnv>,
   classId: string | undefined,
+  opts?: {
+    /** Also resolve a PENDING invitee (read-only surfaces that must tell
+     *  "accept your invitation first" apart from "not your class"). The
+     *  default stays active-only: a pending member can't act. */
+    allowPending?: boolean;
+  },
 ): Promise<ClassAccess | null> {
   if (!classId) return null;
   const db = getDb(c.env.DB);
   const [cls] = await db.select().from(classes).where(eq(classes.id, classId));
   if (!cls) return null;
 
-  const token = await githubAccessToken(c.env, c.get("user").id);
-  if (!token) return null;
+  const caller = await callerGithub(db, c.get("user").id);
+  if (!caller) return null;
+
+  /** The caller's CURRENT login, straight from GitHub — the fallback when
+   *  the cache can't answer (no row, or a renamed login). */
+  const liveLogin = async () => {
+    const token = await githubAccessToken(c.env, c.get("user").id);
+    if (!token) return null;
+    return (await fetchGithubProfile(token))?.login ?? null;
+  };
 
   try {
-    // Independent lookups — one round trip instead of two.
-    const [profile, org] = await Promise.all([
-      fetchGithubProfile(token),
-      orgLogin(c.env, cls.installationId),
-    ]);
-    if (!profile) return null;
-    const membership = await orgMembership(
-      c.env,
-      cls.installationId,
-      org,
-      profile.login,
-    );
-    // Pending invitees can't act yet — active members only.
-    if (membership?.state !== "active") return null;
+    // Both names from caches — ZERO calls on the hot path. The caller's
+    // login from the class's member cache; the ORG's login from the class
+    // row's identity cache (kept true by setup.ts + the identity
+    // reconciler). Caches only PROPOSE names; the live orgMembership call
+    // below is still what authorizes.
+    const [cached] = await db
+      .select({ login: classMembers.login })
+      .from(classMembers)
+      .where(
+        and(
+          eq(classMembers.classId, cls.id),
+          eq(classMembers.githubId, caller.githubId),
+        ),
+      );
+
+    const orgFromCache = cls.login !== null;
+    let org = cls.login ?? (await orgLogin(c.env, cls.installationId));
+
+    let login = cached?.login ?? null;
+    const loginFromCache = login !== null;
+    if (!login) login = await liveLogin();
+    if (!login) return null;
+
+    let membership = await orgMembership(c.env, cls.installationId, org, login);
+    // A membership miss may be a STALE cache — the org renamed, the caller
+    // renamed, or both. Re-derive whatever came from a cache and retry
+    // ONCE. A real non-member still ends at null.
+    if (!membership && (orgFromCache || loginFromCache)) {
+      const freshOrg = orgFromCache
+        ? await orgLogin(c.env, cls.installationId)
+        : org;
+      const freshLogin = loginFromCache
+        ? ((await liveLogin()) ?? login)
+        : login;
+      if (freshOrg !== org || freshLogin !== login) {
+        org = freshOrg;
+        login = freshLogin;
+        membership = await orgMembership(c.env, cls.installationId, org, login);
+      }
+    }
+    // Pending invitees can't act yet — active members only, unless the
+    // caller explicitly asked to see the pending state.
+    const state = membership?.state;
+    if (state !== "active" && !(opts?.allowPending && state === "pending")) {
+      return null;
+    }
     return {
       db,
       cls,
       org,
-      login: profile.login,
-      admin: membership.role === "admin",
+      login,
+      // Owner = live ACTIVE admin — a pending Owner invite is not an Owner.
+      admin: state === "active" && membership?.role === "admin",
+      membershipState: state,
       team: classTeam(db, c.env, cls.installationId, org),
     };
   } catch (err) {
@@ -170,9 +230,22 @@ export async function resolveClassAsTeacher(
   if (!caller) return null;
 
   try {
-    const org = await orgLogin(c.env, cls.installationId);
-    if (!(await isOrgAdmin(c.env, cls.installationId, org, caller.ghId)))
-      return null;
+    // Org login from the class row's identity cache — zero calls; live only
+    // when unfilled. A STALE cached login (org renamed) makes the members
+    // listing THROW (404) — that, and only that, warrants re-deriving it
+    // live and retrying once. `false` is a real non-admin: no retry.
+    let org = cls.login ?? (await orgLogin(c.env, cls.installationId));
+    let admin: boolean;
+    try {
+      admin = await isOrgAdmin(c.env, cls.installationId, org, caller.ghId);
+    } catch (err) {
+      if (cls.login === null) throw err; // already live — nothing fresher
+      const fresh = await orgLogin(c.env, cls.installationId);
+      if (fresh === org) throw err;
+      org = fresh;
+      admin = await isOrgAdmin(c.env, cls.installationId, org, caller.ghId);
+    }
+    if (!admin) return null;
     return { db, cls, org };
   } catch {
     return null;
