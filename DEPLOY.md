@@ -82,9 +82,15 @@ Build the SPA, then deploy (the Worker embeds `apps/www/build/client`):
 
 ```powershell
 pnpm --filter @labs/www build
-pnpm --filter @labs/api deploy
+pnpm --filter @labs/api run deploy
 # → prints https://labs.<subdomain>.workers.dev — this is <ORIGIN>
 ```
+
+> **`run deploy`, not `deploy`.** `deploy` is a pnpm built-in
+> (`pnpm deploy`), so `pnpm --filter @labs/api deploy` is intercepted by
+> pnpm and fails with `ERR_PNPM_INVALID_DEPLOY_TARGET` before the package's
+> own `deploy` script (`wrangler deploy --minify`) ever runs. The explicit
+> `run` disambiguates. Same applies everywhere below.
 
 The app will load but sign-in is dead until phases 2–5. That's expected.
 
@@ -168,7 +174,7 @@ unknown. Paste interactively or pipe with Git Bash `printf '%s'`.
 
 ```powershell
 pnpm --filter @labs/www build
-pnpm --filter @labs/api deploy
+pnpm --filter @labs/api run deploy
 ```
 
 Walk, in order (each step proves a different integration):
@@ -186,7 +192,14 @@ Walk, in order (each step proves a different integration):
 
 ## Redeploys
 
-Any later change: `pnpm --filter @labs/www build && pnpm --filter @labs/api deploy`.
+Any later change — build first, then deploy (two commands; PowerShell 5.1
+has no `&&`):
+
+```powershell
+pnpm --filter @labs/www build
+pnpm --filter @labs/api run deploy
+```
+
 Migrations added later: `wrangler d1 migrations apply labs --remote` before
 the deploy. Secrets and D1 survive deploys — only code and `vars` ship.
 
