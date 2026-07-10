@@ -182,10 +182,15 @@ describe("StudentLabPage — individual lab", () => {
     expect(
       screen.getByRole("button", { name: "Accept lab" }),
     ).toBeInTheDocument();
+    // The ghost tile: the accepted layout, dimmed, before the click.
+    expect(
+      screen.getByText("your solo lab — not accepted yet"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("This lab is individual")).toBeInTheDocument();
     expect(screen.queryByText("Groups in this lab")).not.toBeInTheDocument();
   });
 
-  it("shows Accepted + the work repo link once the solo group has one", () => {
+  it("shows the solo tile + the work repo card once the solo group has one", () => {
     params.labId = "l2";
     mockApi(
       groupsData({
@@ -203,7 +208,9 @@ describe("StudentLabPage — individual lab", () => {
     );
     render(<StudentLabPage />);
 
-    expect(screen.getByText("Accepted")).toBeInTheDocument();
+    // The solo tile — the group flow's own skeleton, solo copy.
+    expect(screen.getByText("your solo lab")).toBeInTheDocument();
+    expect(screen.getByText("Your lab is ready")).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: /acme\/lab-2-solo-alice/ }),
     ).toHaveAttribute("href", "https://github.com/acme/lab-2-solo-alice");
@@ -212,6 +219,7 @@ describe("StudentLabPage — individual lab", () => {
         /git clone https:\/\/github\.com\/acme\/lab-2-solo-alice\.git/,
       ),
     ).toBeInTheDocument();
+    // The repo exists → the solo group is a deliverable: no Withdraw.
     expect(
       screen.queryByRole("button", { name: "Withdraw" }),
     ).not.toBeInTheDocument();

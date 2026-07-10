@@ -28,6 +28,7 @@ export function GroupTile({
   actions,
   footer,
   memberAction,
+  memberClassName,
 }: {
   group: GroupItem;
   users?: ClassItem["users"];
@@ -39,6 +40,8 @@ export function GroupTile({
   /** Below the roster: the work-repo link or its create action (F8). */
   footer?: ReactNode;
   memberAction?: (member: GroupItem["members"][number]) => ReactNode;
+  /** Restyles each member row (e.g. the individual ghost tile dims you). */
+  memberClassName?: string;
 }) {
   return (
     <Card className={cn("gap-0 p-4", highlight && "ring-role-enrolled/60")}>
@@ -56,6 +59,7 @@ export function GroupTile({
           members={group.members}
           users={users}
           memberAction={memberAction}
+          memberClassName={memberClassName}
         />
         {footer}
       </Stack>
