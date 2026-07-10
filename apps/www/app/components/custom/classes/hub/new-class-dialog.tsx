@@ -140,9 +140,8 @@ export function NewClassDialog({
               GitHub's picker lists every organization you belong to.
               Organizations you <strong>own</strong> show{" "}
               <strong>Install</strong> — that's the button that creates the
-              class. Where you're only a member it shows <em>Request</em>,
-              which files an approval with the owners and never creates a
-              class.
+              class. Where you're only a member it shows <em>Request</em>, which
+              files an approval with the owners and never creates a class.
             </Text>
           </Stack>
         </Stack>

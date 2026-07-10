@@ -32,6 +32,8 @@ const state = vi.hoisted(() => ({
   // Repo names ALREADY in the org — creating them 422s. `visible` says whether
   // the App installation can then read the repo back (adoption) or not.
   orgRepos: {} as Record<string, { visible: boolean }>,
+  // The lab's template repo was DELETED/RENAMED since — /generate 404s.
+  templateGone: false,
   // Call counters: the cached-identity hot path must NOT spend these.
   profileCalls: 0,
   orgLoginCalls: 0,
@@ -103,7 +105,12 @@ vi.mock("../src/lib/github/repo", async (importOriginal) => {
       _template: string,
       org: string,
       name: string,
-    ) => create(org, name),
+    ) => {
+      if (state.templateGone) {
+        throw Object.assign(new Error("Not Found"), { status: 404 });
+      }
+      return create(org, name);
+    },
     getOrgRepo: async (
       _env: unknown,
       _inst: number,
@@ -266,6 +273,7 @@ beforeEach(async () => {
   state.rosters = {};
   state.activity = {};
   state.orgRepos = {};
+  state.templateGone = false;
   state.profileCalls = 0;
   state.orgLoginCalls = 0;
 
@@ -626,6 +634,20 @@ test("accept reports a name collision it cannot read, and never blames a templat
 
   expect(res.status).toBe(409);
   expect(await res.json()).toEqual({ error: "repo_name_taken" });
+});
+
+test("a template deleted since the lab was created answers template_error", async () => {
+  // The lab points at starter code that no longer exists (deleted or renamed
+  // on GitHub) — /generate 404s. The student must get the same
+  // "ask your teacher" answer as an empty template, never a raw 500.
+  await seedLab({ templateRepoFullName: "acme/starter-gone" });
+  await seedGroup({ id: "g1", labId: "l1", name: "A", members: [alice] });
+  state.templateGone = true;
+
+  const res = await repo("l1", "g1");
+
+  expect(res.status).toBe(409);
+  expect(await res.json()).toEqual({ error: "template_error" });
 });
 
 test("accept never adopts the lab's own template repo", async () => {
