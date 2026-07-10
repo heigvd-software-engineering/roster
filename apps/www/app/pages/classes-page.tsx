@@ -109,10 +109,19 @@ export function ClassesPage() {
           ) : (
             <>
               {entries.length === 0 && !data?.hasOlder ? (
-                <Text variant="body2">
-                  No classes yet — connect an organization or join with a class
-                  link.
-                </Text>
+                // The EMPTY hub: plain words, one per role. "New class"
+                // (page header) opens the dialog that explains what
+                // connecting an organization even means; students don't act
+                // here at all — their class arrives through the join link.
+                <Stack gap="sm" className="w-full max-w-xl">
+                  <Text variant="body2">No classes yet.</Text>
+                  <Text variant="caption">
+                    Teaching? Use "New class" above — it walks you through how
+                    a class maps onto GitHub. A student? There's nothing to
+                    create: open the class link your teacher shared and your
+                    class appears here.
+                  </Text>
+                </Stack>
               ) : null}
               {groupBySemester(entries).map(([label, group]) => (
                 <Stack key={label} gap="md" className="w-full">
