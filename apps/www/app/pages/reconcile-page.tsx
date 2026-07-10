@@ -6,6 +6,7 @@ import { Page } from "~/components/custom/layout/page";
 import { Row } from "~/components/custom/layout/row";
 import { Stack } from "~/components/custom/layout/stack";
 import { Loading } from "~/components/custom/loading";
+import { StateChange } from "~/components/custom/state-change";
 import { BrandHeader } from "~/components/custom/typography/brand-header";
 import { Text } from "~/components/custom/typography/text";
 import { Badge } from "~/components/ui/badge";
@@ -266,7 +267,7 @@ function FindingRow({
   checked: boolean;
   onToggle: () => void;
 }) {
-  const { title, detail, fix, destructive, severity } = finding;
+  const { title, detail, fix, change, destructive, severity } = finding;
   const spine = cn("border-l-2 px-4 py-3", SPINE[severity]);
 
   if (!fix) {
@@ -311,24 +312,36 @@ function FindingRow({
           ) : null}
         </Row>
         <Text variant="caption">{detail}</Text>
-        {/* What Apply will DO, visually distinct from what we OBSERVED above. */}
-        <Row gap="xs" align="center" className="mt-1.5 min-w-0">
-          <ArrowRight
-            className={cn(
-              "size-3.5 shrink-0",
-              destructive ? "text-destructive" : "text-muted-foreground",
-            )}
-          />
-          <Text
-            variant="caption"
-            className={cn(
-              "font-medium",
-              destructive ? "text-destructive" : "text-muted-foreground",
-            )}
-          >
-            {fix}
-          </Text>
-        </Row>
+        {/* What Apply will DO, visually distinct from what we OBSERVED above:
+            the state that stands → the state Apply produces. Findings without
+            a two-state reading fall back to the fix sentence. */}
+        <div className="mt-1.5" title={fix}>
+          {change ? (
+            <StateChange
+              from={change.from}
+              to={change.to}
+              destructive={destructive}
+            />
+          ) : (
+            <Row gap="xs" align="center" className="min-w-0">
+              <ArrowRight
+                className={cn(
+                  "size-3.5 shrink-0",
+                  destructive ? "text-destructive" : "text-muted-foreground",
+                )}
+              />
+              <Text
+                variant="caption"
+                className={cn(
+                  "font-medium",
+                  destructive ? "text-destructive" : "text-muted-foreground",
+                )}
+              >
+                {fix}
+              </Text>
+            </Row>
+          )}
+        </div>
       </Stack>
     </label>
   );

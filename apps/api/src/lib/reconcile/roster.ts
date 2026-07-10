@@ -30,6 +30,14 @@ const TITLES: Record<string, string> = {
   refresh: "A member's GitHub details changed",
 };
 
+/** How a cached state reads on the class card — the from/to chips speak the
+ *  card's language, not the enum's. */
+const STATE_LABEL: Record<MemberState, string> = {
+  pending: "Invited",
+  active: "Student",
+  teacher: "Teacher",
+};
+
 const finding = (
   githubId: string,
   op: string,
@@ -37,6 +45,7 @@ const finding = (
   destructive: boolean,
   detail: string,
   fix: string,
+  change: Finding["change"],
 ): Finding => ({
   key: `roster:${op}:githubId=${githubId}`,
   reconciler: "roster",
@@ -44,6 +53,7 @@ const finding = (
   title: TITLES[op] ?? op,
   detail,
   fix,
+  change,
   destructive,
 });
 
@@ -86,6 +96,7 @@ export const roster: Reconciler = {
             false,
             `@${person.login} is in the organization but not on the class roster`,
             "Add them to the class roster",
+            { from: "Not on the roster", to: STATE_LABEL[state] },
           ),
         );
       } else if (was.state !== state) {
@@ -103,6 +114,10 @@ export const roster: Reconciler = {
             false,
             `@${person.login} is "${state}" on GitHub, "${was.state}" here`,
             `Record them as ${state}`,
+            {
+              from: STATE_LABEL[was.state as MemberState] ?? was.state,
+              to: STATE_LABEL[state],
+            },
           ),
         );
       } else if (
@@ -119,6 +134,9 @@ export const roster: Reconciler = {
               ? `@${was.login} is now @${person.login}`
               : `@${person.login} changed their avatar`,
             "Refresh their details",
+            was.login !== person.login
+              ? { from: `@${was.login}`, to: `@${person.login}` }
+              : { from: "previous avatar", to: "new avatar" },
           ),
         );
       }
@@ -135,6 +153,10 @@ export const roster: Reconciler = {
           true,
           `@${was.login} is on the class roster but not in the organization`,
           "Remove them from the class roster",
+          {
+            from: STATE_LABEL[was.state as MemberState] ?? was.state,
+            to: "Not on the roster",
+          },
         ),
       );
     }

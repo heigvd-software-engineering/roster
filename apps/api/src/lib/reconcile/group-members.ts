@@ -60,18 +60,31 @@ async function labTitles(
 function diff(
   live: OrgPerson[],
   cached: OrgPerson[],
-): { title: string; detail: string; fix: string } | null {
+): {
+  title: string;
+  detail: string;
+  fix: string;
+  change: { from: string; to: string };
+} | null {
   const now = logins(live);
   const was = logins(cached);
   const added = [...now].filter((l) => !was.has(l));
   const removed = [...was].filter((l) => !now.has(l));
   if (added.length === 0 && removed.length === 0) return null;
 
+  // The from/to chips are the two rosters themselves — an empty side reads
+  // as words, never as a blank chip.
+  const change = {
+    from: cached.length === 0 ? "No roster recorded" : list(was),
+    to: now.size === 0 ? "No members" : list(now),
+  };
+
   if (cached.length === 0) {
     return {
       title: "— no roster recorded",
       detail: `On GitHub: ${list(now)}.`,
       fix: "Record the GitHub roster",
+      change,
     };
   }
 
@@ -82,6 +95,7 @@ function diff(
     title: "— roster differs from GitHub",
     detail: parts.join(" "),
     fix: "Copy the GitHub roster",
+    change,
   };
 }
 
@@ -123,6 +137,7 @@ export const groupMembersReconciler: Reconciler = {
         title: `${named} ${changed.title}`,
         detail: changed.detail,
         fix: changed.fix,
+        change: changed.change,
         // It replaces a cache with what GitHub says. The team — which holds the
         // real membership and the repo grant — is not touched.
         destructive: false,

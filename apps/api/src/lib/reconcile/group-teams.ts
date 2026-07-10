@@ -54,6 +54,10 @@ export const groupTeams: Reconciler = {
           ? `Its team was deleted, so its members and their access to ${group.ghRepoFullName} are gone. The repository is kept — recreating a group with the same name re-attaches it.`
           : "Its team was deleted, so the group has no members and cannot be worked in.",
         fix: "Remove the group from this lab",
+        change: {
+          from: "In this lab",
+          to: group.ghRepoFullName ? "Removed (repository kept)" : "Removed",
+        },
         // It drops a row, and the students in it lose their group.
         destructive: true,
       });

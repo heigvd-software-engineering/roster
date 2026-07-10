@@ -45,6 +45,7 @@ function unavailable(r: Reconciler, err: unknown): Finding {
     title: `${r.name} could not be checked`,
     detail: reason(err),
     fix: null,
+    change: null,
     destructive: false,
   };
 }

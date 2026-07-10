@@ -26,6 +26,10 @@ export type Finding = {
   detail: string;
   /** What Apply will do. `null` = we can see it, we cannot fix it. */
   fix: string | null;
+  /** The state transition Apply performs — `from` is what stands NOW, `to`
+   *  what it becomes. Rendered as `from → to`; null when the change has no
+   *  meaningful two-state reading (then `fix` alone speaks). */
+  change: { from: string; to: string } | null;
   /** Deletes rows or revokes access. Starts UNCHECKED in the UI. */
   destructive: boolean;
 };
