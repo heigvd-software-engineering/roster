@@ -11,6 +11,10 @@ vi.mock("~/contexts/auth-context", () => ({
   }),
 }));
 
+vi.mock("~/contexts/message-context", () => ({
+  useMessages: () => ({ push: vi.fn() }),
+}));
+
 vi.mock("~/lib/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("~/lib/api")>();
   return { ...actual, useApi: vi.fn() };

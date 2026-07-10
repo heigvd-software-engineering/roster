@@ -1,11 +1,22 @@
-import { Navigate } from "react-router";
+import { Navigate, useLocation } from "react-router";
 import { Auth } from "~/components/custom/shell/auth";
 
-/** / — login when signed out (rendered in place), else the classes hub. */
+/** / — login when signed out (rendered in place), else the classes hub.
+ *  The GitHub App setup callback reports its failures as `/?error=…` —
+ *  those route to the connect-failed explainer, not the hub. */
 export default function Home() {
+  const { search } = useLocation();
+  const error = new URLSearchParams(search).get("error");
   return (
     <Auth>
-      <Navigate to="/classes" replace />
+      {error ? (
+        <Navigate
+          to={`/classes/connect-failed?reason=${encodeURIComponent(error)}`}
+          replace
+        />
+      ) : (
+        <Navigate to="/classes" replace />
+      )}
     </Auth>
   );
 }

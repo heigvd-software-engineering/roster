@@ -14,13 +14,16 @@ import { useAuth } from "~/contexts/auth-context";
 import type { LabItem } from "~/lib/api";
 
 /**
- * The STUDENT's group view for one lab (per-lab model), in two states:
+ * The STUDENT's lab surface, BOTH modes — one structure, mode-specific copy:
  *
- * BROWSE (not in a group yet) — this lab's groups, each joinable if it has
- * room, plus "new group" (a fresh group for THIS lab; you auto-join it).
+ * INDIVIDUAL — your solo tile (1/3, a ghost until accepted) beside the
+ * start-lab card (2/3), whose accept state creates group + repo in one click.
  *
- * YOUR GROUP (in a group) — the others disappear; your group tile (1/3)
- * sits beside the start-lab card (2/3) that owns the work repo.
+ * GROUP, BROWSE (not in a group yet) — this lab's groups, each joinable if
+ * it has room, plus "new group" (a fresh group for THIS lab; you auto-join).
+ *
+ * GROUP, YOURS — the others disappear; your group tile (1/3) sits beside
+ * the same start-lab card (2/3) that owns the work repo.
  */
 export function StudentLabGroups({
   classId,
@@ -44,6 +47,75 @@ export function StudentLabGroups({
   }
   if (g.isLoading) {
     return <Text variant="body2">Loading groups…</Text>;
+  }
+
+  if (lab.groupMode === "individual") {
+    // The server models an individual acceptance as a SOLO GROUP named after
+    // the student — render exactly that, in the group flow's own skeleton.
+    // Before accepting, the tile is a GHOST of the same shape (dimmed you),
+    // so accepting changes state, never layout.
+    const solo = mine ?? {
+      id: "ghost",
+      name: me ?? "you",
+      slug: "",
+      members: github
+        ? [{ id: github.id, login: github.login, avatarUrl: github.avatarUrl }]
+        : [],
+      repoFullName: null,
+      pushedAt: null,
+      repoCreatedAt: null,
+    };
+    const repo = mine ? g.repoFor(mine.id) : null;
+    return (
+      <Stack gap="md" className="w-full">
+        <Text variant="overline">Your lab</Text>
+        <div className="grid w-full grid-cols-1 gap-4 lg:grid-cols-3">
+          <GroupTile
+            group={solo}
+            users={g.users}
+            highlight={mine !== undefined}
+            memberClassName={mine ? undefined : "opacity-55"}
+            notes={
+              <span
+                className={
+                  mine
+                    ? "font-mono text-role-enrolled text-xs"
+                    : "font-mono text-muted-foreground text-xs"
+                }
+              >
+                {mine ? "your solo lab" : "your solo lab — not accepted yet"}
+              </span>
+            }
+            actions={
+              // Withdrawing is only possible while no repo exists — once it
+              // does, the solo group is a deliverable (same rule as groups).
+              mine && repo === null ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  type="button"
+                  disabled={g.busy}
+                  title="Withdraw your acceptance of this lab"
+                  onClick={() => g.deleteGroup(mine.id)}
+                >
+                  Withdraw
+                </Button>
+              ) : null
+            }
+          />
+          <div className="lg:col-span-2">
+            <StartLabCard
+              mode="individual"
+              accepted={mine !== undefined}
+              repoFullName={repo}
+              busy={g.busy}
+              onAccept={() => g.acceptIndividual()}
+              onCreate={() => mine && g.createRepo(mine.id)}
+            />
+          </div>
+        </div>
+      </Stack>
+    );
   }
 
   if (mine) {

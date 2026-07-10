@@ -82,7 +82,7 @@ export function NewClassDialog({
           </span>
         </DialogTrigger>
       )}
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Create a new class</DialogTitle>
           <DialogDescription>
@@ -130,6 +130,19 @@ export function NewClassDialog({
               repositories stay invisible to them unless you grant access
               yourself. Only public repositories remain visible — to anyone on
               the internet — so keep confidential material private.
+            </Text>
+          </Stack>
+          <Stack gap="none">
+            <Text variant="label" className="font-medium">
+              Pick an organization showing "Install"
+            </Text>
+            <Text variant="body2">
+              GitHub's picker lists every organization you belong to.
+              Organizations you <strong>own</strong> show{" "}
+              <strong>Install</strong> — that's the button that creates the
+              class. Where you're only a member it shows <em>Request</em>,
+              which files an approval with the owners and never creates a
+              class.
             </Text>
           </Stack>
         </Stack>

@@ -1,12 +1,28 @@
 # GitHub App setup (`HeigVdLabs`)
 
-labs uses **one GitHub App** for two distinct jobs. This document explains what
-it's for and how to create/configure it from scratch (or reconfigure an existing
-one).
+labs uses **one GitHub App per environment** for two distinct jobs. This
+document explains what the App is for and how to create/configure one from
+scratch (or reconfigure an existing one).
 
 > **Current dev instance:** name `HeigVdLabs`, slug `heigvdlabs`, App ID
 > `4194411`, owner `@Ovich`. The steps below are what produced it — follow them
 > to recreate the App in another account/org or to stand up a production one.
+
+## ⚠ One App per ENVIRONMENT — not optional
+
+Each running environment (localhost, the workers.dev demo, a future prod)
+needs its **own** App. The App accepts up to 10 **Callback URLs**, so OAuth
+linking could share one — but the **Setup URL is single-valued**, and the
+whole "connect a class" flow hangs on it: after an org installs or
+reconfigures the App, GitHub redirects the browser to that ONE URL, which is
+where the class row is born. Whichever environment does not own the Setup
+URL gets its install redirects hijacked to the other one. Sharing was tried
+(dev + demo); it only works one environment at a time.
+
+Corollary: every URL in this guide is per-environment. Dev uses
+`https://localhost:3000`; substitute the environment's origin (e.g.
+`https://labs.stefan-teofanov.workers.dev`) everywhere when creating that
+environment's App.
 
 ## Why a GitHub App (not an OAuth App)?
 
@@ -25,19 +41,29 @@ each org owner explicitly consents by installing the App.
 
 1. **Link GitHub (per user)** — Better Auth uses the App's OAuth credentials
    (Client ID/secret + Callback URL) to link a user's GitHub account. See
-   `apps/api/src/auth.ts` (`socialProviders.github`).
+   `apps/api/src/lib/auth/config.ts` (`socialProviders.github`).
 2. **Connect a class (per org)** — a teacher installs the App on a GitHub org
    they own. GitHub redirects to our **Setup URL**; the server records a thin
    `classes` row and sets the org's base repository permission to **No access**
    using an **installation token** (Octokit App, signed with the App's private
-   key). See `apps/api/src/routes/setup.ts`, `apps/api/src/routes/classes.ts`,
-   `apps/api/src/github.ts`.
+   key). See `apps/api/src/handlers/setup.ts`, `apps/api/src/handlers/classes.ts`,
+   `apps/api/src/lib/github/` (clients + operations).
 
 ## Prerequisites
 
 - A GitHub account (personal is fine for dev) to **own** the App.
 - A GitHub **organization you own** to test the "connect a class" flow (a
   personal-account App must be **public** to be installed on an org — see below).
+
+> **⚠ "Owner" means GitHub org Owner, literally.** On the install picker, an
+> org where you're a plain Member shows **Request** (or "Cancel request")
+> instead of **Install** — clicking it files an approval request with the
+> org's owners and bounces you back WITHOUT installing, so no class is
+> created and no confirm page appears. Check your role under
+> `github.com/orgs/<org>/people`; only Install completes the connect flow.
+> (The same rule holds in the product: labs' teacher check is a live
+> is-org-admin call, so a class on an org you don't own would never be
+> yours anyway.)
 
 ## Create the App
 
@@ -123,11 +149,17 @@ target orgs are under that account.)
 You also need a **GitHub organization you own** to install onto — create a
 dedicated classroom org if you don't have one.
 
-### 7. Generate a private key
+### 7. Generate the credentials (after Create)
 
-**General → Private keys → Generate a private key** → downloads a `.pem`. Note
-the **App ID** (top of the General page). The private key signs the App JWT used
-to mint installation tokens.
+The App's General page shows the **App ID** (top) and **Client ID** — note
+both. The other two credentials must be **generated**; neither exists on a
+fresh App:
+
+1. **Client secret** — General → *Client secrets* → **Generate a new client
+   secret**. Shown **once**: copy it immediately (this is the OAuth pair for
+   user linking, `GITHUB_CLIENT_SECRET`).
+2. **Private key** — General → *Private keys* → **Generate a private key** →
+   downloads a `.pem`. It signs the App JWT used to mint installation tokens.
 
 > **⚠️ Convert the key to PKCS#8.** GitHub issues the key as **PKCS#1**
 > (`-----BEGIN RSA PRIVATE KEY-----`), but the App JWT is signed with **Web
@@ -162,7 +194,8 @@ GITHUB_APP_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY--
 ```
 Turn a PEM into that single line: `awk 'NF{printf "%s\\n",$0}' app-key-pkcs8.pem`.
 
-**Production** — set them as Worker secrets instead of `.dev.vars`:
+**Deployed environments** — set them as Worker secrets instead of `.dev.vars`
+(full deployment flow: `DEPLOY.md`):
 
 ```bash
 wrangler secret put GITHUB_APP_ID
@@ -171,8 +204,14 @@ wrangler secret put GITHUB_CLIENT_ID
 wrangler secret put GITHUB_CLIENT_SECRET
 ```
 
-The frontend also needs the **public** App slug to build the install link — it's
-not a secret (`apps/www`, wired to `heigvdlabs`):
+> **⚠ BOM warning:** don't PIPE secret values into `wrangler secret put` from
+> PowerShell 5.1 — it prepends a UTF-8 BOM and the provider then rejects the
+> credential as unknown. Paste interactively, or pipe from Git Bash with
+> `printf '%s' "<value>" | wrangler secret put NAME`.
+
+The install link also needs the **public** App slug — not a secret. It's the
+`GITHUB_APP_SLUG` var (`wrangler.jsonc` for the deployed value, `.dev.vars`
+override for dev), delivered to the SPA via `/api/me`:
 `https://github.com/apps/<slug>/installations/new`.
 
 ## How "connect a class" works end to end
