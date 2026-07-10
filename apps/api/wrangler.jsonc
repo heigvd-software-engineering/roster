@@ -4,12 +4,16 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-06-30",
   "compatibility_flags": ["nodejs_compat"],
+  // PROD values — `.dev.vars` overrides these for local `wrangler dev`
+  // (see DEPLOY.md phase 2).
   "vars": {
-    "BETTER_AUTH_URL": "https://localhost:3000",
+    "BETTER_AUTH_URL": "https://labs.stefan-teofanov.workers.dev",
     "EDUID_ISSUER": "https://login.eduid.ch",
-    // The labs GitHub App's public slug (install URL path segment) — public
-    // config, not a secret. Delivered to the SPA via /api/me.
-    "GITHUB_APP_SLUG": "heigvdlabs"
+    // The DEMO GitHub App's public slug (install URL path segment) — public
+    // config, not a secret. Delivered to the SPA via /api/me. Dev overrides
+    // to its own App (`heigvdlabs`) in .dev.vars — one App per environment
+    // (GITHUB_APP_SETUP.md).
+    "GITHUB_APP_SLUG": "heigvdlabsdemo"
   },
   "assets": {
     "directory": "../www/build/client",
@@ -24,9 +28,9 @@
     {
       "binding": "DB",
       "database_name": "labs",
-      // Local-dev placeholder. Replace with the real id from
-      // `wrangler d1 create labs` before deploying to Cloudflare.
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      // The remote db on the demo Cloudflare account (DEPLOY.md). Local dev
+      // ignores the id — miniflare keeps its own local sqlite.
+      "database_id": "1dd57ff0-73c3-439a-8878-df578944cfe1",
       "migrations_dir": "../../packages/db/migrations"
     }
   ]

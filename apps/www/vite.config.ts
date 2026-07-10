@@ -3,8 +3,16 @@ import tailwindcss from "@tailwindcss/vite";
 import basicSsl from "@vitejs/plugin-basic-ssl";
 import { defineConfig } from "vite";
 
-export default defineConfig({
-  plugins: [tailwindcss(), reactRouter(), basicSsl()],
+export default defineConfig(({ command, isPreview }) => ({
+  // basicSsl is DEV-ONLY (https://localhost:3000, the origin SWITCH knows).
+  // `react-router build` prerenders the shell through an internal vite
+  // PREVIEW server (resolved with command "serve" too) that must stay
+  // http: — hence the isPreview guard, not just the command.
+  plugins: [
+    tailwindcss(),
+    reactRouter(),
+    ...(command === "serve" && !isPreview ? [basicSsl()] : []),
+  ],
   resolve: {
     tsconfigPaths: true,
   },
@@ -22,4 +30,4 @@ export default defineConfig({
       },
     },
   },
-});
+}));
