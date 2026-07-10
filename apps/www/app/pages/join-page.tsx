@@ -1,3 +1,4 @@
+import type { InferResponseType } from "hono/client";
 import { ArrowRightIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
@@ -15,7 +16,12 @@ import { api } from "~/lib/api";
 
 const MEMBERSHIPS = ["none", "pending", "active"] as const;
 type Membership = (typeof MEMBERSHIPS)[number];
-type ClassIdentity = { login: string; name: string | null; avatarUrl: string };
+/** The preview's `class` field, INFERRED from the join endpoint — never
+ *  hand-modeled (type-spine rule). */
+type ClassIdentity = InferResponseType<
+  (typeof api.api.join)[":token"]["$get"],
+  200
+>["class"];
 
 type JoinState =
   | { kind: "loading" }

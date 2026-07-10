@@ -1,3 +1,4 @@
+import type { InferResponseType } from "hono/client";
 import { AlertTriangle, ArrowRight } from "lucide-react";
 import { useState } from "react";
 import { Link, useParams } from "react-router";
@@ -5,6 +6,7 @@ import { Page } from "~/components/custom/layout/page";
 import { Row } from "~/components/custom/layout/row";
 import { Stack } from "~/components/custom/layout/stack";
 import { Loading } from "~/components/custom/loading";
+import { StateChange } from "~/components/custom/state-change";
 import { BrandHeader } from "~/components/custom/typography/brand-header";
 import { Text } from "~/components/custom/typography/text";
 import { Badge } from "~/components/ui/badge";
@@ -13,17 +15,14 @@ import { Card } from "~/components/ui/card";
 import { api, useApi } from "~/lib/api";
 import { cn } from "~/lib/utils";
 
-type Severity = "broken" | "drift" | "info";
-
-type Finding = {
-  key: string;
-  reconciler: string;
-  severity: Severity;
-  title: string;
-  detail: string;
-  fix: string | null;
-  destructive: boolean;
-};
+/** INFERRED from the audit endpoint (the server's `lib/reconcile/types.ts` is
+ *  the one source) — hand-modeling this shape would sever the compile-time
+ *  link the type spine exists to keep. */
+type Finding = InferResponseType<
+  (typeof api.api.classes)[":id"]["audit"]["$get"],
+  200
+>["findings"][number];
+type Severity = Finding["severity"];
 
 /** The reconcilers, in the order a teacher should read them: what the class IS,
  *  then who is in it, then what they work in, then who can see what. */
@@ -86,7 +85,7 @@ export function ReconcilePage() {
   const classes = useApi(api.api.classes);
   const cls = classes.data?.classes.find((c) => c.id === id);
 
-  const findings = (data?.findings ?? []) as Finding[];
+  const findings = data?.findings ?? [];
   const [selected, setSelected] = useState<Set<string> | null>(null);
   const [applying, setApplying] = useState(false);
   const [result, setResult] = useState<string | null>(null);
@@ -268,7 +267,7 @@ function FindingRow({
   checked: boolean;
   onToggle: () => void;
 }) {
-  const { title, detail, fix, destructive, severity } = finding;
+  const { title, detail, fix, change, destructive, severity } = finding;
   const spine = cn("border-l-2 px-4 py-3", SPINE[severity]);
 
   if (!fix) {
@@ -313,24 +312,36 @@ function FindingRow({
           ) : null}
         </Row>
         <Text variant="caption">{detail}</Text>
-        {/* What Apply will DO, visually distinct from what we OBSERVED above. */}
-        <Row gap="xs" align="center" className="mt-1.5 min-w-0">
-          <ArrowRight
-            className={cn(
-              "size-3.5 shrink-0",
-              destructive ? "text-destructive" : "text-muted-foreground",
-            )}
-          />
-          <Text
-            variant="caption"
-            className={cn(
-              "font-medium",
-              destructive ? "text-destructive" : "text-muted-foreground",
-            )}
-          >
-            {fix}
-          </Text>
-        </Row>
+        {/* What Apply will DO, visually distinct from what we OBSERVED above:
+            the state that stands → the state Apply produces. Findings without
+            a two-state reading fall back to the fix sentence. */}
+        <div className="mt-1.5" title={fix}>
+          {change ? (
+            <StateChange
+              from={change.from}
+              to={change.to}
+              destructive={destructive}
+            />
+          ) : (
+            <Row gap="xs" align="center" className="min-w-0">
+              <ArrowRight
+                className={cn(
+                  "size-3.5 shrink-0",
+                  destructive ? "text-destructive" : "text-muted-foreground",
+                )}
+              />
+              <Text
+                variant="caption"
+                className={cn(
+                  "font-medium",
+                  destructive ? "text-destructive" : "text-muted-foreground",
+                )}
+              >
+                {fix}
+              </Text>
+            </Row>
+          )}
+        </div>
       </Stack>
     </label>
   );

@@ -14,10 +14,13 @@ type AuthProps = {
  * Route guard: renders children only for a signed-in user. Signed-out visitors
  * get the login screen IN PLACE — the URL is preserved, so after sign-in they
  * land exactly where they were headed (deep links survive). A signed-in user
- * without a working GitHub link is sent to onboarding — the one real redirect.
+ * whose GitHub link is PROVEN dead ("unlinked") is sent to onboarding — the
+ * one real redirect. "unknown" (GitHub unreachable) fails OPEN: re-linking
+ * during an outage would fail too, and the outage is not the user's fault —
+ * the AuthProvider's warning strip says what's going on instead.
  */
 export function Auth({ requireGithubLinked = true, children }: AuthProps) {
-  const { isLoading, authed, githubLinked } = useAuth();
+  const { isLoading, authed, githubState } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -26,7 +29,7 @@ export function Auth({ requireGithubLinked = true, children }: AuthProps) {
   if (!authed) {
     return <LoginPage />;
   }
-  if (requireGithubLinked && !githubLinked) {
+  if (requireGithubLinked && githubState === "unlinked") {
     const returnTo = encodeURIComponent(location.pathname + location.search);
     return <Navigate to={`/onboarding/github?returnTo=${returnTo}`} replace />;
   }

@@ -25,6 +25,7 @@ function authValue(o: Partial<ReturnType<typeof useAuth>>) {
     user: null,
     affiliations: [],
     github: null,
+    githubState: "unlinked",
     githubLinked: false,
     signIn: vi.fn(),
     signOut: vi.fn(),
@@ -63,12 +64,26 @@ describe("Auth guard", () => {
   it("renders children for a signed-in, linked user", () => {
     navigateSpy.mockClear();
     vi.mocked(useAuth).mockReturnValue(
-      authValue({ authed: true, githubLinked: true }),
+      authValue({ authed: true, githubState: "linked", githubLinked: true }),
     );
 
     render(<Auth>secret</Auth>);
 
     expect(screen.getByText("secret")).toBeInTheDocument();
+  });
+
+  it("fails OPEN when the link state is unknown (GitHub unreachable)", () => {
+    // An outage must not bounce a healthy link through onboarding — re-linking
+    // would fail too. The user stays in; the warning strip explains.
+    navigateSpy.mockClear();
+    vi.mocked(useAuth).mockReturnValue(
+      authValue({ authed: true, githubState: "unknown", githubLinked: false }),
+    );
+
+    render(<Auth>secret</Auth>);
+
+    expect(screen.getByText("secret")).toBeInTheDocument();
+    expect(navigateSpy).not.toHaveBeenCalled();
   });
 
   it("skips the link requirement when requireGithubLinked is false", () => {

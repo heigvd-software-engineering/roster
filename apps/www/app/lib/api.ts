@@ -42,6 +42,9 @@ export type GroupItem = InferResponseType<
   (typeof labGroupsApi)["$get"],
   200
 >["groups"][number];
+/** The 404-vs-transient discriminator for `useApi` errors. */
+export const errorStatus = (error: unknown) =>
+  (error as { status?: number } | null | undefined)?.status;
 /** An enrolled student as the lab pages see them (class_members cache). */
 export type LabStudent = InferResponseType<
   (typeof labGroupsApi)["$get"],
@@ -77,6 +80,14 @@ export function useAction(
       const res = await run();
       if (res.status === 409 && on409) {
         push(on409((await res.json()) as { error?: string }), {
+          variant: "warning",
+        });
+        return;
+      }
+      if (res.status === 503) {
+        // The API's honest "GitHub can't answer right now" (on-error.ts) —
+        // transient and retryable, not the user's fault.
+        push("GitHub is unreachable right now — try again in a minute.", {
           variant: "warning",
         });
         return;
@@ -124,9 +135,12 @@ export function useApi<
     async () => {
       const res = await endpoint.$get(args);
       // Throw non-2xx so SWR routes it to `error` instead of parsing the
-      // error body as valid `Data`.
+      // error body as valid `Data`. The status rides on the error so pages
+      // can tell "doesn't exist / no access" (404) from a transient failure.
       if (!res.ok) {
-        throw new Error(`GET ${path} failed (${res.status})`);
+        throw Object.assign(new Error(`GET ${path} failed (${res.status})`), {
+          status: res.status,
+        });
       }
       // `res` itself is fully typed off the real, narrowed `E` here (no cast
       // needed for `.ok`/`.status`). `.json()`'s return type doesn't survive

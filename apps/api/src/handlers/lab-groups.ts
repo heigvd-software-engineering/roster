@@ -11,7 +11,7 @@ import {
   resolveClassAccess,
 } from "../lib/access";
 import type { AuthedEnv } from "../lib/auth/require-auth";
-import { orgRepoActivity } from "../lib/github/repo";
+import { orgRepoActivity, type RepoFailure } from "../lib/github/repo";
 import {
   cachedRoster,
   cachedRosters,
@@ -21,7 +21,6 @@ import {
   createGroupInLab,
   createWorkRepo,
   groupsWithRosters,
-  type RepoFailure,
 } from "../lib/groups";
 
 /**
@@ -50,12 +49,30 @@ const repoFailure = (c: Context<AuthedEnv>, f: RepoFailure) =>
 
 /** This lab's groups with live rosters + work repo + push activity, plus
  *  the class's enrolled students (the "without a group" pool) and linked
- *  SWITCH users for everyone involved. */
+ *  SWITCH users for everyone involved. Also carries the lab row, the class
+ *  identity, and the caller's role — the lab page's ONE request, so it
+ *  never re-fetches the whole class list just to render its header. */
 export const listLabGroups = authedFactory.createHandlers(async (c) => {
-  const access = await resolveClassAccess(c, c.req.param("id"));
+  // allowPending: the student page must tell "accept your invitation first"
+  // apart from "not your class" — a pending invitee gets the header data and
+  // an empty roster, never a 404. They already see the lab through the
+  // enrolled list, so this reveals nothing new.
+  const access = await resolveClassAccess(c, c.req.param("id"), {
+    allowPending: true,
+  });
   if (!access) return c.json({ error: "not_found" }, 404);
   const lab = await labInClass(access, c.req.param("labId"));
   if (!lab) return c.json({ error: "not_found" }, 404);
+
+  const head = {
+    lab,
+    class: { name: access.cls.name, login: access.org },
+    role: access.admin ? ("teacher" as const) : ("student" as const),
+    membershipState: access.membershipState,
+  };
+  if (access.membershipState === "pending") {
+    return c.json({ ...head, groups: [], users: [], students: [] });
+  }
 
   const rows = await access.db
     .select()
@@ -109,7 +126,7 @@ export const listLabGroups = authedFactory.createHandlers(async (c) => {
       ...students.map((s) => s.githubId),
     ]),
   ]);
-  return c.json({ groups: groupsOut, users, students });
+  return c.json({ ...head, groups: groupsOut, users, students });
 });
 
 /**

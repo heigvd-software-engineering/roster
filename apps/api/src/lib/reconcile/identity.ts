@@ -5,10 +5,20 @@ import { classes } from "@labs/db";
 import { eq } from "drizzle-orm";
 import type { Reconciler } from "./types";
 
-/** `"login: acme → tweb-2026"` for each field that actually moved. Reporting a
- *  field that didn't change reads as noise and hides the one that did. */
-const changed = (field: string, was: string | null, now: string | null) =>
-  was === now ? null : `${field}: ${was ?? "—"} → ${now ?? "—"}`;
+/** The old and new value of one field that actually moved. Reporting a field
+ *  that didn't change reads as noise and hides the one that did. Avatar VALUES
+ *  are URLs — name the change, never print them. */
+const changed = (
+  field: string,
+  was: string | null,
+  now: string | null,
+): { field: string; was: string; now: string } | null => {
+  if (was === now) return null;
+  if (field === "avatar") {
+    return { field, was: "previous avatar", now: "new avatar" };
+  }
+  return { field, was: was ?? "—", now: now ?? "—" };
+};
 
 export const identity: Reconciler = {
   name: "identity",
@@ -18,7 +28,7 @@ export const identity: Reconciler = {
       changed("login", ctx.cls.login, org.login),
       changed("name", ctx.cls.name, org.name),
       changed("avatar", ctx.cls.avatarUrl, org.avatarUrl),
-    ].filter((line): line is string => line !== null);
+    ].filter((d): d is NonNullable<typeof d> => d !== null);
     if (drift.length === 0) return [];
     return [
       {
@@ -29,8 +39,12 @@ export const identity: Reconciler = {
           drift.length === 1
             ? "The organization's details changed on GitHub"
             : `${drift.length} of the organization's details changed on GitHub`,
-        detail: drift.join(" · "),
+        detail: `Changed on GitHub: ${drift.map((d) => d.field).join(", ")}. The class card shows the old values until refreshed.`,
         fix: "Refresh the class card",
+        change: {
+          from: drift.map((d) => d.was).join(" · "),
+          to: drift.map((d) => d.now).join(" · "),
+        },
         destructive: false,
       },
     ];

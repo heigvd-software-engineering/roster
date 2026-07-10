@@ -11,24 +11,61 @@ export type GithubProfile = {
 };
 
 /**
- * The linked user's live GitHub profile. Returns null on ANY failure
- * (expired token, rate limit, outage) — a null profile is NOT the same as
- * being unlinked; the link status is tracked separately.
+ * GitHub could not answer AT ALL — a 5xx, a rate limit, a network fault, a
+ * malformed body. Deliberately distinct from a dead token (null profile):
+ * the app's one translator (`apiOnError`) turns this into a 503
+ * "github_unavailable", and it must NEVER read as "not linked" (re-link
+ * onboarding), "invalid link" (join), or "not found" (class access).
+ */
+export class GithubUnavailableError extends Error {
+  constructor(detail: string, options?: { cause?: unknown }) {
+    super(`GitHub unavailable: ${detail}`, options);
+    this.name = "GithubUnavailableError";
+  }
+}
+
+/** Rethrow an octokit failure as `GithubUnavailableError` when GitHub itself
+ *  is the problem (network = no status, 5xx, 429); anything else keeps its
+ *  meaning for the caller. */
+function rethrowUnavailable(err: unknown, op: string): never {
+  const status = (err as { status?: number }).status;
+  if (status === undefined || status >= 500 || status === 429) {
+    throw new GithubUnavailableError(`${op} → ${status ?? "network"}`, {
+      cause: err,
+    });
+  }
+  throw err;
+}
+
+/**
+ * The linked user's live GitHub profile, or `null` — which means exactly ONE
+ * thing: GitHub answered 401, the token is dead/revoked, and (re)linking is
+ * the correct next step. Every other failure throws `GithubUnavailableError`
+ * instead: an outage is ambiguous, and ambiguity must never send a healthy
+ * link back through onboarding.
  */
 export async function fetchGithubProfile(
   token: string,
 ): Promise<GithubProfile | null> {
+  let res: Response;
   try {
-    const res = await fetch("https://api.github.com/user", {
+    res = await fetch("https://api.github.com/user", {
       headers: {
         Authorization: `Bearer ${token}`,
         Accept: "application/vnd.github+json",
         "User-Agent": "labs",
       },
     });
-    if (!res.ok) {
-      return null;
-    }
+  } catch (err) {
+    throw new GithubUnavailableError("GET /user network failure", {
+      cause: err,
+    });
+  }
+  if (res.status === 401) return null;
+  if (!res.ok) {
+    throw new GithubUnavailableError(`GET /user answered ${res.status}`);
+  }
+  try {
     const gh = (await res.json()) as {
       login: string;
       id: number;
@@ -41,10 +78,10 @@ export async function fetchGithubProfile(
       name: gh.name,
       avatarUrl: gh.avatar_url,
     };
-  } catch {
-    // Network error, GitHub outage, malformed JSON, etc. — same contract as
-    // an HTTP error response: null, not a thrown exception.
-    return null;
+  } catch (err) {
+    throw new GithubUnavailableError("GET /user body unreadable", {
+      cause: err,
+    });
   }
 }
 
@@ -68,7 +105,9 @@ export async function userInstallationsByOrgId(
   token: string,
 ): Promise<Map<number, UserInstallation>> {
   const gh = new WorkersOctokit({ auth: token });
-  const { data } = await gh.request("GET /user/installations");
+  const { data } = await gh
+    .request("GET /user/installations")
+    .catch((err) => rethrowUnavailable(err, "GET /user/installations"));
   const byOrgId = new Map<number, UserInstallation>();
   for (const inst of data.installations) {
     if (inst.account && "login" in inst.account) {
@@ -80,6 +119,33 @@ export async function userInstallationsByOrgId(
     }
   }
   return byOrgId;
+}
+
+/**
+ * Every org the caller belongs to — role + state, keyed by org login,
+ * LOWERCASED (GitHub logins are case-insensitive, cf. `isSameRepo`). ONE
+ * bulk call answers the hub's per-class Owner question for all classes at
+ * once (spec 2026-07-08): a class is the caller's iff its org is in the
+ * installations map AND this map says `role: "admin", state: "active"`.
+ * Authorization stays LIVE — this swaps one live shape for another; it
+ * introduces no cache. Empirically verified reachable with a user-to-server
+ * token (2026-07-09; the spec records the check).
+ */
+export async function userOrgMemberships(
+  token: string,
+): Promise<Map<string, { role: string; state: string }>> {
+  const gh = new WorkersOctokit({ auth: token });
+  const memberships = await gh
+    .paginate("GET /user/memberships/orgs", { per_page: 100 })
+    .catch((err) => rethrowUnavailable(err, "GET /user/memberships/orgs"));
+  const byLogin = new Map<string, { role: string; state: string }>();
+  for (const m of memberships) {
+    byLogin.set(m.organization.login.toLowerCase(), {
+      role: m.role,
+      state: m.state,
+    });
+  }
+  return byLogin;
 }
 
 /** True iff the user can access this installation id (owns the install). */

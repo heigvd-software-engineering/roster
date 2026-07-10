@@ -18,8 +18,8 @@ named operations below.
 | `app.ts` | the App (JWT) | `installationAccount`, `orgLogin` |
 | `org.ts` | the App's **installation** on a class org | `orgInfo`, `basePermission`, `setBasePermissionNone`, `isOrgAdmin`, `orgMembership`, `inviteOrgMember`, `orgPeople` |
 | `team.ts` | the App's **installation** on a class org | `createTeam`, `teamMembers`, `addTeamMember`, `removeTeamMember`, `deleteTeam` (groups = GitHub Teams, F7) |
-| `repo.ts` | the App's **installation** on a class org | `createOrgRepo`, `generateFromTemplate`, `grantTeamRepo`, `orgTemplateRepos` (work repos, F8) |
-| `user.ts` | the caller's **own** OAuth token | `fetchGithubProfile`, `userInstallationsByOrgId`, `userHasInstallation` |
+| `repo.ts` | the App's **installation** on a class org | `createOrgRepo`, `generateFromTemplate`, `getOrgRepo`, `grantTeamRepo`, `orgRepoActivity`, `orgTemplateRepos` (work repos, F8); `classifyRepoFailure` (no call — octokit error-shape knowledge stays in this folder) |
+| `user.ts` | the caller's **own** OAuth token | `fetchGithubProfile`, `userInstallationsByOrgId`, `userOrgMemberships`, `userHasInstallation` |
 
 3. **List reads paginate** (`per_page: 100` + `gh.paginate`) — an unpaginated
    org read silently truncates at 30.

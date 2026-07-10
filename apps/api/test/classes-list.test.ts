@@ -12,9 +12,12 @@ const state = vi.hoisted(() => ({
     account: { id: number; login: string };
   }>,
   org: { login: "acme", name: "Acme", avatarUrl: "http://a" },
-  failInstallationIds: [] as number[],
-  membershipRole: "admin" as string,
-  profileLogin: "prof",
+  // The caller's role per org login for the BULK memberships call. null =
+  // derive "admin"/"active" for every installation (the common case).
+  orgMemberships: null as Record<
+    string,
+    { role: string; state: string }
+  > | null,
   people: {
     teachers: [{ id: 111, login: "prof", avatarUrl: "http://p" }],
     students: [{ id: 2, login: "student", avatarUrl: "http://s" }],
@@ -40,14 +43,6 @@ vi.mock("../src/lib/github/org", () => ({
   isOrgAdmin: async () => true,
   orgInfo: async () => state.org,
   orgPeople: vi.fn(async () => state.people),
-  // The hub's ONLY GitHub call per class now: one live Owner check. It carries
-  // the failure switch, because that is the fetch whose failure skips a class.
-  orgMembership: vi.fn(async (_env: unknown, installationId: number) => {
-    if (state.failInstallationIds.includes(installationId)) {
-      throw new Error("simulated GitHub failure");
-    }
-    return { state: "active", role: state.membershipRole };
-  }),
 }));
 
 const userInstallationsByOrgIdMock = vi.hoisted(() =>
@@ -68,16 +63,46 @@ const userInstallationsByOrgIdMock = vi.hoisted(() =>
   }),
 );
 
-vi.mock("../src/lib/github/user", () => ({
-  userInstallationsByOrgId: userInstallationsByOrgIdMock,
-  // One profile fetch for the whole request; orgMembership is keyed on login.
-  fetchGithubProfile: async () => ({ login: state.profileLogin }),
-}));
+// The hub's ONLY other GitHub call: the caller's role in every org at once.
+// Keyed by LOWERCASED login, like the real helper.
+const userOrgMembershipsMock = vi.hoisted(() =>
+  vi.fn(async (_token: string) => {
+    const byLogin = new Map<string, { role: string; state: string }>();
+    if (state.orgMemberships) {
+      for (const [login, m] of Object.entries(state.orgMemberships)) {
+        byLogin.set(login.toLowerCase(), m);
+      }
+    } else {
+      for (const inst of state.installations) {
+        byLogin.set(inst.account.login.toLowerCase(), {
+          role: "admin",
+          state: "active",
+        });
+      }
+    }
+    return byLogin;
+  }),
+);
+
+vi.mock("../src/lib/github/user", async (importOriginal) => {
+  // Spread the real module so `GithubUnavailableError` stays the REAL class —
+  // the on-error translator recognizes throws by instanceof.
+  const actual =
+    await importOriginal<typeof import("../src/lib/github/user")>();
+  return {
+    ...actual,
+    userInstallationsByOrgId: userInstallationsByOrgIdMock,
+    userOrgMemberships: userOrgMembershipsMock,
+  };
+});
 
 const { classesRoutes } = await import("../src/routes/classes");
-const { orgMembership } = await import("../src/lib/github/org");
+const { apiOnError } = await import("../src/on-error");
+const { GithubUnavailableError } = await import("../src/lib/github/user");
 
-const app = new Hono().route("/api", classesRoutes);
+const app = new Hono<import("../src/lib/auth/config").Env>()
+  .route("/api", classesRoutes)
+  .onError(apiOnError);
 const db = getDb(env.DB);
 
 const now = new Date(0);
@@ -139,15 +164,14 @@ beforeEach(async () => {
   state.githubToken = "tok";
   state.installations = [{ id: 200, account: { id: 42, login: "acme" } }];
   state.org = { login: "acme", name: "Acme", avatarUrl: "http://a" };
-  state.failInstallationIds = [];
-  state.membershipRole = "admin";
-  state.profileLogin = "prof";
+  state.orgMemberships = null;
   state.people = {
     teachers: [{ id: 111, login: "prof", avatarUrl: "http://p" }],
     students: [{ id: 2, login: "student", avatarUrl: "http://s" }],
     pending: [{ id: 900, login: "invited", avatarUrl: null }],
   };
   userInstallationsByOrgIdMock.mockClear();
+  userOrgMembershipsMock.mockClear();
 
   await db.delete(labs);
   await db.delete(classMembers);
@@ -225,9 +249,22 @@ test("lists classes with people + linked users, from live installation data", as
   expect(row?.installationId).toBe(100);
 });
 
+test("a GitHub outage on the bulk calls is a 503, not a 500 or an empty hub", async () => {
+  await seedClass();
+  userOrgMembershipsMock.mockRejectedValueOnce(
+    new GithubUnavailableError("simulated outage"),
+  );
+  const res = await app.request("/api/classes", {}, env);
+  expect(res.status).toBe(503);
+  expect(await res.json()).toEqual({ error: "github_unavailable" });
+});
+
 test("skips classes whose org is no longer in the user's installations", async () => {
+  // Even a live Owner: without an installation the App cannot reach the org,
+  // so the class is skipped (spec: absent from the installations map wins).
   await seedClass();
   state.installations = [];
+  state.orgMemberships = { acme: { role: "admin", state: "active" } };
   const res = await app.request("/api/classes", {}, env);
   expect(res.status).toBe(200);
   expect(await res.json()).toEqual({
@@ -251,14 +288,16 @@ test("does not touch the row when installationId and org cache are current", asy
   expect(row?.updatedAt).toEqual(now);
 });
 
-test("skips a class whose GitHub fetch fails, without 500ing the rest", async () => {
+test("skips a class whose org is missing from the memberships answer", async () => {
+  // An org can rate-limit or vanish between the two bulk calls — a class we
+  // cannot decide about is skipped, never shown (and never a 500).
   await seedClass({ id: "c1", orgId: 42, installationId: 100 });
   await seedClass({ id: "c2", orgId: 43, installationId: 101 });
   state.installations = [
     { id: 100, account: { id: 42, login: "acme" } },
     { id: 101, account: { id: 43, login: "beta" } },
   ];
-  state.failInstallationIds = [100];
+  state.orgMemberships = { beta: { role: "admin", state: "active" } };
   const res = await app.request("/api/classes", {}, env);
   expect(res.status).toBe(200);
   const body = (await res.json()) as { classes: Array<{ id: string }> };
@@ -280,7 +319,7 @@ test("skips a class when the caller has installation access but is NOT an org ow
   // check grants the class, and a cached `teacher` row never could.
   await seedClass();
   await seedMembers();
-  state.membershipRole = "member";
+  state.orgMemberships = { acme: { role: "member", state: "active" } };
   const res = await app.request("/api/classes", {}, env);
   expect(res.status).toBe(200);
   expect(await res.json()).toEqual({
@@ -288,6 +327,31 @@ test("skips a class when the caller has installation access but is NOT an org ow
     enrolled: [],
     hasOlder: false,
   });
+});
+
+test("skips a class when the caller's Owner invite is still pending", async () => {
+  // `state: "pending"` is not an Owner yet — an invited Owner who hasn't
+  // accepted must not see the class (fan-out spec).
+  await seedClass();
+  state.orgMemberships = { acme: { role: "admin", state: "pending" } };
+  const res = await app.request("/api/classes", {}, env);
+  expect(res.status).toBe(200);
+  expect(await res.json()).toEqual({
+    classes: [],
+    enrolled: [],
+    hasOlder: false,
+  });
+});
+
+test("the Owner check matches org logins case-insensitively", async () => {
+  // GitHub logins are case-insensitive; the two bulk payloads may disagree on
+  // casing and the intersection must still hold.
+  await seedClass();
+  state.installations = [{ id: 200, account: { id: 42, login: "AcMe" } }];
+  state.orgMemberships = { ACME: { role: "admin", state: "active" } };
+  const res = await app.request("/api/classes", {}, env);
+  const body = (await res.json()) as { classes: Array<{ id: string }> };
+  expect(body.classes.map((c) => c.id)).toEqual(["c1"]);
 });
 
 test("returns [] when the caller has no linked GitHub account", async () => {
@@ -504,7 +568,8 @@ test("?from windows the list — no GitHub work for out-of-window classes", asyn
     installationId: 201,
     createdAt: new Date("2025-03-01"),
   });
-  vi.mocked(orgMembership).mockClear();
+  userInstallationsByOrgIdMock.mockClear();
+  userOrgMembershipsMock.mockClear();
 
   const res = await app.request(
     "/api/classes?from=2026-02-01T00:00:00Z",
@@ -517,9 +582,10 @@ test("?from windows the list — no GitHub work for out-of-window classes", asyn
   };
   expect(body.classes.map((c) => c.id)).toEqual(["c-new"]);
   expect(body.hasOlder).toBe(true);
-  // The saving: the out-of-window class never triggered live GitHub work.
-  // Exactly one live Owner check: the out-of-window class costs no GitHub call.
-  expect(vi.mocked(orgMembership)).toHaveBeenCalledTimes(1);
+  // The saving: GitHub work is TWO bulk calls regardless of how many classes
+  // are in (or out of) the window — never per-class.
+  expect(userInstallationsByOrgIdMock).toHaveBeenCalledTimes(1);
+  expect(userOrgMembershipsMock).toHaveBeenCalledTimes(1);
 
   // Widened window: both classes, nothing older left.
   const all = await app.request(

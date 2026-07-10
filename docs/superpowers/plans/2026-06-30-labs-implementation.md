@@ -67,7 +67,7 @@ After green, the agent presents: the change summary + new test output; anything 
 
 ## Progress Tracker
 
-**▶ Active cursor:** _On branch `milestone-4-labs`. **GROUPS RESHAPED TO PER-LAB** (2026-07-07, live-confirmed) — fixes the cross-lab join dead-end; student copy-forward built; template-error bug fixed. UNCOMMITTED big batch. **Next: teacher bulk copy-forward + group-membership cache (slice 4), or F10.**_
+**▶ Active cursor:** _On branch `milestone-5-quality` (milestones 1–4 all merged to `main`, PR #4, 2026-07-09). Reconciliation (audit/consent/apply), the group-members cache (0012), and roster-from-D1 reads landed with milestone 4. Milestone 5 = code quality: type-spine audit fixes, `GET /classes` Owner-check collapse (2 bulk calls — fan-out spec implemented), light-mode gray paper, GitHub error-shape knowledge fenced into `lib/github`. **Next: F10 (teacher dashboard) decision, or release prep (production D1 + secrets + deploy).**_
 > Earlier cursor history (milestones 1–3, F3 notes) lives in the Session Log below and in the docs commits on `main`/`milestone-2-classes`.
 
 `[ ]` pending → `[x]` passed. **Auto** = automated gate green. **Human** = your approval (🔴 = needs real edu-ID/GitHub flow first; 🟢 routine). **Done** = both gates passed (uncommitted increment in the tree).
@@ -654,7 +654,7 @@ never `class_members` (display-only invariant).
 | 8. UI: the LAB page is the group surface — student ACCEPT language (join a participating group / accept with one of your groups, misfits disabled with reason / accept with a new group → attaches immediately; individual labs = one-click Accept + Withdraw); teacher: "students without a group" pool (hidden when empty), add-member offers ONLY that pool, detach/manage, tile grid (3-col) with dashed ghost tiles; tooltips on every button app-wide; global message strip (MessageProvider, info/warning/error, 5s) under the header replaces inline action errors — modal forms stay inline | [x] | [x] 👁 | [x] |
 | 5. Live walk: student created + attached a pair group, 2nd student joined via a fresh GitHub account (unverified-email link failure → friendly retry added), teacher managed members; double-booking bug found live → fixed server-side + regression-tested | [x] | [x] 🔴 | [x] |
 
-**F7 gate closed 2026-07-06:** biome ✅ typecheck 3/3 ✅ tests 104 api / 66 www ✅. Deferred, flagged: solo-group naming convention → keyed column (a student can squat another's login as a group name; touches F8 accept design); request-scoped GitHub client/token reuse; server-computed size verdicts for the client (F8).
+**F7 gate closed 2026-07-06:** biome ✅ typecheck 3/3 ✅ tests 104 api / 66 www ✅. Deferred, flagged: solo-group naming convention → keyed column (a student can squat another's login as a group name; touches F8 accept design) — **user-decided 2026-07-09: WON'T FIX**, naming disputes are the students' to sort out; request-scoped GitHub client/token reuse; server-computed size verdicts for the client (F8).
 
 ---
 

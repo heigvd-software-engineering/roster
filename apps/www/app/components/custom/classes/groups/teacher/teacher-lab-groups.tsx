@@ -83,7 +83,7 @@ export function TeacherLabGroups({
   classId: string;
   lab: LabItem;
 }) {
-  const g = useLabGroups(classId, lab);
+  const g = useLabGroups(classId, lab.id);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<StatusFilter>("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);

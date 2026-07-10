@@ -31,6 +31,10 @@ export const basePermissionReconciler: Reconciler = {
         title: "Every member can read every repository",
         detail: `The organization's base repository permission is "${permission}", not "none". Students can read other groups' work repositories.`,
         fix: 'Set the base permission back to "none"',
+        change: {
+          from: `Base permission: ${permission}`,
+          to: "Base permission: none",
+        },
         // Applying REVOKES access, so it starts unchecked like every destructive
         // finding. The copy above says which way the hazard actually runs: it is
         // LEAVING this unfixed that is dangerous.

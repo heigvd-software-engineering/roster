@@ -47,26 +47,13 @@ const groupLab = {
 const alice = { id: 7, login: "alice", avatarUrl: "http://a" };
 const bob = { id: 8, login: "bob", avatarUrl: null };
 
-const teachingClass = {
-  id: "c1",
-  orgId: 1,
-  createdAt: "2026-03-10T00:00:00.000Z",
-  login: "acme",
-  name: "Acme",
-  avatarUrl: "",
-  joinToken: "tok",
-  teachers: [{ id: 111, login: "prof", avatarUrl: null }],
-  students: [alice, bob],
-  pending: [],
-  users: [],
-  labs: [groupLab],
-};
-
-function mockApi(classesData: unknown, labGroupsData: unknown) {
+/** The page is ONE request now — a single groups response (or its error). */
+function mockApi(labGroupsData: unknown, error?: unknown) {
   vi.mocked(useApi).mockImplementation(
-    (_endpoint, args) =>
+    () =>
       ({
-        data: args === undefined ? classesData : labGroupsData,
+        data: labGroupsData,
+        error,
         mutate: vi.fn(),
       }) as unknown as ReturnType<typeof useApi>,
   );
@@ -84,6 +71,11 @@ const grp = (over: Record<string, unknown>) => ({
 });
 
 const groupsData = {
+  // The header data rides on the groups response (merged endpoint).
+  lab: groupLab,
+  class: { name: "Acme", login: "acme" },
+  role: "teacher",
+  membershipState: "active",
   groups: [grp({ members: [bob] })],
   users: [],
   // The pool source: the class_members cache riding on the response.
@@ -100,7 +92,7 @@ beforeEach(() => {
 
 describe("TeacherLabPage", () => {
   it("shows the header, the without-a-group pool, and management", () => {
-    mockApi({ classes: [teachingClass], enrolled: [] }, groupsData);
+    mockApi(groupsData);
     render(<TeacherLabPage />);
 
     expect(screen.getByText("Lab 1 — Sockets")).toBeInTheDocument();
@@ -140,15 +132,12 @@ describe("TeacherLabPage", () => {
   });
 
   it("links the repo and disables delete once the work repo exists", () => {
-    mockApi(
-      { classes: [teachingClass], enrolled: [] },
-      {
-        ...groupsData,
-        groups: [
-          grp({ members: [alice, bob], repoFullName: "acme/lab1-team-alpha" }),
-        ],
-      },
-    );
+    mockApi({
+      ...groupsData,
+      groups: [
+        grp({ members: [alice, bob], repoFullName: "acme/lab1-team-alpha" }),
+      ],
+    });
     render(<TeacherLabPage />);
 
     // The repo exists → the row links it and the drawer refuses delete.
@@ -160,20 +149,17 @@ describe("TeacherLabPage", () => {
   });
 
   it("hides the pool when every student is placed", () => {
-    mockApi(
-      { classes: [teachingClass], enrolled: [] },
-      {
-        ...groupsData,
-        groups: [
-          {
-            id: "g1",
-            name: "Team Alpha",
-            slug: "team-alpha",
-            members: [alice, bob],
-          },
-        ],
-      },
-    );
+    mockApi({
+      ...groupsData,
+      groups: [
+        {
+          id: "g1",
+          name: "Team Alpha",
+          slug: "team-alpha",
+          members: [alice, bob],
+        },
+      ],
+    });
     render(<TeacherLabPage />);
     expect(
       screen.queryByText(/Students without a group/),
@@ -181,21 +167,18 @@ describe("TeacherLabPage", () => {
   });
 
   it("offers clone commands for the groups that have a repo", () => {
-    mockApi(
-      { classes: [teachingClass], enrolled: [] },
-      {
-        ...groupsData,
-        groups: [
-          grp({
-            id: "g1",
-            members: [alice, bob],
-            repoFullName: "acme/lab1-team-alpha",
-          }),
-          // No repo yet → it contributes no clone line.
-          grp({ id: "g2", name: "Team Beta", members: [alice] }),
-        ],
-      },
-    );
+    mockApi({
+      ...groupsData,
+      groups: [
+        grp({
+          id: "g1",
+          members: [alice, bob],
+          repoFullName: "acme/lab1-team-alpha",
+        }),
+        // No repo yet → it contributes no clone line.
+        grp({ id: "g2", name: "Team Beta", members: [alice] }),
+      ],
+    });
     render(<TeacherLabPage />);
 
     fireEvent.click(screen.getByRole("button", { name: "More lab actions" }));
@@ -207,7 +190,7 @@ describe("TeacherLabPage", () => {
   });
 
   it("disables the clone commands when no group has a repo", () => {
-    mockApi({ classes: [teachingClass], enrolled: [] }, groupsData);
+    mockApi(groupsData);
     render(<TeacherLabPage />);
 
     fireEvent.click(screen.getByRole("button", { name: "More lab actions" }));
@@ -217,10 +200,8 @@ describe("TeacherLabPage", () => {
   });
 
   it("redirects an enrolled STUDENT to the student page", () => {
-    mockApi(
-      { classes: [], enrolled: [{ id: "c1", state: "active", labs: [] }] },
-      groupsData,
-    );
+    // The response's role decides the redirect — no class list involved.
+    mockApi({ ...groupsData, role: "student" });
     render(<TeacherLabPage />);
     expect(screen.getByTestId("navigate")).toHaveTextContent(
       "/classes/c1/labs/l1",
@@ -228,8 +209,12 @@ describe("TeacherLabPage", () => {
   });
 
   it("shows a not-found message for an unknown lab", () => {
+    // Unknown lab (or class, or no access) = a 404 from the one endpoint.
     params.labId = "nope";
-    mockApi({ classes: [teachingClass], enrolled: [] }, groupsData);
+    mockApi(
+      undefined,
+      Object.assign(new Error("GET /api/… failed (404)"), { status: 404 }),
+    );
     render(<TeacherLabPage />);
     expect(
       screen.getByText(

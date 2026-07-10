@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import type { Env } from "./lib/auth/config";
+import { apiOnError } from "./on-error";
 
 export type { Auth } from "./lib/auth/config";
 
@@ -29,7 +30,10 @@ const app = new Hono<Env>()
   .route("/api", joinRoutes)
   // Unknown API routes return JSON 404s (registered last, so it only catches
   // paths no module above matched).
-  .all("/api/*", (c) => c.json({ error: "Not found" }, 404));
+  .all("/api/*", (c) => c.json({ error: "Not found" }, 404))
+  // One translator for thrown errors (GitHub unavailable → 503). Tests that
+  // mount a route module directly attach this too — same contract everywhere.
+  .onError(apiOnError);
 
 export type AppType = typeof app;
 export default app;

@@ -67,6 +67,7 @@ export const workRepos: Reconciler = {
         title: `"${group.name}" has a repository that is not linked`,
         detail: `${fullName} exists in the organization but was never recorded on the group — its creation was interrupted.`,
         fix: "Link it to the group and re-grant the team",
+        change: { from: "No repository linked", to: fullName },
         destructive: false,
       });
     }

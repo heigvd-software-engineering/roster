@@ -1,5 +1,12 @@
 import type { InferResponseType } from "hono/client";
-import { createContext, type ReactNode, useContext, useMemo } from "react";
+import {
+  createContext,
+  type ReactNode,
+  useContext,
+  useEffect,
+  useMemo,
+} from "react";
+import { useMessages } from "~/contexts/message-context";
 import { api, useApi } from "~/lib/api";
 import {
   linkSocial as authLinkSocial,
@@ -20,10 +27,14 @@ type AuthValue = Pick<
   isLoading: boolean;
   /** A session exists (signed in). */
   authed: boolean;
-  /** GitHub is usable right now (drives the onboarding gate). */
+  /** The GitHub link's live state. "unknown" = GitHub is unreachable — the
+   *  gate fails OPEN on it (warning banner, no onboarding redirect). */
+  githubState: Me["githubState"];
+  /** GitHub is PROVEN usable right now (`githubState === "linked"`). */
   githubLinked: boolean;
-  /** Start edu-ID (SWITCH) sign-in. */
-  signIn: () => void;
+  /** Start edu-ID (SWITCH) sign-in. Failures surface on the message strip —
+   *  never a button that silently does nothing. */
+  signIn: () => Promise<void>;
   /** Sign out, then revalidate /api/me so the UI reflects it immediately. */
   signOut: () => Promise<void>;
   /** Start GitHub account linking (redirects to GitHub). */
@@ -41,6 +52,19 @@ const AuthContext = createContext<AuthValue | null>(null);
  */
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { data, isLoading, mutate } = useApi(api.api.me);
+  const { push } = useMessages();
+
+  // GitHub couldn't answer the boot fetch: say so ONCE, in the global strip.
+  // The app stays usable (fail open) — writes are still authorized live,
+  // per action, server-side; only the display may be missing or stale.
+  const githubState = data?.githubState ?? "unlinked";
+  useEffect(() => {
+    if (githubState === "unknown") {
+      push("GitHub is unreachable right now — some data may be missing.", {
+        variant: "warning",
+      });
+    }
+  }, [githubState, push]);
 
   const value = useMemo<AuthValue>(
     () => ({
@@ -50,18 +74,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       github: data?.github ?? null,
       affiliations: data?.affiliations ?? [],
       githubAppInstallUrl: data?.githubAppInstallUrl ?? "",
-      githubLinked: Boolean(data?.githubLinked),
-      signIn: () => {
+      githubState,
+      githubLinked: githubState === "linked",
+      signIn: async () => {
         // Return to the page the user was on — the login renders in place
         // (Auth guard), so deep links (e.g. a class join link, which carries
         // query params) survive.
-        authSignIn.oauth2({
-          providerId: "switch",
-          callbackURL:
-            window.location.pathname +
-            window.location.search +
-            window.location.hash,
-        });
+        try {
+          const { error } = await authSignIn.oauth2({
+            providerId: "switch",
+            callbackURL:
+              window.location.pathname +
+              window.location.search +
+              window.location.hash,
+          });
+          // On success the browser navigates to edu-ID — still being here
+          // with an error means the sign-in POST itself failed (API down,
+          // network). Say so; a silent dead button reads as "app is broken".
+          if (error) throw new Error(error.message ?? "sign-in failed");
+        } catch {
+          push("Sign-in is unavailable right now — try again in a moment.", {
+            variant: "error",
+          });
+        }
       },
       signOut: async () => {
         await authSignOut();
@@ -83,7 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await mutate();
       },
     }),
-    [data, isLoading, mutate],
+    [data, isLoading, mutate, githubState, push],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
