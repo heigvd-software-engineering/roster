@@ -167,6 +167,10 @@ export function classifyRepoFailure(
   // "Resource not accessible by integration": the App installation lacks
   // Repository Administration/Contents write — an admin problem, surface it.
   if (status === 403) return "app_permissions";
+  // A template lab's /generate 404s when the template was DELETED or RENAMED
+  // since the lab was created — same teacher-must-fix answer as an empty
+  // one. A 404 on the plain create path stays unrecognized (rethrown).
+  if (status === 404) return usedTemplate ? "template_error" : null;
   if (status !== 422) return null;
   if (/already exists/i.test(githubErrorText(err))) return "name_taken";
   return usedTemplate ? "template_error" : null;
