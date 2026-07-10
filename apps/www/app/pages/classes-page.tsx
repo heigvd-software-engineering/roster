@@ -116,8 +116,8 @@ export function ClassesPage() {
                 <Stack gap="sm" className="w-full max-w-xl">
                   <Text variant="body2">No classes yet.</Text>
                   <Text variant="caption">
-                    Teaching? Use "New class" above — it walks you through how
-                    a class maps onto GitHub. A student? There's nothing to
+                    Teaching? Use "New class" above — it walks you through how a
+                    class maps onto GitHub. A student? There's nothing to
                     create: open the class link your teacher shared and your
                     class appears here.
                   </Text>
