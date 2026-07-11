@@ -38,7 +38,7 @@ This is a **discussion-first, human-gated** backlog — not a to-do list to burn
 | R1 | `join-page.tsx:97` | render | high | 🔲 | — |
 | R2 | `classes-page.tsx:81` | render | low | 🔲 | — |
 | R3 | `new-group-dialog.tsx:103` | render | med | 🔲 | — |
-| P1 | `message-context.tsx:93` | perf | high | 🔲 | — |
+| P1 | `message-context.tsx:93` | perf | high | ✅ | DO — split contexts |
 | P2 | `class-confirm-page.tsx:14`, `reconcile-page.tsx:84` | perf | high | 🔲 | — |
 | P3 | `roster.tsx:123`, `group-tile.tsx:122` | perf | med | 🔲 | — |
 | S1 | `teacher-lab-groups.tsx:365` | structure | med | 🔲 | — |
@@ -88,12 +88,12 @@ This is a **discussion-first, human-gated** backlog — not a to-do list to burn
 
 ## Rendering & performance
 
-### P1 — `contexts/message-context.tsx:93` · high · 🔲 Open
+### P1 — `contexts/message-context.tsx:93` · high · ✅ Done
 **Issue:** `useMessages()` returns the whole context value (rebuilt on every toast push/dismiss), but nearly all consumers use only the stable `push`.
 **Cost:** every action button, header, and page re-renders whenever *any* toast appears or auto-dismisses.
 **Proposed fix:** split into two contexts — stable `{push, dismiss}` for writers, `messages` for the viewport only.
-**Decision:** —
-**Notes:** —
+**Decision:** **DO.** Split into `MessageActionsContext` (`{push, dismiss}`, stable identity) + `MessageListContext` (`messages`). Writers subscribe to actions → no re-render on toast activity; only `MessageViewport` reads the list. Public API (`MessageProvider`/`MessageViewport`/`useMessages`) unchanged, no call sites touched.
+**Notes:** Pure render-cost fix, no behavior change. typecheck + biome clean. Validated by eye (no test — declarative/behavioral parity). Commit: see git log for the P1 commit on `milestone-7-frontend-quality`.
 
 ### P2 — `pages/class-confirm-page.tsx:14` & `pages/reconcile-page.tsx:84` · high · 🔲 Open
 **Issue:** both fetch the entire unbounded `api.api.classes` list solely to read one `orgName` / `cls.name` for the header — contradicts the lab pages' documented "ONE request, no /api/classes just for the header."

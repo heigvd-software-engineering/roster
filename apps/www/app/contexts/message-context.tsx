@@ -15,20 +15,24 @@ export type MessageVariant = "info" | "error" | "warning";
 
 type Message = { id: number; text: string; variant: MessageVariant };
 
-type MessageValue = {
+type MessageActions = {
   /** Show a transient message in the strip under the app header. */
   push: (
     text: string,
     opts?: { variant?: MessageVariant; durationMs?: number },
   ) => void;
-  /** Viewport internals — consumers use `push` (via useMessages). */
-  messages: Message[];
+  /** Remove a message by id — used by the viewport's dismiss button. */
   dismiss: (id: number) => void;
 };
 
 const DEFAULT_DURATION_MS = 5_000;
 
-const MessageContext = createContext<MessageValue | null>(null);
+// Two contexts on purpose: `push`/`dismiss` are stable, so writers (every
+// action button, header, page via useMessages) subscribe to the actions
+// context and never re-render on toast activity. The volatile `messages`
+// array lives in its own context, consumed only by <MessageViewport>.
+const MessageActionsContext = createContext<MessageActions | null>(null);
+const MessageListContext = createContext<Message[] | null>(null);
 
 /**
  * Global transient messages: pushed from anywhere via useMessages(), shown
@@ -49,7 +53,7 @@ export function MessageProvider({ children }: { children: ReactNode }) {
     setMessages((current) => current.filter((m) => m.id !== id));
   }, []);
 
-  const push = useCallback<MessageValue["push"]>(
+  const push = useCallback<MessageActions["push"]>(
     (text, opts) => {
       const id = nextId.current++;
       setMessages((current) => [
@@ -72,17 +76,22 @@ export function MessageProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const value = useMemo<MessageValue>(
-    () => ({ push, messages, dismiss }),
-    [push, messages, dismiss],
+  // Stable — push/dismiss never change identity, so this value doesn't either.
+  const actions = useMemo<MessageActions>(
+    () => ({ push, dismiss }),
+    [push, dismiss],
   );
   return (
-    <MessageContext.Provider value={value}>{children}</MessageContext.Provider>
+    <MessageActionsContext.Provider value={actions}>
+      <MessageListContext.Provider value={messages}>
+        {children}
+      </MessageListContext.Provider>
+    </MessageActionsContext.Provider>
   );
 }
 
-function useMessageContext(): MessageValue {
-  const value = useContext(MessageContext);
+function useMessageActions(): MessageActions {
+  const value = useContext(MessageActionsContext);
   if (!value) {
     throw new Error("useMessages must be used inside <MessageProvider>");
   }
@@ -90,8 +99,8 @@ function useMessageContext(): MessageValue {
 }
 
 /** Push global messages from anywhere: `useMessages().push("…", {variant})`. */
-export function useMessages(): Pick<MessageValue, "push"> {
-  const { push } = useMessageContext();
+export function useMessages(): Pick<MessageActions, "push"> {
+  const { push } = useMessageActions();
   return { push };
 }
 
@@ -104,8 +113,9 @@ const VARIANT = {
 /** The message strip — an absolute overlay rendered by AppLayout right
  *  under the header's brand hairline (nothing below moves). */
 export function MessageViewport() {
-  const { messages, dismiss } = useMessageContext();
-  if (messages.length === 0) return null;
+  const messages = useContext(MessageListContext);
+  const { dismiss } = useMessageActions();
+  if (!messages || messages.length === 0) return null;
 
   return (
     <div className="pointer-events-none absolute inset-x-0 top-2 z-50 flex flex-col items-center gap-2 px-4">
