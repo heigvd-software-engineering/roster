@@ -42,7 +42,6 @@ const finding = (
   githubId: string,
   op: string,
   severity: Severity,
-  destructive: boolean,
   detail: string,
   fix: string,
   change: Finding["change"],
@@ -54,7 +53,6 @@ const finding = (
   detail,
   fix,
   change,
-  destructive,
 });
 
 /** GitHub's roster, flattened to the states we cache. Owners are applied LAST so
@@ -93,7 +91,6 @@ export const roster: Reconciler = {
             githubId,
             "add",
             "drift",
-            false,
             `@${person.login} is in the organization but not on the class roster`,
             "Add them to the class roster",
             { from: "Not on the roster", to: STATE_LABEL[state] },
@@ -111,7 +108,6 @@ export const roster: Reconciler = {
             githubId,
             op,
             "drift",
-            false,
             `@${person.login} is "${state}" on GitHub, "${was.state}" here`,
             `Record them as ${state}`,
             {
@@ -129,7 +125,6 @@ export const roster: Reconciler = {
             githubId,
             "refresh",
             "info",
-            false,
             was.login !== person.login
               ? `@${was.login} is now @${person.login}`
               : `@${person.login} changed their avatar`,
@@ -149,8 +144,6 @@ export const roster: Reconciler = {
           githubId,
           "remove",
           "drift",
-          // The ONE destructive roster operation. Starts unchecked.
-          true,
           `@${was.login} is on the class roster but not in the organization`,
           "Remove them from the class roster",
           {

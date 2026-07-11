@@ -76,14 +76,29 @@ describe("ClassCard org identity", () => {
   });
 });
 
-describe("ClassCard copy join link", () => {
+describe("ClassCard student invitation link", () => {
+  it("explains it invites per class before offering the copy", () => {
+    renderCard();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Student invitation link" }),
+    );
+    // The one thing a teacher gets wrong: thinking they invite students to a
+    // lab. The popover has to say the link is per class.
+    expect(
+      screen.getByText(/One link per class, not per lab/),
+    ).toBeInTheDocument();
+  });
+
   it("copies the join URL and confirms inline", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
 
     renderCard();
     fireEvent.click(
-      screen.getByRole("button", { name: "Copy student invitation link" }),
+      screen.getByRole("button", { name: "Student invitation link" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Copy invitation link" }),
     );
 
     expect(writeText).toHaveBeenCalledWith(
@@ -121,7 +136,9 @@ describe("ClassCard audit + reconcile", () => {
   it("offers the audit beside the join link, not behind an ellipsis", () => {
     renderCard();
     expect(
-      screen.getByRole("button", { name: "Audit this class against GitHub" }),
+      screen.getByRole("button", {
+        name: "GitHub compliance audit of this class",
+      }),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "More class actions" }),
@@ -131,7 +148,9 @@ describe("ClassCard audit + reconcile", () => {
   it("says the audit only reads before offering the link", () => {
     renderCard();
     fireEvent.click(
-      screen.getByRole("button", { name: "Audit this class against GitHub" }),
+      screen.getByRole("button", {
+        name: "GitHub compliance audit of this class",
+      }),
     );
     // The refresh icon reads as "repair now" — the copy has to say it doesn't.
     expect(screen.getByText(/audit only reads/)).toBeInTheDocument();

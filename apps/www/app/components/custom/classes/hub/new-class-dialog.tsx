@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { Stack } from "~/components/custom/layout/stack";
 import { Text } from "~/components/custom/typography/text";
 import { Button } from "~/components/ui/button";
@@ -12,30 +13,27 @@ import {
 } from "~/components/ui/dialog";
 import { useAuth } from "~/contexts/auth-context";
 
-/** How labs maps onto GitHub — shown before connecting, so a teacher knows
- *  exactly what "creating a class" does to their organization. */
+/** How labs maps onto GitHub — a term→meaning table, shown before connecting so
+ *  a teacher knows exactly what "creating a class" does to their organization. */
 const MAPPING = [
+  { term: "Class", detail: "The organization you connect." },
   {
-    term: "Class = GitHub organization",
-    detail: "Each class is backed by one organization you own.",
-  },
-  {
-    term: "Teachers = organization Owners",
+    term: "Teachers",
     // labs has no way to make someone a teacher: the only org-membership write
     // in the app invites as `member`, and every teacher check is a live
     // isOrgAdmin call. Say so here, or a teacher hunts for a button that will
     // never exist.
     detail:
-      "Every Owner of the organization manages the class. To add a teacher, invite them to the organization on GitHub and promote them to Owner — labs never changes roles.",
+      "Its Owners. Invite them on GitHub, then promote to Owner — labs never changes roles.",
   },
   {
-    term: "Students = organization Members",
-    detail: "Students enroll themselves through the class join link.",
+    term: "Students",
+    detail: "Its Members. They enroll themselves through the class join link.",
   },
   {
-    term: "Student work = repositories",
+    term: "Student work",
     detail:
-      "Accepting a lab creates a student lab repo inside the organization, one per student or group.",
+      "One repository per student or group, created when a lab is accepted.",
   },
 ];
 
@@ -86,66 +84,51 @@ export function NewClassDialog({
         <DialogHeader>
           <DialogTitle>Create a new class</DialogTitle>
           <DialogDescription>
-            In labs, a class is a GitHub organization. To create a class, you
-            connect an organization you own, and labs runs everything inside it
-            — people, labs, and student lab repos. Here is how the pieces map:
+            A class is a GitHub organization you own. Its people, its labs, and
+            every student repository all live inside that organization.
           </DialogDescription>
         </DialogHeader>
-        <Stack gap="md">
-          {MAPPING.map((m) => (
-            <Stack gap="none" key={m.term}>
-              <Text variant="label" className="font-medium">
-                {m.term}
-              </Text>
-              <Text variant="body2">{m.detail}</Text>
-            </Stack>
-          ))}
-          <Stack gap="none">
-            <Text variant="label" className="font-medium">
-              One security change
-            </Text>
-            <Text variant="body2">
-              After you pick the organization, labs sets its base repository
-              permission to <strong>No access</strong>: being a member grants
-              access to nothing by itself. Students only reach the repositories
-              they are explicitly granted.
-            </Text>
+        <Stack gap="lg">
+          <Stack gap="sm">
+            <Text variant="overline">How it maps</Text>
+            <dl className="grid grid-cols-[6.5rem_1fr] gap-x-5 gap-y-2.5 sm:grid-cols-[8rem_1fr]">
+              {MAPPING.map((m) => (
+                <Fragment key={m.term}>
+                  <Text as="dt" variant="label" className="font-medium">
+                    {m.term}
+                  </Text>
+                  <Text as="dd" variant="body2" className="m-0">
+                    {m.detail}
+                  </Text>
+                </Fragment>
+              ))}
+            </dl>
           </Stack>
-          <Stack gap="none">
-            <Text variant="label" className="font-medium">
-              Students never see each other's work
-            </Text>
+
+          {/* The safety-critical part: everything about who can see what,
+              folded into one paragraph and boxed so it can't be skimmed past.
+              labs sets base permission to No access on connect; access is
+              per-repo grant only, which is what makes student work private. */}
+          <Stack gap="sm" className="rounded-lg border bg-muted/40 p-4">
+            <Text variant="overline">Who can see what</Text>
             <Text variant="body2">
-              Each student (or group) is granted access to their own lab repo
-              only. GitHub hides repositories you have no permission on, so one
-              student's repo is invisible to every other student and group.
-            </Text>
-          </Stack>
-          <Stack gap="none">
-            <Text variant="label" className="font-medium">
-              Your existing repositories stay hidden
-            </Text>
-            <Text variant="body2">
-              Students are Members, not Owners: the organization's private
-              repositories stay invisible to them unless you grant access
-              yourself. Only public repositories remain visible — to anyone on
-              the internet — so keep confidential material private.
-            </Text>
-          </Stack>
-          <Stack gap="none">
-            <Text variant="label" className="font-medium">
-              Pick an organization showing "Install"
-            </Text>
-            <Text variant="body2">
-              GitHub's picker lists every organization you belong to.
-              Organizations you <strong>own</strong> show{" "}
-              <strong>Install</strong> — that's the button that creates the
-              class. Where you're only a member it shows <em>Request</em>, which
-              files an approval with the owners and never creates a class.
+              On connect, labs sets the organization's base permission to{" "}
+              <strong>No access</strong> — membership grants nothing on its own.
+              Each student reaches only their own lab repo, never another
+              student's, and never your private repositories. Only{" "}
+              <strong>public</strong> repos stay visible, to anyone on the
+              internet, so keep confidential material private.
             </Text>
           </Stack>
         </Stack>
-        <DialogFooter>
+        <DialogFooter className="flex-col items-stretch gap-2 sm:flex-col sm:items-stretch">
+          {/* The one thing to get right in GitHub's picker, kept next to the
+              button that sends them there rather than buried in the list above. */}
+          <Text variant="caption">
+            In GitHub's picker, choose an org showing <strong>Install</strong> —
+            that creates the class. <em>Request</em> only asks its owners for
+            approval.
+          </Text>
           <Button
             title="Opens GitHub to pick the organization and install the labs App"
             render={<a href={githubAppInstallUrl} />}

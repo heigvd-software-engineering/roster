@@ -12,26 +12,25 @@ describe("NewClassDialog", () => {
     render(<NewClassDialog />);
     fireEvent.click(screen.getByRole("button", { name: "New class" }));
 
-    expect(
-      await screen.findByText("Class = GitHub organization"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Teachers = organization Owners"),
-    ).toBeInTheDocument();
+    // The term→meaning mapping.
+    expect(await screen.findByText("Class")).toBeInTheDocument();
+    expect(screen.getByText("Teachers")).toBeInTheDocument();
+    expect(screen.getByText("Students")).toBeInTheDocument();
+    expect(screen.getByText("Student work")).toBeInTheDocument();
     // labs has no promote button and never will — every teacher check is a live
     // isOrgAdmin call. The dialog is the only place that says where to go.
     expect(
-      screen.getByText(/promote them to Owner — labs never changes roles/),
+      screen.getByText(/promote to Owner — labs never changes roles/),
     ).toBeInTheDocument();
+    // The privacy section: base permission is dropped to No access, keeping
+    // student work private — the safety-critical claim must survive.
+    expect(screen.getByText("Who can see what")).toBeInTheDocument();
     expect(
-      screen.getByText("Students = organization Members"),
+      screen.getByText(/keep confidential material private/),
     ).toBeInTheDocument();
-    expect(screen.getByText("One security change")).toBeInTheDocument();
+    // The install-vs-request tip lives next to the button now.
     expect(
-      screen.getByText("Students never see each other's work"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Your existing repositories stay hidden"),
+      screen.getByText(/only asks its owners for approval/),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "Connect an organization" }),

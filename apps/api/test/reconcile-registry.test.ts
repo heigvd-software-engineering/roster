@@ -93,7 +93,6 @@ test("runAudit never rejects; a throwing reconciler becomes an info finding", as
       reconciler: "boom",
       severity: "info",
       fix: null,
-      destructive: false,
     }),
   );
   // The rest of the audit still reported (identity ran and found no drift,

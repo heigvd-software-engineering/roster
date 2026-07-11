@@ -54,18 +54,6 @@ export function ClassCard({
     user: userByGithubId.get(String(p.id)) ?? null,
     pending: pendingRow,
   });
-  const [copied, setCopied] = useState(false);
-  const copyResetTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  useEffect(() => () => clearTimeout(copyResetTimer.current), []);
-
-  async function copyJoinLink() {
-    await navigator.clipboard.writeText(
-      `${window.location.origin}/join/${joinToken}`,
-    );
-    setCopied(true);
-    clearTimeout(copyResetTimer.current);
-    copyResetTimer.current = setTimeout(() => setCopied(false), 2000);
-  }
   return (
     <Card
       className={cn(
@@ -104,20 +92,7 @@ export function ClassCard({
             emptyText="No teachers found."
             people={teachers.map((p) => withUser(p))}
           />
-          <Button
-            variant="ghost"
-            size="icon"
-            type="button"
-            aria-label={copied ? "Copied" : "Copy student invitation link"}
-            title={copied ? "Copied" : "Copy student invitation link"}
-            onClick={copyJoinLink}
-          >
-            {copied ? (
-              <Check className="size-4 text-brand" />
-            ) : (
-              <Link2 className="size-4 text-muted-foreground" />
-            )}
-          </Button>
+          <JoinLinkAction joinToken={joinToken} />
           <ReconcileAction classId={id} />
           <RoleChip kind="teaching" />
         </Row>
@@ -153,6 +128,78 @@ export function ClassCard({
 }
 
 /**
+ * The class join link, behind a popover rather than a bare copy button: the one
+ * thing a teacher gets wrong here is thinking they invite students to a LAB.
+ * They don't — one link enrolls a student into the whole CLASS, and every lab
+ * follows from that membership. The popover is where we say so, before the copy.
+ */
+function JoinLinkAction({ joinToken }: { joinToken: string }) {
+  const [copied, setCopied] = useState(false);
+  const copyResetTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(copyResetTimer.current), []);
+
+  async function copyJoinLink() {
+    await navigator.clipboard.writeText(
+      `${window.location.origin}/join/${joinToken}`,
+    );
+    setCopied(true);
+    clearTimeout(copyResetTimer.current);
+    copyResetTimer.current = setTimeout(() => setCopied(false), 2000);
+  }
+
+  return (
+    <Popover>
+      <PopoverTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="icon"
+            type="button"
+            aria-label="Student invitation link"
+            title="Student invitation link"
+          />
+        }
+      >
+        <Link2 className="size-4 text-muted-foreground" />
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-80">
+        <Stack gap="sm">
+          <Text variant="body2" className="font-medium text-foreground">
+            Invite students
+          </Text>
+          <Text variant="caption">
+            One link per class, not per lab. Share it once — a student who joins
+            enrols in this whole class and gets every lab in it, now and later.
+          </Text>
+          <Text variant="caption">
+            Joining makes the student a member of the class's GitHub
+            organization; they accept a GitHub invitation to finish.
+          </Text>
+          <Button
+            size="sm"
+            type="button"
+            className="mt-1 w-full"
+            onClick={copyJoinLink}
+          >
+            {copied ? (
+              <>
+                <Check className="size-4" />
+                Copied
+              </>
+            ) : (
+              <>
+                <Link2 className="size-4" />
+                Copy invitation link
+              </>
+            )}
+          </Button>
+        </Stack>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/**
  * Audit + reconcile, beside the join link rather than behind an ellipsis: a
  * teacher whose class has drifted needs to FIND this, and a drifted class is the
  * failure they came to fix.
@@ -170,8 +217,8 @@ function ReconcileAction({ classId }: { classId: string }) {
             variant="ghost"
             size="icon"
             type="button"
-            aria-label="Audit this class against GitHub"
-            title="Audit this class against GitHub"
+            aria-label="GitHub compliance audit of this class"
+            title="GitHub compliance audit of this class"
           />
         }
       >
@@ -180,15 +227,15 @@ function ReconcileAction({ classId }: { classId: string }) {
       <PopoverContent align="end" className="w-80">
         <Stack gap="sm">
           <Text variant="body2" className="font-medium text-foreground">
-            Audit this class
+            GitHub compliance audit
           </Text>
           <Text variant="caption">
-            GitHub owns this class. labs keeps a copy, and it drifts when GitHub
-            changes directly.
+            GitHub owns this class. labs keeps a copy, and it drifts when
+            changes are made directly on GitHub.
           </Text>
           <Text variant="caption">
-            The audit only reads. You choose what to reconcile; anything that
-            removes data stays unticked.
+            The audit only reads. You choose which differences to fix — nothing
+            changes until you apply.
           </Text>
           <Button
             size="sm"

@@ -58,8 +58,6 @@ export const groupTeams: Reconciler = {
           from: "In this lab",
           to: group.ghRepoFullName ? "Removed (repository kept)" : "Removed",
         },
-        // It drops a row, and the students in it lose their group.
-        destructive: true,
       });
     });
     return findings;
