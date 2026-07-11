@@ -93,21 +93,6 @@ beforeEach(async () => {
   });
 });
 
-test("audit: only the remove finding is destructive", async () => {
-  state.people = {
-    teachers: [],
-    students: [{ id: 2, login: "student", avatarUrl: null }],
-    pending: [],
-  };
-  await cache([{ githubId: "9", login: "gone", state: "active" }]);
-
-  const findings = await roster.audit(await ctx());
-  const byKey = new Map(findings.map((f) => [f.key, f]));
-
-  expect(byKey.get("roster:add:githubId=2")?.destructive).toBe(false);
-  expect(byKey.get("roster:remove:githubId=9")?.destructive).toBe(true);
-});
-
 test("audit: an Owner who is also a member reads as teacher, not active", async () => {
   // liveStates applies owners LAST, so the two GitHub lists can overlap.
   const prof = { id: 1, login: "prof", avatarUrl: null };

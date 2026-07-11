@@ -153,7 +153,7 @@ test("group-teams audit: a live team produces no finding", async () => {
   expect(await groupTeams.audit(await ctx())).toEqual([]);
 });
 
-test("group-teams audit: a deleted team proposes a DESTRUCTIVE group delete", async () => {
+test("group-teams audit: a deleted team proposes a group delete", async () => {
   await seedGroup("alpha", "lab", "lab-one-alpha", "acme/lab-one-alpha");
 
   const [f, ...rest] = await groupTeams.audit(await ctx());
@@ -162,7 +162,6 @@ test("group-teams audit: a deleted team proposes a DESTRUCTIVE group delete", as
     key: "group-teams:delete:groupId=alpha",
     reconciler: "group-teams",
     severity: "broken",
-    destructive: true,
   });
   // The teacher must be told the repo survives — that's what makes the delete safe.
   expect(f?.detail).toContain("acme/lab-one-alpha");
@@ -207,7 +206,6 @@ test("work-repos audit: an unrecorded repo is proposed for adoption", async () =
   const [f] = await workRepos.audit(await ctx());
   expect(f).toMatchObject({
     key: "work-repos:adopt:groupId=alpha",
-    destructive: false,
   });
 });
 

@@ -30,8 +30,6 @@ export type Finding = {
    *  what it becomes. Rendered as `from → to`; null when the change has no
    *  meaningful two-state reading (then `fix` alone speaks). */
   change: { from: string; to: string } | null;
-  /** Deletes rows or revokes access. Starts UNCHECKED in the UI. */
-  destructive: boolean;
 };
 
 export type AppliedOp = { key: FindingKey; ok: true };

@@ -46,7 +46,6 @@ function unavailable(r: Reconciler, err: unknown): Finding {
     detail: reason(err),
     fix: null,
     change: null,
-    destructive: false,
   };
 }
 

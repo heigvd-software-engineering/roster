@@ -45,7 +45,6 @@ export const identity: Reconciler = {
           from: drift.map((d) => d.was).join(" · "),
           to: drift.map((d) => d.now).join(" · "),
         },
-        destructive: false,
       },
     ];
   },

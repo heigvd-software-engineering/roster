@@ -30,7 +30,6 @@ export const installation: Reconciler = {
           from: `Installation ${ctx.cls.installationId}`,
           to: `Installation ${ctx.installationId}`,
         },
-        destructive: false,
       },
     ];
   },

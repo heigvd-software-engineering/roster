@@ -35,10 +35,6 @@ export const basePermissionReconciler: Reconciler = {
           from: `Base permission: ${permission}`,
           to: "Base permission: none",
         },
-        // Applying REVOKES access, so it starts unchecked like every destructive
-        // finding. The copy above says which way the hazard actually runs: it is
-        // LEAVING this unfixed that is dangerous.
-        destructive: true,
       },
     ];
   },

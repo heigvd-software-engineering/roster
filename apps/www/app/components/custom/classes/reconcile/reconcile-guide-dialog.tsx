@@ -1,8 +1,6 @@
 import { Info } from "lucide-react";
-import { Row } from "~/components/custom/layout/row";
 import { Stack } from "~/components/custom/layout/stack";
 import { Text } from "~/components/custom/typography/text";
-import { Badge } from "~/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -20,15 +18,11 @@ import {
  * are generated per finding, so there is no static list to render — the source
  * of truth for "what does this cover" is each reconciler's header comment, and
  * this mirrors it. Adding a reconciler means adding an entry here.
- *
- * `removes` marks the drifts whose fix deletes rows or revokes access — the
- * ones that start unticked on the page. Naming them here is the point: a teacher
- * should learn the subsystem never removes anything without being asked.
  */
 const GUIDE: {
   section: string;
   note?: string;
-  items: { what: string; handled: string; removes?: true }[];
+  items: { what: string; handled: string }[];
 }[] = [
   {
     section: "Class",
@@ -65,7 +59,6 @@ const GUIDE: {
       {
         what: "A member left the organization",
         handled: "Removed from the class list.",
-        removes: true,
       },
     ],
   },
@@ -76,7 +69,6 @@ const GUIDE: {
         what: "A group's GitHub Team was deleted",
         handled:
           "The group is dropped from its lab. Its work repository is kept and re-attaches on its own if you recreate the group with the same name.",
-        removes: true,
       },
       {
         what: "A group's team roster was edited outside labs, or never recorded",
@@ -96,8 +88,7 @@ const GUIDE: {
       {
         what: "The organization's base permission is no longer No access",
         handled:
-          "Every member could then read every repository, including other groups' work. Reconcile sets it back to No access. Leaving it is the real hazard, so this fix stays unticked until you choose it.",
-        removes: true,
+          "Every member could then read every repository, including other groups' work. Reconcile sets it back to No access — leaving it unfixed is the real hazard.",
       },
     ],
   },
@@ -146,14 +137,9 @@ export function ReconcileGuideDialog() {
               <Stack gap="md" className="w-full">
                 {group.items.map((item) => (
                   <Stack gap="none" key={item.what} className="min-w-0">
-                    <Row gap="sm" align="center" className="min-w-0">
-                      <Text variant="label" className="font-medium">
-                        {item.what}
-                      </Text>
-                      {item.removes ? (
-                        <Badge variant="destructive">Removes data</Badge>
-                      ) : null}
-                    </Row>
+                    <Text variant="label" className="font-medium">
+                      {item.what}
+                    </Text>
                     <Text variant="body2">{item.handled}</Text>
                   </Stack>
                 ))}

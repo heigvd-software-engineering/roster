@@ -10,7 +10,6 @@ import { Loading } from "~/components/custom/loading";
 import { StateChange } from "~/components/custom/state-change";
 import { BrandHeader } from "~/components/custom/typography/brand-header";
 import { Text } from "~/components/custom/typography/text";
-import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
 import { api, useApi } from "~/lib/api";
@@ -64,11 +63,10 @@ function sections(findings: Finding[]) {
   ].filter((s) => s.rows.length > 0);
 }
 
-/** Everything a fix could do, on first load. Destructive findings are excluded:
- *  the teacher opts INTO deletion, never out of it. A finding we can see but
- *  cannot fix (`fix === null`) has no checkbox at all. */
+/** Everything a fix could do, on first load. A finding we can see but cannot
+ *  fix (`fix === null`) has no checkbox at all. */
 const initialSelection = (findings: Finding[]) =>
-  new Set(findings.filter((f) => f.fix && !f.destructive).map((f) => f.key));
+  new Set(findings.filter((f) => f.fix).map((f) => f.key));
 
 const fixable = (findings: Finding[]) => findings.filter((f) => f.fix);
 
@@ -94,9 +92,6 @@ export function ReconcilePage() {
   // Seed the selection from the first audit that arrives, then leave it alone —
   // re-seeding on every render would fight the teacher's clicks.
   const checked = selected ?? initialSelection(findings);
-  const destructiveChecked = findings.filter(
-    (f) => f.destructive && checked.has(f.key),
-  ).length;
 
   function toggle(key: string) {
     const next = new Set(checked);
@@ -179,9 +174,8 @@ export function ReconcilePage() {
               {checked.size} selected
             </Text>
             <span className="flex-1" />
-            {/* "Select all" reaches the DESTRUCTIVE findings too, which is why
-                it is an explicit act and why the bar below counts them. It never
-                selects a finding with no fix — there is nothing to consent to. */}
+            {/* "Select all" never selects a finding with no fix — there is
+                nothing to apply. */}
             <Button
               size="sm"
               variant="ghost"
@@ -232,16 +226,11 @@ export function ReconcilePage() {
             align="center"
             className="sticky bottom-4 w-full rounded-lg border bg-background/95 px-4 py-3 shadow-lg backdrop-blur"
           >
-            <Stack gap="none" className="min-w-0">
-              {result ? (
-                <Text variant="body2">{result}</Text>
-              ) : destructiveChecked > 0 ? (
-                <Text variant="caption" className="text-destructive">
-                  {destructiveChecked} of these{" "}
-                  {destructiveChecked === 1 ? "removes" : "remove"} data.
-                </Text>
-              ) : null}
-            </Stack>
+            {result ? (
+              <Text variant="body2" className="min-w-0">
+                {result}
+              </Text>
+            ) : null}
             <span className="flex-1" />
             <Button
               size="lg"
@@ -269,7 +258,7 @@ function FindingRow({
   checked: boolean;
   onToggle: () => void;
 }) {
-  const { title, detail, fix, change, destructive, severity } = finding;
+  const { title, detail, fix, change, severity } = finding;
   const spine = cn("border-l-2 px-4 py-3", SPINE[severity]);
 
   if (!fix) {
@@ -305,39 +294,22 @@ function FindingRow({
         className="mt-0.5 size-4 shrink-0 accent-brand"
       />
       <Stack gap="none" className="min-w-0 flex-1">
-        <Row gap="sm" align="center" className="min-w-0">
-          <Text variant="caption" className="font-medium text-foreground">
-            {title}
-          </Text>
-          {destructive ? (
-            <Badge variant="destructive">Removes data</Badge>
-          ) : null}
-        </Row>
+        <Text variant="caption" className="font-medium text-foreground">
+          {title}
+        </Text>
         <Text variant="caption">{detail}</Text>
         {/* What Apply will DO, visually distinct from what we OBSERVED above:
             the state that stands → the state Apply produces. Findings without
             a two-state reading fall back to the fix sentence. */}
         <div className="mt-1.5" title={fix}>
           {change ? (
-            <StateChange
-              from={change.from}
-              to={change.to}
-              destructive={destructive}
-            />
+            <StateChange from={change.from} to={change.to} />
           ) : (
             <Row gap="xs" align="center" className="min-w-0">
-              <ArrowRight
-                className={cn(
-                  "size-3.5 shrink-0",
-                  destructive ? "text-destructive" : "text-muted-foreground",
-                )}
-              />
+              <ArrowRight className="size-3.5 shrink-0 text-muted-foreground" />
               <Text
                 variant="caption"
-                className={cn(
-                  "font-medium",
-                  destructive ? "text-destructive" : "text-muted-foreground",
-                )}
+                className="font-medium text-muted-foreground"
               >
                 {fix}
               </Text>

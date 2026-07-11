@@ -138,9 +138,6 @@ export const groupMembersReconciler: Reconciler = {
         detail: changed.detail,
         fix: changed.fix,
         change: changed.change,
-        // It replaces a cache with what GitHub says. The team — which holds the
-        // real membership and the repo grant — is not touched.
-        destructive: false,
       });
     });
     return findings;
