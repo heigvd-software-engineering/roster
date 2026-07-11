@@ -2,6 +2,7 @@ import type { InferResponseType } from "hono/client";
 import { AlertTriangle, ArrowRight } from "lucide-react";
 import { useState } from "react";
 import { Link, useParams } from "react-router";
+import { ReconcileGuideDialog } from "~/components/custom/classes/reconcile/reconcile-guide-dialog";
 import { Page } from "~/components/custom/layout/page";
 import { Row } from "~/components/custom/layout/row";
 import { Stack } from "~/components/custom/layout/stack";
@@ -166,6 +167,7 @@ export function ReconcilePage() {
         GitHub is the authority. Anything below has drifted from it. Nothing is
         repaired until you apply it.
       </Text>
+      <ReconcileGuideDialog />
 
       {findings.length === 0 ? (
         <Text variant="body1">This class is in sync with GitHub.</Text>
