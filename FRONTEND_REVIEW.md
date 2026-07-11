@@ -39,7 +39,8 @@ This is a **discussion-first, human-gated** backlog — not a to-do list to burn
 | R2 | `classes-page.tsx:81` | render | low | 🔲 | — |
 | R3 | `new-group-dialog.tsx:103` | render | med | 🔲 | — |
 | P1 | `message-context.tsx:93` | perf | high | ✅ | DO — split contexts |
-| P2 | `class-confirm-page.tsx:14`, `reconcile-page.tsx:84` | perf | high | 🔲 | — |
+| P2a | `reconcile-page.tsx:84` | perf | high | ✅ | DO — audit resp carries class |
+| P2b | `class-confirm-page.tsx:14` | perf | low | ⏸️ | DEFER — rare setup screen |
 | P3 | `roster.tsx:123`, `group-tile.tsx:122` | perf | med | 🔲 | — |
 | S1 | `teacher-lab-groups.tsx:365` | structure | med | 🔲 | — |
 | S2 | `new-group-dialog.tsx:151` | structure | med | 🔲 | — |
@@ -95,11 +96,20 @@ This is a **discussion-first, human-gated** backlog — not a to-do list to burn
 **Decision:** **DO.** Split into `MessageActionsContext` (`{push, dismiss}`, stable identity) + `MessageListContext` (`messages`). Writers subscribe to actions → no re-render on toast activity; only `MessageViewport` reads the list. Public API (`MessageProvider`/`MessageViewport`/`useMessages`) unchanged, no call sites touched.
 **Notes:** Pure render-cost fix, no behavior change. typecheck + biome clean. Validated by eye (no test — declarative/behavioral parity). Commit: see git log for the P1 commit on `milestone-7-frontend-quality`.
 
-### P2 — `pages/class-confirm-page.tsx:14` & `pages/reconcile-page.tsx:84` · high · 🔲 Open
-**Issue:** both fetch the entire unbounded `api.api.classes` list solely to read one `orgName` / `cls.name` for the header — contradicts the lab pages' documented "ONE request, no /api/classes just for the header."
-**Cost:** every visible teaching class costs a live GitHub call; the whole roster is pulled to render one label.
-**Proposed fix:** read a single class / surface the name in the existing response / pass via nav state.
-**Decision:** —
+*Note: original P2 covered two pages; split into P2a (reconcile — do) and P2b (class-confirm — defer). `GET /api/classes` is the expensive endpoint (live per-class org-admin checks); there is no single-class GET.*
+
+### P2a — `pages/reconcile-page.tsx:84` · high · 🔲 Open
+**Issue:** fetches the entire `api.api.classes` list solely to read `cls.name` for the header, on a page teachers revisit — contradicts the lab pages' documented "ONE request, no /api/classes just for the header."
+**Cost:** an extra expensive `GET /classes` (live GitHub org-admin checks) on every reconcile view.
+**Proposed fix:** the `auditClass` handler (`apps/api/src/handlers/reconcile.ts:61`) already resolves the class row in `teacherContext` — add `class: { id, name, login }` to the audit response. Then `ReconcilePage` reads `data.class.name` and deletes `useApi(api.api.classes)`, the `cls` lookup, and `classes.mutate()`. Type flows via `InferResponseType`.
+**Decision:** **DO** — matches the lab-page pattern; no new query server-side.
+**Notes:** —
+
+### P2b — `pages/class-confirm-page.tsx:14` · low · ⏸️ Deferred
+**Issue:** fetches the full `api.api.classes` list just to derive `orgName` for the `"Connect {orgName}"` header.
+**Cost:** one expensive `GET /classes` — but only on a **one-time, per-class setup screen** reached rarely.
+**Proposed fix (if ever):** add a minimal `GET /classes/:id` identity endpoint (single DB row, none of `listClasses`' live GitHub work), or pass the name via nav-state with the existing `"this organization"` fallback. NOT the nav-state hack.
+**Decision:** **DEFER** — rare action, low cost, no clean fix without new server surface. Revisit only if a single-class identity endpoint is added for another reason.
 **Notes:** —
 
 ### P3 — `groups/teacher/roster.tsx:123` & `groups/shared/group-tile.tsx:122` · med · 🔲 Open

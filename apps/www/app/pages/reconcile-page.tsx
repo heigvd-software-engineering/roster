@@ -81,8 +81,7 @@ export function ReconcilePage() {
     api.api.classes[":id"].audit,
     { param: { id } },
   );
-  const classes = useApi(api.api.classes);
-  const cls = classes.data?.classes.find((c) => c.id === id);
+  const cls = data?.class;
 
   const findings = data?.findings ?? [];
   const [selected, setSelected] = useState<Set<string> | null>(null);
@@ -123,7 +122,6 @@ export function ReconcilePage() {
       );
       setSelected(null); // the next audit decides what's checked
       await mutate();
-      await classes.mutate();
     } finally {
       setApplying(false);
     }
