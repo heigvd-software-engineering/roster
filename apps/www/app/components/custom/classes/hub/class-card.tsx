@@ -217,8 +217,8 @@ function ReconcileAction({ classId }: { classId: string }) {
             variant="ghost"
             size="icon"
             type="button"
-            aria-label="Audit this class against GitHub"
-            title="Audit this class against GitHub"
+            aria-label="GitHub compliance audit of this class"
+            title="GitHub compliance audit of this class"
           />
         }
       >
@@ -227,15 +227,15 @@ function ReconcileAction({ classId }: { classId: string }) {
       <PopoverContent align="end" className="w-80">
         <Stack gap="sm">
           <Text variant="body2" className="font-medium text-foreground">
-            Audit this class
+            GitHub compliance audit
           </Text>
           <Text variant="caption">
             GitHub owns this class. labs keeps a copy, and it drifts when
             changes are made directly on GitHub.
           </Text>
           <Text variant="caption">
-            The audit only reads. You choose what to reconcile; anything that
-            removes data stays unticked.
+            The audit only reads. You choose which differences to fix — nothing
+            changes until you apply.
           </Text>
           <Button
             size="sm"
