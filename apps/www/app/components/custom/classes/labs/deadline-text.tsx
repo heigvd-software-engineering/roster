@@ -1,36 +1,52 @@
 import { cn } from "~/lib/utils";
 
-const DAY = 86_400_000;
+const MINUTE = 60_000;
+const MINS_PER_HOUR = 60;
+const MINS_PER_DAY = 60 * 24;
+const WEEK_MS = 7 * 24 * 60 * MINUTE;
 
-/** Whole days until the deadline: negative = past, 0 = today (a same-day
- *  deadline rounds up to 1). */
-function daysUntil(deadline: Date) {
-  return Math.ceil((deadline.getTime() - Date.now()) / DAY);
+/** Milliseconds until the deadline: negative once it has passed. Read to the
+ *  minute — a lab is "closed" the moment its time is reached, not at the next
+ *  midnight. */
+function msUntil(deadline: Date) {
+  return deadline.getTime() - Date.now();
 }
 
 /**
- * Urgent = a teacher may still have to act: due today or within 7 days.
- * A past deadline is NOT urgent — the lab is simply closed.
+ * Urgent = a teacher may still have to act: due within the next 7 days.
+ * A passed deadline is NOT urgent — the lab is simply closed.
  */
 export function isDeadlineUrgent(deadline: Date) {
-  const days = daysUntil(deadline);
-  return days >= 0 && days <= 7;
+  const ms = msUntil(deadline);
+  return ms > 0 && ms <= WEEK_MS;
+}
+
+/** A precise, glanceable countdown: "closed" once passed, then to the minute
+ *  under an hour ("in 42 min"), hours + minutes under a day ("in 3h 30m"),
+ *  whole days beyond ("in 3 days"). The exact moment sits beside it. Minutes
+ *  are rounded up so a future deadline never reads "in 0 min" and the label
+ *  only says "closed" once the time is genuinely reached. */
+function deadlineLabel(ms: number) {
+  if (ms <= 0) return "closed";
+  const totalMins = Math.ceil(ms / MINUTE);
+  if (totalMins < MINS_PER_HOUR) return `in ${totalMins} min`;
+  if (totalMins < MINS_PER_DAY) {
+    const hours = Math.floor(totalMins / MINS_PER_HOUR);
+    const mins = totalMins % MINS_PER_HOUR;
+    return mins > 0 ? `in ${hours}h ${mins}m` : `in ${hours}h`;
+  }
+  const days = Math.ceil(totalMins / MINS_PER_DAY);
+  return `in ${days} day${days === 1 ? "" : "s"}`;
 }
 
 /**
  * A relative deadline label whose color means one thing only: urgency.
- * Brand red when due today or ≤ 7 days out; muted otherwise — including
- * "closed" for past deadlines. No traffic-light palette, so the one accent
- * pops exactly when a teacher must act.
+ * Brand red when due within 7 days; muted otherwise — including "closed"
+ * for passed deadlines. No traffic-light palette, so the one accent pops
+ * exactly when a teacher must act.
  */
 export function DeadlineText({ deadline }: { deadline: Date }) {
-  const days = daysUntil(deadline);
-  const label =
-    days < 0
-      ? "closed"
-      : days === 0
-        ? "today"
-        : `in ${days} day${days === 1 ? "" : "s"}`;
+  const label = deadlineLabel(msUntil(deadline));
 
   return (
     <span

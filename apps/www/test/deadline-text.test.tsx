@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { DeadlineText } from "~/components/custom/classes/labs/deadline-text";
 
+const MINUTE = 60_000;
 const HOUR = 3_600_000;
 const DAY = 86_400_000;
 
@@ -10,11 +11,21 @@ function renderDeadline(offsetMs: number) {
 }
 
 describe("DeadlineText", () => {
-  it("rounds a same-day deadline up to 1 day, urgent (brand)", () => {
-    // Math.ceil(2h / 24h) = 1.
-    renderDeadline(2 * HOUR);
-    const el = screen.getByText("in 1 day");
+  it("counts minutes under an hour, urgent (brand)", () => {
+    renderDeadline(42 * MINUTE);
+    const el = screen.getByText("in 42 min");
     expect(el.className).toContain("text-brand");
+  });
+
+  it("shows hours + minutes under a day", () => {
+    renderDeadline(3 * HOUR + 30 * MINUTE);
+    const el = screen.getByText("in 3h 30m");
+    expect(el.className).toContain("text-brand");
+  });
+
+  it("drops the minutes at a whole hour", () => {
+    renderDeadline(2 * HOUR);
+    expect(screen.getByText("in 2h")).toBeTruthy();
   });
 
   it("is urgent at 2 days out (≤ 7d threshold)", () => {
@@ -30,28 +41,20 @@ describe("DeadlineText", () => {
     expect(el.className).not.toContain("text-brand");
   });
 
-  it("is neutral beyond 30 days", () => {
-    renderDeadline(40 * DAY);
-    const el = screen.getByText("in 40 days");
-    expect(el.className).toContain("text-muted-foreground");
-    expect(el.className).not.toContain("text-brand");
-  });
-
-  it("reads 'closed' after the deadline, calm — nothing left to act on", () => {
-    renderDeadline(-1 * DAY);
+  it("reads 'closed' the moment the deadline passes, calm", () => {
+    // A single minute past the deadline — no waiting for the next midnight.
+    renderDeadline(-1 * MINUTE);
     const el = screen.getByText("closed");
     expect(el.className).toContain("text-muted-foreground");
     expect(el.className).not.toContain("text-brand");
   });
 
-  it("shows 'today' right at the boundary, urgent", () => {
-    // A deadline set to "now" resolves to a tiny negative delta by render
-    // time, so `days` is Math.ceil(-ε / DAY) === -0. Since `-0 === 0` (and
-    // `-0 < 0` is false) in JS, the component's `days === 0` branch still
-    // matches and renders "today" — not "closed". Likewise `-0 >= 0` is true,
-    // so the urgency check keeps a right-now deadline urgent.
+  it("reads 'closed' at the exact boundary, no longer urgent", () => {
+    // A deadline of "now" resolves to a tiny negative delta by render time,
+    // so it is already closed — not "today", not urgent.
     renderDeadline(0);
-    const el = screen.getByText("today");
-    expect(el.className).toContain("text-brand");
+    const el = screen.getByText("closed");
+    expect(el.className).toContain("text-muted-foreground");
+    expect(el.className).not.toContain("text-brand");
   });
 });
