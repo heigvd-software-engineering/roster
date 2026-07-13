@@ -148,9 +148,10 @@ export function StudentLabGroups({
                 </DisabledReason>
               }
             />
-            {/* The lab starts here once the group reaches the minimum size:
-                create the work repo, then clone it. */}
-            {mine.members.length >= g.min ? (
+            {/* The lab starts here once the group reaches the minimum size —
+                and STAYS once the repo exists: a locked group can drop below
+                min via the teacher, and the survivors still need their repo. */}
+            {mine.members.length >= g.min || locked ? (
               <div className="lg:col-span-2">
                 <StartLabCard
                   repoFullName={g.repoFor(mine.id)}
@@ -177,40 +178,43 @@ export function StudentLabGroups({
           </Text>
         ) : null}
         <div className={GROUPS_GRID}>
-          {g.groups.map((group) => (
-            <GroupTile
-              key={group.id}
-              group={group}
-              users={g.users}
-              notes={<MissingMembersNote group={group} min={g.min} />}
-              actions={
-                group.members.length < g.max ? (
-                  <DisabledReason
-                    reason={
-                      group.repoFullName !== null
-                        ? "This group's repository exists — only your teacher can add members."
-                        : null
-                    }
-                  >
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      type="button"
-                      disabled={g.busy || group.repoFullName !== null}
-                      title={
-                        group.repoFullName !== null
-                          ? undefined
-                          : "Join this group for the lab"
+          {g.groups.map((group) => {
+            // Same lock as the "mine" branch above: repo exists ⇒ only the
+            // teacher changes membership.
+            const locked = group.repoFullName !== null;
+            return (
+              <GroupTile
+                key={group.id}
+                group={group}
+                users={g.users}
+                notes={<MissingMembersNote group={group} min={g.min} />}
+                actions={
+                  group.members.length < g.max ? (
+                    <DisabledReason
+                      reason={
+                        locked
+                          ? "This group's repository exists — only your teacher can add members."
+                          : null
                       }
-                      onClick={() => g.join(group.id)}
                     >
-                      Join
-                    </Button>
-                  </DisabledReason>
-                ) : null
-              }
-            />
-          ))}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        type="button"
+                        disabled={g.busy || locked}
+                        title={
+                          locked ? undefined : "Join this group for the lab"
+                        }
+                        onClick={() => g.join(group.id)}
+                      >
+                        Join
+                      </Button>
+                    </DisabledReason>
+                  ) : null
+                }
+              />
+            );
+          })}
           <NewGroupDialog
             classId={classId}
             labId={lab.id}

@@ -207,6 +207,26 @@ describe("StudentLabPage — group lab", () => {
     ).toBeInTheDocument();
   });
 
+  it("keeps the repo card when a locked group falls below the minimum", () => {
+    // Teacher removed a member from a locked 2-person group (min 2): the
+    // survivor must still reach the repo they're required to work in.
+    mockApi(
+      groupsData({
+        groups: [
+          grp({ members: [alice], repoFullName: "acme/lab-1-team-alpha" }),
+        ],
+      }),
+    );
+    render(<StudentLabPage />);
+
+    expect(
+      screen.getByText(
+        /git clone https:\/\/github\.com\/acme\/lab-1-team-alpha\.git/,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Leave" })).toBeDisabled();
+  });
+
   it("locks Join on a group whose repo exists", async () => {
     // Someone else's group: room left (1/3) but already locked by its repo.
     mockApi(

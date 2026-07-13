@@ -401,16 +401,25 @@ function GroupRow({
           {repo ? (
             <RepoLink fullName={repo} />
           ) : status === "no_repo" ? (
-            <Button
-              variant="outline"
-              size="sm"
-              type="button"
-              disabled={g.busy}
-              title="Create the group's work repository and grant it access"
-              onClick={() => g.createRepo(group.id)}
-            >
-              Create repository
-            </Button>
+            // Same confirm gate as the batch toolbar button: creating the
+            // repo LOCKS the group, one click shouldn't do that silently.
+            <ConfirmDialog
+              title="Create the work repository?"
+              description="This locks the group: once the repository exists, students can no longer join or leave on their own."
+              confirmLabel="Create repository"
+              onConfirm={() => g.createRepo(group.id)}
+              trigger={
+                <Button
+                  variant="outline"
+                  size="sm"
+                  type="button"
+                  disabled={g.busy}
+                  title="Create the group's work repository and grant it access"
+                >
+                  Create repository
+                </Button>
+              }
+            />
           ) : (
             <span
               className="font-mono text-muted-foreground text-xs"
