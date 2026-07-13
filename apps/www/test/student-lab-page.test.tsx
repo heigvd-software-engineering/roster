@@ -274,6 +274,27 @@ describe("StudentLabPage — individual lab", () => {
       screen.queryByRole("button", { name: "Withdraw" }),
     ).not.toBeInTheDocument();
   });
+
+  it("offers only the repo retry when the accept's repo step failed — no Withdraw", () => {
+    params.labId = "l2";
+    mockApi(
+      groupsData({
+        lab: individualLab,
+        groups: [
+          grp({ id: "solo", name: "alice", slug: "alice", members: [alice] }),
+        ],
+      }),
+    );
+    render(<StudentLabPage />);
+
+    expect(screen.getByText("one step left")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Create repository" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Withdraw" }),
+    ).not.toBeInTheDocument();
+  });
 });
 
 describe("StudentLabPage — edges", () => {

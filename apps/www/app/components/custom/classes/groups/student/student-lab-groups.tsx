@@ -86,22 +86,6 @@ export function StudentLabGroups({
                 {mine ? "your solo lab" : "your solo lab — not accepted yet"}
               </span>
             }
-            actions={
-              // Withdrawing is only possible while no repo exists — once it
-              // does, the solo group is a deliverable (same rule as groups).
-              mine && repo === null ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  type="button"
-                  disabled={g.busy}
-                  title="Withdraw your acceptance of this lab"
-                  onClick={() => g.deleteGroup(mine.id)}
-                >
-                  Withdraw
-                </Button>
-              ) : null
-            }
           />
           <div className="lg:col-span-2">
             <StartLabCard
