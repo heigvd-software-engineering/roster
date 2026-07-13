@@ -514,7 +514,75 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 
 ---
 
-### Task 5: Full verification
+### Task 5: Remove the solo Withdraw button
+
+**Files:**
+- Modify: `apps/www/app/components/custom/classes/groups/student/student-lab-groups.tsx:89-104` (the individual-mode tile's `actions`)
+- Test: `apps/www/test/student-lab-page.test.tsx`
+
+**Interfaces:**
+- Consumes: `GroupTile`'s `actions` prop is optional (`actions?: ReactNode`, `group-tile.tsx:39`) — dropping it is clean.
+- Produces: nothing downstream. Rationale: the button has always failed for students (it calls the admin-only group-delete endpoint → silent 404) and is only reachable when the accept's repo step failed — a state whose correct action is the existing "Create repository" retry. Accepting an individual lab is final from the student's side.
+
+- [ ] **Step 1: Write the failing test**
+
+Add to `apps/www/test/student-lab-page.test.tsx`, inside the `"StudentLabPage — individual lab"` describe block. This is the half-failed accept state (solo group exists, repo doesn't) — the ONLY state where Withdraw used to render:
+
+```tsx
+it("offers only the repo retry when the accept's repo step failed — no Withdraw", () => {
+  params.labId = "l2";
+  mockApi(
+    groupsData({
+      lab: individualLab,
+      groups: [
+        grp({ id: "solo", name: "alice", slug: "alice", members: [alice] }),
+      ],
+    }),
+  );
+  render(<StudentLabPage />);
+
+  expect(screen.getByText("one step left")).toBeInTheDocument();
+  expect(
+    screen.getByRole("button", { name: "Create repository" }),
+  ).toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "Withdraw" }),
+  ).not.toBeInTheDocument();
+});
+```
+
+- [ ] **Step 2: Run the test to verify it fails**
+
+Run: `pnpm --filter @labs/www exec vitest run test/student-lab-page.test.tsx`
+Expected: the new test FAILS on the `queryByRole("button", { name: "Withdraw" })` assertion (the button renders in this state today). All others PASS.
+
+- [ ] **Step 3: Remove the button**
+
+In `apps/www/app/components/custom/classes/groups/student/student-lab-groups.tsx`, individual branch: delete the whole `actions={...}` prop from the solo `GroupTile` (lines 89-104) — the block starting with the `// Withdrawing is only possible while no repo exists` comment through the closing `}`. Also delete `repo === null` context if nothing else uses it — `repo` is still used by `StartLabCard`'s `repoFullName={repo}`, so keep the `const repo = ...` line (line 68).
+
+- [ ] **Step 4: Run the tests to verify they pass**
+
+Run: `pnpm --filter @labs/www exec vitest run test/student-lab-page.test.tsx`
+Expected: ALL tests PASS — including the pre-existing `"shows the solo tile + the work repo card..."` test, whose no-Withdraw assertion (line ~222) remains true and now holds in every state.
+
+- [ ] **Step 5: Typecheck and commit**
+
+```bash
+pnpm --filter @labs/www typecheck
+git add apps/www/app/components/custom/classes/groups/student/student-lab-groups.tsx apps/www/test/student-lab-page.test.tsx
+git commit -m "fix(www): remove the solo Withdraw button
+
+It always failed for students (admin-only delete endpoint, silent 404) and
+only rendered when the accept's repo step had failed — where the Create
+repository retry is the right action. Accepting an individual lab is final
+from the student's side; teachers delete solo groups when needed.
+
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
+```
+
+---
+
+### Task 6: Full verification
 
 **Files:** none (verification only).
 
@@ -531,8 +599,8 @@ Expected: PASS in every package (a Node version warning in apps/www is known noi
 - [ ] **Step 3: Full test suite**
 
 Run: `pnpm test`
-Expected: ALL suites PASS — was 280 tests across 42 files before this plan; now +8 (4 api, 4 www).
+Expected: ALL suites PASS — was 280 tests across 42 files before this plan; now +9 (4 api, 5 www).
 
 - [ ] **Step 4: Fix anything that surfaced, amend the relevant task's commit**
 
-If a failure traces to one of Tasks 1-4, fix it in that task's files and commit as `fix: <what>` — do not force-push or rewrite earlier commits.
+If a failure traces to one of Tasks 1-5, fix it in that task's files and commit as `fix: <what>` — do not force-push or rewrite earlier commits.

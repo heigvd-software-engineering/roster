@@ -17,8 +17,11 @@ immediately see that group's work. Nothing blocks the hop:
 - The solo "Withdraw" button calls the group-delete endpoint, which already
   refuses `has_repo` — so individual labs are covered on the backend today.
   (Discovered during planning: that endpoint is also admin-gated, so a
-  student's Withdraw currently fails with 404 — a pre-existing defect,
-  tracked separately, out of scope here.)
+  student's Withdraw has always failed with a silent 404. It is also only
+  reachable in a rare failure state — accept creates group + repo in one
+  click, and the button needs `repo === null`. Decision: REMOVE the button.
+  Accepting an individual lab is that mode's point of no return, mirroring
+  the group repo lock; the teacher deletes solo groups when needed.)
 
 ## Design
 
@@ -52,8 +55,11 @@ front):
 - **Join**: stays visible when the group has space, but when `repo !== null`
   it is disabled with tooltip
   *"This group's repository exists — only your teacher can add members."*
-- **Solo Withdraw**: already hidden when the repo exists — unchanged, now
-  backed by the server guard.
+- **Solo Withdraw**: removed entirely. It was broken (student-side 404
+  against an admin-only endpoint) and only reachable when the accept's repo
+  step had failed — a state whose correct action is the existing "Create
+  repository" retry, not bailing out. Accepting an individual lab is final
+  from the student's side; the teacher deletes solo groups when needed.
 
 ### 3. Frontend — create-repo confirmation (`start-lab-card.tsx`)
 
