@@ -55,7 +55,7 @@ export function useLabGroups(classId: string, labId: string) {
       case "app_permissions":
         return "labs can't create repositories yet — the GitHub App needs updated permissions (an administrator must approve them).";
       case "has_repo":
-        return "This group already has its work repository — it can't be deleted.";
+        return "This group already has its work repository — only your teacher can change or delete it.";
       case "name_taken":
         return "A group with that name already exists in this lab.";
       default:

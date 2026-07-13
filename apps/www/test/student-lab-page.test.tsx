@@ -171,6 +171,44 @@ describe("StudentLabPage — group lab", () => {
       screen.queryByRole("button", { name: "Create repository" }),
     ).not.toBeInTheDocument();
   });
+
+  it("locks Leave once your group's repo exists", () => {
+    mockApi(
+      groupsData({
+        groups: [
+          grp({
+            members: [alice, bob],
+            repoFullName: "acme/lab-1-team-alpha",
+          }),
+        ],
+      }),
+    );
+    render(<StudentLabPage />);
+
+    const leave = screen.getByRole("button", { name: "Leave" });
+    expect(leave).toBeDisabled();
+    expect(leave).toHaveAttribute(
+      "title",
+      "The group's work repository exists — ask your teacher to move you.",
+    );
+  });
+
+  it("locks Join on a group whose repo exists", () => {
+    // Someone else's group: room left (1/3) but already locked by its repo.
+    mockApi(
+      groupsData({
+        groups: [grp({ members: [bob], repoFullName: "acme/lab-1-team-alpha" })],
+      }),
+    );
+    render(<StudentLabPage />);
+
+    const join = screen.getByRole("button", { name: "Join" });
+    expect(join).toBeDisabled();
+    expect(join).toHaveAttribute(
+      "title",
+      "This group's repository exists — only your teacher can add members.",
+    );
+  });
 });
 
 describe("StudentLabPage — individual lab", () => {

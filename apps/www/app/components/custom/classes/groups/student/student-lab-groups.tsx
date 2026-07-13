@@ -119,6 +119,10 @@ export function StudentLabGroups({
   }
 
   if (mine) {
+    // Once the work repo exists the group is LOCKED — the server refuses
+    // join/leave (409 has_repo); the disabled state just says so up front
+    // (same pattern as the teacher's Delete button).
+    const locked = mine.repoFullName !== null;
     return (
       <>
         {/* Who still needs a team — the students' organizing aid. */}
@@ -143,8 +147,12 @@ export function StudentLabGroups({
                   variant="outline"
                   size="sm"
                   type="button"
-                  disabled={g.busy}
-                  title="Leave this group"
+                  disabled={g.busy || locked}
+                  title={
+                    locked
+                      ? "The group's work repository exists — ask your teacher to move you."
+                      : "Leave this group"
+                  }
                   onClick={() => g.leave(mine.id)}
                 >
                   Leave
@@ -192,8 +200,12 @@ export function StudentLabGroups({
                     variant="outline"
                     size="sm"
                     type="button"
-                    disabled={g.busy}
-                    title="Join this group for the lab"
+                    disabled={g.busy || group.repoFullName !== null}
+                    title={
+                      group.repoFullName !== null
+                        ? "This group's repository exists — only your teacher can add members."
+                        : "Join this group for the lab"
+                    }
                     onClick={() => g.join(group.id)}
                   >
                     Join
