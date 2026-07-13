@@ -178,9 +178,7 @@ describe("StudentLabPage — group lab", () => {
 
     // The button no longer fires directly — it opens the confirm gate.
     fireEvent.click(screen.getByRole("button", { name: "Create repository" }));
-    expect(
-      screen.getByText("Create the work repository?"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Create the work repository?")).toBeInTheDocument();
     expect(screen.getByText(/This locks the group/)).toBeInTheDocument();
   });
 
@@ -209,7 +207,9 @@ describe("StudentLabPage — group lab", () => {
     // Someone else's group: room left (1/3) but already locked by its repo.
     mockApi(
       groupsData({
-        groups: [grp({ members: [bob], repoFullName: "acme/lab-1-team-alpha" })],
+        groups: [
+          grp({ members: [bob], repoFullName: "acme/lab-1-team-alpha" }),
+        ],
       }),
     );
     render(<StudentLabPage />);
