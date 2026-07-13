@@ -2,7 +2,8 @@ import { classMembers, type getDb } from "@labs/db";
 import { and, eq } from "drizzle-orm";
 
 type Db = ReturnType<typeof getDb>;
-type MemberState = "pending" | "active" | "teacher";
+/** The `class_members.state` enum, straight from the schema — never hand-copied. */
+export type MemberState = (typeof classMembers.$inferSelect)["state"];
 
 /** What a write point knows about the person besides the stable id. */
 export type ObservedIdentity = {

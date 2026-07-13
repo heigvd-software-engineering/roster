@@ -181,8 +181,7 @@ describe("TeacherLabPage", () => {
     });
     render(<TeacherLabPage />);
 
-    fireEvent.click(screen.getByRole("button", { name: "More lab actions" }));
-    fireEvent.click(screen.getByRole("menuitem", { name: /Clone/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Clone/ }));
 
     expect(document.querySelector("pre")?.textContent).toBe(
       "git clone https://github.com/acme/lab1-team-alpha.git",
@@ -193,10 +192,7 @@ describe("TeacherLabPage", () => {
     mockApi(groupsData);
     render(<TeacherLabPage />);
 
-    fireEvent.click(screen.getByRole("button", { name: "More lab actions" }));
-    expect(screen.getByRole("menuitem", { name: /Clone/ })).toHaveAttribute(
-      "data-disabled",
-    );
+    expect(screen.getByRole("button", { name: /Clone/ })).toBeDisabled();
   });
 
   it("redirects an enrolled STUDENT to the student page", () => {

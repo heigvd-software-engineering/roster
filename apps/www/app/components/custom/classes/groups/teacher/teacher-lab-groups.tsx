@@ -1,4 +1,4 @@
-import { MoreHorizontal, Search, UserPlus, X } from "lucide-react";
+import { Download, Search, UserPlus, X } from "lucide-react";
 import { Fragment, useState } from "react";
 import {
   GroupMembers,
@@ -26,12 +26,6 @@ import { Stack } from "~/components/custom/layout/stack";
 import { CAPS_LABEL, Text } from "~/components/custom/typography/text";
 import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "~/components/ui/dropdown-menu";
 import { Input } from "~/components/ui/input";
 import {
   Popover,
@@ -228,7 +222,7 @@ export function TeacherLabGroups({
 }
 
 /** Search + status segments (they filter ONE list) + the toolbar verbs:
- *  batch repo creation, create a group, and the overflow menu's lab chores. */
+ *  batch repo creation, create a group, and clone every work repo. */
 function RosterToolbar({
   g,
   classId,
@@ -326,31 +320,23 @@ function RosterToolbar({
         }
         onCreated={g.revalidate}
       />
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              type="button"
-              aria-label="More lab actions"
-              title="More actions for this lab"
-            />
-          }
-        >
-          <MoreHorizontal className="size-4 text-muted-foreground" />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem
-            disabled={repos.length === 0}
-            // Nothing to clone before the first repo exists.
-            onClick={() => setCloneOpen(true)}
-          >
-            Clone
-            <Count n={repos.length} />
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <Button
+        variant="outline"
+        size="sm"
+        type="button"
+        // Nothing to clone before the first repo exists.
+        disabled={repos.length === 0}
+        title={
+          repos.length === 0
+            ? "No work repositories to clone yet"
+            : "Copy a git clone command for every work repository in this lab"
+        }
+        onClick={() => setCloneOpen(true)}
+      >
+        <Download className="size-3.5 text-muted-foreground" />
+        Clone
+        <Count n={repos.length} />
+      </Button>
       <CloneAllDialog
         repos={repos}
         open={cloneOpen}
