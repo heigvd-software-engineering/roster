@@ -8,6 +8,7 @@ import {
   labs,
   user,
 } from "@labs/db";
+import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { beforeEach, expect, test, vi } from "vitest";
 
@@ -25,6 +26,10 @@ const state = vi.hoisted(() => ({
     Array<{ id: number; login: string; avatarUrl: string | null }>
   >,
   calls: [] as Array<{ op: string; args: unknown[] }>,
+  // Race hooks: run INSIDE the mocked GitHub membership calls, to simulate
+  // state that changes while the request is in flight (e.g. repo creation).
+  onTeamAdd: null as (() => Promise<void>) | null,
+  onTeamRemove: null as (() => Promise<void>) | null,
 }));
 
 vi.mock("../src/lib/auth/config", () => ({
@@ -56,6 +61,7 @@ vi.mock("../src/lib/github/team", () => ({
     username: string,
   ) => {
     state.calls.push({ op: "addTeamMember", args: [slug, username] });
+    await state.onTeamAdd?.();
   },
   removeTeamMember: async (
     _env: unknown,
@@ -65,6 +71,7 @@ vi.mock("../src/lib/github/team", () => ({
     username: string,
   ) => {
     state.calls.push({ op: "removeTeamMember", args: [slug, username] });
+    await state.onTeamRemove?.();
   },
   deleteTeam: async (
     _env: unknown,
@@ -86,8 +93,12 @@ const db = getDb(env.DB);
 const now = new Date(0);
 const alice = { id: 7, login: "alice", avatarUrl: "http://p" };
 const bob = { id: 8, login: "bob", avatarUrl: null };
+const carol = { id: 9, login: "carol", avatarUrl: null };
 
-async function seedLab(id: string) {
+async function seedLab(
+  id: string,
+  over: Partial<typeof labs.$inferInsert> = {},
+) {
   await db.insert(labs).values({
     id,
     classId: "c1",
@@ -96,6 +107,7 @@ async function seedLab(id: string) {
     createdByUserId: "u1",
     createdAt: now,
     updatedAt: now,
+    ...over,
   });
 }
 
@@ -148,6 +160,8 @@ beforeEach(async () => {
   state.membership = { state: "active", role: "member" };
   state.rosters = {};
   state.calls = [];
+  state.onTeamAdd = null;
+  state.onTeamRemove = null;
 
   await db.delete(groupMembers);
   await db.delete(groups);
@@ -223,6 +237,142 @@ test("leave removes the CALLER from the team", async () => {
   expect(res.status).toBe(200);
   expect(state.calls).toEqual([
     { op: "removeTeamMember", args: ["g1-slug", "alice"] },
+  ]);
+});
+
+// --- the repo lock: membership freezes once the work repo exists ---
+
+test("join is refused once the work repo exists (locked group)", async () => {
+  await seedLab("l1");
+  await seedGroup({ id: "g1", labId: "l1", repo: true, members: [bob] });
+
+  const res = await join();
+  expect(res.status).toBe(409);
+  expect(await res.json()).toEqual({ error: "has_repo" });
+  expect(state.calls).toEqual([]);
+});
+
+test("leave is refused once the work repo exists (locked group)", async () => {
+  await seedLab("l1");
+  await seedGroup({ id: "g1", labId: "l1", repo: true, members: [alice] });
+
+  const res = await app.request(
+    "/api/classes/c1/groups/g1/membership",
+    { method: "DELETE" },
+    env,
+  );
+  expect(res.status).toBe(409);
+  expect(await res.json()).toEqual({ error: "has_repo" });
+  expect(state.calls).toEqual([]);
+});
+
+test("a teacher still ADDS members to a locked group (escape hatch)", async () => {
+  state.membership = { state: "active", role: "admin" };
+  await seedLab("l1");
+  await seedGroup({ id: "g1", labId: "l1", repo: true, members: [bob] });
+
+  const res = await app.request(
+    "/api/classes/c1/groups/g1/members/carol",
+    { method: "PUT" },
+    env,
+  );
+  expect(res.status).toBe(200);
+  expect(state.calls).toEqual([
+    { op: "addTeamMember", args: ["g1-slug", "carol"] },
+  ]);
+});
+
+test("a teacher still REMOVES members from a locked group (escape hatch)", async () => {
+  state.membership = { state: "active", role: "admin" };
+  await seedLab("l1");
+  await seedGroup({ id: "g1", labId: "l1", repo: true, members: [alice, bob] });
+
+  const res = await app.request(
+    "/api/classes/c1/groups/g1/members/bob",
+    { method: "DELETE" },
+    env,
+  );
+  expect(res.status).toBe(200);
+  expect(state.calls).toEqual([
+    { op: "removeTeamMember", args: ["g1-slug", "bob"] },
+  ]);
+});
+
+// --- the size cap: the API is the boundary, not the hidden Join button ---
+
+test("join is refused when the group is already FULL", async () => {
+  await seedLab("l1", { groupMode: "group", maxMembers: 2 });
+  await seedGroup({ id: "g1", labId: "l1", members: [bob, carol] });
+
+  const res = await join();
+  expect(res.status).toBe(409);
+  expect(await res.json()).toEqual({ error: "group_full" });
+  expect(state.calls).toEqual([]);
+});
+
+test("an individual lab's solo group is full at one", async () => {
+  await seedLab("l1"); // groupMode defaults to individual: min = max = 1
+  await seedGroup({ id: "g1", labId: "l1", members: [bob] });
+
+  const res = await join();
+  expect(res.status).toBe(409);
+  expect(await res.json()).toEqual({ error: "group_full" });
+  expect(state.calls).toEqual([]);
+});
+
+test("a group-mode lab with no maxMembers is uncapped", async () => {
+  await seedLab("l1", { groupMode: "group" });
+  await seedGroup({ id: "g1", labId: "l1", members: [bob, carol] });
+
+  const res = await join();
+  expect(res.status).toBe(200);
+  expect(state.calls).toEqual([
+    { op: "addTeamMember", args: ["g1-slug", "alice"] },
+  ]);
+});
+
+// --- the lock races repo creation: re-check after the GitHub call ---
+
+test("a join racing repo creation is rolled back", async () => {
+  await seedLab("l1", { groupMode: "group", maxMembers: 3 });
+  await seedGroup({ id: "g1", labId: "l1" });
+  // The repo materializes while GitHub processes the add.
+  state.onTeamAdd = async () => {
+    await db
+      .update(groups)
+      .set({ ghRepoId: 777, ghRepoFullName: "acme/g1" })
+      .where(eq(groups.id, "g1"));
+  };
+
+  const res = await join();
+  expect(res.status).toBe(409);
+  expect(await res.json()).toEqual({ error: "has_repo" });
+  expect(state.calls).toEqual([
+    { op: "addTeamMember", args: ["g1-slug", "alice"] },
+    { op: "removeTeamMember", args: ["g1-slug", "alice"] },
+  ]);
+});
+
+test("a leave racing repo creation is reinstated", async () => {
+  await seedLab("l1", { groupMode: "group", maxMembers: 3 });
+  await seedGroup({ id: "g1", labId: "l1", members: [alice, bob] });
+  state.onTeamRemove = async () => {
+    await db
+      .update(groups)
+      .set({ ghRepoId: 778, ghRepoFullName: "acme/g1" })
+      .where(eq(groups.id, "g1"));
+  };
+
+  const res = await app.request(
+    "/api/classes/c1/groups/g1/membership",
+    { method: "DELETE" },
+    env,
+  );
+  expect(res.status).toBe(409);
+  expect(await res.json()).toEqual({ error: "has_repo" });
+  expect(state.calls).toEqual([
+    { op: "removeTeamMember", args: ["g1-slug", "alice"] },
+    { op: "addTeamMember", args: ["g1-slug", "alice"] },
   ]);
 });
 

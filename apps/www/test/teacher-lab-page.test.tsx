@@ -148,6 +148,32 @@ describe("TeacherLabPage", () => {
     expect(screen.getByRole("button", { name: "Delete group" })).toBeDisabled();
   });
 
+  it("confirms the batch repo creation and says it locks the groups", () => {
+    // Team Alpha is complete (2/2) with no repo → 1 missing repository.
+    mockApi({ ...groupsData, groups: [grp({ members: [alice, bob] })] });
+    render(<TeacherLabPage />);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Create 1 missing repository" }),
+    );
+    expect(
+      screen.getByText("Create the missing repositories?"),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/locks its group/)).toBeInTheDocument();
+  });
+
+  it("confirms the per-row repo creation and says it locks the group", () => {
+    // Team Alpha is complete (2/2) with no repo → the row offers creation.
+    mockApi({ ...groupsData, groups: [grp({ members: [alice, bob] })] });
+    render(<TeacherLabPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Create repository" }));
+    expect(screen.getByText("Create the work repository?")).toBeInTheDocument();
+    expect(
+      screen.getByText(/students can no longer join or leave/),
+    ).toBeInTheDocument();
+  });
+
   it("hides the pool when every student is placed", () => {
     mockApi({
       ...groupsData,

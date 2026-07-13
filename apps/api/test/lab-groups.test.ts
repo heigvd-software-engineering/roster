@@ -34,6 +34,11 @@ const state = vi.hoisted(() => ({
   orgRepos: {} as Record<string, { visible: boolean }>,
   // The lab's template repo was DELETED/RENAMED since — /generate 404s.
   templateGone: false,
+  // Every team-push grant made, in order — and a switch to make the NEXT
+  // grant blow up (simulates a create dying between the row write and the
+  // grant).
+  grants: [] as Array<{ team: string; repo: string }>,
+  grantFails: false,
   // Call counters: the cached-identity hot path must NOT spend these.
   profileCalls: 0,
   orgLoginCalls: 0,
@@ -123,7 +128,18 @@ vi.mock("../src/lib/github/repo", async (importOriginal) => {
       }
       return { id: repoSeq.next++, fullName: `${org}/${name}` };
     },
-    grantTeamRepo: async () => {},
+    grantTeamRepo: async (
+      _env: unknown,
+      _inst: number,
+      _org: string,
+      team: string,
+      repo: string,
+    ) => {
+      if (state.grantFails) {
+        throw Object.assign(new Error("bad gateway"), { status: 502 });
+      }
+      state.grants.push({ team, repo });
+    },
     orgRepoActivity: async () => new Map(Object.entries(state.activity)),
   };
 });
@@ -274,6 +290,8 @@ beforeEach(async () => {
   state.activity = {};
   state.orgRepos = {};
   state.templateGone = false;
+  state.grants = [];
+  state.grantFails = false;
   state.profileCalls = 0;
   state.orgLoginCalls = 0;
 
@@ -627,25 +645,51 @@ test("accept on an EXISTING solo group mirrors its roster into the cache", async
   ]);
 });
 
-test("accept adopts a repo that exists on GitHub but was never recorded", async () => {
-  // An earlier attempt created the repo and died before writing the row —
-  // exactly the state that left lab ccc4262b unacceptable. The lab has NO
-  // template, so the old code answered "template_error" here.
+test("accept NEVER adopts an existing repo — collisions refuse", async () => {
+  // Adoption used to grant the team push on ANY same-named org repo: a group
+  // named to collide with the teacher's private solution would capture it.
+  // Collisions now always refuse; a genuinely interrupted create is recovered
+  // on the audit page, where the TEACHER approves the link explicitly.
   await seedLab({
     id: "l2",
     groupMode: "individual",
     minMembers: null,
     maxMembers: null,
   });
+  // Readable by the App or not — it must make NO difference anymore.
   state.orgRepos["lab-l2-alice"] = { visible: true };
 
   const res = await accept("l2");
 
-  expect(res.status).toBe(200);
-  expect((await asRepo(res)).repo.fullName).toBe("acme/lab-l2-alice");
+  expect(res.status).toBe(409);
+  expect(await res.json()).toEqual({ error: "repo_name_taken" });
+  // Nothing recorded, nothing granted.
   expect(await db.select().from(groups)).toMatchObject([
-    { labId: "l2", ghRepoFullName: "acme/lab-l2-alice" },
+    { labId: "l2", ghRepoFullName: null },
   ]);
+  expect(state.grants).toEqual([]);
+});
+
+test("a create that dies before the grant is healed by the next click", async () => {
+  // createWorkRepo persists the row BEFORE granting: a grant failure leaves a
+  // recorded repo whose team has no push. The next create request hits the
+  // repo-already-recorded branch and re-asserts the grant (regrantWorkRepo).
+  await seedLab();
+  await seedGroup({ id: "g1", labId: "l1", members: [alice] });
+  state.grantFails = true;
+
+  const first = await repo("l1", "g1");
+  expect(first.status).toBe(500); // the grant blew up — but the row is written
+  expect(await db.select().from(groups)).toMatchObject([
+    { id: "g1", ghRepoFullName: "acme/l1-g1" },
+  ]);
+  expect(state.grants).toEqual([]);
+
+  state.grantFails = false;
+  const again = await repo("l1", "g1");
+  expect(again.status).toBe(200);
+  expect((await asRepo(again)).repo.fullName).toBe("acme/l1-g1");
+  expect(state.grants).toEqual([{ team: "g1-slug", repo: "acme/l1-g1" }]);
 });
 
 test("accept reports a name collision it cannot read, and never blames a template the lab lacks", async () => {

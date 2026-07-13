@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import type { PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useApi } from "~/lib/api";
@@ -171,6 +171,82 @@ describe("StudentLabPage — group lab", () => {
       screen.queryByRole("button", { name: "Create repository" }),
     ).not.toBeInTheDocument();
   });
+
+  it("warns that creating the repo locks the group, before creating", () => {
+    mockApi(groupsData({ groups: [grp({ members: [alice, bob] })] }));
+    render(<StudentLabPage />);
+
+    // The button no longer fires directly — it opens the confirm gate.
+    fireEvent.click(screen.getByRole("button", { name: "Create repository" }));
+    expect(screen.getByText("Create the work repository?")).toBeInTheDocument();
+    expect(screen.getByText(/This locks the group/)).toBeInTheDocument();
+  });
+
+  it("locks Leave once your group's repo exists", async () => {
+    mockApi(
+      groupsData({
+        groups: [
+          grp({
+            members: [alice, bob],
+            repoFullName: "acme/lab-1-team-alpha",
+          }),
+        ],
+      }),
+    );
+    render(<StudentLabPage />);
+
+    const leave = screen.getByRole("button", { name: "Leave" });
+    expect(leave).toBeDisabled();
+    // The reason lives in a real tooltip (native title is unreliable on
+    // disabled buttons) — its trigger wraps the button, shown on focus.
+    fireEvent.focus(leave.parentElement as HTMLElement);
+    expect(
+      await screen.findByText(
+        "The group's work repository exists — ask your teacher to move you.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the repo card when a locked group falls below the minimum", () => {
+    // Teacher removed a member from a locked 2-person group (min 2): the
+    // survivor must still reach the repo they're required to work in.
+    mockApi(
+      groupsData({
+        groups: [
+          grp({ members: [alice], repoFullName: "acme/lab-1-team-alpha" }),
+        ],
+      }),
+    );
+    render(<StudentLabPage />);
+
+    expect(
+      screen.getByText(
+        /git clone https:\/\/github\.com\/acme\/lab-1-team-alpha\.git/,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Leave" })).toBeDisabled();
+  });
+
+  it("locks Join on a group whose repo exists", async () => {
+    // Someone else's group: room left (1/3) but already locked by its repo.
+    mockApi(
+      groupsData({
+        groups: [
+          grp({ members: [bob], repoFullName: "acme/lab-1-team-alpha" }),
+        ],
+      }),
+    );
+    render(<StudentLabPage />);
+
+    const join = screen.getByRole("button", { name: "Join" });
+    expect(join).toBeDisabled();
+    fireEvent.focus(join.parentElement as HTMLElement);
+    expect(
+      await screen.findByText(
+        "This group's repository exists — only your teacher can add members.",
+      ),
+    ).toBeInTheDocument();
+  });
 });
 
 describe("StudentLabPage — individual lab", () => {
@@ -220,6 +296,27 @@ describe("StudentLabPage — individual lab", () => {
       ),
     ).toBeInTheDocument();
     // The repo exists → the solo group is a deliverable: no Withdraw.
+    expect(
+      screen.queryByRole("button", { name: "Withdraw" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("offers only the repo retry when the accept's repo step failed — no Withdraw", () => {
+    params.labId = "l2";
+    mockApi(
+      groupsData({
+        lab: individualLab,
+        groups: [
+          grp({ id: "solo", name: "alice", slug: "alice", members: [alice] }),
+        ],
+      }),
+    );
+    render(<StudentLabPage />);
+
+    expect(screen.getByText("one step left")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Create repository" }),
+    ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Withdraw" }),
     ).not.toBeInTheDocument();

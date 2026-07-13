@@ -7,7 +7,6 @@ import {
   classifyRepoFailure,
   createOrgRepo,
   generateFromTemplate,
-  getOrgRepo,
   grantTeamRepo,
   type RepoFailure,
 } from "./github/repo";
@@ -148,16 +147,25 @@ export function isSameRepo(a: string | null, b: string | null): boolean {
 /**
  * Create the group's WORK REPO: named by the group's lab-scoped `slug`
  * (already unique — no lab prefix to re-add), private, from the lab's template
- * when set (else empty auto-init), team granted push, recorded on the group row.
+ * when set (else empty auto-init), recorded on the group row, team granted
+ * push.
  *
- * FIND-or-create: if the repo already exists in the org we adopt it. The only
- * way that happens is an earlier attempt that created the repo and then failed
- * to record it — and without adoption that group could never accept the lab
- * again. The remaining steps (grant, row write) are idempotent, so adoption
- * re-runs them safely. The lab's own template is never adopted.
+ * CREATE only, NEVER adopt. The slug is unique among the LAB's groups, not
+ * among the org's repos — and students pick group names, so a colliding name
+ * can be anyone's repo: a group named to collide with the teacher's private
+ * `lab1-solution` would, under adoption, end in grantTeamRepo handing the
+ * students push on the solution. A collision always refuses with
+ * `name_taken`; a genuine interrupted create is recovered on the audit page,
+ * where the TEACHER sees exactly which repo would be linked and approves it
+ * (reconcile/work-repos.ts).
  *
- * Returns a `RepoFailure` for the three conditions we can explain; anything
- * else is rethrown.
+ * The row is written IMMEDIATELY after creation, BEFORE the grant: a create
+ * that dies mid-request leaves a recorded repo with a missing grant — which
+ * the accept paths re-assert on the next click (regrantWorkRepo) — instead
+ * of an unrecorded orphan that only adoption could have recovered.
+ *
+ * Returns a `RepoFailure` for the conditions we can explain; anything else
+ * is rethrown.
  */
 export async function createWorkRepo(
   env: AuthEnv,
@@ -179,40 +187,9 @@ export async function createWorkRepo(
       : await createOrgRepo(env, scope.cls.installationId, scope.org, name);
   } catch (err) {
     const failure = classifyRepoFailure(err, Boolean(lab.templateRepoFullName));
-    if (failure !== "name_taken") {
-      if (failure) return failure;
-      throw err; // unrecognized — don't invent a reason for it
-    }
-    // NEVER adopt the lab's own template. Adoption ends in grantTeamRepo, so a
-    // group whose slug collides with the template's name (same org) would hand
-    // the students PUSH on the starter code.
-    if (isSameRepo(lab.templateRepoFullName, `${scope.org}/${name}`)) {
-      return "name_taken";
-    }
-    // The repo is already there. That means an earlier attempt created it and
-    // died before recording it (the grant or the row write failed), leaving the
-    // group permanently unable to accept the lab. The slug is lab-scoped and
-    // unique, so this repo IS this group's — adopt it and fall through to the
-    // grant + row write, which are both idempotent.
-    try {
-      repo = await getOrgRepo(env, scope.cls.installationId, scope.org, name);
-    } catch (readErr) {
-      const status = (readErr as { status?: number }).status;
-      // 404/403: it exists but we can't see it (App not installed on it, or the
-      // name belongs to someone else). Now the sentinel is honest. Anything
-      // else — a 500, a network fault — is NOT a naming problem: rethrow it
-      // rather than blame the student's repo name.
-      if (status === 404 || status === 403) return "name_taken";
-      throw readErr;
-    }
+    if (failure) return failure;
+    throw err; // unrecognized — don't invent a reason for it
   }
-  await grantTeamRepo(
-    env,
-    scope.cls.installationId,
-    scope.org,
-    group.ghTeamSlug,
-    repo.fullName,
-  );
   await scope.db
     .update(groups)
     .set({
@@ -221,7 +198,40 @@ export async function createWorkRepo(
       updatedAt: new Date(),
     })
     .where(eq(groups.id, group.id));
+  await grantTeamRepo(
+    env,
+    scope.cls.installationId,
+    scope.org,
+    group.ghTeamSlug,
+    repo.fullName,
+  );
   return repo;
+}
+
+/**
+ * Re-assert the team's PUSH grant on the group's RECORDED repo — an
+ * idempotent PUT. The accept paths call this on their repo-already-exists
+ * branch, healing a create that wrote the row and then died before the
+ * grant (see createWorkRepo's ordering). No-op while no repo is recorded.
+ *
+ * SECURITY: grants only what `groups.ghRepoFullName` already records — a
+ * column written solely by a successful create of a BRAND-NEW repo or by a
+ * teacher-approved audit link. Callers can never steer this at a
+ * name-matched foreign repo (the teacher's solution, another group's work).
+ */
+export async function regrantWorkRepo(
+  env: AuthEnv,
+  scope: { cls: Class; org: string },
+  group: Group,
+): Promise<void> {
+  if (!group.ghRepoFullName) return;
+  await grantTeamRepo(
+    env,
+    scope.cls.installationId,
+    scope.org,
+    group.ghTeamSlug,
+    group.ghRepoFullName,
+  );
 }
 
 /**

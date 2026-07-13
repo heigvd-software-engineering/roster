@@ -19,6 +19,7 @@ import {
   StatusChip,
 } from "~/components/custom/classes/groups/teacher/roster";
 import { ConfirmDialog } from "~/components/custom/confirm-dialog";
+import { DisabledReason } from "~/components/custom/disabled-reason";
 import { DisclosureToggle } from "~/components/custom/disclosure-toggle";
 import { UserIdentity } from "~/components/custom/identity/user-identity";
 import { Row } from "~/components/custom/layout/row";
@@ -294,16 +295,25 @@ function RosterToolbar({
       </ToggleGroup>
       <span className="flex-1" />
       {missingCount > 0 ? (
-        <Button
-          size="sm"
-          type="button"
-          disabled={g.busy}
-          title="Create the work repository for every complete group that lacks one"
-          onClick={() => g.createMissingRepos()}
-        >
-          Create {missingCount} missing{" "}
-          {missingCount === 1 ? "repository" : "repositories"}
-        </Button>
+        // Repo creation LOCKS each group (students can't join/leave after) —
+        // worth an explicit confirm on the batch, like the drawer's Delete.
+        <ConfirmDialog
+          title="Create the missing repositories?"
+          description="Every complete group that lacks a repository gets one. Creating a repository locks its group: students can no longer join or leave on their own."
+          confirmLabel="Create repositories"
+          onConfirm={() => g.createMissingRepos()}
+          trigger={
+            <Button
+              size="sm"
+              type="button"
+              disabled={g.busy}
+              title="Create the work repository for every complete group that lacks one"
+            >
+              Create {missingCount} missing{" "}
+              {missingCount === 1 ? "repository" : "repositories"}
+            </Button>
+          }
+        />
       ) : null}
       <NewGroupDialog
         classId={classId}
@@ -391,16 +401,25 @@ function GroupRow({
           {repo ? (
             <RepoLink fullName={repo} />
           ) : status === "no_repo" ? (
-            <Button
-              variant="outline"
-              size="sm"
-              type="button"
-              disabled={g.busy}
-              title="Create the group's work repository and grant it access"
-              onClick={() => g.createRepo(group.id)}
-            >
-              Create repository
-            </Button>
+            // Same confirm gate as the batch toolbar button: creating the
+            // repo LOCKS the group, one click shouldn't do that silently.
+            <ConfirmDialog
+              title="Create the work repository?"
+              description="This locks the group: once the repository exists, students can no longer join or leave on their own."
+              confirmLabel="Create repository"
+              onConfirm={() => g.createRepo(group.id)}
+              trigger={
+                <Button
+                  variant="outline"
+                  size="sm"
+                  type="button"
+                  disabled={g.busy}
+                  title="Create the group's work repository and grant it access"
+                >
+                  Create repository
+                </Button>
+              }
+            />
           ) : (
             <span
               className="font-mono text-muted-foreground text-xs"
@@ -494,29 +513,37 @@ function GroupDrawer({
         className="sm:min-w-48 sm:border-border sm:border-l sm:pl-6"
       >
         <Text variant="overline">Group actions</Text>
-        <ConfirmDialog
-          title={`Delete ${group.name}?`}
-          description="The group and its GitHub team are removed. Students can form a new group for this lab afterwards."
-          confirmLabel="Delete group"
-          onConfirm={() => g.deleteGroup(group.id)}
-          trigger={
-            <Button
-              variant="outline"
-              size="sm"
-              type="button"
-              // The server refuses anyway (orphan protection, 409 has_repo)
-              // — the disabled state just says so up front.
-              disabled={g.busy || repo !== null}
-              title={
-                repo !== null
-                  ? "The group's work repository exists — it can't be deleted"
-                  : "Delete this group (and its GitHub team)"
-              }
-            >
-              Delete group
-            </Button>
+        <DisabledReason
+          reason={
+            repo !== null
+              ? "The group's work repository exists — it can't be deleted"
+              : null
           }
-        />
+        >
+          <ConfirmDialog
+            title={`Delete ${group.name}?`}
+            description="The group and its GitHub team are removed. Students can form a new group for this lab afterwards."
+            confirmLabel="Delete group"
+            onConfirm={() => g.deleteGroup(group.id)}
+            trigger={
+              <Button
+                variant="outline"
+                size="sm"
+                type="button"
+                // The server refuses anyway (orphan protection, 409 has_repo)
+                // — the disabled state just says so up front.
+                disabled={g.busy || repo !== null}
+                title={
+                  repo !== null
+                    ? undefined
+                    : "Delete this group (and its GitHub team)"
+                }
+              >
+                Delete group
+              </Button>
+            }
+          />
+        </DisabledReason>
       </Stack>
     </div>
   );

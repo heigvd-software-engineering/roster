@@ -1,8 +1,33 @@
-import { groups } from "@labs/db";
+import { type Group, type getDb, groups, type Lab, labs } from "@labs/db";
 import { eq } from "drizzle-orm";
 import { authedFactory } from "../factory";
 import { groupInClass, resolveClassAccess } from "../lib/access";
+import { cachedRoster } from "../lib/group-members";
 import { alreadyInLabGroup } from "../lib/groups";
+
+type Db = ReturnType<typeof getDb>;
+
+/** The repo lock: once the WORK REPO exists the group is a deliverable —
+ *  membership and existence only change through the teacher. Join, leave
+ *  and delete all refuse with the same vocabulary (409 has_repo). */
+const isLocked = (group: Pick<Group, "ghRepoId">) => group.ghRepoId !== null;
+
+/** The lab's maximum group size (individual = a group of one). */
+const labMax = (lab: Lab) =>
+  lab.groupMode === "individual"
+    ? 1
+    : (lab.maxMembers ?? Number.POSITIVE_INFINITY);
+
+/** Fresh read of the lock — the handler's first check can be seconds stale
+ *  by the time the GitHub membership call lands (repo creation only records
+ *  ghRepoId after a chain of GitHub calls), so join/leave re-check after. */
+async function lockedNow(db: Db, groupId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ ghRepoId: groups.ghRepoId })
+    .from(groups)
+    .where(eq(groups.id, groupId));
+  return row !== undefined && row.ghRepoId !== null;
+}
 
 /**
  * Group MEMBERSHIP + lifecycle (per-lab model, spec 2026-07-07). A group is
@@ -20,29 +45,64 @@ import { alreadyInLabGroup } from "../lib/groups";
  */
 
 /** Join the group — the caller only ever adds THEMSELVES. Refused when it
- *  would put them in two groups OF THE SAME LAB. */
+ *  would put them in two groups OF THE SAME LAB, or when the group's work
+ *  repo exists: a locked group only changes through the teacher. */
 export const joinGroup = authedFactory.createHandlers(async (c) => {
   const access = await resolveClassAccess(c, c.req.param("id"));
   if (!access) return c.json({ error: "not_found" }, 404);
   const group = await groupInClass(access, c.req.param("groupId"));
   if (!group) return c.json({ error: "not_found" }, 404);
 
+  // The repo lock (same vocabulary as delete): joining a team means push on
+  // its work repo — once that repo exists, only the teacher moves people.
+  if (isLocked(group)) {
+    return c.json({ error: "has_repo" }, 409);
+  }
   if (await alreadyInLabGroup(access, group.labId, access.login, group.id)) {
     return c.json({ error: "member_already_participating" }, 409);
   }
+  // The size cap: the UI hides Join on full groups, but the API is the
+  // boundary — a direct request must not oversize the group either.
+  const [lab] = await access.db
+    .select()
+    .from(labs)
+    .where(eq(labs.id, group.labId));
+  if (lab && (await cachedRoster(access.db, group.id)).length >= labMax(lab)) {
+    return c.json({ error: "group_full" }, 409);
+  }
   await access.team.add(group.ghTeamSlug, access.login);
+  // The lock can appear WHILE we add (see lockedNow) — re-check and roll
+  // back, or the joiner gains push on a repo that locked without them.
+  if (await lockedNow(access.db, group.id)) {
+    await access.team.remove(group.ghTeamSlug, access.login);
+    await access.team.syncMembers(group);
+    return c.json({ error: "has_repo" }, 409);
+  }
   await access.team.syncMembers(group);
   return c.json({ ok: true });
 });
 
-/** Leave the group — the caller only ever removes THEMSELVES. */
+/** Leave the group — the caller only ever removes THEMSELVES. Refused once
+ *  the work repo exists: the lock keeps students from hopping between
+ *  groups after work has started. */
 export const leaveGroup = authedFactory.createHandlers(async (c) => {
   const access = await resolveClassAccess(c, c.req.param("id"));
   if (!access) return c.json({ error: "not_found" }, 404);
   const group = await groupInClass(access, c.req.param("groupId"));
   if (!group) return c.json({ error: "not_found" }, 404);
 
+  if (isLocked(group)) {
+    return c.json({ error: "has_repo" }, 409);
+  }
   await access.team.remove(group.ghTeamSlug, access.login);
+  // Same race as join: if the lock landed while we removed, reinstate —
+  // the leave should have been refused, and a locked group must not
+  // shrink below the roster its repo was granted to.
+  if (await lockedNow(access.db, group.id)) {
+    await access.team.add(group.ghTeamSlug, access.login);
+    await access.team.syncMembers(group);
+    return c.json({ error: "has_repo" }, 409);
+  }
   await access.team.syncMembers(group);
   return c.json({ ok: true });
 });
@@ -86,7 +146,7 @@ export const deleteGroup = authedFactory.createHandlers(async (c) => {
   const group = await groupInClass(access, c.req.param("groupId"));
   if (!group) return c.json({ error: "not_found" }, 404);
 
-  if (group.ghRepoId !== null) {
+  if (isLocked(group)) {
     return c.json({ error: "has_repo" }, 409);
   }
 

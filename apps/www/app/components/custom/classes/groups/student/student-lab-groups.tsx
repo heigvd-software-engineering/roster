@@ -7,6 +7,7 @@ import { NewGroupDialog } from "~/components/custom/classes/groups/shared/new-gr
 import { UnassignedPool } from "~/components/custom/classes/groups/shared/unassigned-pool";
 import { useLabGroups } from "~/components/custom/classes/groups/shared/use-lab-groups";
 import { StartLabCard } from "~/components/custom/classes/groups/student/start-lab-card";
+import { DisabledReason } from "~/components/custom/disabled-reason";
 import { Stack } from "~/components/custom/layout/stack";
 import { Text } from "~/components/custom/typography/text";
 import { Button } from "~/components/ui/button";
@@ -86,22 +87,6 @@ export function StudentLabGroups({
                 {mine ? "your solo lab" : "your solo lab — not accepted yet"}
               </span>
             }
-            actions={
-              // Withdrawing is only possible while no repo exists — once it
-              // does, the solo group is a deliverable (same rule as groups).
-              mine && repo === null ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  type="button"
-                  disabled={g.busy}
-                  title="Withdraw your acceptance of this lab"
-                  onClick={() => g.deleteGroup(mine.id)}
-                >
-                  Withdraw
-                </Button>
-              ) : null
-            }
           />
           <div className="lg:col-span-2">
             <StartLabCard
@@ -119,6 +104,10 @@ export function StudentLabGroups({
   }
 
   if (mine) {
+    // Once the work repo exists the group is LOCKED — the server refuses
+    // join/leave (409 has_repo); the disabled state just says so up front
+    // (same pattern as the teacher's Delete button).
+    const locked = mine.repoFullName !== null;
     return (
       <>
         {/* Who still needs a team — the students' organizing aid. */}
@@ -139,21 +128,30 @@ export function StudentLabGroups({
                 </>
               }
               actions={
-                <Button
-                  variant="outline"
-                  size="sm"
-                  type="button"
-                  disabled={g.busy}
-                  title="Leave this group"
-                  onClick={() => g.leave(mine.id)}
+                <DisabledReason
+                  reason={
+                    locked
+                      ? "The group's work repository exists — ask your teacher to move you."
+                      : null
+                  }
                 >
-                  Leave
-                </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    type="button"
+                    disabled={g.busy || locked}
+                    title={locked ? undefined : "Leave this group"}
+                    onClick={() => g.leave(mine.id)}
+                  >
+                    Leave
+                  </Button>
+                </DisabledReason>
               }
             />
-            {/* The lab starts here once the group reaches the minimum size:
-                create the work repo, then clone it. */}
-            {mine.members.length >= g.min ? (
+            {/* The lab starts here once the group reaches the minimum size —
+                and STAYS once the repo exists: a locked group can drop below
+                min via the teacher, and the survivors still need their repo. */}
+            {mine.members.length >= g.min || locked ? (
               <div className="lg:col-span-2">
                 <StartLabCard
                   repoFullName={g.repoFor(mine.id)}
@@ -180,28 +178,43 @@ export function StudentLabGroups({
           </Text>
         ) : null}
         <div className={GROUPS_GRID}>
-          {g.groups.map((group) => (
-            <GroupTile
-              key={group.id}
-              group={group}
-              users={g.users}
-              notes={<MissingMembersNote group={group} min={g.min} />}
-              actions={
-                group.members.length < g.max ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    type="button"
-                    disabled={g.busy}
-                    title="Join this group for the lab"
-                    onClick={() => g.join(group.id)}
-                  >
-                    Join
-                  </Button>
-                ) : null
-              }
-            />
-          ))}
+          {g.groups.map((group) => {
+            // Same lock as the "mine" branch above: repo exists ⇒ only the
+            // teacher changes membership.
+            const locked = group.repoFullName !== null;
+            return (
+              <GroupTile
+                key={group.id}
+                group={group}
+                users={g.users}
+                notes={<MissingMembersNote group={group} min={g.min} />}
+                actions={
+                  group.members.length < g.max ? (
+                    <DisabledReason
+                      reason={
+                        locked
+                          ? "This group's repository exists — only your teacher can add members."
+                          : null
+                      }
+                    >
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        type="button"
+                        disabled={g.busy || locked}
+                        title={
+                          locked ? undefined : "Join this group for the lab"
+                        }
+                        onClick={() => g.join(group.id)}
+                      >
+                        Join
+                      </Button>
+                    </DisabledReason>
+                  ) : null
+                }
+              />
+            );
+          })}
           <NewGroupDialog
             classId={classId}
             labId={lab.id}
