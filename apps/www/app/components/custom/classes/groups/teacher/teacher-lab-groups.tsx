@@ -294,16 +294,25 @@ function RosterToolbar({
       </ToggleGroup>
       <span className="flex-1" />
       {missingCount > 0 ? (
-        <Button
-          size="sm"
-          type="button"
-          disabled={g.busy}
-          title="Create the work repository for every complete group that lacks one"
-          onClick={() => g.createMissingRepos()}
-        >
-          Create {missingCount} missing{" "}
-          {missingCount === 1 ? "repository" : "repositories"}
-        </Button>
+        // Repo creation LOCKS each group (students can't join/leave after) —
+        // worth an explicit confirm on the batch, like the drawer's Delete.
+        <ConfirmDialog
+          title="Create the missing repositories?"
+          description="Every complete group that lacks a repository gets one. Creating a repository locks its group: students can no longer join or leave on their own."
+          confirmLabel="Create repositories"
+          onConfirm={() => g.createMissingRepos()}
+          trigger={
+            <Button
+              size="sm"
+              type="button"
+              disabled={g.busy}
+              title="Create the work repository for every complete group that lacks one"
+            >
+              Create {missingCount} missing{" "}
+              {missingCount === 1 ? "repository" : "repositories"}
+            </Button>
+          }
+        />
       ) : null}
       <NewGroupDialog
         classId={classId}
