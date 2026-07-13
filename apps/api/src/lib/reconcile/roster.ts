@@ -5,7 +5,7 @@
 // the only thing that can notice someone who joined the org out of band, an
 // Owner who was promoted, a login that changed, or a student who left.
 
-import { forgetMember, observeMember } from "../enrollment";
+import { forgetMember, type MemberState, observeMember } from "../enrollment";
 import type { OrgPerson } from "../github/org";
 import type {
   AppliedOp,
@@ -15,8 +15,6 @@ import type {
   Reconciler,
   Severity,
 } from "./types";
-
-type MemberState = "pending" | "active" | "teacher";
 
 /** "roster:remove:githubId=9" → "9". Findings are content-addressed, so the key
  *  IS the subject: nothing else has to travel from audit to apply. */
