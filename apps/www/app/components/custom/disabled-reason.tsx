@@ -22,7 +22,12 @@ export function DisabledReason({
   if (reason === null) return children;
   return (
     <Tooltip>
-      <TooltipTrigger render={<span className="inline-flex" tabIndex={0} />}>
+      <TooltipTrigger
+        render={
+          // biome-ignore lint/a11y/noNoninteractiveTabindex: the wrapped button is DISABLED and therefore unfocusable — the span must take focus or keyboard users can never reach the reason.
+          <span className="inline-flex" tabIndex={0} />
+        }
+      >
         {children}
       </TooltipTrigger>
       <TooltipContent side="top">{reason}</TooltipContent>
