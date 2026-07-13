@@ -21,6 +21,7 @@ import {
   createGroupInLab,
   createWorkRepo,
   groupsWithRosters,
+  regrantWorkRepo,
 } from "../lib/groups";
 
 /**
@@ -230,6 +231,11 @@ export const createLabGroup = authedFactory.createHandlers(
  * Create the group's work repo — the EXPLICIT accept-completion step: any
  * group member (or a teacher) triggers it once the group meets the lab's
  * MIN size, enforced here. Idempotent: an existing repo is returned.
+ *
+ * SECURITY: creation is the group's freeze moment (membership locks), and it
+ * is CREATE-only — a name collision with ANY existing org repo answers
+ * repo_name_taken, never adoption, so students can't capture the teacher's
+ * private repos by naming their group after one (see createWorkRepo).
  */
 export const createLabRepo = authedFactory.createHandlers(async (c) => {
   const access = await resolveClassAccess(c, c.req.param("id"));
@@ -240,6 +246,9 @@ export const createLabRepo = authedFactory.createHandlers(async (c) => {
     return c.json({ error: "not_found" }, 404);
   }
   if (group.ghRepoFullName) {
+    // Idempotent hit — and the HEAL path for a create that wrote the row and
+    // died before the grant (createWorkRepo persists first, on purpose).
+    await regrantWorkRepo(c.env, access, group);
     return c.json({ repo: { fullName: group.ghRepoFullName } });
   }
 
@@ -269,6 +278,11 @@ export const createLabRepo = authedFactory.createHandlers(async (c) => {
  * (under min, orphaned team, name collision) are skipped and reported; a
  * template/permissions failure aborts (it fails every remaining create the
  * same way — one bad template, one missing App permission).
+ *
+ * SECURITY: CREATE-only like every repo path — a name collision is a skip
+ * (repo_name_taken), never an adoption, even on this teacher-triggered
+ * batch: a maliciously named group must not capture an existing repo just
+ * because the teacher clicked the batch button.
  */
 export const createMissingLabRepos = authedFactory.createHandlers(async (c) => {
   const access = await resolveClassAccess(c, c.req.param("id"));
@@ -316,6 +330,9 @@ export const createMissingLabRepos = authedFactory.createHandlers(async (c) => {
  * group IN THIS LAB (a team named after their login), AND create the work
  * repo (a solo group is always complete, so accept = repo in one click).
  * Group labs refuse — their accept path is the group UI. Idempotent.
+ *
+ * SECURITY: same CREATE-only rule as createLabRepo — a repo-name collision
+ * refuses (repo_name_taken), never adopts an existing repo.
  */
 export const acceptIndividualLab = authedFactory.createHandlers(async (c) => {
   const access = await resolveClassAccess(c, c.req.param("id"));
@@ -329,6 +346,8 @@ export const acceptIndividualLab = authedFactory.createHandlers(async (c) => {
   async function finish(solo: Group) {
     if (!access || !lab) throw new Error("unreachable");
     if (solo.ghRepoFullName) {
+      // Same heal as createLabRepo: re-assert the grant on the recorded repo.
+      await regrantWorkRepo(c.env, access, solo);
       return c.json({
         ok: true,
         groupId: solo.id,
