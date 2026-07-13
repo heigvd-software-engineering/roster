@@ -61,8 +61,12 @@ async function teacherContext(
 export const auditClass = authedFactory.createHandlers(async (c) => {
   const r = await teacherContext(c);
   if ("error" in r) return c.json({ error: r.error }, r.status);
+  const { cls } = r.ctx;
   return c.json({
     auditedAt: new Date().toISOString(),
+    // Class identity so the page renders its header from this one request,
+    // not a second (expensive) /api/classes fetch just to name the class.
+    class: { id: cls.id, name: cls.name, login: cls.login },
     findings: await runAudit(r.ctx),
   });
 });
