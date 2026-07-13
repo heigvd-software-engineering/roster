@@ -1,4 +1,5 @@
 import { RepoLink } from "~/components/custom/classes/groups/shared/group-tile";
+import { ConfirmDialog } from "~/components/custom/confirm-dialog";
 import { CommandBlock } from "~/components/custom/command-block";
 import { Stack } from "~/components/custom/layout/stack";
 import { Text } from "~/components/custom/typography/text";
@@ -95,20 +96,38 @@ export function StartLabCard({
                 ? "Your repository couldn't be created yet — try again."
                 : "Create your group's work repository to begin."}
             </Text>
-            <Button
-              size="sm"
-              type="button"
-              className="self-start"
-              disabled={busy}
-              title={
-                mode === "individual"
-                  ? "Create your work repository"
-                  : "Create your group's work repository"
-              }
-              onClick={onCreate}
-            >
-              Create repository
-            </Button>
+            {mode === "individual" ? (
+              <Button
+                size="sm"
+                type="button"
+                className="self-start"
+                disabled={busy}
+                title="Create your work repository"
+                onClick={onCreate}
+              >
+                Create repository
+              </Button>
+            ) : (
+              // Creating the repo LOCKS the group (server: 409 has_repo on
+              // join/leave) — make the point of no return explicit.
+              <ConfirmDialog
+                title="Create the work repository?"
+                description="This locks the group: once the repository exists, nobody can join or leave on their own — only your teacher can change the group. Make sure everyone is in before you continue."
+                confirmLabel="Create repository"
+                onConfirm={onCreate}
+                trigger={
+                  <Button
+                    size="sm"
+                    type="button"
+                    className="self-start"
+                    disabled={busy}
+                    title="Create your group's work repository — this locks the group"
+                  >
+                    Create repository
+                  </Button>
+                }
+              />
+            )}
           </>
         ) : repoFullName !== null ? (
           <>

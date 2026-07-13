@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import type { PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useApi } from "~/lib/api";
@@ -170,6 +170,18 @@ describe("StudentLabPage — group lab", () => {
     expect(
       screen.queryByRole("button", { name: "Create repository" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("warns that creating the repo locks the group, before creating", () => {
+    mockApi(groupsData({ groups: [grp({ members: [alice, bob] })] }));
+    render(<StudentLabPage />);
+
+    // The button no longer fires directly — it opens the confirm gate.
+    fireEvent.click(screen.getByRole("button", { name: "Create repository" }));
+    expect(
+      screen.getByText("Create the work repository?"),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/This locks the group/)).toBeInTheDocument();
   });
 
   it("locks Leave once your group's repo exists", () => {
