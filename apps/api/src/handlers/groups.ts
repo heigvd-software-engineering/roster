@@ -20,13 +20,19 @@ import { alreadyInLabGroup } from "../lib/groups";
  */
 
 /** Join the group — the caller only ever adds THEMSELVES. Refused when it
- *  would put them in two groups OF THE SAME LAB. */
+ *  would put them in two groups OF THE SAME LAB, or when the group's work
+ *  repo exists: a locked group only changes through the teacher. */
 export const joinGroup = authedFactory.createHandlers(async (c) => {
   const access = await resolveClassAccess(c, c.req.param("id"));
   if (!access) return c.json({ error: "not_found" }, 404);
   const group = await groupInClass(access, c.req.param("groupId"));
   if (!group) return c.json({ error: "not_found" }, 404);
 
+  // The repo lock (same vocabulary as delete): joining a team means push on
+  // its work repo — once that repo exists, only the teacher moves people.
+  if (group.ghRepoId !== null) {
+    return c.json({ error: "has_repo" }, 409);
+  }
   if (await alreadyInLabGroup(access, group.labId, access.login, group.id)) {
     return c.json({ error: "member_already_participating" }, 409);
   }
@@ -35,13 +41,18 @@ export const joinGroup = authedFactory.createHandlers(async (c) => {
   return c.json({ ok: true });
 });
 
-/** Leave the group — the caller only ever removes THEMSELVES. */
+/** Leave the group — the caller only ever removes THEMSELVES. Refused once
+ *  the work repo exists: the lock keeps students from hopping between
+ *  groups after work has started. */
 export const leaveGroup = authedFactory.createHandlers(async (c) => {
   const access = await resolveClassAccess(c, c.req.param("id"));
   if (!access) return c.json({ error: "not_found" }, 404);
   const group = await groupInClass(access, c.req.param("groupId"));
   if (!group) return c.json({ error: "not_found" }, 404);
 
+  if (group.ghRepoId !== null) {
+    return c.json({ error: "has_repo" }, 409);
+  }
   await access.team.remove(group.ghTeamSlug, access.login);
   await access.team.syncMembers(group);
   return c.json({ ok: true });

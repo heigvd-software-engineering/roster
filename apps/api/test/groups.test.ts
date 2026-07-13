@@ -226,6 +226,64 @@ test("leave removes the CALLER from the team", async () => {
   ]);
 });
 
+// --- the repo lock: membership freezes once the work repo exists ---
+
+test("join is refused once the work repo exists (locked group)", async () => {
+  await seedLab("l1");
+  await seedGroup({ id: "g1", labId: "l1", repo: true, members: [bob] });
+
+  const res = await join();
+  expect(res.status).toBe(409);
+  expect(await res.json()).toEqual({ error: "has_repo" });
+  expect(state.calls).toEqual([]);
+});
+
+test("leave is refused once the work repo exists (locked group)", async () => {
+  await seedLab("l1");
+  await seedGroup({ id: "g1", labId: "l1", repo: true, members: [alice] });
+
+  const res = await app.request(
+    "/api/classes/c1/groups/g1/membership",
+    { method: "DELETE" },
+    env,
+  );
+  expect(res.status).toBe(409);
+  expect(await res.json()).toEqual({ error: "has_repo" });
+  expect(state.calls).toEqual([]);
+});
+
+test("a teacher still ADDS members to a locked group (escape hatch)", async () => {
+  state.membership = { state: "active", role: "admin" };
+  await seedLab("l1");
+  await seedGroup({ id: "g1", labId: "l1", repo: true, members: [bob] });
+
+  const res = await app.request(
+    "/api/classes/c1/groups/g1/members/carol",
+    { method: "PUT" },
+    env,
+  );
+  expect(res.status).toBe(200);
+  expect(state.calls).toEqual([
+    { op: "addTeamMember", args: ["g1-slug", "carol"] },
+  ]);
+});
+
+test("a teacher still REMOVES members from a locked group (escape hatch)", async () => {
+  state.membership = { state: "active", role: "admin" };
+  await seedLab("l1");
+  await seedGroup({ id: "g1", labId: "l1", repo: true, members: [alice, bob] });
+
+  const res = await app.request(
+    "/api/classes/c1/groups/g1/members/bob",
+    { method: "DELETE" },
+    env,
+  );
+  expect(res.status).toBe(200);
+  expect(state.calls).toEqual([
+    { op: "removeTeamMember", args: ["g1-slug", "bob"] },
+  ]);
+});
+
 // --- one-group-per-student-per-LAB (within one lab) ---
 
 test("join is refused when it would double-book the SAME lab", async () => {
