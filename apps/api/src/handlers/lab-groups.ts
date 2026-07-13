@@ -130,9 +130,10 @@ export const listLabGroups = authedFactory.createHandlers(async (c) => {
 });
 
 /**
- * The caller's groups in OTHER labs of this class — the "reuse a group"
- * sources for copy-forward. Live rosters (one call per other-lab group),
- * filtered to groups the caller is a member of.
+ * Groups in OTHER labs of this class — the "reuse a group" sources for
+ * copy-forward. Live rosters (one call per other-lab group). A student sees
+ * only groups they're a member of (self-organising); a teacher manages groups
+ * top-down and sees every group in the class.
  */
 export const listReusableGroups = authedFactory.createHandlers(async (c) => {
   const access = await resolveClassAccess(c, c.req.param("id"));
@@ -151,16 +152,23 @@ export const listReusableGroups = authedFactory.createHandlers(async (c) => {
     access.db,
     rows.map((r) => r.group.id),
   );
-  const mine = rows
-    .map((r) => ({ r, members: rosters.get(r.group.id) ?? [] }))
-    .filter(({ members }) => members.some((m) => m.login === access.login))
-    .map(({ r, members }) => ({
-      id: r.group.id,
-      name: r.group.name,
-      labTitle: r.labTitle,
-      members,
-    }));
-  return c.json({ groups: mine });
+  const withRosters = rows.map((r) => ({
+    r,
+    members: rosters.get(r.group.id) ?? [],
+  }));
+  // Students reuse only their own groups; teachers can reuse any group in the class.
+  const visible = access.admin
+    ? withRosters
+    : withRosters.filter(({ members }) =>
+        members.some((m) => m.login === access.login),
+      );
+  const out = visible.map(({ r, members }) => ({
+    id: r.group.id,
+    name: r.group.name,
+    labTitle: r.labTitle,
+    members,
+  }));
+  return c.json({ groups: out });
 });
 
 /**

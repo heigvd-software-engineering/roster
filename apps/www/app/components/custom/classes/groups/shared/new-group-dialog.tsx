@@ -32,9 +32,10 @@ const FROM_SCRATCH = "__scratch__";
 
 /**
  * The New-group dialog (per-lab model): create a group IN this lab. It can
- * be started from scratch OR **reused** from one of the caller's groups in
- * another lab (copy-forward — same teammates, a fresh team for this lab).
- * A creating student auto-joins.
+ * be started from scratch OR **reused** from a group in another lab
+ * (copy-forward — same teammates, a fresh team for this lab). The reuse
+ * sources come from the API by role: a student sees their own groups, a
+ * teacher sees every group in the class. A creating student auto-joins.
  */
 export function NewGroupDialog({
   classId,
@@ -142,48 +143,53 @@ function NewGroupForm({
         </DialogDescription>
       </DialogHeader>
       <Stack gap="md">
-        {reusable.length > 0 ? (
-          <Stack gap="sm">
-            <Label htmlFor="reuse-group">Start from</Label>
-            <Select
-              // The value→label map lets the trigger show the label (not the
-              // raw id) for the selected option.
-              items={{
-                [FROM_SCRATCH]: "An empty group",
-                ...Object.fromEntries(
-                  reusable.map((r) => [
-                    r.id,
-                    `Reuse “${r.name}” · ${r.labTitle}`,
-                  ]),
-                ),
-              }}
-              value={source?.id ?? FROM_SCRATCH}
-              onValueChange={(value: string | null) => {
-                const picked = reusable.find((r) => r.id === value) ?? null;
-                setSource(picked);
-                if (picked && name.trim() === "") setName(picked.name);
-              }}
-            >
-              <SelectTrigger id="reuse-group" className="h-9 w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={FROM_SCRATCH}>An empty group</SelectItem>
-                {reusable.map((r) => (
-                  <SelectItem key={r.id} value={r.id}>
-                    Reuse “{r.name}” · {r.labTitle} ({r.members.length})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {source ? (
-              <Text variant="caption">
-                Copies this group's members into a new team for this lab (anyone
-                already in a group here is skipped).
-              </Text>
-            ) : null}
-          </Stack>
-        ) : null}
+        <Stack gap="sm">
+          <Label htmlFor="reuse-group">Start from</Label>
+          <Select
+            // The value→label map lets the trigger show the label (not the
+            // raw id) for the selected option.
+            items={{
+              [FROM_SCRATCH]: "An empty group",
+              ...Object.fromEntries(
+                reusable.map((r) => [
+                  r.id,
+                  `Reuse “${r.name}” · ${r.labTitle}`,
+                ]),
+              ),
+            }}
+            value={source?.id ?? FROM_SCRATCH}
+            // Nothing to reuse yet → the only choice is "An empty group".
+            disabled={reusable.length === 0}
+            onValueChange={(value: string | null) => {
+              const picked = reusable.find((r) => r.id === value) ?? null;
+              setSource(picked);
+              if (picked && name.trim() === "") setName(picked.name);
+            }}
+          >
+            <SelectTrigger id="reuse-group" className="h-9 w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={FROM_SCRATCH}>An empty group</SelectItem>
+              {reusable.map((r) => (
+                <SelectItem key={r.id} value={r.id}>
+                  Reuse “{r.name}” · {r.labTitle} ({r.members.length})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {source ? (
+            <Text variant="caption">
+              Copies this group's members into a new team for this lab (anyone
+              already in a group here is skipped).
+            </Text>
+          ) : reusable.length === 0 ? (
+            <Text variant="caption">
+              No groups from other labs to reuse yet — once another lab has
+              groups, you can copy one forward here.
+            </Text>
+          ) : null}
+        </Stack>
         <Stack gap="sm">
           <Label htmlFor="group-name">Name</Label>
           <Input

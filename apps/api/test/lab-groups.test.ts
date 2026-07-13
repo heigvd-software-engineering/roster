@@ -397,6 +397,34 @@ test("reusable lists the caller's groups from OTHER labs only", async () => {
   ]);
 });
 
+test("reusable lists ALL other-lab groups for a teacher, not just their own", async () => {
+  state.membership = { state: "active", role: "admin" };
+  await seedLab({ id: "l1" });
+  await seedLab({ id: "l2" });
+  // The teacher is a member of neither of these.
+  await seedGroup({
+    id: "alpha",
+    labId: "l2",
+    name: "Team Alpha",
+    members: [alice, bob],
+  });
+  await seedGroup({
+    id: "beta",
+    labId: "l2",
+    name: "Team Beta",
+    members: [carol],
+  });
+  // current lab → still excluded, even for a teacher
+  await seedGroup({ id: "here", labId: "l1", name: "Here", members: [alice] });
+
+  const res = await app.request("/api/classes/c1/labs/l1/reusable", {}, env);
+  const body = (await res.json()) as {
+    groups: Array<{ id: string; name: string }>;
+  };
+  // Both other-lab groups are reusable; the current lab's group is not.
+  expect(body.groups.map((g) => g.id).sort()).toEqual(["alpha", "beta"]);
+});
+
 // --- list ---
 
 test("lists only THIS lab's groups, with roster + repo + activity", async () => {
