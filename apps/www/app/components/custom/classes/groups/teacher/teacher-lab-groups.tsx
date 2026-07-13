@@ -19,6 +19,7 @@ import {
   StatusChip,
 } from "~/components/custom/classes/groups/teacher/roster";
 import { ConfirmDialog } from "~/components/custom/confirm-dialog";
+import { DisabledReason } from "~/components/custom/disabled-reason";
 import { DisclosureToggle } from "~/components/custom/disclosure-toggle";
 import { UserIdentity } from "~/components/custom/identity/user-identity";
 import { Row } from "~/components/custom/layout/row";
@@ -503,29 +504,37 @@ function GroupDrawer({
         className="sm:min-w-48 sm:border-border sm:border-l sm:pl-6"
       >
         <Text variant="overline">Group actions</Text>
-        <ConfirmDialog
-          title={`Delete ${group.name}?`}
-          description="The group and its GitHub team are removed. Students can form a new group for this lab afterwards."
-          confirmLabel="Delete group"
-          onConfirm={() => g.deleteGroup(group.id)}
-          trigger={
-            <Button
-              variant="outline"
-              size="sm"
-              type="button"
-              // The server refuses anyway (orphan protection, 409 has_repo)
-              // — the disabled state just says so up front.
-              disabled={g.busy || repo !== null}
-              title={
-                repo !== null
-                  ? "The group's work repository exists — it can't be deleted"
-                  : "Delete this group (and its GitHub team)"
-              }
-            >
-              Delete group
-            </Button>
+        <DisabledReason
+          reason={
+            repo !== null
+              ? "The group's work repository exists — it can't be deleted"
+              : null
           }
-        />
+        >
+          <ConfirmDialog
+            title={`Delete ${group.name}?`}
+            description="The group and its GitHub team are removed. Students can form a new group for this lab afterwards."
+            confirmLabel="Delete group"
+            onConfirm={() => g.deleteGroup(group.id)}
+            trigger={
+              <Button
+                variant="outline"
+                size="sm"
+                type="button"
+                // The server refuses anyway (orphan protection, 409 has_repo)
+                // — the disabled state just says so up front.
+                disabled={g.busy || repo !== null}
+                title={
+                  repo !== null
+                    ? undefined
+                    : "Delete this group (and its GitHub team)"
+                }
+              >
+                Delete group
+              </Button>
+            }
+          />
+        </DisabledReason>
       </Stack>
     </div>
   );

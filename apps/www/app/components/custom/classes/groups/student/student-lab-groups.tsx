@@ -7,6 +7,7 @@ import { NewGroupDialog } from "~/components/custom/classes/groups/shared/new-gr
 import { UnassignedPool } from "~/components/custom/classes/groups/shared/unassigned-pool";
 import { useLabGroups } from "~/components/custom/classes/groups/shared/use-lab-groups";
 import { StartLabCard } from "~/components/custom/classes/groups/student/start-lab-card";
+import { DisabledReason } from "~/components/custom/disabled-reason";
 import { Stack } from "~/components/custom/layout/stack";
 import { Text } from "~/components/custom/typography/text";
 import { Button } from "~/components/ui/button";
@@ -127,20 +128,24 @@ export function StudentLabGroups({
                 </>
               }
               actions={
-                <Button
-                  variant="outline"
-                  size="sm"
-                  type="button"
-                  disabled={g.busy || locked}
-                  title={
+                <DisabledReason
+                  reason={
                     locked
                       ? "The group's work repository exists — ask your teacher to move you."
-                      : "Leave this group"
+                      : null
                   }
-                  onClick={() => g.leave(mine.id)}
                 >
-                  Leave
-                </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    type="button"
+                    disabled={g.busy || locked}
+                    title={locked ? undefined : "Leave this group"}
+                    onClick={() => g.leave(mine.id)}
+                  >
+                    Leave
+                  </Button>
+                </DisabledReason>
               }
             />
             {/* The lab starts here once the group reaches the minimum size:
@@ -180,20 +185,28 @@ export function StudentLabGroups({
               notes={<MissingMembersNote group={group} min={g.min} />}
               actions={
                 group.members.length < g.max ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    type="button"
-                    disabled={g.busy || group.repoFullName !== null}
-                    title={
+                  <DisabledReason
+                    reason={
                       group.repoFullName !== null
                         ? "This group's repository exists — only your teacher can add members."
-                        : "Join this group for the lab"
+                        : null
                     }
-                    onClick={() => g.join(group.id)}
                   >
-                    Join
-                  </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      type="button"
+                      disabled={g.busy || group.repoFullName !== null}
+                      title={
+                        group.repoFullName !== null
+                          ? undefined
+                          : "Join this group for the lab"
+                      }
+                      onClick={() => g.join(group.id)}
+                    >
+                      Join
+                    </Button>
+                  </DisabledReason>
                 ) : null
               }
             />

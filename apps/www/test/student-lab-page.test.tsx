@@ -182,7 +182,7 @@ describe("StudentLabPage — group lab", () => {
     expect(screen.getByText(/This locks the group/)).toBeInTheDocument();
   });
 
-  it("locks Leave once your group's repo exists", () => {
+  it("locks Leave once your group's repo exists", async () => {
     mockApi(
       groupsData({
         groups: [
@@ -197,13 +197,17 @@ describe("StudentLabPage — group lab", () => {
 
     const leave = screen.getByRole("button", { name: "Leave" });
     expect(leave).toBeDisabled();
-    expect(leave).toHaveAttribute(
-      "title",
-      "The group's work repository exists — ask your teacher to move you.",
-    );
+    // The reason lives in a real tooltip (native title is unreliable on
+    // disabled buttons) — its trigger wraps the button, shown on focus.
+    fireEvent.focus(leave.parentElement as HTMLElement);
+    expect(
+      await screen.findByText(
+        "The group's work repository exists — ask your teacher to move you.",
+      ),
+    ).toBeInTheDocument();
   });
 
-  it("locks Join on a group whose repo exists", () => {
+  it("locks Join on a group whose repo exists", async () => {
     // Someone else's group: room left (1/3) but already locked by its repo.
     mockApi(
       groupsData({
@@ -216,10 +220,12 @@ describe("StudentLabPage — group lab", () => {
 
     const join = screen.getByRole("button", { name: "Join" });
     expect(join).toBeDisabled();
-    expect(join).toHaveAttribute(
-      "title",
-      "This group's repository exists — only your teacher can add members.",
-    );
+    fireEvent.focus(join.parentElement as HTMLElement);
+    expect(
+      await screen.findByText(
+        "This group's repository exists — only your teacher can add members.",
+      ),
+    ).toBeInTheDocument();
   });
 });
 
