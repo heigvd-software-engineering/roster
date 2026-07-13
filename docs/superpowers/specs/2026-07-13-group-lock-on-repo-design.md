@@ -14,8 +14,11 @@ immediately see that group's work. Nothing blocks the hop:
   check, unlike `deleteGroup` (409 `has_repo`).
 - `joinGroup` has no repo-existence check either; joining adds the caller to
   the GitHub team, which carries push on the group's private repo.
-- The solo "Withdraw" button is gated on `repo === null` in the frontend
-  only — the backend accepts the leave regardless.
+- The solo "Withdraw" button calls the group-delete endpoint, which already
+  refuses `has_repo` — so individual labs are covered on the backend today.
+  (Discovered during planning: that endpoint is also admin-gated, so a
+  student's Withdraw currently fails with 404 — a pre-existing defect,
+  tracked separately, out of scope here.)
 
 ## Design
 
@@ -29,8 +32,9 @@ Only the teacher can change a locked group, via the existing teacher-only
 
 - **`leaveGroup`**: if the group's `ghRepoId !== null`, return
   `409 { error: "has_repo" }` — the same error code `deleteGroup` uses for
-  the same condition. Solo "Withdraw" uses this endpoint, so individual labs
-  are covered by the same guard.
+  the same condition. (Solo "Withdraw" goes through the delete endpoint,
+  whose `has_repo` guard already exists — individual labs need no new
+  backend work.)
 - **`joinGroup`**: same guard, same 409. This is the check that closes the
   peek vector — it compares against our own DB column, so cache drift cannot
   weaken it.
