@@ -1,4 +1,4 @@
-import { Pencil } from "lucide-react";
+import { Pencil, Plus } from "lucide-react";
 import { useState } from "react";
 import { Row } from "~/components/custom/layout/row";
 import { Stack } from "~/components/custom/layout/stack";
@@ -36,10 +36,10 @@ function toDatetimeLocal(iso: string) {
 
 /**
  * The lab dialog (F6): title + deadline + mode (group reveals min/max).
- * CREATE mode (no `lab`) triggers from the ghost row at the labs table's
- * foot; EDIT mode (`lab` given) triggers from the pencil on the lab's row
- * and prefills from it — same form, same validation, PUT instead of POST.
- * On success the classes list revalidates and the dialog closes.
+ * CREATE mode (no `lab`) triggers from the class toolbar; EDIT mode (`lab`
+ * given) triggers from the pencil on the lab's row and prefills from it —
+ * same form, same validation, PUT instead of POST. On success the classes
+ * list revalidates and the dialog closes.
  */
 export function LabDialog({
   classId,
@@ -157,18 +157,18 @@ export function LabDialog({
           <Pencil className="size-3.5 text-muted-foreground" />
         </DialogTrigger>
       ) : (
-        // Notion-style ghost row at the table's foot: the add action lives
-        // where the added lab will appear.
         <DialogTrigger
           render={
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               type="button"
               title="Create a new lab in this class"
-              className="flex w-full cursor-pointer items-center gap-2 px-5 py-2.5 text-left text-muted-foreground text-sm transition-colors hover:bg-muted/60 hover:text-foreground"
             />
           }
         >
-          <span className="font-mono">+</span> New lab
+          <Plus className="text-muted-foreground" />
+          New lab
         </DialogTrigger>
       )}
       <DialogContent className="sm:max-w-md">

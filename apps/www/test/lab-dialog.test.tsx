@@ -26,7 +26,7 @@ beforeEach(() => {
 
 function openDialog() {
   render(<LabDialog classId="c1" onSaved={onSaved} />);
-  fireEvent.click(screen.getByRole("button", { name: "+ New lab" }));
+  fireEvent.click(screen.getByRole("button", { name: "New lab" }));
 }
 
 describe("LabDialog", () => {
