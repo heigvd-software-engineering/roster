@@ -79,9 +79,7 @@ describe("ClassCard org identity", () => {
 describe("ClassCard student invitation link", () => {
   it("explains it invites per class before offering the copy", () => {
     renderCard();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Student invitation link" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Invite students" }));
     // The one thing a teacher gets wrong: thinking they invite students to a
     // lab. The popover has to say the link is per class.
     expect(
@@ -94,9 +92,7 @@ describe("ClassCard student invitation link", () => {
     vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
 
     renderCard();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Student invitation link" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Invite students" }));
     fireEvent.click(
       screen.getByRole("button", { name: "Copy invitation link" }),
     );
@@ -120,7 +116,7 @@ describe("ClassCard labs (F6)", () => {
     // lives on the lab pages, the hub stays lean.
     expect(screen.queryByText("Progress")).not.toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "+ New lab" }),
+      screen.getByRole("button", { name: "New lab" }),
     ).toBeInTheDocument();
   });
 
@@ -132,31 +128,24 @@ describe("ClassCard labs (F6)", () => {
   });
 });
 
-describe("ClassCard audit + reconcile", () => {
-  it("offers the audit beside the join link, not behind an ellipsis", () => {
+describe("ClassCard GitHub sync (reconcile)", () => {
+  it("offers the sync in the toolbar, not behind an ellipsis", () => {
     renderCard();
     expect(
-      screen.getByRole("button", {
-        name: "GitHub compliance audit of this class",
-      }),
+      screen.getByRole("button", { name: "GitHub sync" }),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "More class actions" }),
     ).not.toBeInTheDocument();
   });
 
-  it("says the audit only reads before offering the link", () => {
+  it("says the sync starts read-only before offering the link", () => {
     renderCard();
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "GitHub compliance audit of this class",
-      }),
-    );
-    // The refresh icon reads as "repair now" — the copy has to say it doesn't.
-    expect(screen.getByText(/audit only reads/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Run the audit" })).toHaveAttribute(
-      "href",
-      "/classes/c1/reconcile",
-    );
+    fireEvent.click(screen.getByRole("button", { name: "GitHub sync" }));
+    // "Sync" reads as "repair now" — the copy has to say it doesn't.
+    expect(screen.getByText(/read-only comparison/)).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Review differences" }),
+    ).toHaveAttribute("href", "/classes/c1/reconcile");
   });
 });

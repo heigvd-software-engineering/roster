@@ -26,9 +26,9 @@ function peopleLabel(count: number, noun: string, pendingCount: number) {
 
 /**
  * One connected class (GitHub org) as a single flat surface: identity + people
- * stats + join-link action in the masthead, then the labs table sectioned off
- * by a hairline — no nested boxes. Everything live: people popovers (F5b),
- * join link (F4), labs + New-lab ghost row (F6).
+ * stats in the masthead (information only), then a toolbar with every class
+ * action side by side — New lab, invite link (F4), GitHub sync — then the labs
+ * table (F6), each sectioned off by a hairline — no nested boxes.
  */
 export function ClassCard({
   id,
@@ -92,18 +92,27 @@ export function ClassCard({
             emptyText="No teachers found."
             people={teachers.map((p) => withUser(p))}
           />
-          <JoinLinkAction joinToken={joinToken} />
-          <ReconcileAction classId={id} />
           <RoleChip kind="teaching" />
         </Row>
+      </Row>
+
+      {/* The class toolbar: every action side by side — create, invite, sync —
+          so one row answers "what can I do to this class". The masthead above
+          carries information only. */}
+      <Row gap="sm" wrap className="border-border border-t px-3 py-1">
+        <LabDialog classId={id} onSaved={onChanged} />
+        <ToolbarDivider />
+        <JoinLinkAction joinToken={joinToken} />
+        <ToolbarDivider />
+        <ReconcileAction classId={id} />
       </Row>
 
       {/* The labs table — sectioned off by a hairline, not a nested box. */}
       <div className="w-full overflow-x-auto border-border border-t">
         <div className="min-w-[660px]">
           {labs.length === 0 ? (
-            <Text variant="body2" className="px-5 pt-3">
-              No labs yet — add the first one.
+            <Text variant="body2" className="px-5 py-3">
+              No labs yet — use "New lab" above.
             </Text>
           ) : (
             <>
@@ -120,11 +129,16 @@ export function ClassCard({
               ))}
             </>
           )}
-          <LabDialog classId={id} onSaved={onChanged} />
         </div>
       </div>
     </Card>
   );
+}
+
+/** Hairline between toolbar actions — makes the row read as one toolbar,
+ *  not three stray buttons. */
+function ToolbarDivider() {
+  return <span aria-hidden className="h-4 w-px bg-border" />;
 }
 
 /**
@@ -153,16 +167,16 @@ function JoinLinkAction({ joinToken }: { joinToken: string }) {
         render={
           <Button
             variant="ghost"
-            size="icon"
+            size="sm"
             type="button"
-            aria-label="Student invitation link"
             title="Student invitation link"
           />
         }
       >
-        <Link2 className="size-4 text-muted-foreground" />
+        <Link2 className="text-muted-foreground" />
+        Invite students
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-80">
+      <PopoverContent align="start" className="w-80">
         <Stack gap="sm">
           <Text variant="body2" className="font-medium text-foreground">
             Invite students
@@ -200,13 +214,13 @@ function JoinLinkAction({ joinToken }: { joinToken: string }) {
 }
 
 /**
- * Audit + reconcile, beside the join link rather than behind an ellipsis: a
- * teacher whose class has drifted needs to FIND this, and a drifted class is the
- * failure they came to fix.
+ * Reconciliation's entry point, labeled "GitHub sync" — the word in a teacher's
+ * head when the class has drifted ("audit"/"reconcile" is system vocabulary),
+ * and the label a new user can read without hovering.
  *
- * The popover exists because the refresh icon is a lie on its own — this button
- * opens an AUDIT and repairs nothing. Consent is the whole design, and the one
- * place to say so is before the click.
+ * The popover carries the honesty the label gives up: this button opens a
+ * read-only comparison and repairs nothing. Consent is the whole design, and
+ * the one place to say so is before the click.
  */
 function ReconcileAction({ classId }: { classId: string }) {
   return (
@@ -215,34 +229,35 @@ function ReconcileAction({ classId }: { classId: string }) {
         render={
           <Button
             variant="ghost"
-            size="icon"
+            size="sm"
             type="button"
-            aria-label="GitHub compliance audit of this class"
-            title="GitHub compliance audit of this class"
+            title="Sync this class with GitHub"
           />
         }
       >
-        <RefreshCw className="size-4 text-muted-foreground" />
+        <RefreshCw className="text-muted-foreground" />
+        GitHub sync
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-80">
+      <PopoverContent align="start" className="w-80">
         <Stack gap="sm">
           <Text variant="body2" className="font-medium text-foreground">
-            GitHub compliance audit
+            Sync with GitHub
           </Text>
           <Text variant="caption">
-            GitHub owns this class. labs keeps a copy, and it drifts when
-            changes are made directly on GitHub.
+            labs orchestrates this class on GitHub — day to day, everything is
+            managed from the app. But changes can still be made directly on
+            GitHub; sync is how you track and fix them.
           </Text>
           <Text variant="caption">
-            The audit only reads. You choose which differences to fix — nothing
-            changes until you apply.
+            Syncing starts with a read-only comparison. You choose which
+            differences to fix — nothing changes until you apply.
           </Text>
           <Button
             size="sm"
             className="mt-1 w-full"
             render={<Link to={`/classes/${classId}/reconcile`} />}
           >
-            Run the audit
+            Review differences
           </Button>
         </Stack>
       </PopoverContent>
