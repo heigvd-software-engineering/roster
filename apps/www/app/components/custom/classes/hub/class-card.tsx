@@ -1,6 +1,7 @@
 import { Check, Link2, RefreshCw } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
+import { InviteTeacherDialog } from "~/components/custom/classes/hub/invite-teacher-dialog";
 import { PeopleChip } from "~/components/custom/classes/hub/people-chip";
 import { LabDialog } from "~/components/custom/classes/labs/lab-dialog";
 import { LabRow, LabsHeader } from "~/components/custom/classes/labs/lab-row";
@@ -103,6 +104,8 @@ export function ClassCard({
         <LabDialog classId={id} onSaved={onChanged} />
         <ToolbarDivider />
         <JoinLinkAction joinToken={joinToken} />
+        <ToolbarDivider />
+        <InviteTeacherDialog classId={id} onDone={onChanged} />
         <ToolbarDivider />
         <ReconcileAction classId={id} />
       </Row>

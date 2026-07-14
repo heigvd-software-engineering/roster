@@ -1,5 +1,7 @@
+import { zValidator } from "@hono/zod-validator";
 import { account, classes, classMembers, getDb, labs, user } from "@labs/db";
 import { and, desc, eq, gte, inArray, lt } from "drizzle-orm";
+import { z } from "zod";
 import { authedFactory } from "../factory";
 import {
   callerGithub,
@@ -7,9 +9,14 @@ import {
   resolveClassAsTeacher,
 } from "../lib/access";
 import { githubAccessToken } from "../lib/auth/github-token";
+import { observeMember } from "../lib/enrollment";
 import {
   basePermission,
+  inviteOrgAdmin,
+  lookupUser,
   type OrgPerson,
+  orgMembership,
+  promoteToOrgAdmin,
   setBasePermissionNone,
 } from "../lib/github/org";
 import {
@@ -43,6 +50,81 @@ export const confirmClass = authedFactory.createHandlers(async (c) => {
     org: { login: access.org },
   });
 });
+
+/** GitHub usernames: 1–39 chars, alphanumeric or single hyphens. The API
+ *  lookup is the real validator; this just refuses garbage early. */
+const teacherInput = z.object({
+  username: z.string().trim().min(1).max(39),
+});
+
+/**
+ * Teacher-only: make someone a teacher (org Owner). An active member is
+ * promoted in place; a non-member gets an Owner invitation and stays
+ * `pending` until they accept on GitHub. Either way this is a WRITE POINT
+ * for the `class_members` display cache (data-model spec §2): the app
+ * observes its own change, so no reconcile run is needed — that stays the
+ * repair path for out-of-band changes only.
+ */
+export const inviteTeacher = authedFactory.createHandlers(
+  zValidator("json", teacherInput),
+  async (c) => {
+    const access = await resolveClassAsTeacher(c, c.req.param("id"));
+    if (!access) return c.json({ error: "not_found" }, 404);
+    const { db, cls, org } = access;
+    const { username } = c.req.valid("json");
+
+    const ghUser = await lookupUser(c.env, cls.installationId, username);
+    if (!ghUser) return c.json({ error: "no_such_user" }, 404);
+
+    const membership = await orgMembership(
+      c.env,
+      cls.installationId,
+      org,
+      ghUser.login,
+    );
+    // Order matters: a pending invite (whatever its role) reads as "already
+    // invited" — GitHub refuses a second invitation anyway.
+    if (membership?.state === "pending") {
+      return c.json({ error: "already_invited" }, 409);
+    }
+    if (membership?.role === "admin") {
+      return c.json({ error: "already_teacher" }, 409);
+    }
+
+    if (membership) {
+      // An active member (a student) — promoted in place, teacher instantly.
+      await promoteToOrgAdmin(c.env, cls.installationId, org, ghUser.login);
+      await observeMember(
+        db,
+        cls.id,
+        {
+          githubId: String(ghUser.id),
+          login: ghUser.login,
+          avatarUrl: ghUser.avatarUrl,
+        },
+        "teacher",
+      );
+      return c.json({ state: "teacher" as const });
+    }
+
+    // Not in the org — an Owner invitation. The pending cache row is keyed on
+    // the INVITATION id (not the user id), exactly as the live roster reports
+    // pending people — so the roster reconciler sees no drift.
+    const invitationId = await inviteOrgAdmin(
+      c.env,
+      cls.installationId,
+      org,
+      ghUser.id,
+    );
+    await observeMember(
+      db,
+      cls.id,
+      { githubId: String(invitationId), login: ghUser.login, avatarUrl: null },
+      "pending",
+    );
+    return c.json({ state: "pending" as const });
+  },
+);
 
 /** The teacher hub's data: the caller's classes (live org Owner check),
  *  each with live people, linked labs users, and its labs. `?from=<iso>`

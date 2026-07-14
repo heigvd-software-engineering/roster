@@ -102,6 +102,59 @@ export async function inviteOrgMember(
   return data.state;
 }
 
+/** The GitHub user behind a typed username — canonical id/login/avatar, or
+ *  null when no such user exists (404). Other errors propagate. */
+export async function lookupUser(
+  env: AuthEnv,
+  installationId: number,
+  username: string,
+): Promise<{ id: number; login: string; avatarUrl: string } | null> {
+  const gh = await installationOctokit(env, installationId);
+  try {
+    const { data } = await gh.request("GET /users/{username}", { username });
+    return { id: data.id, login: data.login, avatarUrl: data.avatar_url };
+  } catch (err) {
+    if ((err as { status?: number }).status === 404) {
+      return null;
+    }
+    throw err;
+  }
+}
+
+/** Promote an active org Member to Owner (teacher). Same call as
+ *  `inviteOrgMember`, elevated role. */
+export async function promoteToOrgAdmin(
+  env: AuthEnv,
+  installationId: number,
+  org: string,
+  username: string,
+): Promise<void> {
+  const gh = await installationOctokit(env, installationId);
+  await gh.request("PUT /orgs/{org}/memberships/{username}", {
+    org,
+    username,
+    role: "admin",
+  });
+}
+
+/** Invite a NON-member as an org Owner (teacher). Returns the invitation id —
+ *  pending people are keyed on it, both on the live roster
+ *  (`GET /orgs/{org}/invitations`) and in the `class_members` cache. */
+export async function inviteOrgAdmin(
+  env: AuthEnv,
+  installationId: number,
+  org: string,
+  inviteeId: number,
+): Promise<number> {
+  const gh = await installationOctokit(env, installationId);
+  const { data } = await gh.request("POST /orgs/{org}/invitations", {
+    org,
+    invitee_id: inviteeId,
+    role: "admin",
+  });
+  return data.id;
+}
+
 export type OrgPerson = {
   id: number;
   login: string;
