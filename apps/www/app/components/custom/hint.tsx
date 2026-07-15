@@ -20,7 +20,7 @@ import { cn } from "~/lib/utils";
 const VARIANT = {
   info: {
     icon: Info,
-    className: "text-muted-foreground",
+    className: "text-info",
     fallbackLabel: "More information",
   },
   warning: {
