@@ -99,11 +99,8 @@ export function TeacherLabGroups({
     haystack: [
       group.name,
       ...group.members.flatMap((m) => {
-        const { name, handle } = personIdentity(
-          m,
-          userByGithubId.get(String(m.id)),
-        );
-        return [name, handle];
+        const { name } = personIdentity(m, userByGithubId.get(String(m.id)));
+        return [name, m.login];
       }),
     ]
       .join(" ")
