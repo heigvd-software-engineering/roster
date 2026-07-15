@@ -115,9 +115,7 @@ describe("ClassCard labs (F6)", () => {
     // The Progress column was dropped (user-decided 2026-07-07): standing
     // lives on the lab pages, the hub stays lean.
     expect(screen.queryByText("Progress")).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "New lab" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "New lab" })).toBeInTheDocument();
   });
 
   it("shows the explicit deadline date and time", () => {
