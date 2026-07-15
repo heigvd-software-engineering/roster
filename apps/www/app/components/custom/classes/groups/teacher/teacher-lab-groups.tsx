@@ -508,18 +508,17 @@ function GroupDrawer({
           memberAction={(member) => (
             <Row gap="xs">
               {userByGithubId.has(String(member.id)) ? null : (
-                // The join flow requires a SWITCH sign-in — an unlinked
-                // member entered the org some other way (e.g. a direct
-                // GitHub invitation) and their identity is only a login.
+                // The identity lookup is by GitHub account id — the link
+                // forms on its own the moment the student signs in with
+                // SWITCH and connects this account. Inform, don't alarm.
                 <Hint
-                  variant="warning"
-                  label={`Unverified GitHub account @${member.login}`}
-                  title="No SWITCH identity"
+                  label={`@${member.login} hasn't signed in yet`}
+                  title="No SWITCH identity yet"
                 >
-                  This GitHub account isn't linked to any SWITCH edu-ID sign-in,
-                  so it can't be matched to an enrolled student. It likely
-                  entered the organization outside the app — e.g. a direct
-                  GitHub invitation.
+                  This GitHub account isn't connected to a SWITCH edu-ID sign-in
+                  yet, so only the login can be shown. Once the student signs in
+                  to the app with SWITCH and connects this GitHub account, their
+                  real name appears here automatically.
                 </Hint>
               )}
               <Button

@@ -178,16 +178,16 @@ describe("TeacherLabPage", () => {
     render(<TeacherLabPage />);
 
     fireEvent.click(screen.getByRole("button", { name: "Manage Team Alpha" }));
-    // bob carries the warning, alice doesn't.
+    // bob carries the info hint, alice doesn't.
     fireEvent.click(
-      screen.getByRole("button", { name: "Unverified GitHub account @bob" }),
+      screen.getByRole("button", { name: "@bob hasn't signed in yet" }),
     );
     expect(
-      screen.getByText(/can't be matched to an enrolled student/),
+      screen.getByText(/their real name appears here automatically/),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", {
-        name: "Unverified GitHub account @alice",
+        name: "@alice hasn't signed in yet",
       }),
     ).not.toBeInTheDocument();
   });
