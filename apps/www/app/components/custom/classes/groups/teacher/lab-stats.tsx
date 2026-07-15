@@ -2,7 +2,7 @@ import { CAPS_LABEL } from "~/components/custom/typography/text";
 import { Card } from "~/components/ui/card";
 import { cn } from "~/lib/utils";
 
-export type LabStat = {
+type LabStat = {
   value: number;
   /** Renders as a smaller, muted "/total" behind the value. */
   total?: number;

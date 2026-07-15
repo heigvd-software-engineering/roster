@@ -25,17 +25,11 @@ const TONE = {
   bad: "bg-brand/10 text-brand",
   muted: "bg-foreground/6 text-muted-foreground",
 } as const;
-export type PillTone = keyof typeof TONE;
+type PillTone = keyof typeof TONE;
 
 /** Dot + mono label pill — the roster's status vocabulary, reused wherever
  *  a group needs a verdict at a glance (chips, the attach menu). */
-export function Pill({
-  tone,
-  children,
-}: {
-  tone: PillTone;
-  children: ReactNode;
-}) {
+function Pill({ tone, children }: { tone: PillTone; children: ReactNode }) {
   return (
     <span
       className={cn(

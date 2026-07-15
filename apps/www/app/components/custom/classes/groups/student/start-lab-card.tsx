@@ -143,7 +143,7 @@ export function StartLabCard({
 
 /** The clone-and-enter snippet as a copyable code block — shared by the
  *  group start-lab card and the individual lab's accepted state. */
-export function CloneCommands({
+function CloneCommands({
   fullName,
   className,
 }: {
