@@ -18,6 +18,9 @@ const state = vi.hoisted(() => ({
     string,
     { role: string; state: string }
   > | null,
+  // The caller's own GitHub login (rides on the memberships call). Only set in
+  // tests that exercise the self-heal of the caller's own pending row.
+  callerLogin: null as string | null,
   people: {
     teachers: [{ id: 111, login: "prof", avatarUrl: "http://p" }],
     students: [{ id: 2, login: "student", avatarUrl: "http://s" }],
@@ -80,7 +83,7 @@ const userOrgMembershipsMock = vi.hoisted(() =>
         });
       }
     }
-    return byLogin;
+    return { byLogin, login: state.callerLogin ?? null };
   }),
 );
 
