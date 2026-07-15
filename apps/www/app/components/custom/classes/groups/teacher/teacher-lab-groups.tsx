@@ -612,26 +612,29 @@ function AddFromPool({
               No student matches.
             </Text>
           ) : (
-            filtered.map((s) => (
-              <button
-                key={s.githubId}
-                type="button"
-                onClick={() => add(s.login)}
-                disabled={pending !== null}
-                className="w-full rounded-md px-2 py-1.5 text-left transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-60"
-              >
-                <UserIdentity
-                  {...identityFor(s)}
-                  action={
-                    pending === s.login ? (
+            filtered.map((s) => {
+              // Inside a <button>: display only — no emails menu here
+              // (nested interactive elements are invalid HTML).
+              const { emails: _emails, ...identity } = identityFor(s);
+              return (
+                <button
+                  key={s.githubId}
+                  type="button"
+                  onClick={() => add(s.login)}
+                  disabled={pending !== null}
+                  className="w-full rounded-md px-2 py-1.5 text-left transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-60"
+                >
+                  <Row gap="sm" align="center">
+                    <UserIdentity {...identity} className="min-w-0 flex-1" />
+                    {pending === s.login ? (
                       <span className="font-mono text-muted-foreground text-xs">
                         adding…
                       </span>
-                    ) : null
-                  }
-                />
-              </button>
-            ))
+                    ) : null}
+                  </Row>
+                </button>
+              );
+            })
           )}
         </div>
       </PopoverContent>

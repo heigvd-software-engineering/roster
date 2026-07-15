@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { UserIdentity } from "~/components/custom/identity/user-identity";
 
@@ -39,40 +39,8 @@ describe("UserIdentity", () => {
     expect(avatarSize()).toBe("lg");
   });
 
-  it("hides emails behind a chevron that opens a floating menu", () => {
-    render(
-      <UserIdentity
-        name="Alice"
-        handle="alice"
-        emails={["alice@heig-vd.ch", "alice@unil.ch"]}
-      />,
-    );
-
-    // The handle stays visible with or without emails.
-    expect(screen.getByText("@alice")).toBeInTheDocument();
-    expect(screen.queryByText("alice@heig-vd.ch")).not.toBeInTheDocument();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Show Alice's emails" }),
-    );
-    expect(screen.getByText("alice@heig-vd.ch")).toBeInTheDocument();
-    expect(screen.getByText("alice@unil.ch")).toBeInTheDocument();
-  });
-
-  it("renders no chevron when there are no emails", () => {
-    render(<UserIdentity name="Bob" handle="bob" emails={[]} />);
-    expect(
-      screen.queryByRole("button", { name: "Show Bob's emails" }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("hangs an action off the end of the row", () => {
-    render(
-      <UserIdentity
-        name="Alice"
-        handle="alice"
-        action={<button type="button">Remove</button>}
-      />,
-    );
-    expect(screen.getByRole("button", { name: "Remove" })).toBeInTheDocument();
+  it("renders nothing interactive — pure display", () => {
+    render(<UserIdentity name="Alice" handle="alice" />);
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 });

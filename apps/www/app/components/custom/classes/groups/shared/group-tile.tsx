@@ -1,5 +1,6 @@
 import { GitBranch } from "lucide-react";
 import type { ReactNode } from "react";
+import { EmailsMenu } from "~/components/custom/identity/emails-menu";
 import { UserIdentity } from "~/components/custom/identity/user-identity";
 import { Row } from "~/components/custom/layout/row";
 import { Stack } from "~/components/custom/layout/stack";
@@ -129,14 +130,27 @@ export function GroupMembers({
   }
   return (
     <Stack gap="sm">
-      {members.map((member) => (
-        <UserIdentity
-          key={member.id}
-          {...personIdentity(member, userByGithubId.get(String(member.id)))}
-          action={memberAction?.(member)}
-          className={memberClassName}
-        />
-      ))}
+      {members.map((member) => {
+        const { emails, ...identity } = personIdentity(
+          member,
+          userByGithubId.get(String(member.id)),
+        );
+        return (
+          // The identity is pure display; everything interactive (emails
+          // menu, the teacher's remove ×) sits NEXT to it, clustered at
+          // the row's right edge.
+          <Row
+            key={member.id}
+            gap="sm"
+            align="center"
+            className={memberClassName}
+          >
+            <UserIdentity {...identity} className="min-w-0 flex-1" />
+            <EmailsMenu name={identity.name} emails={emails} />
+            {memberAction?.(member)}
+          </Row>
+        );
+      })}
     </Stack>
   );
 }

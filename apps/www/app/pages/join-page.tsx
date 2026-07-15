@@ -3,6 +3,7 @@ import { ArrowRightIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
+import { EmailsMenu } from "~/components/custom/identity/emails-menu";
 import { OrgIdentity } from "~/components/custom/identity/org-identity";
 import { UserIdentity } from "~/components/custom/identity/user-identity";
 import { Row } from "~/components/custom/layout/row";
@@ -218,8 +219,11 @@ export function JoinPage() {
               name={github.name ?? github.login}
               handle={github.login}
               avatarUrl={github.avatarUrl}
-              emails={affiliations}
               size="lg"
+            />
+            <EmailsMenu
+              name={github.name ?? github.login}
+              emails={affiliations}
             />
             <ArrowRightIcon
               aria-label="joins"

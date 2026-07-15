@@ -1,3 +1,4 @@
+import { EmailsMenu } from "~/components/custom/identity/emails-menu";
 import { UserIdentity } from "~/components/custom/identity/user-identity";
 import { Row } from "~/components/custom/layout/row";
 import { Text } from "~/components/custom/typography/text";
@@ -76,13 +77,19 @@ export function PeopleChip({
                     {p.user ? (
                       // SWITCH identity: initials, never a photo. The GitHub
                       // login is part of the identity; the private email is
-                      // gone — affiliation (professional) emails live behind
-                      // the chevron's menu instead.
-                      <UserIdentity
-                        name={switchDisplayName(p.user)}
-                        handle={p.login}
-                        emails={p.user.affiliations}
-                      />
+                      // gone — affiliation (professional) emails live in the
+                      // chevron's menu NEXT to the identity.
+                      <Row gap="sm">
+                        <UserIdentity
+                          name={switchDisplayName(p.user)}
+                          handle={p.login}
+                          className="min-w-0 flex-1"
+                        />
+                        <EmailsMenu
+                          name={switchDisplayName(p.user)}
+                          emails={p.user.affiliations}
+                        />
+                      </Row>
                     ) : (
                       <Text variant="body2">not linked</Text>
                     )}
