@@ -24,6 +24,7 @@ import {
 } from "./github/team";
 import { fetchGithubProfile, GithubUnavailableError } from "./github/user";
 import { syncGroupMembers } from "./group-members";
+import { readAffiliationEmails } from "./switch/claims";
 
 /**
  * Class-scoped access resolution — the ONE home for "who is the caller to
@@ -82,7 +83,7 @@ export async function callerGithub(
  *  `roster` only where the answer AUTHORIZES or gates an irreversible write:
  *  "is the caller in this group", "does this team still exist", "is the group
  *  complete enough to get a repo". A cache may never decide those. */
-export type ClassTeam = {
+type ClassTeam = {
   roster: (slug: string) => ReturnType<typeof teamMembers>;
   add: (slug: string, login: string) => Promise<void>;
   remove: (slug: string, login: string) => Promise<void>;
@@ -277,12 +278,21 @@ export async function labInClass(
   return row && row.classId === scope.cls.id ? row : null;
 }
 
-/** SWITCH users linked to GitHub accounts — raw query rows; clients
- *  correlate them by github id (one query for any people/roster list). */
+/** SWITCH users linked to GitHub accounts, in the ONE shape that may leave
+ *  the server for other class members: display-name fields + affiliation
+ *  (professional) emails, decoded from each user's stored SWITCH id_token.
+ *  The private login email NEVER rides here — /api/me alone may show it,
+ *  and only to its owner. Clients correlate rows by github id. */
 export async function linkedUsers(db: Db, githubIds: string[]) {
   if (githubIds.length === 0) return [];
-  return db
-    .select({ githubId: account.accountId, user })
+  const rows = await db
+    .select({
+      githubId: account.accountId,
+      userId: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      name: user.name,
+    })
     .from(account)
     .innerJoin(user, eq(account.userId, user.id))
     .where(
@@ -291,4 +301,35 @@ export async function linkedUsers(db: Db, githubIds: string[]) {
         inArray(account.accountId, githubIds),
       ),
     );
+  if (rows.length === 0) return [];
+  const affiliations = await affiliationsByUserId(
+    db,
+    rows.map((r) => r.userId),
+  );
+  return rows.map(({ githubId, userId, ...names }) => ({
+    githubId,
+    user: { ...names, affiliations: affiliations.get(userId) ?? [] },
+  }));
+}
+
+/** Affiliation (professional) emails for many users at once, decoded from
+ *  each stored SWITCH id_token (as fresh as that user's last sign-in) —
+ *  never persisted separately. The shared piece of every people payload. */
+export async function affiliationsByUserId(
+  db: Db,
+  userIds: string[],
+): Promise<Map<string, string[]>> {
+  if (userIds.length === 0) return new Map();
+  const rows = await db
+    .select({ userId: account.userId, idToken: account.idToken })
+    .from(account)
+    .where(
+      and(eq(account.providerId, "switch"), inArray(account.userId, userIds)),
+    );
+  return new Map(
+    rows.map((r) => [
+      r.userId,
+      r.idToken ? readAffiliationEmails(r.idToken) : [],
+    ]),
+  );
 }

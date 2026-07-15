@@ -5,15 +5,10 @@ import { ClassCard } from "~/components/custom/classes/hub/class-card";
 import { formatDeadline } from "~/lib/format";
 
 const profUser = {
-  id: "u1",
   name: "Bob Prof",
   firstName: "Bob",
   lastName: "Prof",
-  email: "bob@heig-vd.ch",
-  emailVerified: true,
-  image: null,
-  createdAt: "1970-01-01T00:00:00.000Z",
-  updatedAt: "1970-01-01T00:00:00.000Z",
+  affiliations: ["b.prof@heig-vd.ch"],
 };
 
 const lab = {
@@ -115,9 +110,7 @@ describe("ClassCard labs (F6)", () => {
     // The Progress column was dropped (user-decided 2026-07-07): standing
     // lives on the lab pages, the hub stays lean.
     expect(screen.queryByText("Progress")).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "New lab" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "New lab" })).toBeInTheDocument();
   });
 
   it("shows the explicit deadline date and time", () => {

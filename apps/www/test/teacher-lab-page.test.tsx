@@ -80,8 +80,8 @@ const groupsData = {
   users: [],
   // The pool source: the class_members cache riding on the response.
   students: [
-    { githubId: "7", login: "alice", avatarUrl: "http://a" },
-    { githubId: "8", login: "bob", avatarUrl: null },
+    { githubId: "7", login: "alice", avatarUrl: "http://a", state: "active" },
+    { githubId: "8", login: "bob", avatarUrl: null, state: "active" },
   ],
 };
 
@@ -102,8 +102,9 @@ describe("TeacherLabPage", () => {
       screen.getByText(/Students without a group for this lab/),
     ).toBeInTheDocument();
     // The pool collapses at every size — the names are one click away.
+    // alice is GitHub-only here → named by her login (no @handle line).
     fireEvent.click(screen.getByRole("button", { name: "Show the student" }));
-    expect(screen.getByText("@alice")).toBeInTheDocument();
+    expect(screen.getByText("alice")).toBeInTheDocument();
     // The roster: Team Alpha with 1/2 members → under min.
     expect(screen.getByText("Team Alpha")).toBeInTheDocument();
     expect(screen.getByText("under min")).toBeInTheDocument();
@@ -146,6 +147,61 @@ describe("TeacherLabPage", () => {
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Manage Team Alpha" }));
     expect(screen.getByRole("button", { name: "Delete group" })).toBeDisabled();
+  });
+
+  it("offers an unplaced teacher in the add-picker but not in the pool", () => {
+    mockApi({
+      ...groupsData,
+      groups: [grp({ members: [bob] })],
+      students: [
+        ...groupsData.students,
+        {
+          githubId: "500",
+          login: "teach",
+          avatarUrl: null,
+          state: "teacher",
+        },
+      ],
+    });
+    render(<TeacherLabPage />);
+
+    // The strip counts only alice — a teacher is not a missing student.
+    expect(
+      screen.getByRole("button", { name: "Show the student" }),
+    ).toBeInTheDocument();
+    // But the picker can (re)place the teacher, tagged as one.
+    fireEvent.click(screen.getByRole("button", { name: "Manage Team Alpha" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /Add from the pool \(2\)/ }),
+    );
+    expect(screen.getByText("teach")).toBeInTheDocument();
+    expect(screen.getByText("teacher")).toBeInTheDocument();
+  });
+
+  it("reveals a member's affiliation emails from the drawer roster", () => {
+    mockApi({
+      ...groupsData,
+      groups: [grp({ members: [alice] })],
+      users: [
+        {
+          githubId: "7",
+          user: {
+            firstName: "Alice",
+            lastName: "Ok",
+            name: "alice",
+            affiliations: ["alice@heig-vd.ch"],
+          },
+        },
+      ],
+    });
+    render(<TeacherLabPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Manage Team Alpha" }));
+    expect(screen.queryByText("alice@heig-vd.ch")).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Show Alice Ok's emails" }),
+    );
+    expect(screen.getByText("alice@heig-vd.ch")).toBeInTheDocument();
   });
 
   it("confirms the batch repo creation and says it locks the groups", () => {

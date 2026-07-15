@@ -89,8 +89,8 @@ const groupsData = (over?: Record<string, unknown>) => ({
   users: [],
   // The pool source: the class_members cache riding on the response.
   students: [
-    { githubId: "7", login: "alice", avatarUrl: "http://a" },
-    { githubId: "8", login: "bob", avatarUrl: null },
+    { githubId: "7", login: "alice", avatarUrl: "http://a", state: "active" },
+    { githubId: "8", login: "bob", avatarUrl: null, state: "active" },
   ],
   ...over,
 });

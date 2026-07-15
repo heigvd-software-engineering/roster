@@ -1,6 +1,6 @@
 import { zValidator } from "@hono/zod-validator";
 import { classMembers, type Group, groups, type Lab, labs } from "@labs/db";
-import { and, desc, eq, isNull, ne } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, ne } from "drizzle-orm";
 import type { Context } from "hono";
 import { z } from "zod";
 import { authedFactory } from "../factory";
@@ -108,17 +108,22 @@ export const listLabGroups = authedFactory.createHandlers(async (c) => {
       : null,
   }));
 
+  // Active students AND teachers, each with their state: the "without a
+  // group" strip shows only students, but the teacher's add-picker must be
+  // able to (re)place anyone the server would accept — removing a teacher
+  // from a group must not make them unaddable.
   const students = await access.db
     .select({
       githubId: classMembers.githubId,
       login: classMembers.login,
       avatarUrl: classMembers.avatarUrl,
+      state: classMembers.state,
     })
     .from(classMembers)
     .where(
       and(
         eq(classMembers.classId, access.cls.id),
-        eq(classMembers.state, "active"),
+        inArray(classMembers.state, ["active", "teacher"]),
       ),
     );
   const users = await linkedUsers(access.db, [

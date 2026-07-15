@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { UserAvatar } from "~/components/custom/identity/user-avatar";
 import { Row } from "~/components/custom/layout/row";
 import { Stack } from "~/components/custom/layout/stack";
@@ -21,8 +20,6 @@ type UserIdentityProps = {
   /** "sm" for lists (rosters, pools, pickers); "lg" for the top bar and the
    *  join page's you→class pair. */
   size?: "sm" | "lg";
-  /** Rides the row's right edge when the row has width (remove ×, "adding…"). */
-  action?: ReactNode;
   className?: string;
 } & SecondLine;
 
@@ -32,6 +29,11 @@ type UserIdentityProps = {
  * app — the group roster, the unassigned pool, the add-from-pool picker, the
  * people table, the join page and the account menu all render this.
  *
+ * PURE DISPLAY on purpose: rows render inside buttons (the add-from-pool
+ * picker), so anything interactive — the EmailsMenu chevron, a remove ×,
+ * an "adding…" note — is a SIBLING the call site places next to it, never
+ * a prop baked in here.
+ *
  * Organizations use OrgIdentity instead (square avatar — GitHub's convention).
  */
 export function UserIdentity({
@@ -40,7 +42,6 @@ export function UserIdentity({
   subtitle,
   avatarUrl,
   size = "sm",
-  action,
   className,
 }: UserIdentityProps) {
   const large = size === "lg";
@@ -66,7 +67,6 @@ export function UserIdentity({
           </Text>
         ) : null}
       </Stack>
-      {action ? <span className="ml-auto">{action}</span> : null}
     </Row>
   );
 }

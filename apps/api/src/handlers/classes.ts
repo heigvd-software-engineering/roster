@@ -4,6 +4,7 @@ import { and, desc, eq, gte, inArray, lt } from "drizzle-orm";
 import { z } from "zod";
 import { authedFactory } from "../factory";
 import {
+  affiliationsByUserId,
   callerGithub,
   linkedUsers,
   resolveClassAsTeacher,
@@ -308,8 +309,10 @@ export const listClasses = authedFactory.createHandlers(async (c) => {
           .orderBy(desc(labs.deadline));
   // The classes' teachers from the same cache (+ linked SWITCH identity),
   // for the card's people popover. LEFT join: a teacher who never signed
-  // in to labs still shows with their GitHub identity.
-  const enrolledTeachers =
+  // in to labs still shows with their GitHub identity. Same safe shape as
+  // linkedUsers — name fields + affiliations, never the private email:
+  // this payload goes to STUDENTS.
+  const enrolledTeacherRows =
     enrolledIds.length === 0
       ? []
       : await db
@@ -318,7 +321,10 @@ export const listClasses = authedFactory.createHandlers(async (c) => {
             githubId: classMembers.githubId,
             login: classMembers.login,
             avatarUrl: classMembers.avatarUrl,
-            user,
+            userId: user.id,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            userName: user.name,
           })
           .from(classMembers)
           .leftJoin(
@@ -335,6 +341,26 @@ export const listClasses = authedFactory.createHandlers(async (c) => {
               eq(classMembers.state, "teacher"),
             ),
           );
+  const teacherAffiliations = await affiliationsByUserId(
+    db,
+    enrolledTeacherRows
+      .map((t) => t.userId)
+      .filter((id): id is string => id !== null),
+  );
+  const enrolledTeachers = enrolledTeacherRows.map(
+    ({ userId, firstName, lastName, userName, ...member }) => ({
+      ...member,
+      user:
+        userId !== null && userName !== null
+          ? {
+              firstName,
+              lastName,
+              name: userName,
+              affiliations: teacherAffiliations.get(userId) ?? [],
+            }
+          : null,
+    }),
+  );
   const enrolled = memberships.map((m) => ({
     id: m.cls.id,
     createdAt: m.cls.createdAt,

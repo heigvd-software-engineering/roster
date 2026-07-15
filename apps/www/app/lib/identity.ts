@@ -1,30 +1,60 @@
 import { switchDisplayName } from "~/lib/format";
 
-/** How one person is shown, wherever they appear. */
+/**
+ * How one person is shown, wherever they appear. The second line is a
+ * discriminated choice — a GitHub `@handle` OR a muted status note — so the
+ * three identity states can't blur together, and every unlinked person says
+ * so in words (the teacher shouldn't have to infer it from the avatar):
+ *
+ *   ① fully linked (edu-ID + GitHub): SWITCH name + `@login`
+ *   ② GitHub only  (no edu-ID):       login as the name + "not linked to edu-ID"
+ *   ③ edu-ID only  (no GitHub):       SWITCH name + "GitHub not linked yet"
+ */
 export type PersonIdentity = {
   /** The display name: the SWITCH identity when linked, else the login. */
   name: string;
-  /** The GitHub login, always — rendered as a mono "@handle". */
-  handle: string;
   /** The photo, or null when the avatar should fall back to initials. */
   avatarUrl: string | null;
-};
+  /** Affiliation (professional) emails — the ONLY emails the app ever shows
+   *  for another person. From edu-ID, so states ① and ③ can carry them. */
+  emails: string[];
+} & (
+  | { handle: string; subtitle?: never }
+  | { subtitle: string; handle?: never }
+);
 
 /**
  * THE rule for showing a person: the avatar belongs to the identity that names
- * them. A linked student is named by their edu-ID (SWITCH) identity, and edu-ID
- * carries no picture — so they wear their initials. An unlinked student has
- * only a GitHub account, so we name them by their login and show its photo.
- *
- * One consequence, and it's intentional: the only faces in a class roster are
- * the students who haven't linked their edu-ID yet.
+ * them. A person named by their edu-ID (SWITCH) wears initials — edu-ID carries
+ * no picture; a person named by their GitHub login wears its photo. The second
+ * line states the link status in words, so a teacher scanning the roster sees
+ * exactly who still has to link (and the login is never printed twice, nor a
+ * missing login leaked as "@unknown").
  */
 export function personIdentity(
   person: { login: string | null; avatarUrl: string | null },
-  linked?: { firstName: string | null; lastName: string | null; name: string },
+  linked?: {
+    firstName: string | null;
+    lastName: string | null;
+    name: string;
+    affiliations?: string[];
+  },
 ): PersonIdentity {
-  const handle = person.login ?? "unknown";
-  return linked
-    ? { name: switchDisplayName(linked), handle, avatarUrl: null }
-    : { name: handle, handle, avatarUrl: person.avatarUrl };
+  const emails = linked?.affiliations ?? [];
+  if (linked) {
+    const name = switchDisplayName(linked);
+    // ① edu-ID + GitHub → name + @login. ③ edu-ID only → name + a note
+    // (never "@unknown" — there's simply no handle to show).
+    return person.login
+      ? { name, handle: person.login, avatarUrl: null, emails }
+      : { name, subtitle: "GitHub not linked yet", avatarUrl: null, emails };
+  }
+  // ② GitHub only → the login IS the identity (shown once, with its photo),
+  // and the note spells out why there's no real name.
+  return {
+    name: person.login ?? "unknown",
+    subtitle: "not linked to edu-ID",
+    avatarUrl: person.avatarUrl,
+    emails,
+  };
 }

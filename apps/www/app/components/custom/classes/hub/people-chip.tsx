@@ -1,5 +1,7 @@
+import { EmailsMenu } from "~/components/custom/identity/emails-menu";
 import { UserIdentity } from "~/components/custom/identity/user-identity";
 import { Row } from "~/components/custom/layout/row";
+import { Stack } from "~/components/custom/layout/stack";
 import { Text } from "~/components/custom/typography/text";
 import { Badge } from "~/components/ui/badge";
 import {
@@ -7,16 +9,9 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "~/components/ui/popover";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "~/components/ui/table";
 import type { ClassItem } from "~/lib/api";
-import { switchDisplayName } from "~/lib/format";
+import { personIdentity } from "~/lib/identity";
+import { cn } from "~/lib/utils";
 
 // Derived from the inferred /api/classes response — no hand-modeled shapes.
 type Member = ClassItem["students"][number];
@@ -34,10 +29,10 @@ type PeopleChipProps = {
 
 /**
  * A quiet mono stat in the class-card header (people as data, not buttons)
- * that opens the live people list as a two-column table: the SWITCH identity
- * (THE identity inside the app — GitHub is secondary) and the GitHub login,
- * linked to the profile. Org members whose GitHub account isn't linked to a
- * labs user yet read "not linked".
+ * that opens the live people list. Each person is the SAME hybrid identity
+ * row used everywhere else — `personIdentity` resolves the linked / GitHub-
+ * only / edu-ID-only state, the emails chevron sits beside it, and a pending
+ * invite dims the row and adds a badge.
  */
 export function PeopleChip({
   label,
@@ -53,60 +48,35 @@ export function PeopleChip({
       >
         {label}
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-96 p-2">
+      <PopoverContent align="start" className="w-80 p-2">
         {people.length === 0 ? (
           <Text variant="body2" className="px-2 py-1">
             {emptyText}
           </Text>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Switch identity</TableHead>
-                <TableHead>GitHub identity</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {people.map((p) => (
-                <TableRow
+          <Stack gap="xs">
+            {people.map((p) => {
+              const { emails, ...identity } = personIdentity(
+                { login: p.login, avatarUrl: p.avatarUrl },
+                p.user ?? undefined,
+              );
+              return (
+                <Row
                   key={p.login}
-                  className={p.pending ? "opacity-60" : undefined}
+                  gap="sm"
+                  className={cn("px-1 py-0.5", p.pending && "opacity-60")}
                 >
-                  <TableCell>
-                    {p.user ? (
-                      // SWITCH identity: initials, never a photo — and its
-                      // second line is an email, so it stays prose.
-                      <UserIdentity
-                        name={switchDisplayName(p.user)}
-                        subtitle={p.user.email}
-                      />
-                    ) : (
-                      <Text variant="body2">not linked</Text>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Row gap="sm">
-                      <a
-                        href={`https://github.com/${p.login}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="hover:underline"
-                      >
-                        <Text variant="body2" as="span">
-                          @{p.login}
-                        </Text>
-                      </a>
-                      {p.pending ? (
-                        <Badge variant="outline" className="font-normal">
-                          pending
-                        </Badge>
-                      ) : null}
-                    </Row>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                  <UserIdentity {...identity} className="min-w-0 flex-1" />
+                  <EmailsMenu name={identity.name} emails={emails} />
+                  {p.pending ? (
+                    <Badge variant="outline" className="font-normal">
+                      pending
+                    </Badge>
+                  ) : null}
+                </Row>
+              );
+            })}
+          </Stack>
         )}
       </PopoverContent>
     </Popover>

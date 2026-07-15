@@ -3,19 +3,14 @@ import { describe, expect, it } from "vitest";
 import { PeopleChip } from "~/components/custom/classes/hub/people-chip";
 
 const aliceUser = {
-  id: "u1",
   name: "A. Student",
   firstName: "Alice",
   lastName: "Student",
-  email: "alice@heig-vd.ch",
-  emailVerified: true,
-  image: null,
-  createdAt: "1970-01-01T00:00:00.000Z",
-  updatedAt: "1970-01-01T00:00:00.000Z",
+  affiliations: ["alice@heig-vd.ch"],
 };
 
 describe("PeopleChip", () => {
-  it("shows the label and opens a people table with GitHub links", async () => {
+  it("opens a hybrid identity row per person, both states", async () => {
     render(
       <PeopleChip
         label="1 student · 1 pending"
@@ -28,22 +23,39 @@ describe("PeopleChip", () => {
     );
     fireEvent.click(screen.getByText("1 student · 1 pending"));
 
-    expect(await screen.findByRole("link", { name: /@alice/ })).toHaveAttribute(
-      "href",
-      "https://github.com/alice",
-    );
-    // Two-column table: SWITCH identity is primary, GitHub secondary.
-    expect(screen.getByText("Switch identity")).toBeInTheDocument();
-    expect(screen.getByText("GitHub identity")).toBeInTheDocument();
-    expect(screen.getByText("Alice Student")).toBeInTheDocument();
-    expect(screen.getByText("alice@heig-vd.ch")).toBeInTheDocument();
-    // No labs account linked to that GitHub identity yet.
-    expect(screen.getByText("not linked")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /@bob/ })).toHaveAttribute(
-      "href",
-      "https://github.com/bob",
-    );
+    // ① alice is linked → SWITCH name + @login.
+    expect(await screen.findByText("Alice Student")).toBeInTheDocument();
+    expect(screen.getByText("@alice")).toBeInTheDocument();
+    // ② bob is GitHub only → login as the name + the "not linked" note.
+    expect(screen.getByText("bob")).toBeInTheDocument();
+    expect(screen.getByText("not linked to edu-ID")).toBeInTheDocument();
+    // A pending invite is badged.
     expect(screen.getByText("pending")).toBeInTheDocument();
+    // No two-column table anymore.
+    expect(screen.queryByText("Switch identity")).not.toBeInTheDocument();
+  });
+
+  it("never shows a private email; affiliations expand on demand", async () => {
+    render(
+      <PeopleChip
+        label="1 student"
+        emptyText="No students yet."
+        people={[
+          { id: 7, login: "alice", avatarUrl: "http://a", user: aliceUser },
+        ]}
+      />,
+    );
+    fireEvent.click(screen.getByText("1 student"));
+    await screen.findByText("Alice Student");
+
+    // The GitHub login is part of the identity, always visible.
+    expect(screen.getByText("@alice")).toBeInTheDocument();
+    // Closed: no email in sight.
+    expect(screen.queryByText("alice@heig-vd.ch")).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Show Alice Student's emails" }),
+    );
+    expect(screen.getByText("alice@heig-vd.ch")).toBeInTheDocument();
   });
 
   it("is a native button, so keyboard activation is built in", () => {

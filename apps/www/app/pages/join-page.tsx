@@ -3,6 +3,7 @@ import { ArrowRightIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
+import { EmailsMenu } from "~/components/custom/identity/emails-menu";
 import { OrgIdentity } from "~/components/custom/identity/org-identity";
 import { UserIdentity } from "~/components/custom/identity/user-identity";
 import { Row } from "~/components/custom/layout/row";
@@ -57,7 +58,7 @@ function asMembership(value: unknown): Membership | null {
 export function JoinPage() {
   const { token = "" } = useParams();
   const navigate = useNavigate();
-  const { github } = useAuth();
+  const { github, affiliations } = useAuth();
   const [state, setState] = useState<JoinState>({ kind: "loading" });
   const [submitting, setSubmitting] = useState(false);
 
@@ -219,6 +220,10 @@ export function JoinPage() {
               handle={github.login}
               avatarUrl={github.avatarUrl}
               size="lg"
+            />
+            <EmailsMenu
+              name={github.name ?? github.login}
+              emails={affiliations}
             />
             <ArrowRightIcon
               aria-label="joins"

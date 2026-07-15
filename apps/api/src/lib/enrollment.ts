@@ -6,7 +6,7 @@ type Db = ReturnType<typeof getDb>;
 export type MemberState = (typeof classMembers.$inferSelect)["state"];
 
 /** What a write point knows about the person besides the stable id. */
-export type ObservedIdentity = {
+type ObservedIdentity = {
   githubId: string;
   login: string | null;
   avatarUrl: string | null;

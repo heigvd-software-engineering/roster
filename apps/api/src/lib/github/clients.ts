@@ -24,7 +24,7 @@ export const WorkersOctokit = Octokit.defaults({
  * setting the secret (see GITHUB_APP_SETUP.md). The secret is stored single-line
  * with `\n`, so normalize to real newlines here.
  */
-export function createAppClient(env: AuthEnv): App {
+function createAppClient(env: AuthEnv): App {
   return new App({
     appId: env.GITHUB_APP_ID,
     privateKey: env.GITHUB_APP_PRIVATE_KEY.replace(/\\n/g, "\n"),

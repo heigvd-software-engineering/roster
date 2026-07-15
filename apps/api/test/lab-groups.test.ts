@@ -520,6 +520,56 @@ test("a PENDING invitee gets the header data and an empty roster, not a 404", as
   expect((await createGroup("l1", { name: "Alpha" })).status).toBe(404);
 });
 
+test("the people list carries active students AND teachers, never pending", async () => {
+  await seedLab();
+  await db.insert(classMembers).values([
+    {
+      id: "cm-s",
+      classId: "c1",
+      githubId: "7",
+      state: "active",
+      login: "alice",
+      avatarUrl: "http://a",
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: "cm-t",
+      classId: "c1",
+      githubId: "500",
+      state: "teacher",
+      login: "teach",
+      avatarUrl: null,
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: "cm-p",
+      classId: "c1",
+      githubId: "900",
+      state: "pending",
+      login: "invited",
+      avatarUrl: null,
+      createdAt: now,
+      updatedAt: now,
+    },
+  ]);
+
+  const res = await app.request("/api/classes/c1/labs/l1/groups", {}, env);
+  expect(res.status).toBe(200);
+  const body = (await res.json()) as {
+    students: Array<{ githubId: string }>;
+  };
+  // The teacher rides along WITH their state — the picker offers them for
+  // placement; the "students without a group" strip filters them out.
+  expect(
+    body.students.toSorted((a, b) => a.githubId.localeCompare(b.githubId)),
+  ).toEqual([
+    { githubId: "500", login: "teach", avatarUrl: null, state: "teacher" },
+    { githubId: "7", login: "alice", avatarUrl: "http://a", state: "active" },
+  ]);
+});
+
 // --- cached identities (classes.login + class_members) ---
 
 test("cached logins answer the hot path — no profile fetch, no installation lookup", async () => {

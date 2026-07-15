@@ -97,14 +97,17 @@ export function useLabGroups(classId: string, labId: string) {
     if ((pushedAt as number) > deadline) return "late";
     return Date.now() > deadline ? "on_time" : "on_track";
   };
-  // The "without a group for this lab" pool: enrolled students (class_members
-  // display cache) who are in NO group of this lab.
+  // Everyone placeable (class_members display cache: active students AND
+  // teachers) who is in NO group of this lab. The pool strip narrows to
+  // students — a teacher is not a missing student — but the add-picker
+  // offers all of them, or removing a teacher would make them unaddable.
   const inGroup = new Set(
     groups.flatMap((g) => g.members.map((m) => String(m.id))),
   );
-  const unassignedStudents = (data?.students ?? []).filter(
+  const unplaced = (data?.students ?? []).filter(
     (s) => !inGroup.has(s.githubId),
   );
+  const unassignedStudents = unplaced.filter((s) => s.state === "active");
 
   const groupParam = (groupId: string) => ({ param: { id: classId, groupId } });
   const labGroupParam = (groupId: string) => ({
@@ -129,6 +132,8 @@ export function useLabGroups(classId: string, labId: string) {
     users: data?.users,
     groups,
     unassignedStudents,
+    /** The add-picker's candidate source: unplaced students + teachers. */
+    unplaced,
     /** Students in SOME group of this lab (the pool's complement). */
     placedCount: inGroup.size,
     repoFor,

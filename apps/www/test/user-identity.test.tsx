@@ -39,14 +39,8 @@ describe("UserIdentity", () => {
     expect(avatarSize()).toBe("lg");
   });
 
-  it("hangs an action off the end of the row", () => {
-    render(
-      <UserIdentity
-        name="Alice"
-        handle="alice"
-        action={<button type="button">Remove</button>}
-      />,
-    );
-    expect(screen.getByRole("button", { name: "Remove" })).toBeInTheDocument();
+  it("renders nothing interactive — pure display", () => {
+    render(<UserIdentity name="Alice" handle="alice" />);
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 });
