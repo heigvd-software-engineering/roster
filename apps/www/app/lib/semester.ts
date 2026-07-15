@@ -8,7 +8,7 @@
  * Defaults follow HEIG-VD: spring February–June, summer school July–August,
  * autumn September–January.
  */
-export const SEMESTER_CONFIG = {
+const SEMESTER_CONFIG = {
   terms: [
     { season: "spring", startMonth: 2, label: "Spring" },
     { season: "summer", startMonth: 7, label: "Summer" },
@@ -17,7 +17,7 @@ export const SEMESTER_CONFIG = {
 } as const;
 
 type SemesterConfig = typeof SEMESTER_CONFIG;
-export type Season = SemesterConfig["terms"][number]["season"];
+type Season = SemesterConfig["terms"][number]["season"];
 
 export type Semester = {
   season: Season;

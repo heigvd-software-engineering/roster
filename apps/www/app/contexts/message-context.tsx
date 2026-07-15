@@ -11,7 +11,7 @@ import {
 } from "react";
 import { cn } from "~/lib/utils";
 
-export type MessageVariant = "info" | "error" | "warning";
+type MessageVariant = "info" | "error" | "warning";
 
 type Message = { id: number; text: string; variant: MessageVariant };
 

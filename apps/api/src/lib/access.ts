@@ -83,7 +83,7 @@ export async function callerGithub(
  *  `roster` only where the answer AUTHORIZES or gates an irreversible write:
  *  "is the caller in this group", "does this team still exist", "is the group
  *  complete enough to get a repo". A cache may never decide those. */
-export type ClassTeam = {
+type ClassTeam = {
   roster: (slug: string) => ReturnType<typeof teamMembers>;
   add: (slug: string, login: string) => Promise<void>;
   remove: (slug: string, login: string) => Promise<void>;
