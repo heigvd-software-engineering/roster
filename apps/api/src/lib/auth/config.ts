@@ -51,6 +51,16 @@ export function createAuth(env: AuthEnv) {
     baseURL: env.BETTER_AUTH_URL,
     secret: env.BETTER_AUTH_SECRET,
     database: drizzleAdapter(getDb(env.DB), { provider: "sqlite" }),
+    session: {
+      // Better Auth gates "sensitive" ops (unlink-account, delete-user,
+      // list-sessions) behind a FRESH session: with the default freshAge of
+      // 24h, any older session gets 403 SESSION_NOT_FRESH. Here that only hurts
+      // — unlinking GitHub to re-link a different account is a normal
+      // correction, and there's no password to protect (edu-ID + GitHub only),
+      // so re-authing through SWITCH OIDC just to unlink buys nothing. 0
+      // disables the freshness check entirely (a valid session still required).
+      freshAge: 0,
+    },
     // True SWITCH edu-ID identity, stored on the user row at sign-in (mapped
     // from `given_name`/`family_name` in mapProfileToUser below).
     user: {
