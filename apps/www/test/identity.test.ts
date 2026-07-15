@@ -16,16 +16,16 @@ describe("personIdentity — three states", () => {
     });
   });
 
-  it("② GitHub only: login as the name, photo, nothing below", () => {
+  it("② GitHub only: login as the name, photo, a 'not linked' note", () => {
     const p = personIdentity(gh, undefined);
     expect(p).toEqual({
       name: "alice",
+      subtitle: "not linked to edu-ID",
       avatarUrl: "https://gh/alice.png",
       emails: [],
     });
-    // No second line — the photo avatar is the "unlinked" signal.
+    // The login is the name; there's no @handle line to double it.
     expect(p).not.toHaveProperty("handle");
-    expect(p).not.toHaveProperty("subtitle");
   });
 
   it("③ edu-ID only (no GitHub): SWITCH name, note, NO @unknown handle", () => {
