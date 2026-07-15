@@ -5,15 +5,10 @@ import { ClassCard } from "~/components/custom/classes/hub/class-card";
 import { formatDeadline } from "~/lib/format";
 
 const profUser = {
-  id: "u1",
   name: "Bob Prof",
   firstName: "Bob",
   lastName: "Prof",
-  email: "bob@heig-vd.ch",
-  emailVerified: true,
-  image: null,
-  createdAt: "1970-01-01T00:00:00.000Z",
-  updatedAt: "1970-01-01T00:00:00.000Z",
+  affiliations: ["b.prof@heig-vd.ch"],
 };
 
 const lab = {

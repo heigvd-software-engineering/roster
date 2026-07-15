@@ -11,6 +11,7 @@ describe("personIdentity", () => {
       name: "Alice Dupont",
       handle: "alice",
       avatarUrl: null,
+      emails: [],
     });
   });
 
@@ -20,13 +21,14 @@ describe("personIdentity", () => {
       name: "alice",
       handle: "alice",
       avatarUrl: "https://gh/alice.png",
+      emails: [],
     });
   });
 
   it("falls back to the profile name when SWITCH has no real name", () => {
     expect(
       personIdentity(alice, { firstName: null, lastName: null, name: "A. D." }),
-    ).toEqual({ name: "A. D.", handle: "alice", avatarUrl: null });
+    ).toEqual({ name: "A. D.", handle: "alice", avatarUrl: null, emails: [] });
   });
 
   it("survives a person with no GitHub login", () => {
@@ -35,7 +37,17 @@ describe("personIdentity", () => {
         name: "unknown",
         handle: "unknown",
         avatarUrl: null,
+        emails: [],
       },
     );
+  });
+
+  it("carries the linked user's affiliation emails", () => {
+    expect(
+      personIdentity(alice, {
+        ...linked,
+        affiliations: ["alice@heig-vd.ch", "alice@unil.ch"],
+      }).emails,
+    ).toEqual(["alice@heig-vd.ch", "alice@unil.ch"]);
   });
 });

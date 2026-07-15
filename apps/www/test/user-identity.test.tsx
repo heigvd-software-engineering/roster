@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { UserIdentity } from "~/components/custom/identity/user-identity";
 
@@ -37,6 +37,34 @@ describe("UserIdentity", () => {
 
     render(<UserIdentity name="Alice" handle="alice" size="lg" />);
     expect(avatarSize()).toBe("lg");
+  });
+
+  it("hides emails behind a chevron and expands them on click", () => {
+    render(
+      <UserIdentity
+        name="Alice"
+        handle="alice"
+        emails={["alice@heig-vd.ch", "alice@unil.ch"]}
+      />,
+    );
+
+    expect(screen.queryByText("alice@heig-vd.ch")).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Show Alice's emails" }),
+    );
+    expect(screen.getByText("alice@heig-vd.ch")).toBeInTheDocument();
+    expect(screen.getByText("alice@unil.ch")).toBeInTheDocument();
+    // The toggle now offers to hide.
+    expect(
+      screen.getByRole("button", { name: "Hide Alice's emails" }),
+    ).toBeInTheDocument();
+  });
+
+  it("renders no chevron when there are no emails", () => {
+    render(<UserIdentity name="Bob" handle="bob" emails={[]} />);
+    expect(
+      screen.queryByRole("button", { name: "Show Bob's emails" }),
+    ).not.toBeInTheDocument();
   });
 
   it("hangs an action off the end of the row", () => {

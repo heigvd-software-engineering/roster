@@ -16,6 +16,7 @@ export function DisclosureToggle({
   label,
   title,
   controls,
+  size = "icon",
 }: {
   expanded: boolean;
   onToggle: () => void;
@@ -25,11 +26,13 @@ export function DisclosureToggle({
   title?: string;
   /** id of the region this controls — omit while that region is unmounted. */
   controls?: string;
+  /** "icon-xs" fits inside compact rows (identity lists). */
+  size?: "icon" | "icon-xs";
 }) {
   return (
     <Button
       variant="ghost"
-      size="icon"
+      size={size}
       type="button"
       aria-expanded={expanded}
       aria-controls={controls}
@@ -40,6 +43,7 @@ export function DisclosureToggle({
       <ChevronDown
         className={cn(
           "size-4 text-muted-foreground transition-transform",
+          size === "icon-xs" && "size-3.5",
           expanded && "rotate-180",
         )}
       />

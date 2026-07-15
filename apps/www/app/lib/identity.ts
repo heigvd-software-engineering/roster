@@ -8,6 +8,9 @@ export type PersonIdentity = {
   handle: string;
   /** The photo, or null when the avatar should fall back to initials. */
   avatarUrl: string | null;
+  /** Affiliation (professional) emails — the ONLY emails the app ever
+   *  shows for another person. Empty when unlinked or none on record. */
+  emails: string[];
 };
 
 /**
@@ -21,10 +24,16 @@ export type PersonIdentity = {
  */
 export function personIdentity(
   person: { login: string | null; avatarUrl: string | null },
-  linked?: { firstName: string | null; lastName: string | null; name: string },
+  linked?: {
+    firstName: string | null;
+    lastName: string | null;
+    name: string;
+    affiliations?: string[];
+  },
 ): PersonIdentity {
   const handle = person.login ?? "unknown";
+  const emails = linked?.affiliations ?? [];
   return linked
-    ? { name: switchDisplayName(linked), handle, avatarUrl: null }
-    : { name: handle, handle, avatarUrl: person.avatarUrl };
+    ? { name: switchDisplayName(linked), handle, avatarUrl: null, emails }
+    : { name: handle, handle, avatarUrl: person.avatarUrl, emails };
 }

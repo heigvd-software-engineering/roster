@@ -1,4 +1,5 @@
-import type { ReactNode } from "react";
+import { type ReactNode, useId, useState } from "react";
+import { DisclosureToggle } from "~/components/custom/disclosure-toggle";
 import { UserAvatar } from "~/components/custom/identity/user-avatar";
 import { Row } from "~/components/custom/layout/row";
 import { Stack } from "~/components/custom/layout/stack";
@@ -23,6 +24,9 @@ type UserIdentityProps = {
   size?: "sm" | "lg";
   /** Rides the row's right edge when the row has width (remove ×, "adding…"). */
   action?: ReactNode;
+  /** Affiliation emails, revealed by a chevron — `personIdentity` supplies
+   *  these for roster people; empty/omitted renders no chevron. */
+  emails?: string[];
   className?: string;
 } & SecondLine;
 
@@ -41,9 +45,13 @@ export function UserIdentity({
   avatarUrl,
   size = "sm",
   action,
+  emails,
   className,
 }: UserIdentityProps) {
   const large = size === "lg";
+  const [open, setOpen] = useState(false);
+  const listId = useId();
+  const hasEmails = emails !== undefined && emails.length > 0;
   return (
     <Row gap="sm" align="center" className={className}>
       <UserAvatar name={name} src={avatarUrl} size={large ? "lg" : "sm"} />
@@ -65,7 +73,30 @@ export function UserIdentity({
             {subtitle}
           </Text>
         ) : null}
+        {hasEmails && open ? (
+          <Stack gap="none" id={listId}>
+            {emails.map((email) => (
+              <Text
+                key={email}
+                variant="caption"
+                as="span"
+                className="truncate"
+              >
+                {email}
+              </Text>
+            ))}
+          </Stack>
+        ) : null}
       </Stack>
+      {hasEmails ? (
+        <DisclosureToggle
+          expanded={open}
+          onToggle={() => setOpen(!open)}
+          label={open ? `Hide ${name}'s emails` : `Show ${name}'s emails`}
+          controls={open ? listId : undefined}
+          size="icon-xs"
+        />
+      ) : null}
       {action ? <span className="ml-auto">{action}</span> : null}
     </Row>
   );
