@@ -21,8 +21,8 @@ const pool = (count: number) =>
   Array.from({ length: count }, (_, i) => student(i + 1));
 
 /** The display name of each identity row, in DOM order. GitHub-only pool
- *  students are named by their login (no @handle line). */
-const names = () => screen.getAllByText(/^s\d+$/).map((el) => el.textContent);
+ *  students are named by their login, shown as a @handle (no separate line). */
+const names = () => screen.getAllByText(/^@s\d+$/).map((el) => el.textContent);
 
 describe("UnassignedPool", () => {
   it("renders nothing once everyone is placed", () => {
@@ -36,7 +36,7 @@ describe("UnassignedPool", () => {
     expect(
       screen.getByText(/Students without a group for this lab · 12/),
     ).toBeInTheDocument();
-    expect(screen.queryByText("s1")).not.toBeInTheDocument();
+    expect(screen.queryByText("@s1")).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Show all 12 students" }),
     ).toBeInTheDocument();
@@ -45,7 +45,7 @@ describe("UnassignedPool", () => {
   it("collapses a lone student too, without saying '1 students'", () => {
     render(<UnassignedPool students={pool(1)} />);
 
-    expect(screen.queryByText("s1")).not.toBeInTheDocument();
+    expect(screen.queryByText("@s1")).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Show the student" }),
     ).toBeInTheDocument();
@@ -67,7 +67,7 @@ describe("UnassignedPool", () => {
       screen.getByRole("button", { name: "Show all 12 students" }),
     );
 
-    expect(screen.getByText("s1")).toBeInTheDocument();
+    expect(screen.getByText("@s1")).toBeInTheDocument();
     expect(names()).toHaveLength(12);
     expect(
       screen.getByRole("button", { name: "Hide the student list" }),
@@ -92,9 +92,10 @@ describe("UnassignedPool", () => {
     render(<UnassignedPool students={[student(1)]} />);
     fireEvent.click(screen.getByRole("button", { name: "Show the student" }));
 
-    // ② GitHub only → the login is the name, shown once (no @handle line).
-    expect(screen.getByText("s1")).toBeInTheDocument();
-    expect(screen.queryByText("@s1")).not.toBeInTheDocument();
+    // ② GitHub only → the login IS the name, shown once as a @handle (not
+    // doubled as a plain name + a separate handle line).
+    expect(screen.getAllByText("@s1")).toHaveLength(1);
+    expect(screen.queryByText("s1")).not.toBeInTheDocument();
   });
 
   it("sorts the pool by the name it displays", () => {
@@ -104,6 +105,6 @@ describe("UnassignedPool", () => {
       screen.getByRole("button", { name: "Show all 3 students" }),
     );
 
-    expect(names()).toEqual(["s1", "s2", "s3"]);
+    expect(names()).toEqual(["@s1", "@s2", "@s3"]);
   });
 });

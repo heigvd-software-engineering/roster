@@ -20,6 +20,7 @@ describe("personIdentity — three states", () => {
     const p = personIdentity(gh, undefined);
     expect(p).toEqual({
       name: "alice",
+      nameIsLogin: true,
       subtitle: "not linked to edu-ID",
       avatarUrl: "https://gh/alice.png",
       emails: [],

@@ -14,6 +14,10 @@ type SecondLine =
 
 type UserIdentityProps = {
   name: string;
+  /** When `name` IS a GitHub login (a person with no edu-ID), render it as a
+   *  handle — mono, "@"-prefixed — so it reads as a login, not a person's
+   *  name. The avatar still gets the raw `name` for its initials. */
+  nameIsLogin?: boolean;
   /** Omit for a SWITCH (edu-ID) identity — it has no picture, so: initials.
    *  `personIdentity` decides this for roster people. */
   avatarUrl?: string | null;
@@ -38,6 +42,7 @@ type UserIdentityProps = {
  */
 export function UserIdentity({
   name,
+  nameIsLogin,
   handle,
   subtitle,
   avatarUrl,
@@ -52,9 +57,13 @@ export function UserIdentity({
         <Text
           variant={large ? "label" : "caption"}
           as="span"
-          className={cn("truncate", !large && "font-medium text-foreground")}
+          className={cn(
+            "truncate",
+            !large && "font-medium text-foreground",
+            nameIsLogin && "font-mono",
+          )}
         >
-          {name}
+          {nameIsLogin ? `@${name}` : name}
         </Text>
         {handle !== undefined ? (
           <Text variant="caption" as="span" className="truncate font-mono">

@@ -10,7 +10,7 @@ import {
   resolveClassAsTeacher,
 } from "../lib/access";
 import { githubAccessToken } from "../lib/auth/github-token";
-import { observeMember } from "../lib/enrollment";
+import { forgetMember, observeMember } from "../lib/enrollment";
 import {
   basePermission,
   inviteOrgAdmin,
@@ -171,10 +171,12 @@ export const listClasses = authedFactory.createHandlers(async (c) => {
   // The Owner check is their intersection (the `visible` filter below): the
   // org is in both maps AND the membership says admin + active. As live as
   // the old per-class check — same question, 2 calls instead of 2 + N.
-  const [byOrgId, membershipByLogin] = await Promise.all([
+  const [byOrgId, orgRoles] = await Promise.all([
     userInstallationsByOrgId(token),
     userOrgMemberships(token),
   ]);
+  const membershipByLogin = orgRoles.byLogin;
+  const callerLogin = orgRoles.login;
   const orgIds = [...byOrgId.keys()];
 
   const rows =
@@ -212,8 +214,9 @@ export const listClasses = authedFactory.createHandlers(async (c) => {
           .orderBy(desc(labs.deadline));
 
   // The people, from the enrollment DISPLAY cache — one query for every
-  // candidate class. Reconcile is what keeps it true; this read never writes.
-  const memberRows =
+  // candidate class. Reconcile is what keeps it true; the caller's OWN row may
+  // be healed below (the one write this read allows), never anyone else's.
+  let memberRows =
     rows.length === 0
       ? []
       : await db
@@ -243,6 +246,48 @@ export const listClasses = authedFactory.createHandlers(async (c) => {
       return [];
     return [{ cls, live }];
   });
+
+  // Self-heal ONLY the caller. An invited Owner is cached as a `pending` row
+  // keyed by the INVITATION id (under their login); once they accept they
+  // become a live Owner, but that placeholder lingers until someone reconciles.
+  // Here we already KNOW the caller is a live Owner of every `visible` class
+  // (no extra GitHub call), so we resolve THEIR OWN stale row in place — drop
+  // the invitation-id placeholder, record the real `teacher` row under their
+  // github id — and nobody has to reconcile just because they clicked accept.
+  // Bounded to the caller's rows; everyone else stays reconcile's job.
+  if (callerLogin) {
+    const lower = callerLogin.toLowerCase();
+    let healed = false;
+    for (const { cls } of visible) {
+      const stale = memberRows.filter(
+        (m) =>
+          m.classId === cls.id &&
+          m.state === "pending" &&
+          m.login?.toLowerCase() === lower,
+      );
+      for (const row of stale) {
+        await forgetMember(db, cls.id, row.githubId);
+        await observeMember(
+          db,
+          cls.id,
+          { githubId: caller.githubId, login: callerLogin, avatarUrl: null },
+          "teacher",
+        );
+        healed = true;
+      }
+    }
+    if (healed) {
+      memberRows = await db
+        .select()
+        .from(classMembers)
+        .where(
+          inArray(
+            classMembers.classId,
+            rows.map((r) => r.id),
+          ),
+        );
+    }
+  }
 
   // SWITCH users linked to the visible members' GitHub accounts — ONE query
   // for all classes; raw rows, the client correlates by github id. Pending

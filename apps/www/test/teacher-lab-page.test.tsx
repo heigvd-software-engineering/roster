@@ -102,9 +102,9 @@ describe("TeacherLabPage", () => {
       screen.getByText(/Students without a group for this lab/),
     ).toBeInTheDocument();
     // The pool collapses at every size — the names are one click away.
-    // alice is GitHub-only here → named by her login (no @handle line).
+    // alice is GitHub-only here → named by her login, shown as a @handle.
     fireEvent.click(screen.getByRole("button", { name: "Show the student" }));
-    expect(screen.getByText("alice")).toBeInTheDocument();
+    expect(screen.getByText("@alice")).toBeInTheDocument();
     // The roster: Team Alpha with 1/2 members → under min.
     expect(screen.getByText("Team Alpha")).toBeInTheDocument();
     expect(screen.getByText("under min")).toBeInTheDocument();
@@ -218,7 +218,7 @@ describe("TeacherLabPage", () => {
     fireEvent.click(
       screen.getByRole("button", { name: /Add from the pool \(2\)/ }),
     );
-    expect(screen.getByText("teach")).toBeInTheDocument();
+    expect(screen.getByText("@teach")).toBeInTheDocument();
     expect(screen.getByText("teacher")).toBeInTheDocument();
   });
 

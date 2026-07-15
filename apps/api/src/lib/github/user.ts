@@ -131,21 +131,28 @@ export async function userInstallationsByOrgId(
  * introduces no cache. Empirically verified reachable with a user-to-server
  * token (2026-07-09; the spec records the check).
  */
-export async function userOrgMemberships(
-  token: string,
-): Promise<Map<string, { role: string; state: string }>> {
+export async function userOrgMemberships(token: string): Promise<{
+  byLogin: Map<string, { role: string; state: string }>;
+  /** The caller's own GitHub login — every membership names them, so it rides
+   *  along for free (no extra /user call). Null only if the caller belongs to
+   *  no org. Lets a caller heal their OWN stale pending row, which is keyed by
+   *  the invitation id (not their user id) and so is only findable by login. */
+  login: string | null;
+}> {
   const gh = new WorkersOctokit({ auth: token });
   const memberships = await gh
     .paginate("GET /user/memberships/orgs", { per_page: 100 })
     .catch((err) => rethrowUnavailable(err, "GET /user/memberships/orgs"));
   const byLogin = new Map<string, { role: string; state: string }>();
+  let login: string | null = null;
   for (const m of memberships) {
     byLogin.set(m.organization.login.toLowerCase(), {
       role: m.role,
       state: m.state,
     });
+    login ??= m.user?.login ?? null;
   }
-  return byLogin;
+  return { byLogin, login };
 }
 
 /** True iff the user can access this installation id (owns the install). */
