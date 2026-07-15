@@ -129,6 +129,12 @@ describe("TeacherLabPage", () => {
     expect(
       screen.queryByRole("button", { name: "Join" }),
     ).not.toBeInTheDocument();
+    // No repo yet → roster edits carry no warning.
+    expect(
+      screen.queryByRole("button", {
+        name: "repo exists",
+      }),
+    ).not.toBeInTheDocument();
   });
 
   it("links the repo and disables delete once the work repo exists", () => {
@@ -146,6 +152,44 @@ describe("TeacherLabPage", () => {
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Manage Team Alpha" }));
     expect(screen.getByRole("button", { name: "Delete group" })).toBeDisabled();
+    // Roster edits stay allowed — a warning hint explains the consequences.
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "repo exists",
+      }),
+    );
+    expect(
+      screen.getByText(/immediately sees everything the group has pushed/),
+    ).toBeInTheDocument();
+  });
+
+  it("flags members whose GitHub account has no SWITCH identity", () => {
+    mockApi({
+      ...groupsData,
+      groups: [grp({ members: [alice, bob] })],
+      // alice signed in with SWITCH and linked GitHub; bob never did.
+      users: [
+        {
+          githubId: "7",
+          user: { firstName: "Alice", lastName: "Ok", name: "alice" },
+        },
+      ],
+    });
+    render(<TeacherLabPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Manage Team Alpha" }));
+    // bob carries the warning, alice doesn't.
+    fireEvent.click(
+      screen.getByRole("button", { name: "Unverified GitHub account @bob" }),
+    );
+    expect(
+      screen.getByText(/can't be matched to an enrolled student/),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", {
+        name: "Unverified GitHub account @alice",
+      }),
+    ).not.toBeInTheDocument();
   });
 
   it("confirms the batch repo creation and says it locks the groups", () => {

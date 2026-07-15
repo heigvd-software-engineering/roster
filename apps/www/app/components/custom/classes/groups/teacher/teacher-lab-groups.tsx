@@ -21,6 +21,7 @@ import {
 import { ConfirmDialog } from "~/components/custom/confirm-dialog";
 import { DisabledReason } from "~/components/custom/disabled-reason";
 import { DisclosureToggle } from "~/components/custom/disclosure-toggle";
+import { Hint } from "~/components/custom/hint";
 import { UserIdentity } from "~/components/custom/identity/user-identity";
 import { Row } from "~/components/custom/layout/row";
 import { Stack } from "~/components/custom/layout/stack";
@@ -480,7 +481,24 @@ function GroupDrawer({
   return (
     <div className="mx-4 mb-4 grid gap-6 rounded-md bg-muted/50 px-5 py-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-8">
       <Stack gap="md">
-        <Text variant="overline">Members</Text>
+        <Row gap="xs">
+          <Text variant="overline">Members</Text>
+          {repo !== null ? (
+            // The teacher's roster verbs stay UNLOCKED on a repo-owning
+            // group (only student self-service froze) — surface the
+            // consequences without a confirm on every click.
+            <Hint
+              variant="warning"
+              text="repo exists"
+              title="This group already has its work repository"
+            >
+              Membership changes here still work — only student self-service is
+              locked. A student you add immediately sees everything the group
+              has pushed; a student you remove loses access but keeps whatever
+              they already cloned.
+            </Hint>
+          ) : null}
+        </Row>
         <GroupMembers
           members={group.members}
           users={g.users}
@@ -488,17 +506,34 @@ function GroupDrawer({
           // right edge instead of trailing the (variable-length) name.
           memberClassName="w-full max-w-80 rounded-md bg-card px-3 py-2 ring-1 ring-foreground/10"
           memberAction={(member) => (
-            <Button
-              variant="ghost"
-              size="icon-xs"
-              type="button"
-              disabled={g.busy}
-              aria-label={`Remove ${member.login} from ${group.name}`}
-              title={`Remove @${member.login} from this group`}
-              onClick={() => g.removeMember(group.id, member.login)}
-            >
-              <X className="size-3 text-muted-foreground" />
-            </Button>
+            <Row gap="xs">
+              {userByGithubId.has(String(member.id)) ? null : (
+                // The join flow requires a SWITCH sign-in — an unlinked
+                // member entered the org some other way (e.g. a direct
+                // GitHub invitation) and their identity is only a login.
+                <Hint
+                  variant="warning"
+                  label={`Unverified GitHub account @${member.login}`}
+                  title="No SWITCH identity"
+                >
+                  This GitHub account isn't linked to any SWITCH edu-ID sign-in,
+                  so it can't be matched to an enrolled student. It likely
+                  entered the organization outside the app — e.g. a direct
+                  GitHub invitation.
+                </Hint>
+              )}
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                type="button"
+                disabled={g.busy}
+                aria-label={`Remove ${member.login} from ${group.name}`}
+                title={`Remove @${member.login} from this group`}
+                onClick={() => g.removeMember(group.id, member.login)}
+              >
+                <X className="size-3 text-muted-foreground" />
+              </Button>
+            </Row>
           )}
         />
         <AddFromPool

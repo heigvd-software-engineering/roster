@@ -29,7 +29,46 @@ function openDialog() {
   fireEvent.click(screen.getByRole("button", { name: "New lab" }));
 }
 
+const existingLab = {
+  id: "l1",
+  classId: "c1",
+  title: "Lab 1",
+  deadline: "2099-08-01T23:59:00.000Z",
+  groupMode: "group",
+  minMembers: 2,
+  maxMembers: 3,
+  templateRepoId: null,
+  templateRepoFullName: null,
+  createdByUserId: "u1",
+  createdAt: "2026-03-10T00:00:00.000Z",
+  updatedAt: "2026-03-10T00:00:00.000Z",
+} as Parameters<typeof LabDialog>[0]["lab"];
+
 describe("LabDialog", () => {
+  it("warns in edit mode that formed groups aren't reshaped", async () => {
+    render(<LabDialog classId="c1" lab={existingLab} onSaved={onSaved} />);
+    fireEvent.click(screen.getByRole("button", { name: "Edit Lab 1" }));
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Warning about editing a live lab",
+      }),
+    );
+    expect(
+      screen.getByText(/strand formed groups below the new minimum/),
+    ).toBeInTheDocument();
+  });
+
+  it("shows no edit warning when creating", async () => {
+    openDialog();
+    await screen.findByRole("button", { name: "Create lab" });
+    expect(
+      screen.queryByRole("button", {
+        name: "Warning about editing a live lab",
+      }),
+    ).not.toBeInTheDocument();
+  });
+
   it("disables Create until title and deadline are set", async () => {
     openDialog();
     const create = await screen.findByRole("button", { name: "Create lab" });
