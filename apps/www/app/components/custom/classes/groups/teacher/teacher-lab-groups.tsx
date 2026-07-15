@@ -25,6 +25,7 @@ import { UserIdentity } from "~/components/custom/identity/user-identity";
 import { Row } from "~/components/custom/layout/row";
 import { Stack } from "~/components/custom/layout/stack";
 import { CAPS_LABEL, Text } from "~/components/custom/typography/text";
+import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
@@ -60,7 +61,7 @@ type RosterRow = {
 /** Statuses that need nothing from anyone — everything else is attention. */
 const GOOD_STATUSES: GroupLabStatus[] = ["on_track", "on_time", "ready"];
 /** The pool members a teacher may add to a group (linked login required). */
-type AddCandidate = LabGroups["unassignedStudents"][number] & { login: string };
+type AddCandidate = LabGroups["unplaced"][number] & { login: string };
 
 /**
  * The TEACHER's lab page is an ASSIGNMENT ROSTER (GitHub-Classroom-like):
@@ -83,8 +84,9 @@ export function TeacherLabGroups({
   const [filter, setFilter] = useState<StatusFilter>("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  // Add-member candidates = the pool (never double-books), by login.
-  const addCandidates = g.unassignedStudents.filter(
+  // Add-member candidates = everyone unplaced (never double-books), by
+  // login — teachers included, so removing one from a group is reversible.
+  const addCandidates = g.unplaced.filter(
     (s): s is AddCandidate => s.login !== null,
   );
   const userByGithubId = usersByGithubId(g.users);
@@ -626,6 +628,11 @@ function AddFromPool({
                 >
                   <Row gap="sm" align="center">
                     <UserIdentity {...identity} className="min-w-0 flex-1" />
+                    {s.state === "teacher" ? (
+                      <Badge variant="outline" className="font-normal">
+                        teacher
+                      </Badge>
+                    ) : null}
                     {pending === s.login ? (
                       <span className="font-mono text-muted-foreground text-xs">
                         adding…

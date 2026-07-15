@@ -8,6 +8,7 @@ const student = (n: number) => ({
   githubId: String(n),
   login: `s${n}`,
   avatarUrl: null,
+  state: "active" as const,
 });
 
 /** A linked SWITCH identity for that student. `user` is the whole drizzle row

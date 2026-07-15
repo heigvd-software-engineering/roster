@@ -80,8 +80,8 @@ const groupsData = {
   users: [],
   // The pool source: the class_members cache riding on the response.
   students: [
-    { githubId: "7", login: "alice", avatarUrl: "http://a" },
-    { githubId: "8", login: "bob", avatarUrl: null },
+    { githubId: "7", login: "alice", avatarUrl: "http://a", state: "active" },
+    { githubId: "8", login: "bob", avatarUrl: null, state: "active" },
   ],
 };
 
@@ -146,6 +146,35 @@ describe("TeacherLabPage", () => {
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Manage Team Alpha" }));
     expect(screen.getByRole("button", { name: "Delete group" })).toBeDisabled();
+  });
+
+  it("offers an unplaced teacher in the add-picker but not in the pool", () => {
+    mockApi({
+      ...groupsData,
+      groups: [grp({ members: [bob] })],
+      students: [
+        ...groupsData.students,
+        {
+          githubId: "500",
+          login: "teach",
+          avatarUrl: null,
+          state: "teacher",
+        },
+      ],
+    });
+    render(<TeacherLabPage />);
+
+    // The strip counts only alice — a teacher is not a missing student.
+    expect(
+      screen.getByRole("button", { name: "Show the student" }),
+    ).toBeInTheDocument();
+    // But the picker can (re)place the teacher, tagged as one.
+    fireEvent.click(screen.getByRole("button", { name: "Manage Team Alpha" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /Add from the pool \(2\)/ }),
+    );
+    expect(screen.getByText("@teach")).toBeInTheDocument();
+    expect(screen.getByText("teacher")).toBeInTheDocument();
   });
 
   it("reveals a member's affiliation emails from the drawer roster", () => {
