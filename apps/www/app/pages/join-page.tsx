@@ -57,7 +57,7 @@ function asMembership(value: unknown): Membership | null {
 export function JoinPage() {
   const { token = "" } = useParams();
   const navigate = useNavigate();
-  const { github } = useAuth();
+  const { github, affiliations } = useAuth();
   const [state, setState] = useState<JoinState>({ kind: "loading" });
   const [submitting, setSubmitting] = useState(false);
 
@@ -218,6 +218,7 @@ export function JoinPage() {
               name={github.name ?? github.login}
               handle={github.login}
               avatarUrl={github.avatarUrl}
+              emails={affiliations}
               size="lg"
             />
             <ArrowRightIcon
