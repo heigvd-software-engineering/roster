@@ -560,6 +560,90 @@ test("returns the caller's enrolled classes (with labs) from the cache alone", a
   expect(body.enrolled[0]).not.toHaveProperty("joinToken");
 });
 
+test("an enrolled class's teachers carry affiliations, never the private email", async () => {
+  await db.insert(classes).values({
+    id: "c2",
+    orgId: 43,
+    installationId: 300,
+    connectedByUserId: "someone-else",
+    joinToken: "tok-c2",
+    status: "active",
+    login: "beta",
+    name: "Beta",
+    avatarUrl: "http://b",
+    createdAt: new Date(500),
+    updatedAt: new Date(500),
+  });
+  // The caller (u1/111) is enrolled; a teacher (500) runs the class. The
+  // teacher signed in to labs (SWITCH-linked GitHub account) — the caller,
+  // a STUDENT, must see their name + professional emails, nothing more.
+  await db.insert(classMembers).values([
+    {
+      id: "m1",
+      classId: "c2",
+      githubId: "111",
+      state: "active",
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: "m2",
+      classId: "c2",
+      githubId: "500",
+      login: "teach",
+      avatarUrl: "http://t",
+      state: "teacher",
+      createdAt: now,
+      updatedAt: now,
+    },
+  ]);
+  await db.insert(user).values({
+    id: "u-teach",
+    name: "T. Prof",
+    firstName: "Tina",
+    lastName: "Prof",
+    email: "tina.private@gmail.com",
+  });
+  await db.insert(account).values([
+    {
+      id: "a-teach-gh",
+      userId: "u-teach",
+      providerId: "github",
+      accountId: "500",
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: "a-teach-switch",
+      userId: "u-teach",
+      providerId: "switch",
+      accountId: "edu-t",
+      idToken: idTokenWith(["t.prof@heig-vd.ch"]),
+      createdAt: now,
+      updatedAt: now,
+    },
+  ]);
+
+  const res = await app.request("/api/classes", {}, env);
+  const body = (await res.json()) as {
+    enrolled: Array<{ teachers: Array<Record<string, unknown>> }>;
+  };
+  expect(body.enrolled[0]?.teachers).toEqual([
+    {
+      classId: "c2",
+      githubId: "500",
+      login: "teach",
+      avatarUrl: "http://t",
+      user: {
+        firstName: "Tina",
+        lastName: "Prof",
+        name: "T. Prof",
+        affiliations: ["t.prof@heig-vd.ch"],
+      },
+    },
+  ]);
+});
+
 test("a class the caller teaches never doubles as an enrolled class", async () => {
   await seedClass();
   await db.insert(classMembers).values({

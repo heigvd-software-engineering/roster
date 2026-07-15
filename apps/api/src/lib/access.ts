@@ -302,29 +302,34 @@ export async function linkedUsers(db: Db, githubIds: string[]) {
       ),
     );
   if (rows.length === 0) return [];
-  // Affiliations come from the stored SWITCH id_token (as fresh as that
-  // user's last sign-in) — decoded here, never persisted separately.
-  const switchRows = await db
+  const affiliations = await affiliationsByUserId(
+    db,
+    rows.map((r) => r.userId),
+  );
+  return rows.map(({ githubId, userId, ...names }) => ({
+    githubId,
+    user: { ...names, affiliations: affiliations.get(userId) ?? [] },
+  }));
+}
+
+/** Affiliation (professional) emails for many users at once, decoded from
+ *  each stored SWITCH id_token (as fresh as that user's last sign-in) —
+ *  never persisted separately. The shared piece of every people payload. */
+export async function affiliationsByUserId(
+  db: Db,
+  userIds: string[],
+): Promise<Map<string, string[]>> {
+  if (userIds.length === 0) return new Map();
+  const rows = await db
     .select({ userId: account.userId, idToken: account.idToken })
     .from(account)
     .where(
-      and(
-        eq(account.providerId, "switch"),
-        inArray(
-          account.userId,
-          rows.map((r) => r.userId),
-        ),
-      ),
+      and(eq(account.providerId, "switch"), inArray(account.userId, userIds)),
     );
-  const tokenByUserId = new Map(switchRows.map((r) => [r.userId, r.idToken]));
-  return rows.map(({ githubId, userId, ...names }) => {
-    const idToken = tokenByUserId.get(userId);
-    return {
-      githubId,
-      user: {
-        ...names,
-        affiliations: idToken ? readAffiliationEmails(idToken) : [],
-      },
-    };
-  });
+  return new Map(
+    rows.map((r) => [
+      r.userId,
+      r.idToken ? readAffiliationEmails(r.idToken) : [],
+    ]),
+  );
 }
