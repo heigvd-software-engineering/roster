@@ -1,5 +1,6 @@
 import { Pencil, Plus } from "lucide-react";
 import { useState } from "react";
+import { Hint } from "~/components/custom/hint";
 import { Row } from "~/components/custom/layout/row";
 import { Stack } from "~/components/custom/layout/stack";
 import { Text } from "~/components/custom/typography/text";
@@ -173,7 +174,23 @@ export function LabDialog({
       )}
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{lab ? "Edit lab" : "New lab"}</DialogTitle>
+          <DialogTitle className="flex items-center gap-1">
+            {lab ? "Edit lab" : "New lab"}
+            {lab ? (
+              // Edits never reshape what already exists — say so up front
+              // instead of confirm-gating every save.
+              <Hint
+                variant="warning"
+                label="Warning about editing a live lab"
+                title="Groups already formed aren't reshaped"
+              >
+                Shrinking the size range can strand formed groups below the new
+                minimum, a different starter template only seeds repositories
+                created after the change, and a deadline change re-grades what
+                counts as late.
+              </Hint>
+            ) : null}
+          </DialogTitle>
           <DialogDescription>
             {lab
               ? "Changes are visible to students immediately."

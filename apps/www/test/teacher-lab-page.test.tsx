@@ -130,6 +130,12 @@ describe("TeacherLabPage", () => {
     expect(
       screen.queryByRole("button", { name: "Join" }),
     ).not.toBeInTheDocument();
+    // No repo yet → roster edits carry no warning.
+    expect(
+      screen.queryByRole("button", {
+        name: "repo exists",
+      }),
+    ).not.toBeInTheDocument();
   });
 
   it("links the repo and disables delete once the work repo exists", () => {
@@ -147,6 +153,44 @@ describe("TeacherLabPage", () => {
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Manage Team Alpha" }));
     expect(screen.getByRole("button", { name: "Delete group" })).toBeDisabled();
+    // Roster edits stay allowed — a warning hint explains the consequences.
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "repo exists",
+      }),
+    );
+    expect(
+      screen.getByText(/immediately sees everything the group has pushed/),
+    ).toBeInTheDocument();
+  });
+
+  it("flags members whose GitHub account has no SWITCH identity", () => {
+    mockApi({
+      ...groupsData,
+      groups: [grp({ members: [alice, bob] })],
+      // alice signed in with SWITCH and linked GitHub; bob never did.
+      users: [
+        {
+          githubId: "7",
+          user: { firstName: "Alice", lastName: "Ok", name: "alice" },
+        },
+      ],
+    });
+    render(<TeacherLabPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Manage Team Alpha" }));
+    // bob carries the info hint, alice doesn't.
+    fireEvent.click(
+      screen.getByRole("button", { name: "@bob hasn't signed in yet" }),
+    );
+    expect(
+      screen.getByText(/their real name appears here automatically/),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", {
+        name: "@alice hasn't signed in yet",
+      }),
+    ).not.toBeInTheDocument();
   });
 
   it("offers an unplaced teacher in the add-picker but not in the pool", () => {
