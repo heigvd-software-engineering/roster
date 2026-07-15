@@ -28,11 +28,14 @@ surfaced only on `/api/me`).
 - **Identity is hybrid everywhere:** SWITCH first/last name + GitHub
   `@login`. That is already `personIdentity`'s output — the change is to
   stop showing the email where it still appears.
-- **Affiliation emails replace it, on demand:** an expand arrow on the
-  identity component reveals the person's affiliation (professional)
-  emails. Visible to **everyone in the class** — teachers see students'
-  institutional emails, students see teachers'. One rule, no role
-  filtering.
+- **Affiliation emails replace it, on demand:** a chevron on the identity
+  component opens a floating overflow-style menu (popover) listing the
+  person's affiliation (professional) emails — the row itself never grows.
+  The GitHub login stays visible on the identity at all times. Visible to
+  **everyone in the class** — teachers see students' institutional emails,
+  students see teachers'. One rule, no role filtering. *(Amended
+  2026-07-15: was an inline expansion; changed to a floating menu +
+  always-visible login after seeing it live.)*
 - **This applies to every identity display in the app**, not just
   PeopleChip — group member rows (teacher drawer, student tiles),
   add-from-pool, unassigned pool, and future surfaces. Avatar-only spots
@@ -57,12 +60,13 @@ surfaced only on `/api/me`).
   `emails: string[]` (empty when unlinked or none). `personIdentity`
   fills it from the linked user's `affiliations`.
 - `UserIdentity` gains optional `emails?: string[]`: when non-empty, a
-  small chevron (DisclosureToggle pattern) after the subtitle expands the
-  emails inline under the row. No emails → no chevron, row unchanged.
+  small chevron after the text block opens a Popover listing the emails.
+  No emails → no chevron, row unchanged.
 - Call sites pass what `personIdentity` gives them; they make no
   visibility decisions.
-- **PeopleChip:** the Switch-identity cell drops the email subtitle
-  (GitHub login already has its own column) and gains the chevron.
+- **PeopleChip:** the Switch-identity cell drops the email subtitle and
+  shows name + `@login` + the chevron (the GitHub column keeps the
+  clickable profile link and the pending badge).
 - **Own menu** (`main-switch-identity`): untouched — it may keep showing
   the caller their own private email and affiliations from `/api/me`.
 

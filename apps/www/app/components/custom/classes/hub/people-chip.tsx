@@ -74,11 +74,13 @@ export function PeopleChip({
                 >
                   <TableCell>
                     {p.user ? (
-                      // SWITCH identity: initials, never a photo. The private
-                      // email is gone — affiliation (professional) emails
-                      // hide behind the chevron instead.
+                      // SWITCH identity: initials, never a photo. The GitHub
+                      // login is part of the identity; the private email is
+                      // gone — affiliation (professional) emails live behind
+                      // the chevron's menu instead.
                       <UserIdentity
                         name={switchDisplayName(p.user)}
+                        handle={p.login}
                         emails={p.user.affiliations}
                       />
                     ) : (

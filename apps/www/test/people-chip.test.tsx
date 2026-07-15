@@ -53,7 +53,9 @@ describe("PeopleChip", () => {
     fireEvent.click(screen.getByText("1 student"));
     await screen.findByText("Alice Student");
 
-    // Collapsed: name only — no email in sight.
+    // The GitHub login is part of the identity, always visible.
+    expect(screen.getAllByText("@alice").length).toBeGreaterThan(0);
+    // Closed: no email in sight.
     expect(screen.queryByText("alice@heig-vd.ch")).not.toBeInTheDocument();
     fireEvent.click(
       screen.getByRole("button", { name: "Show Alice Student's emails" }),
