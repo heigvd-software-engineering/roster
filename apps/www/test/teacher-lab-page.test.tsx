@@ -148,6 +148,32 @@ describe("TeacherLabPage", () => {
     expect(screen.getByRole("button", { name: "Delete group" })).toBeDisabled();
   });
 
+  it("reveals a member's affiliation emails from the drawer roster", () => {
+    mockApi({
+      ...groupsData,
+      groups: [grp({ members: [alice] })],
+      users: [
+        {
+          githubId: "7",
+          user: {
+            firstName: "Alice",
+            lastName: "Ok",
+            name: "alice",
+            affiliations: ["alice@heig-vd.ch"],
+          },
+        },
+      ],
+    });
+    render(<TeacherLabPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Manage Team Alpha" }));
+    expect(screen.queryByText("alice@heig-vd.ch")).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Show Alice Ok's emails" }),
+    );
+    expect(screen.getByText("alice@heig-vd.ch")).toBeInTheDocument();
+  });
+
   it("confirms the batch repo creation and says it locks the groups", () => {
     // Team Alpha is complete (2/2) with no repo → 1 missing repository.
     mockApi({ ...groupsData, groups: [grp({ members: [alice, bob] })] });
