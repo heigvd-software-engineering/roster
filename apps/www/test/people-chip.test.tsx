@@ -26,8 +26,8 @@ describe("PeopleChip", () => {
     // ① alice is linked → SWITCH name + @login.
     expect(await screen.findByText("Alice Student")).toBeInTheDocument();
     expect(screen.getByText("@alice")).toBeInTheDocument();
-    // ② bob is GitHub only → login as the name + the "not linked" note.
-    expect(screen.getByText("bob")).toBeInTheDocument();
+    // ② bob is GitHub only → login as the name (shown as a @handle) + the note.
+    expect(screen.getByText("@bob")).toBeInTheDocument();
     expect(screen.getByText("not linked to edu-ID")).toBeInTheDocument();
     // A pending invite is badged.
     expect(screen.getByText("pending")).toBeInTheDocument();

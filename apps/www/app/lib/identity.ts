@@ -13,6 +13,11 @@ import { switchDisplayName } from "~/lib/format";
 export type PersonIdentity = {
   /** The display name: the SWITCH identity when linked, else the login. */
   name: string;
+  /** True when `name` IS a GitHub login (state ②, no edu-ID): render it as a
+   *  handle — mono, "@"-prefixed — so a bare login reads as a login, not a
+   *  person's name. `name` itself stays the raw login (the avatar's initials,
+   *  the alt text and the emails menu all want it clean). */
+  nameIsLogin?: boolean;
   /** The photo, or null when the avatar should fall back to initials. */
   avatarUrl: string | null;
   /** Affiliation (professional) emails — the ONLY emails the app ever shows
@@ -53,6 +58,7 @@ export function personIdentity(
   // and the note spells out why there's no real name.
   return {
     name: person.login ?? "unknown",
+    nameIsLogin: person.login != null,
     subtitle: "not linked to edu-ID",
     avatarUrl: person.avatarUrl,
     emails,
