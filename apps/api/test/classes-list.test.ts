@@ -107,6 +107,10 @@ const db = getDb(env.DB);
 
 const now = new Date(0);
 
+/** A fake SWITCH id_token: only the payload matters (decodeJwtPayload). */
+const idTokenWith = (emails: string[]) =>
+  `h.${btoa(JSON.stringify({ swissEduIDLinkedAffiliationMail: emails }))}.s`;
+
 async function seedClass(args?: {
   id?: string;
   orgId?: number;
@@ -203,6 +207,15 @@ beforeEach(async () => {
 test("lists classes with people + linked users, from live installation data", async () => {
   await seedClass({ name: "Acme" });
   await seedMembers();
+  await db.insert(account).values({
+    id: "a-switch",
+    userId: "u1",
+    providerId: "switch",
+    accountId: "edu-1",
+    idToken: idTokenWith(["b.prof@heig-vd.ch", "b.prof@unil.ch"]),
+    createdAt: now,
+    updatedAt: now,
+  });
   const res = await app.request("/api/classes", {}, env);
   expect(res.status).toBe(200);
   const body = (await res.json()) as {
@@ -228,17 +241,16 @@ test("lists classes with people + linked users, from live installation data", as
     pending: state.people.pending,
     labs: [],
   });
-  // The linked-users query result rides along raw; only the teacher's
-  // GitHub account (111) is linked to a labs user here.
+  // Only the teacher's GitHub account (111) is linked to a labs user here.
   expect(body.classes[0]?.users).toHaveLength(1);
-  expect(body.classes[0]?.users[0]).toMatchObject({
+  // EXACT shape: the private email (and everything else) must not ride along.
+  expect(body.classes[0]?.users[0]).toEqual({
     githubId: "111",
     user: {
-      id: "u1",
       firstName: "Bob",
       lastName: "Prof",
       name: "Prof Switch",
-      email: "prof@heig-vd.ch",
+      affiliations: ["b.prof@heig-vd.ch", "b.prof@unil.ch"],
     },
   });
 
@@ -247,6 +259,21 @@ test("lists classes with people + linked users, from live installation data", as
   // job, and the teacher's decision.
   const [row] = await db.select().from(classes).where(eq(classes.id, "c1"));
   expect(row?.installationId).toBe(100);
+});
+
+test("linked users without a SWITCH id_token get empty affiliations", async () => {
+  await seedClass({ name: "Acme" });
+  await seedMembers();
+  const res = await app.request("/api/classes", {}, env);
+  const body = (await res.json()) as {
+    classes: Array<{ users: Array<{ user: Record<string, unknown> }> }>;
+  };
+  expect(body.classes[0]?.users[0]?.user).toEqual({
+    firstName: "Bob",
+    lastName: "Prof",
+    name: "Prof Switch",
+    affiliations: [],
+  });
 });
 
 test("a GitHub outage on the bulk calls is a 503, not a 500 or an empty hub", async () => {

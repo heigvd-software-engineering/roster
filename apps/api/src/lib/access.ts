@@ -24,6 +24,7 @@ import {
 } from "./github/team";
 import { fetchGithubProfile, GithubUnavailableError } from "./github/user";
 import { syncGroupMembers } from "./group-members";
+import { readAffiliationEmails } from "./switch/claims";
 
 /**
  * Class-scoped access resolution — the ONE home for "who is the caller to
@@ -277,12 +278,21 @@ export async function labInClass(
   return row && row.classId === scope.cls.id ? row : null;
 }
 
-/** SWITCH users linked to GitHub accounts — raw query rows; clients
- *  correlate them by github id (one query for any people/roster list). */
+/** SWITCH users linked to GitHub accounts, in the ONE shape that may leave
+ *  the server for other class members: display-name fields + affiliation
+ *  (professional) emails, decoded from each user's stored SWITCH id_token.
+ *  The private login email NEVER rides here — /api/me alone may show it,
+ *  and only to its owner. Clients correlate rows by github id. */
 export async function linkedUsers(db: Db, githubIds: string[]) {
   if (githubIds.length === 0) return [];
-  return db
-    .select({ githubId: account.accountId, user })
+  const rows = await db
+    .select({
+      githubId: account.accountId,
+      userId: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      name: user.name,
+    })
     .from(account)
     .innerJoin(user, eq(account.userId, user.id))
     .where(
@@ -291,4 +301,30 @@ export async function linkedUsers(db: Db, githubIds: string[]) {
         inArray(account.accountId, githubIds),
       ),
     );
+  if (rows.length === 0) return [];
+  // Affiliations come from the stored SWITCH id_token (as fresh as that
+  // user's last sign-in) — decoded here, never persisted separately.
+  const switchRows = await db
+    .select({ userId: account.userId, idToken: account.idToken })
+    .from(account)
+    .where(
+      and(
+        eq(account.providerId, "switch"),
+        inArray(
+          account.userId,
+          rows.map((r) => r.userId),
+        ),
+      ),
+    );
+  const tokenByUserId = new Map(switchRows.map((r) => [r.userId, r.idToken]));
+  return rows.map(({ githubId, userId, ...names }) => {
+    const idToken = tokenByUserId.get(userId);
+    return {
+      githubId,
+      user: {
+        ...names,
+        affiliations: idToken ? readAffiliationEmails(idToken) : [],
+      },
+    };
+  });
 }
