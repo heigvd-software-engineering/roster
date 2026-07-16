@@ -8,18 +8,25 @@ app/components/
 │             #   files by hand. `shadcn add` writes/overwrites here.
 │             #   (Button, Card, Dialog, …) — see ui/README.md.
 └─ custom/    # OURS — reusable components, grouped by concern:
-   ├─ layout/     # layout primitives: stack.tsx, row.tsx, container.tsx
-   │              #   (+ tokens.ts, the shared spacing scale). Use instead of
-   │              #   hand-writing flex/gap/max-width. Grown as needed (YAGNI).
+   ├─ layout/     # layout primitives: stack.tsx, row.tsx, container.tsx,
+   │              #   page.tsx, ghost-tile.tsx (+ tokens.ts, the shared spacing
+   │              #   scale). Use instead of hand-writing flex/gap/max-width.
+   │              #   Grown as needed (YAGNI).
    ├─ typography/ # text.tsx (<Text variant>) + brand-header.tsx (the branded
    │              #   eyebrow/title/red-rule heading block).
    ├─ shell/      # app chrome + gating: app-layout, app-header, auth (route
    │              #   guard), main-switch-identity (the account menu).
    ├─ identity/   # who-is-this components: user-avatar (the primitive),
-   │              #   user-identity (THE person row), org-identity.
+   │              #   user-identity (THE person row), org-identity, emails-menu.
    │              #   Who a person is named by — and so whether they wear a
    │              #   photo or initials — is decided by lib/identity.ts.
-   └─ classes/    # classes-domain components: class-card, lab-row, deadline-chip.
+   ├─ classes/    # classes-domain components — see "Import aliases" below.
+   └─ *.tsx       # cross-cutting one-offs that belong to no domain and are
+                  #   composed by several: command-block, confirm-dialog,
+                  #   disabled-reason, disclosure-toggle, hint, loading,
+                  #   state-change. A file earns the root by being domain-less,
+                  #   not by being small — anything classes-specific goes in
+                  #   classes/.
 ```
 
 ## Styling convention: wrap Tailwind, don't scatter it
@@ -42,14 +49,20 @@ components**, not utility soup:
 
 ```
 app/
-├─ root.tsx      # document + app-wide background; wraps every page in <AppLayout>
+├─ root.tsx      # document + app-wide background; wraps every page in <AppLayout>,
+│                #   inside ThemeProvider > MessageProvider > AuthProvider
 ├─ components/   # ui/ (generated) + custom/ (reusable, this folder)
-├─ pages/        # PAGE components — one per screen (login-page, home-page, …).
+├─ contexts/     # the providers those hooks read: auth-context (useAuth),
+│                #   message-context (useMessage), theme-context
+├─ pages/        # PAGE components — one per screen (login-page, classes-page, …).
 │                #   DATA GATHERERS: they call hooks (useAuth, useApi, …) and
 │                #   take NO data props. Composed from components/. Run by routes.
 ├─ routes/       # React Router route modules — thin auth/routing glue that
-│                #   gates + picks which page to render (home.tsx → Login vs Home).
-└─ lib/          # non-visual helpers (auth client, cn util).
+│                #   gates + picks which page to render (home.tsx → Login when
+│                #   signed out, else redirect to /classes).
+└─ lib/          # non-visual helpers: api.ts (the hc<AppType> client + useApi),
+                 #   auth.ts, identity.ts, format.ts, semester.ts, theme.ts,
+                 #   utils.ts (cn).
 ```
 
 Rule of thumb: **routes** gate + decide *what* to show, **pages** are *a whole
@@ -79,14 +92,14 @@ gets regenerated, and where our own work lives.
 - Ours: `~/components/custom/<group>/<name>` (e.g. `~/components/custom/classes/hub/class-card`)
 
 Large groups split further by use case: `classes/` holds `hub/` (the classes
-page cards + dialogs), `labs/` (lab row, header, and the create/edit
-`lab-dialog`), and `groups/` (everything both lab pages compose), itself
-split by role:
+page cards + dialogs), `labs/` (lab row, header, `deadline-text`, and the
+create/edit `lab-dialog`), `reconcile/` (the drift-audit explainer dialog), and
+`groups/` (everything both lab pages compose), itself split by role:
 
 - `groups/shared/` — used by both roles: the `use-lab-groups` hook, and the
   shared `group-tile` / `unassigned-pool` / `new-group-dialog`.
 - `groups/teacher/` — the teacher's assignment roster: `teacher-lab-groups`
-  + its `roster` / `lab-stats` bits.
+  + its `roster` / `lab-stats` / `clone-all-dialog` bits.
 - `groups/student/` — the student's view: `student-lab-groups` +
   `start-lab-card`.
 

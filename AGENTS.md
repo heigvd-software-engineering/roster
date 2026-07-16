@@ -7,7 +7,7 @@ The one escape hatch: when following a rule is genuinely unreasonable for a spec
 
 ## Architecture (context you must not break)
 
-- pnpm monorepo. `apps/www` = React SPA (Vite, Tailwind, shadcn). `apps/api` = Cloudflare Worker (Hono, Drizzle, D1, R2). `packages/db` = the Drizzle schema, the single source of truth for data shapes.
+- pnpm monorepo. `apps/www` = React SPA (Vite, Tailwind, shadcn). `apps/api` = Cloudflare Worker (Hono, Drizzle, D1). `packages/db` = the Drizzle schema, the single source of truth for data shapes.
 - Type flow is **Drizzle → `@labs/db` → `@labs/api` (`AppType`) → `apps/www` (`InferResponseType`)**. Types are inferred across this whole chain; nothing is hand-maintained in parallel to it.
 - No build step for `@labs/db` — apps import its TypeScript source directly via the package `exports` field.
 

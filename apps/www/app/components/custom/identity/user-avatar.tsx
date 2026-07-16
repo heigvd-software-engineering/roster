@@ -17,7 +17,7 @@ export function initials(name: string): string {
 
 type UserAvatarProps = {
   name: string;
-  src?: string | null;
+  src?: string | null | undefined;
   size?: "sm" | "default" | "lg";
   /** People are circles; organizations are rounded squares (GitHub's own
    *  convention, and the class-card mockup's). */

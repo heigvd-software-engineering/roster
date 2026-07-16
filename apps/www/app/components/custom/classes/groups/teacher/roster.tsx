@@ -112,7 +112,7 @@ export function AvatarCluster({
   users,
 }: {
   members: GroupItem["members"];
-  users?: ClassItem["users"];
+  users?: ClassItem["users"] | undefined;
 }) {
   const userByGithubId = usersByGithubId(users);
   return (

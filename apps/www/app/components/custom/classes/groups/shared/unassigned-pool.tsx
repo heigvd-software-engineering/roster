@@ -28,7 +28,7 @@ export function UnassignedPool({
 }: {
   /** Already filtered to students in NO participating group. */
   students: LabStudent[];
-  users?: ClassItem["users"];
+  users?: ClassItem["users"] | undefined;
 }) {
   const listId = useId();
   const [open, setOpen] = useState(false);
