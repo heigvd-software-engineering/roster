@@ -252,6 +252,67 @@ only the Worker's config differs. So a deploy always ships whatever is in that
 directory — rebuild from an up-to-date tree before deploying, and verify the
 served `index.html` references the `assets/manifest-*.js` hash you just built.
 
+## Operating a deployed environment
+
+Everything below runs from `apps/api` (`pnpm exec wrangler …`), and everything
+takes `--env <ENV>` — without it wrangler targets a Worker that doesn't exist
+or can't find the D1 binding.
+
+**Live logs — the first tool to reach for when prod misbehaves:**
+
+```powershell
+pnpm exec wrangler tail --env demo --format pretty
+```
+
+Streams every request and every `console.error` as it happens. The API's
+error handler logs the real upstream failure (e.g.
+`github unavailable: GET /user/installations → 503`), which the SPA only
+shows as a generic banner — the tail is where the actual cause lives.
+
+**Versions and rollback:**
+
+```powershell
+pnpm exec wrangler deployments list --env demo    # what's live, and its history
+pnpm exec wrangler versions list --env demo       # every uploaded version
+pnpm exec wrangler versions view <VERSION_ID> --env demo   # a version's compat date/flags, bindings, secret NAMES
+pnpm exec wrangler rollback <VERSION_ID> --env demo        # make an old version live again
+```
+
+Every deploy's version id is printed at the end (`Current Version ID: …`).
+Rollback re-activates that exact version — code, vars, and its secrets — so a
+bad deploy is undone in seconds without a rebuild. `versions view` is also the
+audit tool: comparing a broken version against the last good one shows
+whether anything (flags, bindings, secrets) actually differs.
+
+**Secrets:**
+
+```powershell
+pnpm exec wrangler secret list --env demo             # names only — values are write-only
+pnpm exec wrangler secret put <KEY> --env demo        # set/replace one (paste prompt)
+pnpm exec wrangler secret delete <KEY> --env demo
+```
+
+**Database:**
+
+```powershell
+pnpm exec wrangler d1 migrations list labs --remote --env demo    # applied vs pending
+pnpm exec wrangler d1 execute labs --remote --env demo --json --command "SELECT …"
+```
+
+`d1 execute` is the remote-debugging escape hatch (row counts, drift checks).
+SQLite gotcha: a double-quoted name that matches no column silently becomes a
+string literal instead of erroring — the auth tables are snake_case
+(`provider_id`, `access_token`), so a typo'd camelCase query "works" and
+returns garbage.
+
+**When the app blames GitHub, check GitHub first.** The SPA's "GitHub is
+unreachable right now" banner plus 503s on everything GitHub-backed is the
+app's *designed* response to a GitHub outage — `wrangler tail` will show
+`github unavailable: … → 5xx` from GitHub itself. Before suspecting a deploy
+or the secrets, check <https://www.githubstatus.com> (the REST API incident
+feed). `/api/health` only proves the Worker runs; it says nothing about the
+GitHub leg.
+
 ## Not in scope (fine for a demo, revisit for real use)
 
 - Custom domain (`labs.heig-vd.ch`-style) — a one-click Workers custom
