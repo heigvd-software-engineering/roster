@@ -1,20 +1,16 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
+
+  // ─── Shared base ────────────────────────────────────────────────────────
+  // Only INHERITABLE keys live here. Every environment below inherits them.
+  // There are no top-level `vars` or `d1_databases` on purpose: those keys are
+  // NOT inherited by environments, so a value here would be silently dropped
+  // from every `--env` deploy. Wrangler warns about exactly this. All commands
+  // must therefore pass `--env` (the package scripts do).
   "name": "labs",
   "main": "src/index.ts",
   "compatibility_date": "2026-06-30",
   "compatibility_flags": ["nodejs_compat"],
-  // PROD values — `.dev.vars` overrides these for local `wrangler dev`
-  // (see DEPLOY.md phase 2).
-  "vars": {
-    "BETTER_AUTH_URL": "https://labs.stefan-teofanov.workers.dev",
-    "EDUID_ISSUER": "https://login.eduid.ch",
-    // The DEMO GitHub App's public slug (install URL path segment) — public
-    // config, not a secret. Delivered to the SPA via /api/me. Dev overrides
-    // to its own App (`heigvdlabs`) in .dev.vars — one App per environment
-    // (GITHUB_APP_SETUP.md).
-    "GITHUB_APP_SLUG": "heigvdlabsdemo"
-  },
   "assets": {
     "directory": "../www/build/client",
     "binding": "ASSETS",
@@ -24,14 +20,81 @@
     // not_found_handling and never reach Hono/Better Auth (breaks OAuth callback).
     "run_worker_first": ["/api/*"]
   },
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "labs",
-      // The remote db on the demo Cloudflare account (DEPLOY.md). Local dev
-      // ignores the id — miniflare keeps its own local sqlite.
-      "database_id": "1dd57ff0-73c3-439a-8878-df578944cfe1",
-      "migrations_dir": "../../packages/db/migrations"
+
+  // ─── Environments ───────────────────────────────────────────────────────
+  // One GitHub App, one D1, one origin PER ENVIRONMENT — see DEPLOY.md. Each
+  // block therefore restates `vars` and `d1_databases` IN FULL; they are not
+  // inherited. `name` IS inherited, so each block pins it explicitly: without
+  // that, wrangler deploys to `<name>-<env>` (e.g. `labs-demo`), which would
+  // move the origin and break BETTER_AUTH_URL, both GitHub App URLs, and the
+  // SWITCH redirect URI in one shot.
+  //
+  // Secrets are per-environment and never live here:
+  //   wrangler secret put <KEY> --env <demo|prod>     (DEPLOY.md phase 5)
+  "env": {
+    // Local development only — never deployed. `wrangler dev` runs this env
+    // (see the `dev`/`preview` scripts) and reads apps/api/.dev.vars for the
+    // secrets. The name only exists so an accidental `deploy --env dev` lands
+    // on a throwaway Worker instead of the demo.
+    "dev": {
+      "name": "labs-dev",
+      "vars": {
+        "BETTER_AUTH_URL": "https://localhost:3000",
+        "EDUID_ISSUER": "https://login.eduid.ch",
+        "GITHUB_APP_SLUG": "heigvdlabs"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "labs",
+          // Ignored locally — miniflare keeps its own sqlite under .wrangler/.
+          "database_id": "00000000-0000-0000-0000-000000000000",
+          "migrations_dir": "../../packages/db/migrations"
+        }
+      ]
+    },
+
+    // The demo on the personal Cloudflare account. `name: "labs"` keeps the
+    // existing origin, labs.stefan-teofanov.workers.dev.
+    "demo": {
+      "name": "labs",
+      "vars": {
+        "BETTER_AUTH_URL": "https://labs.stefan-teofanov.workers.dev",
+        "EDUID_ISSUER": "https://login.eduid.ch",
+        // The demo GitHub App's public slug (install URL path segment) — public
+        // config, not a secret. Delivered to the SPA via /api/me.
+        "GITHUB_APP_SLUG": "heigvdlabsdemo"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "labs",
+          "database_id": "1dd57ff0-73c3-439a-8878-df578944cfe1",
+          "migrations_dir": "../../packages/db/migrations"
+        }
+      ]
+    },
+
+    // HEIG-VD's environment — NOT YET PROVISIONED. Fill these in by following
+    // DEPLOY.md end to end on the owning account: create the D1 (phase 1), this
+    // environment's own GitHub App (phase 3), and its secrets (phase 5). The
+    // placeholders below are deliberately invalid so a premature deploy fails
+    // loudly instead of shipping a half-configured Worker.
+    "prod": {
+      "name": "labs-heigvd",
+      "vars": {
+        "BETTER_AUTH_URL": "https://labs-heigvd.<subdomain>.workers.dev",
+        "EDUID_ISSUER": "https://login.eduid.ch",
+        "GITHUB_APP_SLUG": "<app-slug>"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "labs",
+          "database_id": "00000000-0000-0000-0000-000000000000",
+          "migrations_dir": "../../packages/db/migrations"
+        }
+      ]
     }
-  ]
+  }
 }

@@ -61,58 +61,99 @@ pnpm exec wrangler login
 pnpm exec wrangler whoami   # note the account; the workers.dev subdomain is in the dash (Workers & Pages → your subdomain)
 ```
 
+## Environments — read this before running anything
+
+`apps/api/wrangler.jsonc` declares three environments side by side. Every
+`wrangler` command below takes `--env <name>`:
+
+| Env | Worker | What |
+|---|---|---|
+| `dev` | `labs-dev` | local only — `wrangler dev` reads it; never deployed |
+| `demo` | `labs` | the demo on the personal account |
+| `prod` | `labs-heigvd` | HEIG-VD's environment — placeholders until provisioned |
+
+Two rules follow from how Wrangler environments work, and both bite silently:
+
+- **`vars` and `d1_databases` are not inherited.** Each env block restates them
+  in full. Omit one and wrangler only *warns*, then deploys a Worker with no
+  database — which fails at runtime, not at deploy. There are deliberately no
+  top-level `vars`/`d1_databases` to inherit from.
+- **`name` is pinned per env.** By default a Worker deploys as
+  `<name>-<env>` (`labs-demo`), which would move the origin and break
+  `BETTER_AUTH_URL`, both GitHub App URLs, and the SWITCH redirect URI at once.
+  Each block sets `name` explicitly so the origin is whatever the table says.
+
+`--env` is not optional even for D1: `migrations_dir` lives on the binding, so
+without it wrangler looks for `apps/api/migrations` and errors.
+
+The rest of this guide provisions **one environment**. Substitute its name for
+`<ENV>` throughout — the demo used `demo`; HEIG-VD's will use `prod`.
+
 ## Phase 1 — database + first deploy (claims the URL)
 
 Create the remote D1 and point the config at it:
 
 ```powershell
 pnpm exec wrangler d1 create labs
-# → copy the printed database_id into wrangler.jsonc, replacing the
-#   00000000-… placeholder. Local dev ignores the id (miniflare uses a
-#   local sqlite), so this is safe for dev.
+# → copy the printed database_id into this environment's `d1_databases` block
+#   in wrangler.jsonc (env.<ENV>). The `dev` and `prod` blocks ship an
+#   all-zeros placeholder id — dev ignores it (miniflare uses a local sqlite),
+#   prod is meant to fail loudly until it is filled in.
 ```
 
 Apply all migrations (13 files in `packages/db/migrations`) to the REMOTE db:
 
 ```powershell
-pnpm exec wrangler d1 migrations apply labs --remote
+pnpm exec wrangler d1 migrations apply labs --remote --env <ENV>
 ```
 
 Build the SPA, then deploy (the Worker embeds `apps/www/build/client`):
 
 ```powershell
 pnpm --filter @labs/www build
-pnpm --filter @labs/api run deploy
-# → prints https://labs.<subdomain>.workers.dev — this is <ORIGIN>
+pnpm --filter @labs/api run deploy:<ENV>
+# → prints the Worker's origin — this is <ORIGIN>
 ```
 
-> **`run deploy`, not `deploy`.** `deploy` is a pnpm built-in
-> (`pnpm deploy`), so `pnpm --filter @labs/api deploy` is intercepted by
-> pnpm and fails with `ERR_PNPM_INVALID_DEPLOY_TARGET` before the package's
-> own `deploy` script (`wrangler deploy --minify`) ever runs. The explicit
-> `run` disambiguates. Same applies everywhere below.
+> **There is no bare `deploy` script.** An environment-less deploy would ship a
+> Worker with no `vars` and no D1 (neither is inherited), so `deploy` exists
+> only to fail with a message pointing at `deploy:demo` / `deploy:prod`. Note
+> this also sidesteps the old `pnpm deploy` trap: `deploy` is a pnpm built-in,
+> so `pnpm --filter @labs/api deploy` was intercepted by pnpm itself and died
+> with `ERR_PNPM_INVALID_DEPLOY_TARGET`. `deploy:demo` is not a built-in and
+> needs no `run` — it is kept in the commands here only for consistency.
 
 The app will load but sign-in is dead until phases 2–5. That's expected.
 
-## Phase 2 — split public config: prod in wrangler.jsonc, dev in .dev.vars
+## Phase 2 — public config in wrangler.jsonc, secrets outside it
 
-`wrangler.jsonc` `vars` ship on deploy; `.dev.vars` overrides them for
-`wrangler dev` only. So the prod values go in the config, and local dev
-keeps working via overrides — no wrangler environments needed.
+Non-secret config is committed, per environment; secrets never are. Wrangler
+does **not** interpolate env vars into `wrangler.jsonc` (`${VAR}` ships as a
+literal string), and an `.env` file does not override a declared `var` on
+deploy — so the config file is the only place these values can live.
 
-In `wrangler.jsonc` `vars`:
+In this environment's block in `wrangler.jsonc`:
 
 ```jsonc
-"BETTER_AUTH_URL": "<ORIGIN>",
-"GITHUB_APP_SLUG": "<the demo App's slug, from phase 3>"
+"env": {
+  "<ENV>": {
+    "name": "<worker name — pins the origin; see the table above>",
+    "vars": {
+      "BETTER_AUTH_URL": "<ORIGIN>",
+      "EDUID_ISSUER": "https://login.eduid.ch",
+      "GITHUB_APP_SLUG": "<this environment's App slug, from phase 3>"
+    },
+    "d1_databases": [ /* … the id from phase 1, in full … */ ]
+  }
+}
 ```
 
-In `apps/api/.dev.vars`, add the dev overrides (git-ignored):
-
-```
-BETTER_AUTH_URL=https://localhost:3000
-GITHUB_APP_SLUG=heigvdlabs
-```
+Restate all three `vars` — a var present only at the top level would not be
+inherited. Local dev needs no override file for these: the `dev` env already
+carries `https://localhost:3000` and the `heigvdlabs` App. `apps/api/.dev.vars`
+(git-ignored) holds only the **secrets** from phase 5, and `wrangler dev --env
+dev` loads it as long as no `.dev.vars.dev` exists — if that file is ever
+created, it *replaces* `.dev.vars` rather than merging with it.
 
 ## Phase 3 — the demo's own GitHub App
 
@@ -151,16 +192,17 @@ then its id/secret go in the phase-5 secrets instead).
 ## Phase 5 — secrets
 
 Seven secrets, all via `wrangler secret put` (each opens a paste prompt;
-run from `apps/api`):
+run from `apps/api`). Secrets are **scoped per environment** — `--env` is what
+decides which Worker they land on, and they are never inherited:
 
 ```powershell
-pnpm exec wrangler secret put BETTER_AUTH_SECRET      # FRESH random: node -e "console.log(crypto.randomBytes(32).toString('hex'))"
-pnpm exec wrangler secret put EDUID_CLIENT_ID
-pnpm exec wrangler secret put EDUID_CLIENT_SECRET
-pnpm exec wrangler secret put GITHUB_CLIENT_ID        # the demo App's OAuth client id
-pnpm exec wrangler secret put GITHUB_CLIENT_SECRET
-pnpm exec wrangler secret put GITHUB_APP_ID           # the demo App's numeric id
-pnpm exec wrangler secret put GITHUB_APP_PRIVATE_KEY  # the single-line PKCS#8 from phase 3
+pnpm exec wrangler secret put BETTER_AUTH_SECRET     --env <ENV>   # FRESH random: node -e "console.log(crypto.randomBytes(32).toString('hex'))"
+pnpm exec wrangler secret put EDUID_CLIENT_ID        --env <ENV>
+pnpm exec wrangler secret put EDUID_CLIENT_SECRET    --env <ENV>
+pnpm exec wrangler secret put GITHUB_CLIENT_ID       --env <ENV>   # this environment's App OAuth client id
+pnpm exec wrangler secret put GITHUB_CLIENT_SECRET   --env <ENV>
+pnpm exec wrangler secret put GITHUB_APP_ID          --env <ENV>   # this environment's App numeric id
+pnpm exec wrangler secret put GITHUB_APP_PRIVATE_KEY --env <ENV>   # the single-line PKCS#8 from phase 3
 ```
 
 Never reuse the dev `BETTER_AUTH_SECRET` — it's in `.dev.vars` on every dev
@@ -174,7 +216,7 @@ unknown. Paste interactively or pipe with Git Bash `printf '%s'`.
 
 ```powershell
 pnpm --filter @labs/www build
-pnpm --filter @labs/api run deploy
+pnpm --filter @labs/api run deploy:<ENV>
 ```
 
 Walk, in order (each step proves a different integration):
@@ -197,11 +239,16 @@ has no `&&`):
 
 ```powershell
 pnpm --filter @labs/www build
-pnpm --filter @labs/api run deploy
+pnpm --filter @labs/api run deploy:demo    # or deploy:prod
 ```
 
-Migrations added later: `wrangler d1 migrations apply labs --remote` before
-the deploy. Secrets and D1 survive deploys — only code and `vars` ship.
+Migrations added later: `wrangler d1 migrations apply labs --remote --env demo`
+before the deploy. Secrets and D1 survive deploys — only code and `vars` ship.
+
+The build is the same artifact for every environment (`apps/www/build/client`);
+only the Worker's config differs. So a deploy always ships whatever is in that
+directory — rebuild from an up-to-date tree before deploying, and verify the
+served `index.html` references the `assets/manifest-*.js` hash you just built.
 
 ## Not in scope (fine for a demo, revisit for real use)
 

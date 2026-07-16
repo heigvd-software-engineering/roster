@@ -51,7 +51,7 @@ see `GITHUB_APP_SETUP.md`).
 pnpm install
 
 # one-time / after schema changes: apply migrations to the local D1
-pnpm --filter @labs/api exec wrangler d1 migrations apply labs --local
+pnpm --filter @labs/api exec wrangler d1 migrations apply labs --local --env dev
 
 # run the app (two terminals)
 pnpm --filter @labs/api dev        # Worker (API) on :8788
@@ -86,11 +86,15 @@ pnpm build            # SPA build + Worker dry-run
 ### Database
 
 ```bash
-pnpm --filter @labs/db db:generate                                    # new migration from schema
-pnpm --filter @labs/api exec wrangler d1 migrations apply labs --local    # apply locally
-pnpm --filter @labs/api exec wrangler d1 migrations apply labs --remote   # apply to prod D1
-pnpm --filter @labs/api run auth:schema                               # regenerate Better Auth schema
+pnpm --filter @labs/db db:generate                                              # new migration from schema
+pnpm --filter @labs/api exec wrangler d1 migrations apply labs --local --env dev    # apply locally
+pnpm --filter @labs/api exec wrangler d1 migrations apply labs --remote --env demo  # apply to the demo D1
+pnpm --filter @labs/api run auth:schema                                         # regenerate Better Auth schema
 ```
+
+Every `wrangler` command needs `--env` — the D1 binding lives per environment
+(`dev` / `demo` / `prod`), not at the top level, so without it wrangler cannot
+find the database or the migrations directory. See [`DEPLOY.md`](DEPLOY.md).
 
 The local D1 is a plain SQLite file under
 `apps/api/.wrangler/state/v3/d1/miniflare-D1DatabaseObject/` — point DBeaver
@@ -103,21 +107,33 @@ build-then-ship — two commands (PowerShell 5.1 has no `&&`):
 
 ```bash
 pnpm --filter @labs/www build
-pnpm --filter @labs/api run deploy    # `run deploy`, not `deploy` (a pnpm built-in)
+pnpm --filter @labs/api run deploy:demo    # or deploy:prod
 ```
 
-If migrations were added since the last deploy, apply them to the remote D1
-first:
+Each **environment** owns its origin, its D1, its GitHub App, and its secrets —
+they are declared side by side in `apps/api/wrangler.jsonc`:
+
+| Env | Worker | Origin |
+|---|---|---|
+| `dev` | `labs-dev` | local only (`wrangler dev`) — never deployed |
+| `demo` | `labs` | [`labs.stefan-teofanov.workers.dev`](https://labs.stefan-teofanov.workers.dev) |
+| `prod` | `labs-heigvd` | not yet provisioned — see [`DEPLOY.md`](DEPLOY.md) |
+
+There is no bare `deploy` script on purpose: an environment-less deploy would
+ship a Worker with no database (`vars` and `d1_databases` are not inherited by
+environments), so the script fails loudly and tells you to pick one.
+
+If migrations were added since the last deploy, apply them to that
+environment's D1 first:
 
 ```bash
-pnpm --filter @labs/api exec wrangler d1 migrations apply labs --remote
+pnpm --filter @labs/api exec wrangler d1 migrations apply labs --remote --env demo
 ```
 
-Secrets and D1 survive deploys — only code and `vars` ship. The live demo is
-[`https://labs.stefan-teofanov.workers.dev`](https://labs.stefan-teofanov.workers.dev).
-First-time setup from scratch (create the remote D1, the environment's own
-GitHub App, the SWITCH redirect URI, the secrets) is a one-time sequence —
-follow [`DEPLOY.md`](DEPLOY.md) end to end.
+Secrets and D1 survive deploys — only code and `vars` ship. First-time setup of
+a new environment from scratch (create its D1, its own GitHub App, the SWITCH
+redirect URI, its secrets) is a one-time sequence — follow
+[`DEPLOY.md`](DEPLOY.md) end to end.
 
 ## Documentation
 
