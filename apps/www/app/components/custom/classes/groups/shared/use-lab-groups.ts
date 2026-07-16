@@ -47,9 +47,12 @@ export function useLabGroups(classId: string, labId: string) {
       case "group_incomplete":
         return "The group hasn't reached this lab's minimum size yet.";
       case "repo_name_taken":
-        // An existing repo is normally ADOPTED — this only fires when labs
-        // can't read it back, which is an access problem, not a naming one.
-        return "A repository with that name exists in the organization but labs can't access it — ask your teacher.";
+        // Repo creation is CREATE-only (never adopts an existing repo, even
+        // one labs could read back — see lib/groups.ts createWorkRepo): a
+        // name collision always refuses. A genuine interrupted create is
+        // recovered by the teacher on the reconciler audit page, never
+        // automatically.
+        return "A repository with that name already exists in the organization — rename the group and try again.";
       case "template_error":
         return "The lab's starter-code template can't be used — it's likely empty or unavailable. Ask your teacher to add a file to it (or remove the template).";
       case "app_permissions":
