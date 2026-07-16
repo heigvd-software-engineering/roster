@@ -1,4 +1,4 @@
-import { Check, ChevronDown, Plus } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { useState } from "react";
 import { GroupMembers } from "~/components/custom/classes/groups/shared/group-tile";
 import { UserAvatar } from "~/components/custom/identity/user-avatar";
@@ -352,6 +352,22 @@ function NewGroupForm({
   );
 }
 
+/** The visual radio: the whole row is the button, this is its affordance —
+ *  an option looks like an option before anything is clicked. */
+function RadioMark({ selected }: { selected: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "flex size-4 flex-none items-center justify-center rounded-full border",
+        selected ? "border-foreground" : "border-muted-foreground/60",
+      )}
+    >
+      {selected ? <span className="size-2 rounded-full bg-foreground" /> : null}
+    </span>
+  );
+}
+
 /** The pinned first option: create from scratch. */
 function ScratchRow({
   selected,
@@ -367,16 +383,11 @@ function ScratchRow({
       onClick={onPick}
       className={cn(
         "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-muted",
-        selected && "ring-1 ring-foreground ring-inset",
+        selected && "bg-muted/60",
       )}
     >
-      <span className="flex size-5 flex-none items-center justify-center rounded-full border border-muted-foreground/40 border-dashed text-muted-foreground">
-        <Plus className="size-3" />
-      </span>
+      <RadioMark selected={selected} />
       <span className="font-medium text-sm">An empty group</span>
-      <span className="ml-auto flex w-5 flex-none justify-center">
-        {selected ? <Check className="size-3.5" /> : null}
-      </span>
     </button>
   );
 }
@@ -413,12 +424,7 @@ function SourceRow({
       ? blocker.logins
       : [];
   return (
-    <div
-      className={cn(
-        "rounded-md",
-        selected && "ring-1 ring-foreground ring-inset",
-      )}
-    >
+    <div className={cn("rounded-md", selected && "bg-muted/60")}>
       <div className="flex items-center">
         <button
           type="button"
@@ -430,6 +436,7 @@ function SourceRow({
             blocker ? "opacity-55" : "hover:bg-muted",
           )}
         >
+          <RadioMark selected={selected} />
           <span className="truncate font-medium text-sm">{group.name}</span>
           {showLab ? (
             <span className="truncate font-mono text-muted-foreground text-xs">
@@ -461,12 +468,10 @@ function SourceRow({
         ) : (
           <span className="size-6 flex-none" />
         )}
-        <span className="flex w-5 flex-none justify-center">
-          {selected ? <Check className="size-3.5" /> : null}
-        </span>
       </div>
       {blocker ? (
-        <p className="px-2 pb-1.5 font-mono text-[11px] text-warning">
+        // pl-8 tucks the reason under the row's label (past the radio column).
+        <p className="pr-2 pb-1.5 pl-8 font-mono text-[11px] text-warning">
           {blockerReason(blocker, group.members.length)}
         </p>
       ) : null}
