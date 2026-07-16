@@ -33,6 +33,10 @@ import {
  * forward from another lab. Denials are 404, like everything class-scoped.
  */
 
+// Deliberately NOT drizzle-zod (AGENTS.md rule 6): nothing here derives from
+// the table. `name`'s constraints are business rules (the column is plain
+// text) and `copyFromGroupId` is an operation parameter, not a column — so
+// there is no column list to drift. Revisit if this grows row-shaped fields.
 const createGroupInput = z.object({
   name: z.string().trim().min(1).max(100),
   // Copy-forward: seed this new group's roster from an existing group
