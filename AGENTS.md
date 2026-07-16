@@ -3,6 +3,8 @@
 Instructions for any AI agent (Claude Code, Cursor, Codex, …) working in this repo.
 Read this before writing or changing code. These rules are enforced in review — follow them, don't rationalize exceptions.
 
+The one escape hatch: when following a rule is genuinely unreasonable for a specific piece of code, don't silently deviate. Mark the site with a comment starting with `AGENTS EXCEPTION (rule N):` followed by a short reasoning and, when possible, the condition under which the exception should be revisited. A deviation without this marker is a review finding; a marker whose reasoning doesn't hold up is too.
+
 ## Architecture (context you must not break)
 
 - pnpm monorepo. `apps/www` = React SPA (Vite, Tailwind, shadcn). `apps/api` = Cloudflare Worker (Hono, Drizzle, D1, R2). `packages/db` = the Drizzle schema, the single source of truth for data shapes.

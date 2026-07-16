@@ -22,6 +22,7 @@ import {
   createWorkRepo,
   groupsWithRosters,
   regrantWorkRepo,
+  reuseBlocker,
 } from "../lib/groups";
 
 /**
@@ -32,6 +33,10 @@ import {
  * forward from another lab. Denials are 404, like everything class-scoped.
  */
 
+// AGENTS EXCEPTION (rule 6): not drizzle-zod — nothing here derives from the
+// table. `name`'s constraints are business rules (the column is plain text)
+// and `copyFromGroupId` is an operation parameter, not a column, so there is
+// no column list to drift. Revisit if this grows row-shaped fields.
 const createGroupInput = z.object({
   name: z.string().trim().min(1).max(100),
   // Copy-forward: seed this new group's roster from an existing group
@@ -42,6 +47,43 @@ const createGroupInput = z.object({
 /** The lab's minimum group size (individual = a group of one). */
 const labMin = (lab: Lab) =>
   lab.groupMode === "individual" ? 1 : (lab.minMembers ?? 1);
+
+/** Logins already in a group OF THIS LAB — the one-group-per-lab invariant,
+ *  as a set (cached rosters: one query, zero GitHub calls). */
+async function placedLoginsInLab(
+  db: Parameters<typeof cachedRosters>[0],
+  labId: string,
+): Promise<Set<string>> {
+  const labGroups = await db
+    .select({ id: groups.id })
+    .from(groups)
+    .where(eq(groups.labId, labId));
+  const rosters = await cachedRosters(
+    db,
+    labGroups.map((g) => g.id),
+  );
+  return new Set([...rosters.values()].flatMap((r) => r.map((m) => m.login)));
+}
+
+/** Logins with a LIVE class membership. `teacher` counts — they're org
+ *  members too; only `pending` (invited, never joined the org) is out, along
+ *  with anyone whose row is gone because they left. Display-cache caveat
+ *  applies: GitHub stays the final arbiter when the copy actually runs. */
+async function classLoginsSet(
+  db: Parameters<typeof cachedRosters>[0],
+  classId: string,
+): Promise<Set<string>> {
+  const rows = await db
+    .select({ login: classMembers.login })
+    .from(classMembers)
+    .where(
+      and(
+        eq(classMembers.classId, classId),
+        inArray(classMembers.state, ["active", "teacher"]),
+      ),
+    );
+  return new Set(rows.flatMap((r) => (r.login === null ? [] : [r.login])));
+}
 
 /** Map a work-repo failure to its 409 — one place, so the three creation
  *  paths never drift. */
@@ -168,13 +210,23 @@ export const listReusableGroups = authedFactory.createHandlers(async (c) => {
     : withRosters.filter(({ members }) =>
         members.some((m) => m.login === access.login),
       );
+  // Annotate each source with WHY it can't be copied (or null): the dialog
+  // renders the verdict; createLabGroup re-checks it as the backstop.
+  const placed = await placedLoginsInLab(access.db, lab.id);
+  const inClass = await classLoginsSet(access.db, access.cls.id);
   const out = visible.map(({ r, members }) => ({
     id: r.group.id,
     name: r.group.name,
     labTitle: r.labTitle,
     members,
+    blocker: reuseBlocker(lab, members, placed, inClass),
   }));
-  return c.json({ groups: out });
+  // Linked SWITCH identities for everyone shown — same correlation the lab
+  // page does, so the dialog names members by the same rule (personIdentity).
+  const users = await linkedUsers(access.db, [
+    ...new Set(out.flatMap((g) => g.members.map((m) => String(m.id)))),
+  ]);
+  return c.json({ groups: out, users });
 });
 
 /**
@@ -197,21 +249,28 @@ export const createLabGroup = authedFactory.createHandlers(
       const source = await groupInClass(access, copyFromGroupId);
       if (!source) return c.json({ error: "not_found" }, 404);
       const sourceMembers = await cachedRoster(access.db, source.id);
-      // Skip anyone already in a group of THIS lab (invariant).
-      const labGroups = await access.db
-        .select({ id: groups.id })
-        .from(groups)
-        .where(eq(groups.labId, lab.id));
-      const rosters = await cachedRosters(
-        access.db,
-        labGroups.map((g) => g.id),
+      // A student reuses only THEIR OWN groups (the reusable list already
+      // scopes what they see; this is the backstop against a posted id) —
+      // otherwise creating-with-copy would let any student conscript
+      // classmates into a team of their making. Teachers manage top-down.
+      if (
+        !access.admin &&
+        !sourceMembers.some((m) => m.login === access.login)
+      ) {
+        return c.json({ error: "not_found" }, 404);
+      }
+      // All-or-nothing reuse: any blocker refuses the whole copy. The dialog
+      // greys these out; the API is the backstop (joinGroup's group_full
+      // pattern), so a race — someone joins a group of this lab between
+      // dialog-open and submit — answers 409, never a partial team.
+      const blocker = reuseBlocker(
+        lab,
+        sourceMembers,
+        await placedLoginsInLab(access.db, lab.id),
+        await classLoginsSet(access.db, access.cls.id),
       );
-      const placed = new Set(
-        [...rosters.values()].flatMap((r) => r.map((m) => m.login)),
-      );
-      copyFromLogins = sourceMembers
-        .map((m) => m.login)
-        .filter((l) => !placed.has(l));
+      if (blocker) return c.json({ error: blocker.reason }, 409);
+      copyFromLogins = sourceMembers.map((m) => m.login);
     }
 
     const group = await createGroupInLab(

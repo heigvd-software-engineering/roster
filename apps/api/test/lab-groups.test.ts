@@ -261,6 +261,23 @@ async function seedRoster(
   );
 }
 
+/** A live class membership — the reuse eligibility rules check enrollment. */
+async function seedClassMember(
+  person: { id: number; login: string },
+  memberState: "active" | "teacher" | "pending" = "active",
+) {
+  await db.insert(classMembers).values({
+    id: `cm-${person.id}`,
+    classId: "c1",
+    githubId: String(person.id),
+    state: memberState,
+    login: person.login,
+    avatarUrl: null,
+    createdAt: now,
+    updatedAt: now,
+  });
+}
+
 function createGroup(labId: string, body: object) {
   return app.request(
     `/api/classes/c1/labs/${labId}/groups`,
@@ -366,24 +383,115 @@ test("the same name reuses freely across labs (per-lab uniqueness)", async () =>
   expect((await asGroup(res)).group.slug).toBe("lab-l2-alpha");
 });
 
-test("copy-forward seeds the roster, skipping members already in this lab", async () => {
+test("copy-forward copies the WHOLE team when nothing blocks it", async () => {
   state.membership = { state: "active", role: "admin" };
   await seedLab({ id: "l1" });
   await seedLab({ id: "l2" });
-  // Source group on another lab: alice + bob.
+  await seedClassMember(alice);
+  await seedClassMember(bob);
   await seedGroup({
     id: "src",
     labId: "l2",
     name: "Team",
     members: [alice, bob],
   });
-  // bob is already placed in a group of THIS lab (l1).
-  await seedGroup({ id: "here", labId: "l1", name: "Here", members: [bob] });
 
   const res = await createGroup("l1", { name: "Team", copyFromGroupId: "src" });
   expect(res.status).toBe(200);
-  // Copied: alice only (bob skipped — already in l1).
-  expect(state.rosters["lab-l1-team"]).toEqual([alice]);
+  expect(
+    (state.rosters["lab-l1-team"] ?? []).map((m) => m.login).sort(),
+  ).toEqual(["alice", "bob"]);
+});
+
+test("copy-forward refuses when a member is already placed in this lab", async () => {
+  state.membership = { state: "active", role: "admin" };
+  await seedLab({ id: "l1" });
+  await seedLab({ id: "l2" });
+  await seedClassMember(alice);
+  await seedClassMember(bob);
+  await seedGroup({
+    id: "src",
+    labId: "l2",
+    name: "Team",
+    members: [alice, bob],
+  });
+  // bob is already placed in a group of THIS lab (l1) → all-or-nothing: the
+  // whole copy is refused, never a partial team.
+  await seedGroup({ id: "here", labId: "l1", name: "Here", members: [bob] });
+
+  const res = await createGroup("l1", { name: "Team", copyFromGroupId: "src" });
+  expect(res.status).toBe(409);
+  expect(await res.json()).toEqual({ error: "member_already_placed" });
+  // No team was created on GitHub.
+  expect(state.rosters["lab-l1-team"]).toBeUndefined();
+});
+
+test("copy-forward refuses a source larger than the lab's max", async () => {
+  state.membership = { state: "active", role: "admin" };
+  await seedLab({ id: "l1", maxMembers: 2 });
+  await seedLab({ id: "l2" });
+  await seedClassMember(alice);
+  await seedClassMember(bob);
+  await seedClassMember(carol);
+  await seedGroup({
+    id: "src",
+    labId: "l2",
+    name: "Team",
+    members: [alice, bob, carol],
+  });
+
+  const res = await createGroup("l1", { name: "Team", copyFromGroupId: "src" });
+  expect(res.status).toBe(409);
+  expect(await res.json()).toEqual({ error: "group_too_large" });
+});
+
+test("copy-forward refuses when a member is no longer in the class", async () => {
+  state.membership = { state: "active", role: "admin" };
+  await seedLab({ id: "l1" });
+  await seedLab({ id: "l2" });
+  // alice is enrolled; bob has no class_members row (left the org).
+  await seedClassMember(alice);
+  await seedGroup({
+    id: "src",
+    labId: "l2",
+    name: "Team",
+    members: [alice, bob],
+  });
+
+  const res = await createGroup("l1", { name: "Team", copyFromGroupId: "src" });
+  expect(res.status).toBe(409);
+  expect(await res.json()).toEqual({ error: "member_not_in_class" });
+});
+
+test("copy-forward refuses an empty source", async () => {
+  state.membership = { state: "active", role: "admin" };
+  await seedLab({ id: "l1" });
+  await seedLab({ id: "l2" });
+  await seedGroup({ id: "src", labId: "l2", name: "Team", members: [] });
+
+  const res = await createGroup("l1", { name: "Team", copyFromGroupId: "src" });
+  expect(res.status).toBe(409);
+  expect(await res.json()).toEqual({ error: "source_empty" });
+});
+
+test("a student cannot copy a group they're not in", async () => {
+  // Caller is alice (a plain member). The reusable list never shows her
+  // bob+carol's group; posting its id directly is the backstop this covers.
+  await seedLab({ id: "l1" });
+  await seedLab({ id: "l2" });
+  await seedClassMember(alice);
+  await seedClassMember(bob);
+  await seedClassMember(carol);
+  await seedGroup({
+    id: "src",
+    labId: "l2",
+    name: "Team",
+    members: [bob, carol],
+  });
+
+  const res = await createGroup("l1", { name: "Team", copyFromGroupId: "src" });
+  expect(res.status).toBe(404);
+  expect(state.rosters["lab-l1-team"]).toBeUndefined();
 });
 
 test("reusable lists the caller's groups from OTHER labs only", async () => {
@@ -413,6 +521,44 @@ test("reusable lists the caller's groups from OTHER labs only", async () => {
   expect(body.groups).toMatchObject([
     { id: "mine", name: "Team Alpha", labTitle: "Lab l2" },
   ]);
+});
+
+test("reusable annotates each source with its blocker", async () => {
+  await seedLab({ id: "l1" });
+  await seedLab({ id: "l2" });
+  await seedClassMember(alice);
+  await seedClassMember(bob);
+  // carol has NO live membership — she left the class.
+  await seedGroup({
+    id: "fine",
+    labId: "l2",
+    name: "Fine",
+    members: [alice, bob],
+  });
+  await seedGroup({
+    id: "gone",
+    labId: "l2",
+    name: "Gone",
+    members: [alice, carol],
+  });
+  await seedGroup({ id: "solo", labId: "l2", name: "Solo", members: [alice] });
+  // bob is already placed in a group of the CURRENT lab.
+  await seedGroup({ id: "here", labId: "l1", name: "Here", members: [bob] });
+
+  const res = await app.request("/api/classes/c1/labs/l1/reusable", {}, env);
+  const body = (await res.json()) as {
+    groups: Array<{ id: string; blocker: { reason: string } | null }>;
+  };
+  const byId = new Map(body.groups.map((g) => [g.id, g.blocker]));
+  expect(byId.get("solo")).toBeNull();
+  expect(byId.get("fine")).toEqual({
+    reason: "member_already_placed",
+    logins: ["bob"],
+  });
+  expect(byId.get("gone")).toEqual({
+    reason: "member_not_in_class",
+    logins: ["carol"],
+  });
 });
 
 test("reusable lists ALL other-lab groups for a teacher, not just their own", async () => {
