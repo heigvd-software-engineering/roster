@@ -1,6 +1,7 @@
 import { ChevronDown } from "lucide-react";
 import { useState } from "react";
 import { GroupMembers } from "~/components/custom/classes/groups/shared/group-tile";
+import { DisclosureToggle } from "~/components/custom/disclosure-toggle";
 import { UserAvatar } from "~/components/custom/identity/user-avatar";
 import { GhostTile } from "~/components/custom/layout/ghost-tile";
 import { Stack } from "~/components/custom/layout/stack";
@@ -149,6 +150,7 @@ function NewGroupForm({
   const [source, setSource] = useState<ReusableGroup | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [labChoice, setLabChoice] = useState<string | null>(null);
+  const [showBlocked, setShowBlocked] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -275,31 +277,54 @@ function NewGroupForm({
                 {blocked.length > 0 ? (
                   <>
                     <div className="mx-1 my-1 h-px bg-border/60" />
-                    <div
-                      className={cn(
-                        CAPS_LABEL,
-                        "flex items-center gap-1.5 px-2 pt-1.5 pb-1 text-warning",
-                      )}
-                    >
-                      <span className="size-1 rounded-full bg-current" />
-                      Unavailable
-                    </div>
-                    {blocked.map((group) => (
-                      <SourceRow
-                        key={group.id}
-                        group={group}
-                        users={users}
-                        showLab={!chips}
-                        selected={false}
-                        expanded={expandedId === group.id}
-                        onPick={() => {}}
-                        onToggle={() =>
-                          setExpandedId(
-                            expandedId === group.id ? null : group.id,
-                          )
+                    {/* Collapsed by default: unavailable sources are noise
+                        until the user wonders where a group went. */}
+                    <div className="flex items-center justify-between pl-2">
+                      <span
+                        className={cn(
+                          CAPS_LABEL,
+                          "flex items-center gap-1.5 text-warning",
+                        )}
+                      >
+                        <span className="size-1 rounded-full bg-current" />
+                        Unavailable
+                        <span className="opacity-70">{blocked.length}</span>
+                      </span>
+                      <DisclosureToggle
+                        expanded={showBlocked}
+                        onToggle={() => setShowBlocked(!showBlocked)}
+                        label={
+                          showBlocked
+                            ? "Hide the unavailable groups"
+                            : `Show ${blocked.length} unavailable group${
+                                blocked.length === 1 ? "" : "s"
+                              }`
+                        }
+                        controls={
+                          showBlocked ? "unavailable-sources" : undefined
                         }
                       />
-                    ))}
+                    </div>
+                    {showBlocked ? (
+                      <div id="unavailable-sources">
+                        {blocked.map((group) => (
+                          <SourceRow
+                            key={group.id}
+                            group={group}
+                            users={users}
+                            showLab={!chips}
+                            selected={false}
+                            expanded={expandedId === group.id}
+                            onPick={() => {}}
+                            onToggle={() =>
+                              setExpandedId(
+                                expandedId === group.id ? null : group.id,
+                              )
+                            }
+                          />
+                        ))}
+                      </div>
+                    ) : null}
                   </>
                 ) : null}
               </>
