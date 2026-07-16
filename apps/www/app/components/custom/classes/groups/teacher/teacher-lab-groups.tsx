@@ -375,6 +375,11 @@ function GroupRow({
   onToggle: () => void;
   addCandidates: AddCandidate[];
 }) {
+  // Over the lab's max — a lab whose max was LOWERED strands its bigger
+  // groups without evicting anyone, so this is a row state, not a status:
+  // it says nothing about the repo or the deadline and must not displace
+  // them. The drawer's hint explains it and names the lever.
+  const over = group.members.length > max;
   return (
     <Fragment>
       <TableRow>
@@ -382,16 +387,24 @@ function GroupRow({
           <div className="max-w-48 truncate font-medium text-sm">
             {group.name}
           </div>
+          {/* The size line reads in BOTH directions from one slot — short of
+              the min, or past the max. An uncapped lab has no denominator to
+              show at all (`max` is Infinity, which renders literally). */}
           <div
             className={cn(
               "font-mono text-xs",
-              status === "under_min" ? "text-brand" : "text-muted-foreground",
+              status === "under_min" || over
+                ? "text-brand"
+                : "text-muted-foreground",
             )}
           >
-            {group.members.length}/{max} members
+            {group.members.length}
+            {Number.isFinite(max) ? `/${max}` : ""} members
             {status === "under_min"
               ? ` · needs ${g.min - group.members.length} more`
-              : ""}
+              : over
+                ? ` · ${group.members.length - max} over max`
+                : ""}
           </div>
         </TableCell>
         <TableCell>
@@ -497,6 +510,23 @@ function GroupDrawer({
               they already cloned.
             </Hint>
           ) : null}
+          {group.members.length > g.max ? (
+            // Lowering the lab's max never evicts anyone (updateLab leaves
+            // attached groups untouched, by design) — so an oversized group
+            // is a state the teacher must be TOLD about, or the only trace is
+            // a "4/3 members" count that reads like a typo.
+            <Hint
+              variant="warning"
+              text="over the lab max"
+              title={`This group has ${group.members.length} members and the lab allows ${g.max}`}
+            >
+              The lab's maximum was lowered after this group formed — nobody was
+              removed, and the group keeps working. Remove{" "}
+              {group.members.length - g.max} member
+              {group.members.length - g.max > 1 ? "s" : ""} to fit the lab, or
+              raise the lab's maximum in its settings if the size is fine.
+            </Hint>
+          ) : null}
         </Row>
         <GroupMembers
           members={group.members}
@@ -538,6 +568,7 @@ function GroupDrawer({
           candidates={addCandidates}
           identityFor={(s) => personIdentity(s, userByGithubId.get(s.githubId))}
           disabled={g.busy}
+          full={group.members.length >= g.max}
           onAdd={(login) => g.addMember(group.id, login)}
         />
       </Stack>
@@ -589,11 +620,15 @@ function AddFromPool({
   candidates,
   identityFor,
   disabled,
+  full,
   onAdd,
 }: {
   candidates: AddCandidate[];
   identityFor: (s: AddCandidate) => PersonIdentity;
   disabled: boolean;
+  /** At the lab's maximum — the server refuses anyway (409 group_full); the
+   *  disabled state just says so before the click, and names the lever. */
+  full: boolean;
   onAdd: (login: string) => Promise<unknown>;
 }) {
   const [query, setQuery] = useState("");
@@ -611,72 +646,81 @@ function AddFromPool({
       setPending(null);
     }
   }
+  // The DisabledReason contract: reason ⇔ disabled ⇔ no native title. The
+  // empty-pool disable keeps its plain title (no reason, nothing to explain).
+  const reason = full
+    ? "This group is at the lab's maximum size — raise the lab's maximum in the lab settings to add more members."
+    : null;
   return (
-    <Popover>
-      <PopoverTrigger
-        render={
-          <Button
-            variant="outline"
-            size="sm"
-            type="button"
-            className="self-start"
-            disabled={disabled || candidates.length === 0}
-            title="Add a student without a group to this group"
-          />
-        }
-      >
-        <UserPlus className="size-3.5 text-muted-foreground" />
-        Add from the pool ({candidates.length})
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-72 p-0">
-        <div className="border-border border-b p-2">
-          <Input
-            autoFocus
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Filter students…"
-            aria-label="Filter students"
-            className="h-8"
-          />
-        </div>
-        <div className="max-h-64 overflow-y-auto p-1">
-          {filtered.length === 0 ? (
-            <Text variant="caption" className="px-2 py-3 text-center">
-              No student matches.
-            </Text>
-          ) : (
-            filtered.map((s) => {
-              // Inside a <button>: display only — no emails menu here
-              // (nested interactive elements are invalid HTML).
-              const { emails: _emails, ...identity } = identityFor(s);
-              return (
-                <button
-                  key={s.githubId}
-                  type="button"
-                  onClick={() => add(s.login)}
-                  disabled={pending !== null}
-                  className="w-full rounded-md px-2 py-1.5 text-left transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-60"
-                >
-                  <Row gap="sm" align="center">
-                    <UserIdentity {...identity} className="min-w-0 flex-1" />
-                    {s.state === "teacher" ? (
-                      <Badge variant="outline" className="font-normal">
-                        teacher
-                      </Badge>
-                    ) : null}
-                    {pending === s.login ? (
-                      <span className="font-mono text-muted-foreground text-xs">
-                        adding…
-                      </span>
-                    ) : null}
-                  </Row>
-                </button>
-              );
-            })
-          )}
-        </div>
-      </PopoverContent>
-    </Popover>
+    <DisabledReason reason={reason}>
+      <Popover>
+        <PopoverTrigger
+          render={
+            <Button
+              variant="outline"
+              size="sm"
+              type="button"
+              className="self-start"
+              disabled={disabled || full || candidates.length === 0}
+              title={
+                full ? undefined : "Add a student without a group to this group"
+              }
+            />
+          }
+        >
+          <UserPlus className="size-3.5 text-muted-foreground" />
+          Add from the pool ({candidates.length})
+        </PopoverTrigger>
+        <PopoverContent align="start" className="w-72 p-0">
+          <div className="border-border border-b p-2">
+            <Input
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Filter students…"
+              aria-label="Filter students"
+              className="h-8"
+            />
+          </div>
+          <div className="max-h-64 overflow-y-auto p-1">
+            {filtered.length === 0 ? (
+              <Text variant="caption" className="px-2 py-3 text-center">
+                No student matches.
+              </Text>
+            ) : (
+              filtered.map((s) => {
+                // Inside a <button>: display only — no emails menu here
+                // (nested interactive elements are invalid HTML).
+                const { emails: _emails, ...identity } = identityFor(s);
+                return (
+                  <button
+                    key={s.githubId}
+                    type="button"
+                    onClick={() => add(s.login)}
+                    disabled={pending !== null}
+                    className="w-full rounded-md px-2 py-1.5 text-left transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-60"
+                  >
+                    <Row gap="sm" align="center">
+                      <UserIdentity {...identity} className="min-w-0 flex-1" />
+                      {s.state === "teacher" ? (
+                        <Badge variant="outline" className="font-normal">
+                          teacher
+                        </Badge>
+                      ) : null}
+                      {pending === s.login ? (
+                        <span className="font-mono text-muted-foreground text-xs">
+                          adding…
+                        </span>
+                      ) : null}
+                    </Row>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </PopoverContent>
+      </Popover>
+    </DisabledReason>
   );
 }
 

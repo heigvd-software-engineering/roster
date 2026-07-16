@@ -102,7 +102,7 @@ export const leaveGroup = authedFactory.createHandlers(async (c) => {
 });
 
 /** Teacher-only: put ANY org user into the group — same within-lab
- *  double-booking guard as self-join. */
+ *  double-booking guard AND the same size cap as self-join. */
 export const addGroupMember = authedFactory.createHandlers(async (c) => {
   const access = await resolveClassAccess(c, c.req.param("id"));
   if (!access?.admin) return c.json({ error: "not_found" }, 404);
@@ -112,6 +112,17 @@ export const addGroupMember = authedFactory.createHandlers(async (c) => {
 
   if (await alreadyInLabGroup(access, group.labId, login, group.id)) {
     return c.json({ error: "member_already_participating" }, 409);
+  }
+  // The size cap binds the TEACHER too: the lab's max is the lab's rule, not
+  // a default the roster may drift past one add at a time. Wanting a bigger
+  // group is a decision about the LAB — raise maxMembers there and every
+  // group gets it, visibly, instead of one group quietly becoming special.
+  const [lab] = await access.db
+    .select()
+    .from(labs)
+    .where(eq(labs.id, group.labId));
+  if (lab && (await cachedRoster(access.db, group.id)).length >= labMax(lab)) {
+    return c.json({ error: "group_full" }, 409);
   }
   await access.team.add(group.ghTeamSlug, login);
   await access.team.syncMembers(group);
