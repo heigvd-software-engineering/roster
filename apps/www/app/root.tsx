@@ -34,7 +34,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <script
           // biome-ignore lint/security/noDangerouslySetInnerHtml: static scheme snippet, no user input
           dangerouslySetInnerHTML={{
-            __html: `(function(){var s=localStorage.getItem("theme");var dark=s==="dark"||(s!=="light"&&matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.classList.toggle("dark",dark)})();`,
+            __html: `(function(){var s=localStorage.getItem("theme");var t=s==="terminal";var dark=t||s==="dark"||(s!=="light"&&matchMedia("(prefers-color-scheme: dark)").matches);var c=document.documentElement.classList;c.toggle("dark",dark);c.toggle("terminal",t)})();`,
           }}
         />
       </head>
