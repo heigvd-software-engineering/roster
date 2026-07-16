@@ -6,6 +6,12 @@
     "moduleResolution": "Bundler",
     "skipLibCheck": true,
     "lib": ["ESNext"],
-    "types": ["@cloudflare/vitest-pool-workers/types"]
+    // workers-types supplies the runtime globals (D1Database, fetch types, …)
+    // that the deleted wrangler-generated worker-configuration.d.ts used to;
+    // the pool types add the `cloudflare:test` module for the test suite.
+    "types": [
+      "@cloudflare/workers-types",
+      "@cloudflare/vitest-pool-workers/types"
+    ]
   }
 }
