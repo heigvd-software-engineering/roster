@@ -12,6 +12,7 @@
     "deploy": "echo 'Pick an environment: pnpm run deploy:demo | deploy:prod (see DEPLOY.md)' && exit 1",
     "deploy:demo": "wrangler deploy --minify --env demo",
     "deploy:prod": "wrangler deploy --minify --env prod",
+    "cf-typegen": "wrangler types --env-interface CloudflareBindings --env dev",
     "auth:schema": "better-auth generate --config better-auth.config.ts --output ../../packages/db/src/auth-schema.ts --yes",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

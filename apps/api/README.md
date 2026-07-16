@@ -20,7 +20,12 @@ pnpm --filter @labs/api test
 pnpm --filter @labs/api build          # wrangler deploy --dry-run
 pnpm --filter @labs/api run deploy:demo   # deploy the demo env (or deploy:prod)
 pnpm --filter @labs/api run auth:schema   # regenerate the Better Auth schema
+pnpm --filter @labs/api cf-typegen     # regenerate worker-configuration.d.ts
 ```
+
+`worker-configuration.d.ts` supplies the Worker runtime globals (`D1Database`
+and friends) — it is generated from `wrangler.jsonc`'s `env.dev` block, so
+rerun `cf-typegen` whenever that file changes.
 
 In dev the SPA is served by Vite on `https://localhost:3000` (the only origin
 where sign-in works) and proxies `/api` to this Worker on `:8788`. `preview`
