@@ -375,7 +375,7 @@ describe("TeacherLabPage", () => {
     render(<TeacherLabPage />);
 
     expect(screen.getByText(/4\/3 members/)).toBeInTheDocument();
-    expect(screen.getByText(/1 over the lab max/)).toBeInTheDocument();
+    expect(screen.getByText(/1 over max/)).toBeInTheDocument();
     // It is not a STATUS: the lifecycle chip keeps its own meaning.
     expect(screen.getByText("no repo")).toBeInTheDocument();
   });
@@ -392,7 +392,7 @@ describe("TeacherLabPage", () => {
 
     expect(screen.getByText(/2 members/)).toBeInTheDocument();
     expect(screen.queryByText(/Infinity/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/over the lab max/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/over max/)).not.toBeInTheDocument();
   });
 
   it("warns when the lab's max was lowered below the group's size", () => {

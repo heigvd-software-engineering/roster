@@ -403,7 +403,7 @@ function GroupRow({
             {status === "under_min"
               ? ` · needs ${g.min - group.members.length} more`
               : over
-                ? ` · ${group.members.length - max} over the lab max`
+                ? ` · ${group.members.length - max} over max`
                 : ""}
           </div>
         </TableCell>
