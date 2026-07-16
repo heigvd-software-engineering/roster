@@ -5,6 +5,7 @@ import { UserAvatar } from "~/components/custom/identity/user-avatar";
 import { GhostTile } from "~/components/custom/layout/ghost-tile";
 import { Stack } from "~/components/custom/layout/stack";
 import { CAPS_LABEL, Text } from "~/components/custom/typography/text";
+import { AvatarGroup, AvatarGroupCount } from "~/components/ui/avatar";
 import { Button } from "~/components/ui/button";
 import {
   Dialog,
@@ -512,26 +513,26 @@ function AvatarStack({
   const extra = members.length - shown.length;
   if (members.length === 0) return null;
   return (
-    <span className="flex items-center">
+    <AvatarGroup>
       {shown.map((member) => {
         const person = personIdentity(
           member,
           userByGithubId.get(String(member.id)),
         );
         return (
-          <span
+          <UserAvatar
             key={member.id}
-            className="-ml-1.5 rounded-full ring-2 ring-background first:ml-0"
-          >
-            <UserAvatar name={person.name} src={person.avatarUrl} size="sm" />
-          </span>
+            name={person.name}
+            src={person.avatarUrl}
+            size="sm"
+          />
         );
       })}
       {extra > 0 ? (
-        <span className="-ml-1.5 flex size-6 items-center justify-center rounded-full bg-muted font-mono text-[10px] text-muted-foreground ring-2 ring-background">
+        <AvatarGroupCount className="font-mono text-[10px]">
           +{extra}
-        </span>
+        </AvatarGroupCount>
       ) : null}
-    </span>
+    </AvatarGroup>
   );
 }
