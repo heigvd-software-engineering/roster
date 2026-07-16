@@ -122,6 +122,5 @@ follow [`DEPLOY.md`](DEPLOY.md) end to end.
 ## Documentation
 
 - Design specs: [`docs/superpowers/specs/`](docs/superpowers/specs/)
-- Implementation plans & feature tracker: [`docs/superpowers/plans/`](docs/superpowers/plans/)
 - GitHub App setup & gotchas: [`GITHUB_APP_SETUP.md`](GITHUB_APP_SETUP.md)
 - Per-package rules: [`packages/db/README.md`](packages/db/README.md), [`apps/api/src/lib/github/README.md`](apps/api/src/lib/github/README.md)
