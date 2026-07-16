@@ -22,6 +22,53 @@ type Db = ReturnType<typeof getDb>;
  * is checked, and how a roster list is assembled and reconciled.
  */
 
+/** The lab's maximum group size (individual = a group of one). */
+export const labMax = (lab: Lab) =>
+  lab.groupMode === "individual"
+    ? 1
+    : (lab.maxMembers ?? Number.POSITIVE_INFINITY);
+
+/**
+ * Why a source group can't be copied into `lab` — or null when it can.
+ * Reuse is ALL-OR-NOTHING: "reuse this group" means the same team on this
+ * lab, so ANY blocked member blocks the whole group (never a partial copy).
+ * One rule, two consumers: the reusable list annotates rows with it (the
+ * dialog greys them out) and createLabGroup refuses on it (the backstop,
+ * same pattern as joinGroup's group_full).
+ */
+export type ReuseBlocker =
+  | { reason: "source_empty" }
+  // `max` rides along for the UI's reason text; it is finite whenever this
+  // blocker fires (an unlimited lab can't be exceeded).
+  | { reason: "group_too_large"; max: number }
+  | { reason: "member_already_placed"; logins: string[] }
+  | { reason: "member_not_in_class"; logins: string[] };
+
+export function reuseBlocker(
+  lab: Lab,
+  members: { login: string }[],
+  /** Logins already in a group OF THIS LAB (the one-group-per-lab invariant). */
+  placedLogins: ReadonlySet<string>,
+  /** Logins with a LIVE class membership (active students + teachers). */
+  classLogins: ReadonlySet<string>,
+): ReuseBlocker | null {
+  if (members.length === 0) return { reason: "source_empty" };
+  if (members.length > labMax(lab)) {
+    return { reason: "group_too_large", max: labMax(lab) };
+  }
+  const placed = members
+    .filter((m) => placedLogins.has(m.login))
+    .map((m) => m.login);
+  if (placed.length > 0) {
+    return { reason: "member_already_placed", logins: placed };
+  }
+  const gone = members
+    .filter((m) => !classLogins.has(m.login))
+    .map((m) => m.login);
+  if (gone.length > 0) return { reason: "member_not_in_class", logins: gone };
+  return null;
+}
+
 /** Slug-safe: lowercase, strip diacritics, collapse to `a-z0-9-`. */
 function slugify(text: string) {
   return text

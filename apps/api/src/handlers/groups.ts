@@ -1,9 +1,9 @@
-import { type Group, type getDb, groups, type Lab, labs } from "@labs/db";
+import { type Group, type getDb, groups, labs } from "@labs/db";
 import { eq } from "drizzle-orm";
 import { authedFactory } from "../factory";
 import { groupInClass, resolveClassAccess } from "../lib/access";
 import { cachedRoster } from "../lib/group-members";
-import { alreadyInLabGroup } from "../lib/groups";
+import { alreadyInLabGroup, labMax } from "../lib/groups";
 
 type Db = ReturnType<typeof getDb>;
 
@@ -11,12 +11,6 @@ type Db = ReturnType<typeof getDb>;
  *  membership and existence only change through the teacher. Join, leave
  *  and delete all refuse with the same vocabulary (409 has_repo). */
 const isLocked = (group: Pick<Group, "ghRepoId">) => group.ghRepoId !== null;
-
-/** The lab's maximum group size (individual = a group of one). */
-const labMax = (lab: Lab) =>
-  lab.groupMode === "individual"
-    ? 1
-    : (lab.maxMembers ?? Number.POSITIVE_INFINITY);
 
 /** Fresh read of the lock — the handler's first check can be seconds stale
  *  by the time the GitHub membership call lands (repo creation only records
