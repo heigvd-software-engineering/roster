@@ -34,9 +34,26 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       return;
     }
     const media = matchMedia("(prefers-color-scheme: dark)");
+    // Which <html> classes each preference means. "terminal" rides on dark:
+    // both classes, so `dark:` styles keep working and `.terminal` only
+    // re-skins the tokens (app.css). Exhaustive over Theme — a new theme
+    // fails to compile until it's mapped here.
+    const classesFor = (preference: Theme) => {
+      switch (preference) {
+        case "light":
+          return { dark: false, terminal: false };
+        case "dark":
+          return { dark: true, terminal: false };
+        case "terminal":
+          return { dark: true, terminal: true };
+        case "system":
+          return { dark: media.matches, terminal: false };
+      }
+    };
     const apply = () => {
-      const dark = theme === "dark" || (theme === "system" && media.matches);
-      document.documentElement.classList.toggle("dark", dark);
+      const classes = classesFor(theme);
+      document.documentElement.classList.toggle("dark", classes.dark);
+      document.documentElement.classList.toggle("terminal", classes.terminal);
     };
     apply();
     if (theme !== "system") {

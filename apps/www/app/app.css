@@ -158,6 +158,59 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+/* Terminal palette (the "hacker" theme) — applied as `class="dark terminal"`
+   ON TOP of .dark: the Tailwind `dark:` variant keys off .dark, so every
+   dark-mode override keeps working; this block only re-skins the tokens.
+   Phosphor green: every neutral carries a slight green cast (hue 150) so the
+   app reads as one tube, not gray-with-green-text. Semantic hues are SHIFTED,
+   not replaced — destructive/brand stay red, warning amber, info cyan, the
+   role hues magenta/cyan — so no status loses its meaning. `--radius: 0`
+   cascades sharp corners through the radius chain; rounded-full elements
+   (avatars, pills) intentionally stay round. */
+.terminal {
+  color-scheme: dark;
+  /* Everything in the terminal's voice: mono type. Fonts live in
+     `@theme inline` (no runtime var to point at), hence the literal stack. */
+  font-family: "Geist Mono Variable", ui-monospace, monospace;
+  --radius: 0rem;
+  --background: oklch(0.13 0.012 150);
+  --foreground: oklch(0.86 0.14 150);
+  --card: oklch(0.155 0.014 150);
+  --card-foreground: oklch(0.86 0.14 150);
+  --popover: oklch(0.18 0.016 150);
+  --popover-foreground: oklch(0.86 0.14 150);
+  --primary: oklch(0.8 0.19 150);
+  --primary-foreground: oklch(0.13 0.02 150);
+  --secondary: oklch(0.21 0.02 150);
+  --secondary-foreground: oklch(0.86 0.14 150);
+  --muted: oklch(0.21 0.02 150);
+  --muted-foreground: oklch(0.6 0.07 150);
+  --accent: oklch(0.21 0.02 150);
+  --accent-foreground: oklch(0.86 0.14 150);
+  --destructive: oklch(0.68 0.21 25);
+  --brand: oklch(0.68 0.21 25);
+  --role-teaching: oklch(0.72 0.15 330);
+  --role-enrolled: oklch(0.8 0.11 195);
+  --warning: oklch(0.82 0.15 80);
+  --info: oklch(0.78 0.1 200);
+  --border: oklch(0.8 0.15 150 / 20%);
+  --input: oklch(0.8 0.15 150 / 26%);
+  --ring: oklch(0.68 0.12 150);
+  --chart-1: oklch(0.85 0.16 150);
+  --chart-2: oklch(0.7 0.12 150);
+  --chart-3: oklch(0.55 0.09 150);
+  --chart-4: oklch(0.42 0.06 150);
+  --chart-5: oklch(0.3 0.04 150);
+  --sidebar: oklch(0.155 0.014 150);
+  --sidebar-foreground: oklch(0.86 0.14 150);
+  --sidebar-primary: oklch(0.8 0.19 150);
+  --sidebar-primary-foreground: oklch(0.13 0.02 150);
+  --sidebar-accent: oklch(0.21 0.02 150);
+  --sidebar-accent-foreground: oklch(0.86 0.14 150);
+  --sidebar-border: oklch(0.8 0.15 150 / 20%);
+  --sidebar-ring: oklch(0.68 0.12 150);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

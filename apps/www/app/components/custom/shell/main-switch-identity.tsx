@@ -1,4 +1,11 @@
-import { LogOut, Monitor, Moon, Sun, Unlink } from "lucide-react";
+import {
+  LogOut,
+  Monitor,
+  Moon,
+  SquareTerminal,
+  Sun,
+  Unlink,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { UserIdentity } from "~/components/custom/identity/user-identity";
 import { Stack } from "~/components/custom/layout/stack";
@@ -131,6 +138,10 @@ export function MainSwitchIdentity() {
           <DropdownMenuRadioItem value="dark" closeOnClick={false}>
             <Moon />
             Dark
+          </DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="terminal" closeOnClick={false}>
+            <SquareTerminal />
+            Terminal
           </DropdownMenuRadioItem>
           <DropdownMenuRadioItem value="system" closeOnClick={false}>
             <Monitor />
