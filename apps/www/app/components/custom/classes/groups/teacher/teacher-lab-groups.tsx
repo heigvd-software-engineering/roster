@@ -375,6 +375,11 @@ function GroupRow({
   onToggle: () => void;
   addCandidates: AddCandidate[];
 }) {
+  // Over the lab's max — a lab whose max was LOWERED strands its bigger
+  // groups without evicting anyone, so this is a row state, not a status:
+  // it says nothing about the repo or the deadline and must not displace
+  // them. The drawer's hint explains it and names the lever.
+  const over = group.members.length > max;
   return (
     <Fragment>
       <TableRow>
@@ -382,16 +387,24 @@ function GroupRow({
           <div className="max-w-48 truncate font-medium text-sm">
             {group.name}
           </div>
+          {/* The size line reads in BOTH directions from one slot — short of
+              the min, or past the max. An uncapped lab has no denominator to
+              show at all (`max` is Infinity, which renders literally). */}
           <div
             className={cn(
               "font-mono text-xs",
-              status === "under_min" ? "text-brand" : "text-muted-foreground",
+              status === "under_min" || over
+                ? "text-brand"
+                : "text-muted-foreground",
             )}
           >
-            {group.members.length}/{max} members
+            {group.members.length}
+            {Number.isFinite(max) ? `/${max}` : ""} members
             {status === "under_min"
               ? ` · needs ${g.min - group.members.length} more`
-              : ""}
+              : over
+                ? ` · ${group.members.length - max} over the lab max`
+                : ""}
           </div>
         </TableCell>
         <TableCell>

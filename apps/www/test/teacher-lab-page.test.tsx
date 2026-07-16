@@ -356,6 +356,45 @@ describe("TeacherLabPage", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("flags an oversized group on the row itself, without opening the drawer", () => {
+    // 4 against maxMembers: 3 — the row must say so, or a teacher who just
+    // shrank the lab has to open every drawer to find who is stranded.
+    mockApi({
+      ...groupsData,
+      groups: [
+        grp({
+          members: [
+            alice,
+            bob,
+            carol,
+            { id: 10, login: "dave", avatarUrl: null },
+          ],
+        }),
+      ],
+    });
+    render(<TeacherLabPage />);
+
+    expect(screen.getByText(/4\/3 members/)).toBeInTheDocument();
+    expect(screen.getByText(/1 over the lab max/)).toBeInTheDocument();
+    // It is not a STATUS: the lifecycle chip keeps its own meaning.
+    expect(screen.getByText("no repo")).toBeInTheDocument();
+  });
+
+  it("shows no denominator for a lab with no maximum", () => {
+    // maxMembers: null on a group lab = uncapped — "2/Infinity members" is
+    // what a naive render produces here.
+    mockApi({
+      ...groupsData,
+      lab: { ...groupLab, maxMembers: null },
+      groups: [grp({ members: [alice, bob] })],
+    });
+    render(<TeacherLabPage />);
+
+    expect(screen.getByText(/2 members/)).toBeInTheDocument();
+    expect(screen.queryByText(/Infinity/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/over the lab max/)).not.toBeInTheDocument();
+  });
+
   it("warns when the lab's max was lowered below the group's size", () => {
     // 4 members against maxMembers: 3 — the shrink stranded this group.
     mockApi({
