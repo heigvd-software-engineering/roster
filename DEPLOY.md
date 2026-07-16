@@ -1,19 +1,21 @@
-# Deploying the demo to Cloudflare (from scratch)
+# Deploying an environment to Cloudflare (from scratch)
 
-Target: a working demo on a **private Cloudflare account**, on the free
-`workers.dev` origin — no custom domain needed. One Worker (`labs`) serves
-both the API (Hono) and the SPA (static assets binding, SPA fallback,
+Target: a working deployment on a **Cloudflare account**, on the free
+`workers.dev` origin — no custom domain needed. One Worker serves both the
+API (Hono) and the SPA (static assets binding, SPA fallback,
 `run_worker_first: ["/api/*"]`), so there is exactly ONE thing to deploy.
 
-The deployed origin is deterministic — worker name + the account subdomain.
-For this account (`dbd1e17f84808418caee768e1dc953f3`, subdomain
-`stefan-teofanov.workers.dev`) it is:
+The deployed origin is deterministic — worker name + the account's
+`workers.dev` subdomain (shown in the dash under Workers & Pages):
 
 ```
-https://labs.stefan-teofanov.workers.dev
+https://<worker-name>.<subdomain>.workers.dev
 ```
 
-Everything below refers to it as `<ORIGIN>`.
+Everything below refers to it as `<ORIGIN>`. The existing `demo` environment
+is a worked example: worker `labs` on the demo account resolves to
+`https://labs.stefan-teofanov.workers.dev` — the values in `wrangler.jsonc`'s
+`env.demo` block are exactly what this guide produced for it.
 
 ## The one external dependency, up front
 

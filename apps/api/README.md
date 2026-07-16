@@ -20,7 +20,6 @@ pnpm --filter @labs/api test
 pnpm --filter @labs/api build          # wrangler deploy --dry-run
 pnpm --filter @labs/api run deploy:demo   # deploy the demo env (or deploy:prod)
 pnpm --filter @labs/api run auth:schema   # regenerate the Better Auth schema
-pnpm --filter @labs/api cf-typegen     # regenerate worker-configuration.d.ts
 ```
 
 In dev the SPA is served by Vite on `https://localhost:3000` (the only origin
