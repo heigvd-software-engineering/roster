@@ -268,7 +268,9 @@ test("leave is refused once the work repo exists (locked group)", async () => {
 
 test("a teacher still ADDS members to a locked group (escape hatch)", async () => {
   state.membership = { state: "active", role: "admin" };
-  await seedLab("l1");
+  // Room to spare: the REPO LOCK is what's under test here, and an
+  // individual lab (max 1) would refuse on size before the lock is reached.
+  await seedLab("l1", { groupMode: "group", maxMembers: 3 });
   await seedGroup({ id: "g1", labId: "l1", repo: true, members: [bob] });
 
   const res = await app.request(
@@ -329,6 +331,73 @@ test("a group-mode lab with no maxMembers is uncapped", async () => {
   expect(state.calls).toEqual([
     { op: "addTeamMember", args: ["g1-slug", "alice"] },
   ]);
+});
+
+// The cap binds the TEACHER too — it is the LAB's rule, not a student-only
+// speed bump. The lever for a bigger group is the lab's own maxMembers.
+test("a teacher's add-member is refused when the group is FULL", async () => {
+  state.membership = { state: "active", role: "admin" };
+  await seedLab("l1", { groupMode: "group", maxMembers: 2 });
+  await seedGroup({ id: "g1", labId: "l1", members: [bob, carol] });
+
+  const res = await app.request(
+    "/api/classes/c1/groups/g1/members/dave",
+    { method: "PUT" },
+    env,
+  );
+  expect(res.status).toBe(409);
+  expect(await res.json()).toEqual({ error: "group_full" });
+  expect(state.calls).toEqual([]);
+});
+
+test("a teacher's add-member fills a group up to the max", async () => {
+  state.membership = { state: "active", role: "admin" };
+  await seedLab("l1", { groupMode: "group", maxMembers: 2 });
+  await seedGroup({ id: "g1", labId: "l1", members: [bob] });
+
+  const res = await app.request(
+    "/api/classes/c1/groups/g1/members/carol",
+    { method: "PUT" },
+    env,
+  );
+  expect(res.status).toBe(200);
+  expect(state.calls).toEqual([
+    { op: "addTeamMember", args: ["g1-slug", "carol"] },
+  ]);
+});
+
+// "Individual" is a lab-level statement (a group of one), so it binds the
+// teacher's add too — pairing students up means switching the LAB to group.
+test("a teacher cannot add a second member to an individual lab's group", async () => {
+  state.membership = { state: "active", role: "admin" };
+  await seedLab("l1"); // individual: min = max = 1
+  await seedGroup({ id: "g1", labId: "l1", members: [bob] });
+
+  const res = await app.request(
+    "/api/classes/c1/groups/g1/members/carol",
+    { method: "PUT" },
+    env,
+  );
+  expect(res.status).toBe(409);
+  expect(await res.json()).toEqual({ error: "group_full" });
+  expect(state.calls).toEqual([]);
+});
+
+// Lowering the lab's max never evicts anyone, so an ALREADY-oversized group
+// exists — it must not be allowed to grow further from there.
+test("a teacher's add-member is refused on a group already OVER the max", async () => {
+  state.membership = { state: "active", role: "admin" };
+  await seedLab("l1", { groupMode: "group", maxMembers: 1 });
+  await seedGroup({ id: "g1", labId: "l1", members: [bob, carol] });
+
+  const res = await app.request(
+    "/api/classes/c1/groups/g1/members/dave",
+    { method: "PUT" },
+    env,
+  );
+  expect(res.status).toBe(409);
+  expect(await res.json()).toEqual({ error: "group_full" });
+  expect(state.calls).toEqual([]);
 });
 
 // --- the lock races repo creation: re-check after the GitHub call ---

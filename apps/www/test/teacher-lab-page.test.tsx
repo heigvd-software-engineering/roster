@@ -46,6 +46,7 @@ const groupLab = {
 
 const alice = { id: 7, login: "alice", avatarUrl: "http://a" };
 const bob = { id: 8, login: "bob", avatarUrl: null };
+const carol = { id: 9, login: "carol", avatarUrl: null };
 
 /** The page is ONE request now — a single groups response (or its error). */
 function mockApi(labGroupsData: unknown, error?: unknown) {
@@ -328,6 +329,61 @@ describe("TeacherLabPage", () => {
     expect(screen.getByTestId("navigate")).toHaveTextContent(
       "/classes/c1/labs/l1",
     );
+  });
+
+  // --- the lab's max size, seen from the roster ---
+
+  it("disables the add-picker once the group is at the lab's max", () => {
+    // maxMembers: 3, and the group is at 3 → the pool has nowhere to go.
+    mockApi({
+      ...groupsData,
+      groups: [grp({ members: [alice, bob, carol] })],
+      students: [
+        ...groupsData.students,
+        { githubId: "9", login: "carol", avatarUrl: null, state: "active" },
+        { githubId: "10", login: "dave", avatarUrl: null, state: "active" },
+      ],
+    });
+    render(<TeacherLabPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Manage Team Alpha" }));
+    expect(
+      screen.getByRole("button", { name: /Add from the pool/ }),
+    ).toBeDisabled();
+    // A full group is not an over-max group — no warning, just no room.
+    expect(
+      screen.queryByRole("button", { name: "over the lab max" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("warns when the lab's max was lowered below the group's size", () => {
+    // 4 members against maxMembers: 3 — the shrink stranded this group.
+    mockApi({
+      ...groupsData,
+      groups: [
+        grp({
+          members: [
+            alice,
+            bob,
+            carol,
+            { id: 10, login: "dave", avatarUrl: null },
+          ],
+        }),
+      ],
+    });
+    render(<TeacherLabPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Manage Team Alpha" }));
+    const warning = screen.getByRole("button", { name: "over the lab max" });
+    expect(warning).toBeInTheDocument();
+    // The popover names the gap and the lever the teacher actually owns.
+    fireEvent.click(warning);
+    expect(
+      screen.getByText("This group has 4 members and the lab allows 3"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Remove 1 member to fit the lab/),
+    ).toBeInTheDocument();
   });
 
   it("shows a not-found message for an unknown lab", () => {

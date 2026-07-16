@@ -51,6 +51,17 @@ const CONFLICT_MESSAGE: Record<string, string> = {
   default: "That didn't go through — refresh and try again.",
 };
 
+/** The codes whose ADVICE splits by role — an override layer over the shared
+ *  table, not a second copy of it (a code absent here falls through).
+ *
+ *  `group_full` reaches a teacher at all only because the size cap now binds
+ *  addGroupMember too, and the student's remedy ("pick another") is not one a
+ *  teacher has: the lab's maximum is theirs, so name the lever they own. */
+const TEACHER_CONFLICT_MESSAGE: Record<string, string> = {
+  group_full:
+    "That group is already at the lab's maximum size — raise the lab's maximum in the lab settings to add more members.",
+};
+
 /**
  * The lab page's group data + actions (per-lab model, spec 2026-07-07):
  * groups belong to THIS lab, so the list IS the lab's groups — no attach,
@@ -65,11 +76,16 @@ export function useLabGroups(classId: string, labId: string) {
     param: { id: classId, labId },
   });
   const lab = data?.lab;
+  const role = data?.role;
 
-  const { busy, act } = useAction(
-    mutate,
-    (body) => CONFLICT_MESSAGE[body.error ?? ""] ?? CONFLICT_MESSAGE.default,
-  );
+  const { busy, act } = useAction(mutate, (body) => {
+    const code = body.error ?? "";
+    return (
+      (role === "teacher" ? TEACHER_CONFLICT_MESSAGE[code] : undefined) ??
+      CONFLICT_MESSAGE[code] ??
+      CONFLICT_MESSAGE.default
+    );
+  });
 
   const groups = data?.groups ?? [];
   /** The group's work repo full name, once created. */
@@ -128,7 +144,7 @@ export function useLabGroups(classId: string, labId: string) {
     /** The lab row — rides on the response, present once loaded. */
     lab,
     /** The caller's role in this class (drives the page redirects). */
-    role: data?.role,
+    role,
     /** Live org membership — "pending" renders the accept-invitation prompt. */
     membershipState: data?.membershipState,
     /** The class's display name for the breadcrumb. */
