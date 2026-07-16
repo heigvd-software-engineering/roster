@@ -1,87 +1,88 @@
-# Welcome to React Router!
+# @labs/www
 
-A modern, production-ready template for building full-stack React applications using React Router.
+The labs front end: a React Router 8 **SPA** (`ssr: false`), Tailwind 4, and
+shadcn/ui on Base UI. It talks to `@labs/api` over `/api/*` and renders
+entirely in the browser.
 
-[![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/remix-run/react-router-templates/tree/main/default)
+There is no server here. `app/entry.server.tsx` runs **once at build time** to
+prerender the static `index.html` shell — see the comment at the top of that
+file. In production a single Cloudflare Worker (`apps/api`) serves this app's
+static assets *and* the API from one origin.
 
-## Features
+## Running it
 
-- 🚀 Server-side rendering
-- ⚡️ Hot Module Replacement (HMR)
-- 📦 Asset bundling and optimization
-- 🔄 Data loading and mutations
-- 🔒 TypeScript by default
-- 🎉 TailwindCSS for styling
-- 📖 [React Router docs](https://reactrouter.com/)
+Prereqs: Node ≥ 22.22, pnpm 11 (auto-downloaded via `devEngines`), and
+`apps/api/.dev.vars` with the dev secrets — see
+[`GITHUB_APP_SETUP.md`](../../GITHUB_APP_SETUP.md).
 
-## Getting Started
-
-### Installation
-
-Install the dependencies:
+From the repo root:
 
 ```bash
-npm install
+pnpm install                    # pnpm, not npm — `@labs/api: workspace:*`
+                                # is a protocol npm cannot resolve
+
+# two terminals — the SPA is useless without the API
+pnpm --filter @labs/api dev     # Worker (API) on http://localhost:8788
+pnpm --filter @labs/www dev     # SPA on https://localhost:3000
 ```
 
-### Development
+Open **`https://localhost:3000`**.
 
-Start the development server with HMR:
+- **The port and the scheme are both load-bearing.** `vite.config.ts` pins
+  `port: 3000, strictPort: true` and enables a dev-only self-signed cert
+  (`basicSsl`). `https://localhost:3000` is the origin the SWITCH edu-ID client
+  and the `heigvdlabs` GitHub App have registered as a redirect URI. On any
+  other origin the app loads but **sign-in fails** — which reads as a bug in
+  the app rather than a wrong URL.
+- The browser will warn about the self-signed certificate. Accept it once.
+- In dev only, Vite proxies `/api` → `http://localhost:8788`. In production the
+  Worker serves both from one origin and no proxy is involved.
+
+## Checks
 
 ```bash
-npm run dev
+pnpm --filter @labs/www test        # vitest + jsdom + testing-library (test/)
+pnpm --filter @labs/www typecheck   # react-router typegen && tsc
+pnpm run biome                      # lint + format check, from the root
 ```
 
-Your application will be available at `http://localhost:5173`.
-
-## Building for Production
-
-Create a production build:
+## Building & deploying
 
 ```bash
-npm run build
+pnpm --filter @labs/www build       # → build/client (ships), build/server (see below)
 ```
 
-## Deployment
+`build/server/` is a build-time artifact, not a deployable server: SPA mode
+still emits a server entry to prerender the shell. Only `build/client/` ships.
 
-### Docker Deployment
-
-To build and run using Docker:
+`apps/www` is **not deployed on its own**. `apps/api/wrangler.jsonc` binds
+`../www/build/client` as the Worker's assets directory, so deploying the API
+ships whatever this build last produced:
 
 ```bash
-docker build -t my-app .
-
-# Run the container
-docker run -p 3000:3000 my-app
+pnpm --filter @labs/www build
+pnpm --filter @labs/api run deploy:demo    # or deploy:prod
 ```
 
-The containerized application can be deployed to any platform that supports Docker, including:
+Always rebuild before deploying — the Worker ships the contents of
+`build/client` at that moment, not the contents of your git tree. Full guide:
+[`DEPLOY.md`](../../DEPLOY.md) (Cloudflare, D1, secrets, GitHub App, SWITCH
+redirect URIs).
 
-- AWS ECS
-- Google Cloud Run
-- Azure Container Apps
-- Digital Ocean App Platform
-- Fly.io
-- Railway
+> Windows gotcha: a running Worker (`preview`) locks `build/client` — stop it
+> and any lingering `workerd` process before rebuilding.
 
-### DIY Deployment
-
-If you're familiar with deploying Node applications, the built-in app server is production-ready.
-
-Make sure to deploy the output of `npm run build`
+## Layout
 
 ```
-├── package.json
-├── package-lock.json (or pnpm-lock.yaml, or bun.lockb)
-├── build/
-│   ├── client/    # Static assets
-│   └── server/    # Server-side code
+app/
+├─ root.tsx      # document, theme bootstrap, providers, <AppLayout>
+├─ routes.ts     # route table          routes/ = thin auth/routing glue
+├─ pages/        # one component per screen; fetch their own data, take no props
+├─ components/   # ui/ (generated) + custom/ (ours) — see components/README.md
+├─ contexts/     # auth, message, theme providers
+├─ lib/          # api client (hc<AppType>), auth client, identity, cn, …
+└─ app.css       # design tokens (:root / .dark / .terminal)
 ```
 
-## Styling
-
-This template comes with [Tailwind CSS](https://tailwindcss.com/) already configured for a simple default starting experience. You can use whatever CSS framework you prefer.
-
----
-
-Built with ❤️ using React Router.
+Import alias: `~/*` → `./app/*`.

@@ -5,8 +5,9 @@
   // Only INHERITABLE keys live here. Every environment below inherits them.
   // There are no top-level `vars` or `d1_databases` on purpose: those keys are
   // NOT inherited by environments, so a value here would be silently dropped
-  // from every `--env` deploy. Wrangler warns about exactly this. All commands
-  // must therefore pass `--env` (the package scripts do).
+  // from every `--env` deploy. Wrangler warns about exactly this. Commands that
+  // touch D1 or deploy must therefore pass `--env` (the package scripts do);
+  // `build`'s dry-run bundles without bindings and needs none.
   "name": "labs",
   "main": "src/index.ts",
   "compatibility_date": "2026-06-30",

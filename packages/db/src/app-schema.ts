@@ -1,5 +1,5 @@
 // App-domain tables — HAND-OWNED. Add new feature tables here (labs, groups,
-// student_lab_repos, …); never in auth-schema.ts, which the Better Auth CLI
+// group_members, …); never in auth-schema.ts, which the Better Auth CLI
 // overwrites on regeneration.
 import { integer, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
 import { user } from "./auth-schema";

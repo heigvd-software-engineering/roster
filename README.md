@@ -92,9 +92,11 @@ pnpm --filter @labs/api exec wrangler d1 migrations apply labs --remote --env de
 pnpm --filter @labs/api run auth:schema                                         # regenerate Better Auth schema
 ```
 
-Every `wrangler` command needs `--env` — the D1 binding lives per environment
-(`dev` / `demo` / `prod`), not at the top level, so without it wrangler cannot
-find the database or the migrations directory. See [`DEPLOY.md`](DEPLOY.md).
+Any `wrangler` command that touches the database or deploys needs `--env` — the
+D1 binding and its `migrations_dir` live per environment (`dev` / `demo` /
+`prod`), not at the top level, so without it wrangler looks for
+`apps/api/migrations` and errors. (`build` is the exception: a `--dry-run`
+bundle check needs no bindings.) See [`DEPLOY.md`](DEPLOY.md).
 
 The local D1 is a plain SQLite file under
 `apps/api/.wrangler/state/v3/d1/miniflare-D1DatabaseObject/` — point DBeaver
@@ -119,9 +121,11 @@ they are declared side by side in `apps/api/wrangler.jsonc`:
 | `demo` | `labs` | [`labs.stefan-teofanov.workers.dev`](https://labs.stefan-teofanov.workers.dev) |
 | `prod` | `labs-heigvd` | not yet provisioned — see [`DEPLOY.md`](DEPLOY.md) |
 
-There is no bare `deploy` script on purpose: an environment-less deploy would
-ship a Worker with no database (`vars` and `d1_databases` are not inherited by
-environments), so the script fails loudly and tells you to pick one.
+The bare `deploy` script exists only to stop you — it exits with a pointer to
+`deploy:demo` / `deploy:prod`. An environment-less deploy would ship a Worker
+with no vars and no database (neither is inherited by environments), and
+wrangler only *warns* about that before deploying anyway — so it would break at
+runtime rather than at deploy.
 
 If migrations were added since the last deploy, apply them to that
 environment's D1 first:

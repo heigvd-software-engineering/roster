@@ -31,7 +31,9 @@ is the other shape: this Worker serving the built SPA on `:3000`, no proxy.
 
 Everything environment-specific lives in a `wrangler.jsonc` `env` block —
 `dev`, `demo`, `prod` — because Wrangler does not inherit `vars` or
-`d1_databases` into environments. Every `wrangler` command needs `--env`.
+`d1_databases` into environments. Any `wrangler` command that touches D1 or
+deploys needs `--env`; `build`'s `--dry-run` bundle check needs no bindings and
+so takes none.
 
 - Public config (`BETTER_AUTH_URL`, `EDUID_ISSUER`, `GITHUB_APP_SLUG`) →
   each env's `vars`, restated in full.
