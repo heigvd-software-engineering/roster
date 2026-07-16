@@ -39,8 +39,8 @@ so takes none.
   each env's `vars`, restated in full.
 - The seven secrets (`BETTER_AUTH_SECRET`, `EDUID_CLIENT_ID/SECRET`,
   `GITHUB_CLIENT_ID/SECRET`, `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`) →
-  `.dev.vars` (git-ignored) locally, `wrangler secret put … --env <env>` when
-  deployed. Never in `wrangler.jsonc`.
+  `.dev.vars` (git-ignored; start from `.dev.vars.example`) locally,
+  `wrangler secret put … --env <env>` when deployed. Never in `wrangler.jsonc`.
 - Each env carries its own `database_id`. `dev`'s is an all-zeros placeholder
   (miniflare uses a local sqlite and ignores it); `prod`'s is a placeholder
   until that environment is provisioned — see `DEPLOY.md`.

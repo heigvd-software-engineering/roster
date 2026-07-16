@@ -172,7 +172,7 @@ fresh App:
 >   -in downloaded.pem -out app-key-pkcs8.pem
 > ```
 >
-> Store the **PKCS#8** output. `createAppClient` (`apps/api/src/github.ts`)
+> Store the **PKCS#8** output. `createAppClient` (`apps/api/src/lib/github/clients.ts`)
 > normalizes the `\n`, so store it single-line with `\n` (see below).
 
 ## Wire the secrets

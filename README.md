@@ -44,8 +44,8 @@ endpoints → responses inferred by the SPA via Hono's `hc<AppType>`.
 ## Local development
 
 Prereqs: Node ≥ 22.22, pnpm 11 (auto-downloaded via `devEngines`), and
-`apps/api/.dev.vars` with the secrets (edu-ID client, GitHub App key —
-see `GITHUB_APP_SETUP.md`).
+`apps/api/.dev.vars` with the secrets (edu-ID client, GitHub App key) — copy
+`apps/api/.dev.vars.example` and fill it in; see `GITHUB_APP_SETUP.md`.
 
 ```bash
 pnpm install
@@ -77,7 +77,7 @@ pnpm --filter @labs/api preview    # → https://localhost:3000
 ### Checks
 
 ```bash
-pnpm run biome        # lint + format (Biome)
+pnpm run biome        # lint + format check (Biome; reports, never rewrites)
 pnpm typecheck        # tsc across all packages
 pnpm test             # vitest — api tests run on a real local D1 (Workers pool)
 pnpm build            # SPA build + Worker dry-run
