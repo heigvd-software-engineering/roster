@@ -20,6 +20,13 @@ import {
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "~/components/ui/select";
+import {
   type ClassItem,
   labGroupsApi,
   type ReusableGroup,
@@ -39,7 +46,7 @@ import { cn } from "~/lib/utils";
  * can't be copied (`blocker`), those rows render disabled with the reason,
  * and the create endpoint enforces the same rule as the backstop. The reuse
  * sources come from the API by role: a student sees their own groups, a
- * teacher sees every group in the class (scoped by lab chips). A creating
+ * teacher sees every group in the class (scoped by a lab select). A creating
  * student auto-joins.
  */
 export function NewGroupDialog({
@@ -154,16 +161,21 @@ function NewGroupForm({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Teacher: chips scope the list to ONE lab, defaulting to the previous lab
-  // (the list is createdAt-desc, so the first group's lab is the most recent
-  // source — the likeliest team to carry forward). A student's list is
-  // already small (one group per lab), so it stays flat with the lab inline.
+  // Teacher: a full-width lab select scopes the list to ONE lab, defaulting
+  // to the previous lab (the list is createdAt-desc, so the first group's
+  // lab is the most recent source — the likeliest team to carry forward).
+  // A student's list is already small (one group per lab), so it stays flat
+  // with the lab named inline.
   const labTitles = [...new Set(reusable.map((r) => r.labTitle))];
-  const chips = !autoJoins && labTitles.length > 1;
+  const labSelect = !autoJoins && labTitles.length > 1;
   const activeLab = labChoice ?? labTitles[0];
-  const shown = chips
+  const shown = labSelect
     ? reusable.filter((r) => r.labTitle === activeLab)
     : reusable;
+  const labLabel = (title: string) => {
+    const count = reusable.filter((r) => r.labTitle === title).length;
+    return `${title} · ${count} group${count === 1 ? "" : "s"}`;
+  };
   const usable = shown.filter((r) => r.blocker === null);
   const blocked = shown.filter((r) => r.blocker !== null);
 
@@ -237,27 +249,32 @@ function NewGroupForm({
                   <span className="size-1 rounded-full bg-current" />
                   Reuse a group
                 </div>
-                {chips ? (
-                  <div className="flex flex-wrap gap-1.5 px-2 pb-1.5">
-                    {labTitles.map((title) => (
-                      <button
-                        key={title}
-                        type="button"
-                        title={`Show groups from ${title}`}
-                        onClick={() => setLabChoice(title)}
-                        className={cn(
-                          "rounded-full px-2.5 py-0.5 font-mono text-[11px]",
-                          title === activeLab
-                            ? "bg-foreground text-background"
-                            : "text-muted-foreground ring-1 ring-border hover:text-foreground",
-                        )}
+                {labSelect ? (
+                  <div className="px-1.5 pt-0.5 pb-1.5">
+                    <Select
+                      // value→label map so the trigger shows the label.
+                      items={Object.fromEntries(
+                        labTitles.map((title) => [title, labLabel(title)]),
+                      )}
+                      value={activeLab}
+                      onValueChange={(value: string | null) =>
+                        setLabChoice(value)
+                      }
+                    >
+                      <SelectTrigger
+                        className="h-8 w-full"
+                        title="Pick the lab to reuse a group from"
                       >
-                        {title}
-                        <span className="ml-1 opacity-60">
-                          {reusable.filter((r) => r.labTitle === title).length}
-                        </span>
-                      </button>
-                    ))}
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {labTitles.map((title) => (
+                          <SelectItem key={title} value={title}>
+                            {labLabel(title)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 ) : null}
                 {usable.map((group) => (
@@ -265,7 +282,7 @@ function NewGroupForm({
                     key={group.id}
                     group={group}
                     users={users}
-                    showLab={!chips}
+                    showLab={!labSelect}
                     selected={source?.id === group.id}
                     expanded={expandedId === group.id}
                     onPick={() => pick(group)}
@@ -312,7 +329,7 @@ function NewGroupForm({
                             key={group.id}
                             group={group}
                             users={users}
-                            showLab={!chips}
+                            showLab={!labSelect}
                             selected={false}
                             expanded={expandedId === group.id}
                             onPick={() => {}}
@@ -436,7 +453,7 @@ function SourceRow({
 }: {
   group: ReusableGroup;
   users?: ClassItem["users"];
-  /** Name the source lab inline (no chips scoping the list to one lab). */
+  /** Name the source lab inline (no lab select scoping the list). */
   showLab: boolean;
   selected: boolean;
   expanded: boolean;
