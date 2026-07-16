@@ -102,7 +102,7 @@ describe("LabDialog", () => {
 
     const call = labsPost.mock.calls[0]?.[0] as {
       param: { id: string };
-      json: Record<string, unknown>;
+      json: { deadline?: unknown } & Record<string, unknown>;
     };
     expect(call.param).toEqual({ id: "c1" });
     expect(call.json).toMatchObject({

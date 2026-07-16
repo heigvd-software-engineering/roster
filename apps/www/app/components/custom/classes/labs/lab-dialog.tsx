@@ -48,7 +48,7 @@ export function LabDialog({
   onSaved,
 }: {
   classId: string;
-  lab?: LabItem;
+  lab?: LabItem | undefined;
   /** The OWNER of the classes data revalidates — the dialog never guesses
    *  cache keys (the hub's key carries its semester window). */
   onSaved: () => unknown;

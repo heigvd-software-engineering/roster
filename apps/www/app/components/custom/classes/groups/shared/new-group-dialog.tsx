@@ -452,7 +452,7 @@ function SourceRow({
   onToggle,
 }: {
   group: ReusableGroup;
-  users?: ClassItem["users"];
+  users?: ClassItem["users"] | undefined;
   /** Name the source lab inline (no lab select scoping the list). */
   showLab: boolean;
   selected: boolean;
@@ -548,7 +548,7 @@ function AvatarStack({
   users,
 }: {
   members: ReusableGroup["members"];
-  users?: ClassItem["users"];
+  users?: ClassItem["users"] | undefined;
 }) {
   const userByGithubId = usersByGithubId(users);
   const shown = members.slice(0, 3);

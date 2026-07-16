@@ -48,8 +48,12 @@ const CONFLICT_MESSAGE: Record<string, string> = {
     "This group already has its work repository — membership and deletion are locked.",
   group_full: "That group is already full — pick another or start your own.",
   name_taken: "A group with that name already exists in this lab.",
-  default: "That didn't go through — refresh and try again.",
 };
+
+/** For codes no table knows — kept OUT of the table so an unknown code can
+ *  never collide with a real one named "default". */
+const DEFAULT_CONFLICT_MESSAGE =
+  "That didn't go through — refresh and try again.";
 
 /** The codes whose ADVICE splits by role — an override layer over the shared
  *  table, not a second copy of it (a code absent here falls through).
@@ -83,7 +87,7 @@ export function useLabGroups(classId: string, labId: string) {
     return (
       (role === "teacher" ? TEACHER_CONFLICT_MESSAGE[code] : undefined) ??
       CONFLICT_MESSAGE[code] ??
-      CONFLICT_MESSAGE.default
+      DEFAULT_CONFLICT_MESSAGE
     );
   });
 

@@ -32,7 +32,7 @@ export function GroupTile({
   memberClassName,
 }: {
   group: GroupItem;
-  users?: ClassItem["users"];
+  users?: ClassItem["users"] | undefined;
   highlight?: boolean;
   /** Status lines under the name (e.g. "your group", "needs N more"). */
   notes?: ReactNode;
@@ -40,9 +40,11 @@ export function GroupTile({
   actions?: ReactNode;
   /** Below the roster: the work-repo link or its create action (F8). */
   footer?: ReactNode;
-  memberAction?: (member: GroupItem["members"][number]) => ReactNode;
+  memberAction?:
+    | ((member: GroupItem["members"][number]) => ReactNode)
+    | undefined;
   /** Restyles each member row (e.g. the individual ghost tile dims you). */
-  memberClassName?: string;
+  memberClassName?: string | undefined;
 }) {
   return (
     <Card className={cn("gap-0 p-4", highlight && "ring-role-enrolled/60")}>
@@ -115,10 +117,12 @@ export function GroupMembers({
   memberClassName,
 }: {
   members: GroupItem["members"];
-  users?: ClassItem["users"];
-  memberAction?: (member: GroupItem["members"][number]) => ReactNode;
+  users?: ClassItem["users"] | undefined;
+  memberAction?:
+    | ((member: GroupItem["members"][number]) => ReactNode)
+    | undefined;
   /** Restyles each row (e.g. the drawer's card-like member rows). */
-  memberClassName?: string;
+  memberClassName?: string | undefined;
 }) {
   const userByGithubId = usersByGithubId(users);
   if (members.length === 0) {

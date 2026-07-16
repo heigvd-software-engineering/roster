@@ -18,7 +18,7 @@ export function CommandBlock({
   commands: string;
   /** The copy button's accessible name (before it flips to "Copied"). */
   label?: string;
-  className?: string;
+  className?: string | undefined;
 }) {
   const [copied, setCopied] = useState(false);
   const copyResetTimer = useRef<ReturnType<typeof setTimeout>>(undefined);

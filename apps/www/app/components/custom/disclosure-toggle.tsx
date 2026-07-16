@@ -24,7 +24,7 @@ export function DisclosureToggle({
   /** Hover text, when the label is too terse to explain the consequence. */
   title?: string;
   /** id of the region this controls — omit while that region is unmounted. */
-  controls?: string;
+  controls?: string | undefined;
 }) {
   return (
     <Button
