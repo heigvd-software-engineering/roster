@@ -25,6 +25,32 @@ export type GroupLabStatus =
   | "late"
   | "ready";
 
+/** The lab page's action failures, by the server's 409 `error` code — every
+ *  create/join/leave verb on this page routes its conflict through this one
+ *  table, so a code can't drift to two different messages across the file. */
+const CONFLICT_MESSAGE: Record<string, string> = {
+  member_already_participating:
+    "You're already in another group for this lab — leave it first.",
+  group_incomplete: "The group hasn't reached this lab's minimum size yet.",
+  // Repo creation is CREATE-only (never adopts an existing repo, even one
+  // labs could read back — see lib/groups.ts createWorkRepo): a name
+  // collision always refuses. A genuine interrupted create is recovered by
+  // the teacher on the reconciler audit page, never automatically.
+  repo_name_taken:
+    "A repository with that name already exists in the organization — rename the group and try again.",
+  template_error:
+    "The lab's starter-code template can't be used — it's likely empty or unavailable. Ask your teacher to add a file to it (or remove the template).",
+  app_permissions:
+    "labs can't create repositories yet — the GitHub App needs updated permissions (an administrator must approve them).",
+  // Read by BOTH roles (a teacher's stale delete lands here too) — stay
+  // role-neutral.
+  has_repo:
+    "This group already has its work repository — membership and deletion are locked.",
+  group_full: "That group is already full — pick another or start your own.",
+  name_taken: "A group with that name already exists in this lab.",
+  default: "That didn't go through — refresh and try again.",
+};
+
 /**
  * The lab page's group data + actions (per-lab model, spec 2026-07-07):
  * groups belong to THIS lab, so the list IS the lab's groups — no attach,
@@ -40,35 +66,10 @@ export function useLabGroups(classId: string, labId: string) {
   });
   const lab = data?.lab;
 
-  const { busy, act } = useAction(mutate, (body) => {
-    switch (body.error) {
-      case "member_already_participating":
-        return "You're already in another group for this lab — leave it first.";
-      case "group_incomplete":
-        return "The group hasn't reached this lab's minimum size yet.";
-      case "repo_name_taken":
-        // Repo creation is CREATE-only (never adopts an existing repo, even
-        // one labs could read back — see lib/groups.ts createWorkRepo): a
-        // name collision always refuses. A genuine interrupted create is
-        // recovered by the teacher on the reconciler audit page, never
-        // automatically.
-        return "A repository with that name already exists in the organization — rename the group and try again.";
-      case "template_error":
-        return "The lab's starter-code template can't be used — it's likely empty or unavailable. Ask your teacher to add a file to it (or remove the template).";
-      case "app_permissions":
-        return "labs can't create repositories yet — the GitHub App needs updated permissions (an administrator must approve them).";
-      case "has_repo":
-        // Read by BOTH roles (a teacher's stale delete lands here too) —
-        // stay role-neutral.
-        return "This group already has its work repository — membership and deletion are locked.";
-      case "group_full":
-        return "That group is already full — pick another or start your own.";
-      case "name_taken":
-        return "A group with that name already exists in this lab.";
-      default:
-        return "That didn't go through — refresh and try again.";
-    }
-  });
+  const { busy, act } = useAction(
+    mutate,
+    (body) => CONFLICT_MESSAGE[body.error ?? ""] ?? CONFLICT_MESSAGE.default,
+  );
 
   const groups = data?.groups ?? [];
   /** The group's work repo full name, once created. */
