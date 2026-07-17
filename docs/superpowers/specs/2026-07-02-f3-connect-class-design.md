@@ -1,7 +1,7 @@
 # F3 — Teacher connects a class (design)
 
 **Date:** 2026-07-02 · **Status:** approved (design) · **Feature:** F3 of the
-labs implementation plan (`docs/superpowers/plans/2026-06-30-labs-implementation.md`).
+labs implementation plan.
 
 ## Goal
 
