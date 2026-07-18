@@ -21,13 +21,19 @@ The one escape hatch: when following a rule is genuinely unreasonable for a spec
 6. **Input-validation schemas (zod) SHOULD stay linked to the schema.** Prefer `drizzle-zod` (`createInsertSchema`) over hand-listing columns when validating writes, so validators can't drift from the table.
 7. **Calls to external services MUST live in a dedicated integration layer, never inline elsewhere.** Handlers and other lib code orchestrate named operations; they never touch a raw client or `fetch` an external API directly. Example: every GitHub call lives in `apps/api/src/lib/github/` — one call + narrowing per function, no orchestration (see its README). A future external service gets its own `lib/<service>/` on the same pattern.
 
+## Database
+
+8. **Migrations MUST carry a descriptive name.** Always generate with `pnpm --filter @labs/db db:generate --name=<what_it_does>` (e.g. `class_members_invitation_id`). Without `--name` drizzle-kit invents a random one (`0013_busy_valeria_richards`) that says nothing about the change at the point where it matters most — reading the migration list to work out what shape the DB is in.
+9. **Read the generated SQL before applying it.** drizzle-kit is a starting point, not an authority. Two things it reliably gets wrong on SQLite: a table rebuild that also adds a column emits `SELECT "<new_col>" FROM <old_table>` (a column that does not exist yet — the migration fails), and it never writes the data BACKFILL a semantic change needs. Fix both in the generated file and say in a comment that it was hand-edited, and why.
+
 ## API
 
-8. **Routes wire, handlers do, lib shares.** A route file (`apps/api/src/routes/`) contains only paths and middleware (`.use`) mapped to named handlers — no logic. Handlers live in `apps/api/src/handlers/`. A helper may be declared in the handler file that uses it; the moment a second file needs it, move it into `apps/api/src/lib/` — never import from another handler file.
+10. **Routes wire, handlers do, lib shares.** A route file (`apps/api/src/routes/`) contains only paths and middleware (`.use`) mapped to named handlers — no logic. Handlers live in `apps/api/src/handlers/`. A helper may be declared in the handler file that uses it; the moment a second file needs it, move it into `apps/api/src/lib/` — never import from another handler file.
+11. **A `lib/` module is a named unit, not merely shared code.** Sharing is one reason to live there, never the requirement: a single-caller module is fine when it is something you reason about on its own — it has its own name, its own tests, and its own reason to change. Each reconciler in `lib/reconcile/` is imported only by the registry; `lib/auth/accepted-invitation-heal.ts` only by the auth config. The test is whether the alternative — inlining it into its one caller — would bury a distinct concern somewhere nobody would look for it.
 
 ## Frontend
 
-9. **Split large components.** A subcomponent used nowhere else lives inline in the same file; extract to its own file only when it's reused.
-10. **Keep folders small.** When a component folder grows too large, reorganise into subfolders. Exception: the generated `ui/` folder.
-11. **Fetch through the RPC client.** Use the `useApi` hook / `api.…` client — never hand-roll `fetch`. Keeps request and response types inferred end-to-end.
+12. **Split large components.** A subcomponent used nowhere else lives inline in the same file; extract to its own file only when it's reused.
+13. **Keep folders small.** When a component folder grows too large, reorganise into subfolders. Exception: the generated `ui/` folder.
+14. **Fetch through the RPC client.** Use the `useApi` hook / `api.…` client — never hand-roll `fetch`. Keeps request and response types inferred end-to-end.
 

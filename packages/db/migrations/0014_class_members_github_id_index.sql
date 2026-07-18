@@ -1,0 +1,1 @@
+CREATE INDEX `class_members_github_id_idx` ON `class_members` (`github_id`);

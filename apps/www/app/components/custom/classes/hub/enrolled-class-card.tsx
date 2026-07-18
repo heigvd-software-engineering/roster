@@ -1,12 +1,59 @@
 import { PeopleChip } from "~/components/custom/classes/hub/people-chip";
 import { LabRow, LabsHeader } from "~/components/custom/classes/labs/lab-row";
 import { RoleChip, roleSpine } from "~/components/custom/classes/role-marker";
+import { Hint } from "~/components/custom/hint";
 import { OrgIdentity } from "~/components/custom/identity/org-identity";
 import { Row } from "~/components/custom/layout/row";
+import { Stack } from "~/components/custom/layout/stack";
 import { Text } from "~/components/custom/typography/text";
 import { Card } from "~/components/ui/card";
 import type { EnrolledClassItem } from "~/lib/api";
 import { cn } from "~/lib/utils";
+
+/**
+ * "You joined, but you are not in the organisation yet."
+ *
+ * Pending is not a decoration: it is the student one step short of everything
+ * the class is for, and the remaining step is on GitHub, not here. Stating the
+ * status alone leaves them to discover the consequences by hitting them — the
+ * lab page shows no groups, joining one 404s — so this says what they cannot
+ * do yet, and hands them the link that fixes it.
+ *
+ * Warning rather than info: nothing is broken, but they are blocked and only
+ * they can unblock it.
+ */
+function PendingInvitationWarning({ orgLogin }: { orgLogin: string | null }) {
+  return (
+    <Hint variant="warning" text="invitation pending" title="Not a member yet">
+      <Stack gap="sm">
+        <span>
+          You joined this class, but you haven't accepted the GitHub
+          organisation invitation yet — so you aren't a member of it.
+        </span>
+        <span>
+          Until you do, you can open the class and its labs, but you can't join
+          a group or get your lab repository.
+        </span>
+        {/* Absent only until a teacher path refreshes the org identity cache;
+            better to drop the link than to build one around "unknown". */}
+        {orgLogin ? (
+          <a
+            href={`https://github.com/orgs/${orgLogin}/invitation`}
+            target="_blank"
+            rel="noreferrer"
+            className="underline underline-offset-2"
+          >
+            Accept the invitation on GitHub
+          </a>
+        ) : null}
+        <span className="text-muted-foreground">
+          Only you can accept it, signed in as the GitHub account you joined
+          with. Come back here afterwards and the class updates on its own.
+        </span>
+      </Stack>
+    </Hint>
+  );
+}
 
 /**
  * A class the caller is ENROLLED in (student side): the same flat surface as
@@ -61,11 +108,8 @@ export function EnrolledClassCard({ cls }: { cls: EnrolledClassItem }) {
               }))}
             />
           ) : null}
-          {/* State (urgency red) stays separate from role (identity teal). */}
           {cls.state === "pending" ? (
-            <span className="font-mono text-brand text-xs">
-              invitation pending
-            </span>
+            <PendingInvitationWarning orgLogin={cls.login} />
           ) : null}
           <RoleChip kind="enrolled" />
         </Row>

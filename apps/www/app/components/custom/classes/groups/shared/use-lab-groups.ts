@@ -31,7 +31,8 @@ export type GroupLabStatus =
 const CONFLICT_MESSAGE: Record<string, string> = {
   member_already_participating:
     "You're already in another group for this lab — leave it first.",
-  group_incomplete: "The group hasn't reached this lab's minimum size yet.",
+  group_incomplete:
+    "This group needs more members before it can get its repository — check the lab's minimum size.",
   // Repo creation is CREATE-only (never adopts an existing repo, even one
   // labs could read back — see lib/groups.ts createWorkRepo): a name
   // collision always refuses. A genuine interrupted create is recovered by
@@ -48,6 +49,21 @@ const CONFLICT_MESSAGE: Record<string, string> = {
     "This group already has its work repository — membership and deletion are locked.",
   group_full: "That group is already full — pick another or start your own.",
   name_taken: "A group with that name already exists in this lab.",
+  // The page thought this was an individual lab and the server disagrees —
+  // the teacher changed its mode while it was open. Reloading is the fix, so
+  // say that rather than describing the mismatch.
+  group_lab:
+    "This lab works in groups, not individually — reload the page to see its groups.",
+  // Accepting an individual lab, when the solo group already exists but its
+  // live GitHub team doesn't confirm it's the caller's. Three distinct causes,
+  // and NONE of them is something the student can fix themselves — so each says
+  // who can, rather than inviting a retry that will fail identically.
+  solo_team_empty:
+    "Your group for this lab exists, but you're not in it on GitHub — either you were removed from the organization, or you were removed from the group. Ask your teacher to add you back.",
+  solo_team_missing:
+    "Your group for this lab has lost its team on GitHub. Ask your teacher to repair it from the class's GitHub sync.",
+  solo_name_taken:
+    "A group named after your GitHub account already exists in this lab and belongs to someone else. Ask your teacher to sort it out.",
 };
 
 /** For codes no table knows — kept OUT of the table so an unknown code can

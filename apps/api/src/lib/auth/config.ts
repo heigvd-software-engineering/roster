@@ -4,6 +4,7 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { customSession } from "better-auth/plugins";
 import { genericOAuth } from "better-auth/plugins/generic-oauth";
+import { buildSessionPayload } from "./session-payload";
 
 // SWITCH edu-ID claims to request so the affiliation emails are released
 // (parity with the opendidac NextAuth provider). Requested for both `userinfo`
@@ -133,16 +134,20 @@ export function createAuth(env: AuthEnv) {
           },
         ],
       }),
-      // Expose `githubLinked` on the session so the onboarding gate can key off
-      // it without a separate request. True once a `github` account row exists.
-      customSession(async ({ user, session }) => {
-        const accounts = await getDb(env.DB).query.account.findMany({
-          where: (a, { eq }) => eq(a.userId, user.id),
-          columns: { providerId: true },
-        });
-        const githubLinked = accounts.some((a) => a.providerId === "github");
-        return { user, session, githubLinked };
-      }),
+      // Every session read: expose `githubLinked` for the onboarding gate, and
+      // resolve an invitation this user has accepted since we last saw them.
+      //
+      // Reading the session is the right trigger for the heal because GitHub
+      // never tells us when someone accepts — the only signal we get is the
+      // person showing up. Per READ rather than at sign-in alone matters for a
+      // teacher who was already signed in when they accepted; they would
+      // otherwise keep showing as invited until their next login.
+      //
+      // Both live in `buildSessionPayload` so they can be tested; see there for
+      // why this is affordable on a hot path.
+      customSession(({ user, session }) =>
+        buildSessionPayload(env, user, session),
+      ),
     ],
   });
 }

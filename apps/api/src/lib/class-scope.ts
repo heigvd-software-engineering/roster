@@ -1,5 +1,4 @@
 import {
-  account,
   type Class,
   classes,
   classMembers,
@@ -7,9 +6,8 @@ import {
   getDb,
   groups,
   labs,
-  user,
 } from "@labs/db";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { Context } from "hono";
 import type { AuthEnv } from "./auth/config";
 import { githubAccessToken } from "./auth/github-token";
@@ -24,14 +22,20 @@ import {
 } from "./github/team";
 import { fetchGithubProfile, GithubUnavailableError } from "./github/user";
 import { syncGroupMembers } from "./group-members";
-import { readAffiliationEmails } from "./switch/claims";
+import { githubIdsForUser } from "./identity";
 
 /**
- * Class-scoped access resolution — the ONE home for "who is the caller to
- * this class" (previously spread across three handler files). Two variants,
- * deliberately different mechanisms:
+ * Turn "a request about class X" into a SCOPE: the class row, its org, who the
+ * caller is to it, and the pre-bound Team API — having first proven, against
+ * live GitHub, that they may be there at all. Every class-scoped route starts
+ * with one of these and works inside what it returns; `findGroupInClass` /
+ * `findLabInClass` then keep child lookups inside the same boundary, so a valid
+ * group id from ANOTHER class still resolves to nothing.
  *
- * - `resolveClassAccess` — routes where the caller acts as THEMSELVES
+ * The ONE home for "who is the caller to this class" (previously spread across
+ * three handler files). Two variants, deliberately different mechanisms:
+ *
+ * - `resolveClassAsMember` — routes where the caller acts as THEMSELVES
  *   (join/leave a group): needs their GitHub LOGIN. The login normally
  *   comes from the class's own member cache (`class_members`, keyed by the
  *   stored GitHub id) — zero calls; their OAuth token is spent on a live
@@ -54,26 +58,6 @@ import { readAffiliationEmails } from "./switch/claims";
 
 type Db = ReturnType<typeof getDb>;
 
-/**
- * The caller's GitHub identity, both forms. `account.accountId` is TEXT: for the
- * `github` provider it holds a numeric id, and a non-numeric value is as good as
- * absent. Callers need the number (GitHub APIs) and the string
- * (`class_members.githubId` comparisons).
- */
-export async function callerGithub(
-  db: Db,
-  userId: string,
-): Promise<{ ghId: number; githubId: string } | null> {
-  const row = await db.query.account.findFirst({
-    where: (a, op) =>
-      op.and(op.eq(a.userId, userId), op.eq(a.providerId, "github")),
-    columns: { accountId: true },
-  });
-  if (!row) return null;
-  const ghId = Number(row.accountId);
-  return Number.isFinite(ghId) ? { ghId, githubId: row.accountId } : null;
-}
-
 /** The class org's GitHub Team API, pre-bound to this class's installation +
  *  org — so handlers call `access.team.add(slug, login)` instead of threading
  *  `(env, cls.installationId, org, …)` through every call.
@@ -94,14 +78,19 @@ type ClassTeam = {
   ) => Promise<OrgPerson[] | null>;
 };
 
-export type ClassAccess = {
+export type ClassScope = {
   db: Db;
   cls: Class;
+  /** The ORG's login (the class's GitHub organization). */
   org: string;
-  /** The caller's GitHub login — self join/leave acts on it. */
-  login: string;
-  /** Live org Owner (teacher). */
-  admin: boolean;
+  /** The CALLER's login — named apart from `org` because the two sat side by
+   *  side as `org`/`login` and nothing said which was whose. Self join/leave
+   *  acts on this one. */
+  callerLogin: string;
+  /** Live org Owner — i.e. a teacher of this class. Named for the app's role,
+   *  not GitHub's `admin`, since every caller reads it as "may they manage
+   *  this class". */
+  isTeacher: boolean;
   /** Live org membership state. "pending" only ever reaches the callers
    *  that opted in via `allowPending` — everyone else never sees it. */
   membershipState: "active" | "pending";
@@ -109,6 +98,8 @@ export type ClassAccess = {
   team: ClassTeam;
 };
 
+/** Build the `ClassTeam` above by closing over this class's installation and
+ *  org, so every call site drops four arguments it would otherwise thread. */
 function classTeam(
   db: Db,
   env: AuthEnv,
@@ -126,7 +117,24 @@ function classTeam(
   };
 }
 
-export async function resolveClassAccess(
+/**
+ * Resolve the caller as a MEMBER of the class — the entry point for routes
+ * where they act as themselves (join a group, leave a group, view their lab).
+ *
+ * Returns everything such a route needs and nothing it doesn't: the class row,
+ * the org login, the caller's own GitHub login (what team writes act on),
+ * whether they are a teacher, their live membership state, and the class's
+ * Team API pre-bound to this installation.
+ *
+ * `null` means "no access", for every reason — unknown class, no linked GitHub
+ * account, not a member, dead installation. Routes turn that into 404 rather
+ * than 403 so the answer never reveals that a class exists to an outsider.
+ *
+ * Authorization is ALWAYS the live `orgMembership` call. Caches (the class's
+ * `login`, the member row's `login`) only propose NAMES to ask about, and a
+ * miss retries once with freshly derived names before believing it.
+ */
+export async function resolveClassAsMember(
   c: Context<AuthedEnv>,
   classId: string | undefined,
   opts?: {
@@ -135,13 +143,13 @@ export async function resolveClassAccess(
      *  default stays active-only: a pending member can't act. */
     allowPending?: boolean;
   },
-): Promise<ClassAccess | null> {
+): Promise<ClassScope | null> {
   if (!classId) return null;
   const db = getDb(c.env.DB);
   const [cls] = await db.select().from(classes).where(eq(classes.id, classId));
   if (!cls) return null;
 
-  const caller = await callerGithub(db, c.get("user").id);
+  const caller = await githubIdsForUser(db, c.get("user").id);
   if (!caller) return null;
 
   /** The caller's CURRENT login, straight from GitHub — the fallback when
@@ -203,9 +211,9 @@ export async function resolveClassAccess(
       db,
       cls,
       org,
-      login,
+      callerLogin: login,
       // Owner = live ACTIVE admin — a pending Owner invite is not an Owner.
-      admin: state === "active" && membership?.role === "admin",
+      isTeacher: state === "active" && membership?.role === "admin",
       membershipState: state,
       team: classTeam(db, c.env, cls.installationId, org),
     };
@@ -218,6 +226,19 @@ export async function resolveClassAccess(
   }
 }
 
+/**
+ * Resolve the caller as a TEACHER of the class — the gate on every route that
+ * manages the class itself (create labs, invite teachers, reconcile).
+ *
+ * Deliberately a different mechanism from `resolveClassAsMember`, not a stricter
+ * version of it: this asks the ORG whether the caller's stored account id is an
+ * Owner, using the installation token. It never touches the caller's OAuth
+ * token, so a teacher whose GitHub link has expired can still run the class —
+ * they only lose the routes that act AS them.
+ *
+ * Returns the narrow scope those routes need (`db`, `cls`, `org`); `null` is
+ * "not a teacher of this class", answered as 404 like above.
+ */
 export async function resolveClassAsTeacher(
   c: Context<AuthedEnv>,
   classId: string | undefined,
@@ -227,7 +248,7 @@ export async function resolveClassAsTeacher(
   const [cls] = await db.select().from(classes).where(eq(classes.id, classId));
   if (!cls) return null;
 
-  const caller = await callerGithub(db, c.get("user").id);
+  const caller = await githubIdsForUser(db, c.get("user").id);
   if (!caller) return null;
 
   try {
@@ -255,7 +276,7 @@ export async function resolveClassAsTeacher(
 
 /** The group row, only if it belongs to the class — class is DERIVED via
  *  the group's lab (per-lab model: groups own a lab, not a class). */
-export async function groupInClass(
+export async function findGroupInClass(
   scope: { db: Db; cls: Class },
   groupId: string | undefined,
 ) {
@@ -269,67 +290,11 @@ export async function groupInClass(
 }
 
 /** The lab row, only if it belongs to the class. */
-export async function labInClass(
+export async function findLabInClass(
   scope: { db: Db; cls: Class },
   labId: string | undefined,
 ) {
   if (!labId) return null;
   const [row] = await scope.db.select().from(labs).where(eq(labs.id, labId));
   return row && row.classId === scope.cls.id ? row : null;
-}
-
-/** SWITCH users linked to GitHub accounts, in the ONE shape that may leave
- *  the server for other class members: display-name fields + affiliation
- *  (professional) emails, decoded from each user's stored SWITCH id_token.
- *  The private login email NEVER rides here — /api/me alone may show it,
- *  and only to its owner. Clients correlate rows by github id. */
-export async function linkedUsers(db: Db, githubIds: string[]) {
-  if (githubIds.length === 0) return [];
-  const rows = await db
-    .select({
-      githubId: account.accountId,
-      userId: user.id,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      name: user.name,
-    })
-    .from(account)
-    .innerJoin(user, eq(account.userId, user.id))
-    .where(
-      and(
-        eq(account.providerId, "github"),
-        inArray(account.accountId, githubIds),
-      ),
-    );
-  if (rows.length === 0) return [];
-  const affiliations = await affiliationsByUserId(
-    db,
-    rows.map((r) => r.userId),
-  );
-  return rows.map(({ githubId, userId, ...names }) => ({
-    githubId,
-    user: { ...names, affiliations: affiliations.get(userId) ?? [] },
-  }));
-}
-
-/** Affiliation (professional) emails for many users at once, decoded from
- *  each stored SWITCH id_token (as fresh as that user's last sign-in) —
- *  never persisted separately. The shared piece of every people payload. */
-export async function affiliationsByUserId(
-  db: Db,
-  userIds: string[],
-): Promise<Map<string, string[]>> {
-  if (userIds.length === 0) return new Map();
-  const rows = await db
-    .select({ userId: account.userId, idToken: account.idToken })
-    .from(account)
-    .where(
-      and(eq(account.providerId, "switch"), inArray(account.userId, userIds)),
-    );
-  return new Map(
-    rows.map((r) => [
-      r.userId,
-      r.idToken ? readAffiliationEmails(r.idToken) : [],
-    ]),
-  );
 }

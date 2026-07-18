@@ -18,9 +18,6 @@ const state = vi.hoisted(() => ({
     string,
     { role: string; state: string }
   > | null,
-  // The caller's own GitHub login (rides on the memberships call). Only set in
-  // tests that exercise the self-heal of the caller's own pending row.
-  callerLogin: null as string | null,
   people: {
     teachers: [{ id: 111, login: "prof", avatarUrl: "http://p" }],
     students: [{ id: 2, login: "student", avatarUrl: "http://s" }],
@@ -83,7 +80,9 @@ const userOrgMembershipsMock = vi.hoisted(() =>
         });
       }
     }
-    return { byLogin, login: state.callerLogin ?? null };
+    // `login` mirrors the real helper's shape; the hub itself no longer reads
+    // it (resolving the caller's own invitation moved to the sign-in hook).
+    return { byLogin, login: "prof" };
   }),
 );
 
@@ -336,7 +335,7 @@ test("skips a class whose org is missing from the memberships answer", async () 
 
 test("returns a class connected by someone else when the caller is an org owner", async () => {
   await seedClass({ connectedByUserId: "someone-else" });
-  // default mocks: callerGithubId 111, orgPeople teachers include 111.
+  // default mocks: githubIdsForUser → 111, orgPeople teachers include 111.
   const res = await app.request("/api/classes", {}, env);
   expect(res.status).toBe(200);
   const body = (await res.json()) as { classes: Array<{ id: string }> };
@@ -561,6 +560,75 @@ test("returns the caller's enrolled classes (with labs) from the cache alone", a
   ]);
   // The join token must never leak to enrollees.
   expect(body.enrolled[0]).not.toHaveProperty("joinToken");
+});
+
+test("someone invited to TEACH is not enrolled — they see nothing until they accept", async () => {
+  // A `pending_teacher` row is an unanswered invitation to teach, not an
+  // enrolment. Listing it renders a STUDENT card with a pending badge — the
+  // wrong role, at the moment the person is working out what they were asked
+  // to do. They are not an Owner yet either, so the class is absent entirely.
+  await db.insert(classes).values({
+    id: "c2",
+    orgId: 43,
+    installationId: 300,
+    connectedByUserId: "someone-else",
+    joinToken: "tok-c2",
+    status: "active",
+    login: "beta",
+    name: "Beta",
+    createdAt: new Date(500),
+    updatedAt: new Date(500),
+  });
+  await db.insert(classMembers).values({
+    id: "m-invited",
+    classId: "c2",
+    githubId: "111",
+    invitationId: "900",
+    state: "pending_teacher",
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  const res = await app.request("/api/classes", {}, env);
+  const body = (await res.json()) as {
+    classes: Array<{ id: string }>;
+    enrolled: Array<{ id: string }>;
+  };
+
+  expect(body.enrolled).toEqual([]);
+  expect(body.classes.map((c) => c.id)).not.toContain("c2");
+});
+
+test("a pending STUDENT is still enrolled — they joined, they are just waiting", async () => {
+  // The contrast that keeps the rule honest: `pending` (a student who used the
+  // join link) belongs on the student side, invitation badge and all.
+  await db.insert(classes).values({
+    id: "c2",
+    orgId: 43,
+    installationId: 300,
+    connectedByUserId: "someone-else",
+    joinToken: "tok-c2",
+    status: "active",
+    login: "beta",
+    name: "Beta",
+    createdAt: new Date(500),
+    updatedAt: new Date(500),
+  });
+  await db.insert(classMembers).values({
+    id: "m-joined",
+    classId: "c2",
+    githubId: "111",
+    state: "pending",
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  const res = await app.request("/api/classes", {}, env);
+  const body = (await res.json()) as {
+    enrolled: Array<{ id: string; state: string }>;
+  };
+
+  expect(body.enrolled).toMatchObject([{ id: "c2", state: "pending" }]);
 });
 
 test("an enrolled class's teachers carry affiliations, never the private email", async () => {

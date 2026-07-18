@@ -4,7 +4,7 @@ import { factory } from "../factory";
 import type { AuthEnv } from "../lib/auth/config";
 import { createAuth } from "../lib/auth/config";
 import { githubAccessToken } from "../lib/auth/github-token";
-import { observeMember } from "../lib/enrollment";
+import { isInvited, observeMember } from "../lib/enrollment";
 import { installationAccount } from "../lib/github/app";
 import { orgInfo, orgPeople } from "../lib/github/org";
 import { userHasInstallation } from "../lib/github/user";
@@ -53,9 +53,19 @@ async function seedRoster(
 ) {
   try {
     const people = await orgPeople(env, installationId, org);
+    // `orgPeople` reports pending people by INVITATION id — the invitations
+    // API never returns the invitee's user id — so those seed with no
+    // `githubId` at all. Everyone else is a real user id.
     const rows = [
       ...people.students.map((p) => ({ p, state: "active" as const })),
-      ...people.pending.map((p) => ({ p, state: "pending" as const })),
+      ...people.pending.map((p) => ({
+        p,
+        // The invite's role picks the state, same as for accepted members.
+        state:
+          p.role === "admin"
+            ? ("pending_teacher" as const)
+            : ("pending" as const),
+      })),
       // Owners LAST: an Owner who also lists as a member reads as teacher.
       ...people.teachers.map((p) => ({ p, state: "teacher" as const })),
     ];
@@ -63,7 +73,14 @@ async function seedRoster(
       await observeMember(
         db,
         classId,
-        { githubId: String(p.id), login: p.login, avatarUrl: p.avatarUrl },
+        isInvited(state)
+          ? {
+              githubId: null,
+              invitationId: String(p.id),
+              login: p.login,
+              avatarUrl: p.avatarUrl,
+            }
+          : { githubId: String(p.id), login: p.login, avatarUrl: p.avatarUrl },
         state,
       );
     }

@@ -4,13 +4,13 @@ import { and, desc, eq, inArray, isNull, ne } from "drizzle-orm";
 import type { Context } from "hono";
 import { z } from "zod";
 import { authedFactory } from "../factory";
-import {
-  groupInClass,
-  labInClass,
-  linkedUsers,
-  resolveClassAccess,
-} from "../lib/access";
 import type { AuthedEnv } from "../lib/auth/require-auth";
+import {
+  findGroupInClass,
+  findLabInClass,
+  resolveClassAsMember,
+} from "../lib/class-scope";
+import { memberUserIds } from "../lib/enrollment";
 import { orgRepoActivity, type RepoFailure } from "../lib/github/repo";
 import {
   cachedRoster,
@@ -24,6 +24,7 @@ import {
   regrantWorkRepo,
   reuseBlocker,
 } from "../lib/groups";
+import { profilesByGithubId } from "../lib/identity";
 
 /**
  * The lab page's group surface (per-lab model, spec 2026-07-07): groups
@@ -100,17 +101,17 @@ export const listLabGroups = authedFactory.createHandlers(async (c) => {
   // apart from "not your class" — a pending invitee gets the header data and
   // an empty roster, never a 404. They already see the lab through the
   // enrolled list, so this reveals nothing new.
-  const access = await resolveClassAccess(c, c.req.param("id"), {
+  const access = await resolveClassAsMember(c, c.req.param("id"), {
     allowPending: true,
   });
   if (!access) return c.json({ error: "not_found" }, 404);
-  const lab = await labInClass(access, c.req.param("labId"));
+  const lab = await findLabInClass(access, c.req.param("labId"));
   if (!lab) return c.json({ error: "not_found" }, 404);
 
   const head = {
     lab,
     class: { name: access.cls.name, login: access.org },
-    role: access.admin ? ("teacher" as const) : ("student" as const),
+    role: access.isTeacher ? ("teacher" as const) : ("student" as const),
     membershipState: access.membershipState,
   };
   if (access.membershipState === "pending") {
@@ -154,7 +155,7 @@ export const listLabGroups = authedFactory.createHandlers(async (c) => {
   // group" strip shows only students, but the teacher's add-picker must be
   // able to (re)place anyone the server would accept — removing a teacher
   // from a group must not make them unaddable.
-  const students = await access.db
+  const memberRows = await access.db
     .select({
       githubId: classMembers.githubId,
       login: classMembers.login,
@@ -168,10 +169,18 @@ export const listLabGroups = authedFactory.createHandlers(async (c) => {
         inArray(classMembers.state, ["active", "teacher"]),
       ),
     );
-  const users = await linkedUsers(access.db, [
+  // `githubId` is nullable on the table for ONE case — an invitation nobody
+  // can attribute to a user — which the `active`/`teacher` filter above has
+  // already excluded. Narrowing here rather than at the call sites keeps that
+  // nullability out of the response type entirely: the client is asking about
+  // people who can join a group, and every one of them has a user id.
+  const students = memberRows.flatMap((m) =>
+    m.githubId === null ? [] : [{ ...m, githubId: m.githubId }],
+  );
+  const users = await profilesByGithubId(access.db, [
     ...new Set([
       ...groupsOut.flatMap((g) => g.members.map((m) => String(m.id))),
-      ...students.map((s) => s.githubId),
+      ...memberUserIds(students),
     ]),
   ]);
   return c.json({ ...head, groups: groupsOut, users, students });
@@ -184,9 +193,9 @@ export const listLabGroups = authedFactory.createHandlers(async (c) => {
  * top-down and sees every group in the class.
  */
 export const listReusableGroups = authedFactory.createHandlers(async (c) => {
-  const access = await resolveClassAccess(c, c.req.param("id"));
+  const access = await resolveClassAsMember(c, c.req.param("id"));
   if (!access) return c.json({ error: "not_found" }, 404);
-  const lab = await labInClass(access, c.req.param("labId"));
+  const lab = await findLabInClass(access, c.req.param("labId"));
   if (!lab) return c.json({ error: "not_found" }, 404);
 
   const rows = await access.db
@@ -205,10 +214,10 @@ export const listReusableGroups = authedFactory.createHandlers(async (c) => {
     members: rosters.get(r.group.id) ?? [],
   }));
   // Students reuse only their own groups; teachers can reuse any group in the class.
-  const visible = access.admin
+  const visible = access.isTeacher
     ? withRosters
     : withRosters.filter(({ members }) =>
-        members.some((m) => m.login === access.login),
+        members.some((m) => m.login === access.callerLogin),
       );
   // Annotate each source with WHY it can't be copied (or null): the dialog
   // renders the verdict; createLabGroup re-checks it as the backstop.
@@ -223,7 +232,7 @@ export const listReusableGroups = authedFactory.createHandlers(async (c) => {
   }));
   // Linked SWITCH identities for everyone shown — same correlation the lab
   // page does, so the dialog names members by the same rule (personIdentity).
-  const users = await linkedUsers(access.db, [
+  const users = await profilesByGithubId(access.db, [
     ...new Set(out.flatMap((g) => g.members.map((m) => String(m.id)))),
   ]);
   return c.json({ groups: out, users });
@@ -238,15 +247,15 @@ export const listReusableGroups = authedFactory.createHandlers(async (c) => {
 export const createLabGroup = authedFactory.createHandlers(
   zValidator("json", createGroupInput),
   async (c) => {
-    const access = await resolveClassAccess(c, c.req.param("id"));
+    const access = await resolveClassAsMember(c, c.req.param("id"));
     if (!access) return c.json({ error: "not_found" }, 404);
-    const lab = await labInClass(access, c.req.param("labId"));
+    const lab = await findLabInClass(access, c.req.param("labId"));
     if (!lab) return c.json({ error: "not_found" }, 404);
     const { name, copyFromGroupId } = c.req.valid("json");
 
     let copyFromLogins: string[] | undefined;
     if (copyFromGroupId) {
-      const source = await groupInClass(access, copyFromGroupId);
+      const source = await findGroupInClass(access, copyFromGroupId);
       if (!source) return c.json({ error: "not_found" }, 404);
       const sourceMembers = await cachedRoster(access.db, source.id);
       // A student reuses only THEIR OWN groups (the reusable list already
@@ -254,8 +263,8 @@ export const createLabGroup = authedFactory.createHandlers(
       // otherwise creating-with-copy would let any student conscript
       // classmates into a team of their making. Teachers manage top-down.
       if (
-        !access.admin &&
-        !sourceMembers.some((m) => m.login === access.login)
+        !access.isTeacher &&
+        !sourceMembers.some((m) => m.login === access.callerLogin)
       ) {
         return c.json({ error: "not_found" }, 404);
       }
@@ -280,7 +289,7 @@ export const createLabGroup = authedFactory.createHandlers(
       name,
       c.get("user").id,
       {
-        autoJoin: !access.admin,
+        autoJoin: !access.isTeacher,
         ...(copyFromLogins ? { copyFromLogins } : {}),
       },
     );
@@ -302,10 +311,10 @@ export const createLabGroup = authedFactory.createHandlers(
  * private repos by naming their group after one (see createWorkRepo).
  */
 export const createLabRepo = authedFactory.createHandlers(async (c) => {
-  const access = await resolveClassAccess(c, c.req.param("id"));
+  const access = await resolveClassAsMember(c, c.req.param("id"));
   if (!access) return c.json({ error: "not_found" }, 404);
-  const lab = await labInClass(access, c.req.param("labId"));
-  const group = await groupInClass(access, c.req.param("groupId"));
+  const lab = await findLabInClass(access, c.req.param("labId"));
+  const group = await findGroupInClass(access, c.req.param("groupId"));
   if (!lab || !group || group.labId !== lab.id) {
     return c.json({ error: "not_found" }, 404);
   }
@@ -320,7 +329,10 @@ export const createLabRepo = authedFactory.createHandlers(async (c) => {
   // may create the group's repo) and gates an irreversible create.
   const members = await access.team.roster(group.ghTeamSlug);
   if (members === null) return c.json({ error: "not_found" }, 404);
-  if (!access.admin && !members.some((m) => m.login === access.login)) {
+  if (
+    !access.isTeacher &&
+    !members.some((m) => m.login === access.callerLogin)
+  ) {
     return c.json({ error: "not_found" }, 404);
   }
   if (members.length < labMin(lab)) {
@@ -349,10 +361,10 @@ export const createLabRepo = authedFactory.createHandlers(async (c) => {
  * because the teacher clicked the batch button.
  */
 export const createMissingLabRepos = authedFactory.createHandlers(async (c) => {
-  const access = await resolveClassAccess(c, c.req.param("id"));
+  const access = await resolveClassAsMember(c, c.req.param("id"));
   if (!access) return c.json({ error: "not_found" }, 404);
-  if (!access.admin) return c.json({ error: "not_found" }, 404);
-  const lab = await labInClass(access, c.req.param("labId"));
+  if (!access.isTeacher) return c.json({ error: "not_found" }, 404);
+  const lab = await findLabInClass(access, c.req.param("labId"));
   if (!lab) return c.json({ error: "not_found" }, 404);
 
   const missing = await access.db
@@ -399,9 +411,9 @@ export const createMissingLabRepos = authedFactory.createHandlers(async (c) => {
  * refuses (repo_name_taken), never adopts an existing repo.
  */
 export const acceptIndividualLab = authedFactory.createHandlers(async (c) => {
-  const access = await resolveClassAccess(c, c.req.param("id"));
+  const access = await resolveClassAsMember(c, c.req.param("id"));
   if (!access) return c.json({ error: "not_found" }, 404);
-  const lab = await labInClass(access, c.req.param("labId"));
+  const lab = await findLabInClass(access, c.req.param("labId"));
   if (!lab) return c.json({ error: "not_found" }, 404);
   if (lab.groupMode !== "individual") {
     return c.json({ error: "group_lab" }, 409);
@@ -431,11 +443,31 @@ export const acceptIndividualLab = authedFactory.createHandlers(async (c) => {
   const [existing] = await access.db
     .select()
     .from(groups)
-    .where(and(eq(groups.labId, lab.id), eq(groups.name, access.login)));
+    .where(and(eq(groups.labId, lab.id), eq(groups.name, access.callerLogin)));
   if (existing) {
     // LIVE roster: this decides whether the solo team is really the caller's.
+    // Three ways it can fail, and they are NOT the same problem — the student
+    // can act on one of them and on the others only their teacher can, so they
+    // answer with different codes rather than one opaque conflict.
     const members = await access.team.roster(existing.ghTeamSlug);
-    if (members?.length !== 1 || members[0]?.login !== access.login) {
+    if (members === null) {
+      // The group row points at a team GitHub no longer has. Recreating it
+      // would mean writing to the org on a student's behalf, which this route
+      // deliberately never does — the audit page repairs it.
+      return c.json({ error: "solo_team_missing" }, 409);
+    }
+    if (members.length === 0) {
+      // The team exists and nobody is in it. Two ways to get here, both
+      // outside the student's control: they were removed from the ORG (which
+      // drops them from every team, and rejoining does not put them back), or
+      // a teacher removed them from this group. Either way only a teacher can
+      // put them back — and adopting the team on their say-so is exactly the
+      // capture this route refuses to do, so it refuses here too.
+      return c.json({ error: "solo_team_empty" }, 409);
+    }
+    if (members.length !== 1 || members[0]?.login !== access.callerLogin) {
+      // Somebody ELSE holds the group carrying this login. The one case that is
+      // genuinely a name collision.
       return c.json({ error: "solo_name_taken" }, 409);
     }
     // Mirror it. Without this an accept on an ALREADY-EXISTING solo group answers
@@ -449,7 +481,7 @@ export const acceptIndividualLab = authedFactory.createHandlers(async (c) => {
     c.env,
     access,
     lab,
-    access.login,
+    access.callerLogin,
     c.get("user").id,
     { autoJoin: true },
   );

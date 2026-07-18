@@ -4,7 +4,7 @@
 // through `ClassContext` (context.ts) and reports/fixes drift as `Finding`s.
 import type { Class, classMembers, Group, getDb } from "@labs/db";
 import type { AuthEnv } from "../auth/config";
-import type { OrgPerson } from "../github/org";
+import type { OrgInvitation, OrgPerson } from "../github/org";
 
 type Db = ReturnType<typeof getDb>;
 type ClassMember = typeof classMembers.$inferSelect;
@@ -66,7 +66,9 @@ export type ClassContext = {
   people: () => Promise<{
     teachers: OrgPerson[];
     students: OrgPerson[];
-    pending: OrgPerson[];
+    /** Open invitations carry the ROLE they grant — an invited teacher is not
+     *  an invited student, and nothing else can tell them apart. */
+    pending: OrgInvitation[];
   }>;
   basePermission: () => Promise<string>;
   groups: () => Promise<Group[]>;

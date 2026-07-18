@@ -2,12 +2,12 @@ import { getDb } from "@labs/db";
 import { factory } from "../factory";
 import { createAuth } from "../lib/auth/config";
 import { githubAccessToken } from "../lib/auth/github-token";
+import { readAffiliationEmails } from "../lib/auth/switch-claims";
 import {
   fetchGithubProfile,
   type GithubProfile,
   GithubUnavailableError,
 } from "../lib/github/user";
-import { readAffiliationEmails } from "../lib/switch/claims";
 
 /** The GitHub link's LIVE state. "unknown" = GitHub couldn't answer — the
  *  gate fails OPEN on it (banner, not onboarding): only a PROVEN-dead token

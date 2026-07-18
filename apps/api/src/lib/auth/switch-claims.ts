@@ -1,3 +1,11 @@
+// Claims we read out of the SWITCH edu-ID `id_token` we already hold.
+//
+// Lives under `auth/`, not in a `lib/switch/` service folder, because nothing
+// here TALKS to SWITCH: the token is an artifact of signing in, stored by
+// Better Auth, and this is only how we read it. AGENTS.md rule 7 puts external
+// *calls* behind a per-service layer — if we ever call a SWITCH API, that call
+// belongs in `lib/switch/`, and this file can stay where the token does.
+
 /** Decode a JWT payload (no verification — it's our own stored id_token). */
 function decodeJwtPayload(jwt: string): Record<string, unknown> | null {
   const part = jwt.split(".")[1];

@@ -40,6 +40,7 @@ export function ClassCard({
   teachers,
   students,
   pending,
+  pendingTeachers,
   users,
   labs,
   onChanged,
@@ -88,10 +89,30 @@ export function ClassCard({
           />
           <span className="font-mono text-muted-foreground/60 text-xs">·</span>
           <PeopleChip
-            label={peopleLabel(teachers.length, "teacher", 0)}
+            label={peopleLabel(
+              teachers.length,
+              "teacher",
+              pendingTeachers.length,
+            )}
             title="Show the class's teachers"
             emptyText="No teachers found."
-            people={teachers.map((p) => withUser(p))}
+            people={[
+              ...teachers.map((p) => withUser(p)),
+              // Invited as an Owner — waiting beside the teachers they are
+              // joining, not among the students.
+              ...pendingTeachers.map((p) => withUser(p, true)),
+            ]}
+            pendingHint={
+              <>
+                An invited teacher owes two separate steps, and neither happens
+                on its own. First they accept the GitHub invitation, which makes
+                them an owner of the organization — only they can do that, on
+                GitHub. Then they sign in here with SWITCH edu-ID and link the
+                same GitHub account they were invited as; linking a different
+                one leaves this class invisible to them even though the
+                invitation was accepted.
+              </>
+            }
           />
           <RoleChip kind="teaching" />
         </Row>
@@ -105,7 +126,7 @@ export function ClassCard({
         <ToolbarDivider />
         <JoinLinkAction joinToken={joinToken} />
         <ToolbarDivider />
-        <InviteTeacherDialog classId={id} onDone={onChanged} />
+        <InviteTeacherDialog classId={id} orgLogin={login} onDone={onChanged} />
         <ToolbarDivider />
         <ReconcileAction classId={id} />
       </Row>

@@ -3,14 +3,14 @@ import { account, classes, classMembers, getDb, labs, user } from "@labs/db";
 import { and, desc, eq, gte, inArray, lt } from "drizzle-orm";
 import { z } from "zod";
 import { authedFactory } from "../factory";
-import {
-  affiliationsByUserId,
-  callerGithub,
-  linkedUsers,
-  resolveClassAsTeacher,
-} from "../lib/access";
 import { githubAccessToken } from "../lib/auth/github-token";
-import { forgetMember, observeMember } from "../lib/enrollment";
+import { resolveClassAsTeacher } from "../lib/class-scope";
+import {
+  forgetMember,
+  isInvited,
+  memberUserIds,
+  observeMember,
+} from "../lib/enrollment";
 import {
   basePermission,
   inviteOrgAdmin,
@@ -24,12 +24,23 @@ import {
   userInstallationsByOrgId,
   userOrgMemberships,
 } from "../lib/github/user";
+import {
+  affiliationsByUserId,
+  githubIdsForUser,
+  profilesByGithubId,
+} from "../lib/identity";
 
 /** A cached member as the client already expects to see them. `class_members` is
  *  a DISPLAY cache — it may never authorize, and it does not here: the teacher
- *  check below is a live GitHub call. */
+ *  check below is a live GitHub call.
+ *
+ *  `id` prefers the USER id and falls back to the invitation id, which is what
+ *  an unattributable invite has instead of one. The client uses it to key the
+ *  list and to look up a linked SWITCH user; the fallback finds no user, which
+ *  is correct — nobody knows who that invite belongs to. Falling back to 0
+ *  would instead make every such invite collide on one id. */
 const person = (m: typeof classMembers.$inferSelect): OrgPerson => ({
-  id: Number(m.githubId),
+  id: Number(m.githubId ?? m.invitationId ?? 0),
   login: m.login ?? "unknown",
   avatarUrl: m.avatarUrl,
 });
@@ -108,20 +119,37 @@ export const inviteTeacher = authedFactory.createHandlers(
       return c.json({ state: "teacher" as const });
     }
 
-    // Not in the org — an Owner invitation. The pending cache row is keyed on
-    // the INVITATION id (not the user id), exactly as the live roster reports
-    // pending people — so the roster reconciler sees no drift.
+    // Not in the org — an Owner invitation. We record BOTH ids: the invitation
+    // id because that is how the live roster reports pending people (so the
+    // reconciler sees no drift), and the user id because WE chose the invitee
+    // and therefore know it. That second one is what lets them find their own
+    // stale row by id when they accept, with no login scan.
     const invitationId = await inviteOrgAdmin(
       c.env,
       cls.installationId,
       org,
       ghUser.id,
     );
+    // They are NOT in the org (checked above), so any row still keyed by their
+    // user id is stale — and would collide with the unique (classId, githubId)
+    // on insert. Dropping it first is the same lazy repair as everywhere else.
+    await forgetMember(db, cls.id, { githubId: String(ghUser.id) });
     await observeMember(
       db,
       cls.id,
-      { githubId: String(invitationId), login: ghUser.login, avatarUrl: null },
-      "pending",
+      {
+        githubId: String(ghUser.id),
+        invitationId: String(invitationId),
+        login: ghUser.login,
+        // The invitations API returns no avatar, so `orgPeople` reports pending
+        // people without one — but that is GitHub's limit, not ours: WE chose
+        // this invitee and looked them up. Storing it shows a face while they
+        // are pending, and leaves nothing for the heal to blank later.
+        avatarUrl: ghUser.avatarUrl,
+      },
+      // An OWNER invite — `pending` alone would read as an invited student and
+      // list them among the students.
+      "pending_teacher",
     );
     return c.json({ state: "pending" as const });
   },
@@ -145,7 +173,7 @@ export const listClasses = authedFactory.createHandlers(async (c) => {
   // Identity first: the caller's github id (teacher check) and a usable
   // OAuth token (installations call, refreshed if expired) — either missing
   // means there's nothing to list.
-  const caller = await callerGithub(db, callerUser.id);
+  const caller = await githubIdsForUser(db, callerUser.id);
   const token = await githubAccessToken(c.env, callerUser.id);
   if (!caller || !token) {
     return c.json({ classes: [], enrolled: [], hasOlder: false });
@@ -176,7 +204,6 @@ export const listClasses = authedFactory.createHandlers(async (c) => {
     userOrgMemberships(token),
   ]);
   const membershipByLogin = orgRoles.byLogin;
-  const callerLogin = orgRoles.login;
   const orgIds = [...byOrgId.keys()];
 
   const rows =
@@ -216,7 +243,7 @@ export const listClasses = authedFactory.createHandlers(async (c) => {
   // The people, from the enrollment DISPLAY cache — one query for every
   // candidate class. Reconcile is what keeps it true; the caller's OWN row may
   // be healed below (the one write this read allows), never anyone else's.
-  let memberRows =
+  const memberRows =
     rows.length === 0
       ? []
       : await db
@@ -247,63 +274,27 @@ export const listClasses = authedFactory.createHandlers(async (c) => {
     return [{ cls, live }];
   });
 
-  // Self-heal ONLY the caller. An invited Owner is cached as a `pending` row
-  // keyed by the INVITATION id (under their login); once they accept they
-  // become a live Owner, but that placeholder lingers until someone reconciles.
-  // Here we already KNOW the caller is a live Owner of every `visible` class
-  // (no extra GitHub call), so we resolve THEIR OWN stale row in place — drop
-  // the invitation-id placeholder, record the real `teacher` row under their
-  // github id — and nobody has to reconcile just because they clicked accept.
-  // Bounded to the caller's rows; everyone else stays reconcile's job.
-  if (callerLogin) {
-    const lower = callerLogin.toLowerCase();
-    let healed = false;
-    for (const { cls } of visible) {
-      const stale = memberRows.filter(
-        (m) =>
-          m.classId === cls.id &&
-          m.state === "pending" &&
-          m.login?.toLowerCase() === lower,
-      );
-      for (const row of stale) {
-        await forgetMember(db, cls.id, row.githubId);
-        await observeMember(
-          db,
-          cls.id,
-          { githubId: caller.githubId, login: callerLogin, avatarUrl: null },
-          "teacher",
-        );
-        healed = true;
-      }
-    }
-    if (healed) {
-      memberRows = await db
-        .select()
-        .from(classMembers)
-        .where(
-          inArray(
-            classMembers.classId,
-            rows.map((r) => r.id),
-          ),
-        );
-    }
-  }
+  // NOTE: a teacher's own accepted invitation is resolved when the SESSION is
+  // read, by `customSession` (see `lib/auth/accepted-invitation-heal`) — not here.
+  // This handler is a read: it reports what the cache and GitHub currently say
+  // and writes nothing, which is why the class row below is never repaired
+  // either. Everything else stays reconcile's job, behind a teacher's consent.
 
   // SWITCH users linked to the visible members' GitHub accounts — ONE query
-  // for all classes; raw rows, the client correlates by github id. Pending
-  // invitees carry an invitation id, not a user id — never looked up.
+  // for all classes; raw rows, the client correlates by github id. `githubId`
+  // now means exactly one thing, so matching it against `account.accountId` is
+  // always sound — no id-space guard needed, only the state filter the display
+  // already wants.
   const visibleIds = new Set(visible.map((v) => v.cls.id));
   const activeMembers = memberRows.filter(
-    (m) => visibleIds.has(m.classId) && m.state !== "pending",
+    (m) => visibleIds.has(m.classId) && !isInvited(m.state),
   );
-  const allLinked = await linkedUsers(db, [
-    ...new Set(activeMembers.map((m) => m.githubId)),
-  ]);
+  const allLinked = await profilesByGithubId(db, memberUserIds(activeMembers));
 
   const out = visible.map(({ cls, live }) => {
     const members = memberRows.filter((m) => m.classId === cls.id);
     const memberIds = new Set(
-      members.filter((m) => m.state !== "pending").map((m) => m.githubId),
+      members.filter((m) => !isInvited(m.state)).map((m) => m.githubId),
     );
     return {
       id: cls.id,
@@ -318,7 +309,12 @@ export const listClasses = authedFactory.createHandlers(async (c) => {
       name: cls.name,
       teachers: members.filter((m) => m.state === "teacher").map(person),
       students: members.filter((m) => m.state === "active").map(person),
+      // Open invitations, kept beside the role they were invited to: an
+      // invited teacher belongs with the teachers, not among the students.
       pending: members.filter((m) => m.state === "pending").map(person),
+      pendingTeachers: members
+        .filter((m) => m.state === "pending_teacher")
+        .map(person),
       users: allLinked.filter((u) => memberIds.has(u.githubId)),
       labs: labRows.filter((l) => l.classId === cls.id),
     };
@@ -328,6 +324,13 @@ export const listClasses = authedFactory.createHandlers(async (c) => {
   // read (enrollment display cache ⋈ org identity cache ⋈ labs): zero
   // GitHub calls. Classes the caller teaches never double as enrolled, and
   // a cached `teacher` state is not an enrollment.
+  //
+  // `pending_teacher` is NOT here on purpose. Someone invited to teach is not
+  // enrolled in anything, and listing them would render a student card with a
+  // "pending" badge — the wrong role at the one moment they are forming an
+  // impression of what they've been asked to do. They see nothing until they
+  // accept, which is also the truth: until then they have no membership, and
+  // access comes from live GitHub state, never from this cache.
   const teachingIds = new Set(out.map((o) => o.id));
   const memberships = (
     await db
@@ -355,7 +358,7 @@ export const listClasses = authedFactory.createHandlers(async (c) => {
   // The classes' teachers from the same cache (+ linked SWITCH identity),
   // for the card's people popover. LEFT join: a teacher who never signed
   // in to labs still shows with their GitHub identity. Same safe shape as
-  // linkedUsers — name fields + affiliations, never the private email:
+  // profilesByGithubId — name fields + affiliations, never the private email:
   // this payload goes to STUDENTS.
   const enrolledTeacherRows =
     enrolledIds.length === 0

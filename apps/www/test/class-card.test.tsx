@@ -40,6 +40,7 @@ function renderCard() {
         teachers={[{ id: 1, login: "prof", avatarUrl: "http://p" }]}
         students={[{ id: 2, login: "alice", avatarUrl: "http://s" }]}
         pending={[{ id: 900, login: "bob", avatarUrl: null }]}
+        pendingTeachers={[{ id: 901, login: "carol", avatarUrl: null }]}
         users={[{ githubId: "1", user: profUser }]}
         labs={[lab]}
         onChanged={() => {}}
@@ -52,7 +53,9 @@ describe("ClassCard people chips", () => {
   it("shows live counts with the pending suffix", () => {
     renderCard();
     expect(screen.getByText("1 student · 1 pending")).toBeInTheDocument();
-    expect(screen.getByText("1 teacher")).toBeInTheDocument();
+    // An invited teacher counts against the TEACHERS chip — being invited as
+    // an Owner is not the same as being an invited student.
+    expect(screen.getByText("1 teacher · 1 pending")).toBeInTheDocument();
   });
 });
 

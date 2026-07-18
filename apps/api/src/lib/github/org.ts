@@ -161,6 +161,15 @@ export type OrgPerson = {
   avatarUrl: string | null;
 };
 
+/** What an open invitation is FOR. GitHub's invitation roles are finer than
+ *  ours (`direct_member`, `billing_manager`, `hiring_manager`, …); only
+ *  `admin` becomes a teacher, everything else is an ordinary member. */
+export type InvitedRole = "member" | "admin";
+
+/** An open invitation: an OrgPerson keyed by invitation id, plus the role it
+ *  grants — the thing that decides whether they are an invited teacher. */
+export type OrgInvitation = OrgPerson & { role: InvitedRole };
+
 /**
  * The class's people, read live. Teachers = org Owners (role admin),
  * students = non-owner Members, pending = open invitations (no avatar; login
@@ -175,7 +184,7 @@ export async function orgPeople(
 ): Promise<{
   teachers: OrgPerson[];
   students: OrgPerson[];
-  pending: OrgPerson[];
+  pending: OrgInvitation[];
 }> {
   const gh = await installationOctokit(env, installationId);
   const [admins, members, invitations] = await Promise.all([
@@ -203,6 +212,8 @@ export async function orgPeople(
       id: i.id,
       login: i.login ?? i.email ?? "invited",
       avatarUrl: null,
+      // Anything that is not an Owner invite is an ordinary member to us.
+      role: i.role === "admin" ? ("admin" as const) : ("member" as const),
     })),
   };
 }
