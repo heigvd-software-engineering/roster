@@ -1,7 +1,7 @@
 import { type Class, type Group, type getDb, groups, type Lab } from "@labs/db";
 import { and, eq, ne } from "drizzle-orm";
-import type { ClassAccess } from "./access";
 import type { AuthEnv } from "./auth/config";
+import type { ClassScope } from "./class-scope";
 import {
   type CreatedRepo,
   classifyRepoFailure,
@@ -91,7 +91,7 @@ function slugify(text: string) {
  */
 export async function createGroupInLab(
   env: AuthEnv,
-  scope: { db: Db; cls: Class; org: string; login: string },
+  scope: { db: Db; cls: Class; org: string; callerLogin: string },
   lab: Lab,
   name: string,
   creatorUserId: string,
@@ -116,7 +116,7 @@ export async function createGroupInLab(
 
   // Seed the roster: copied members (copy-forward) + the creating student.
   const logins = new Set(opts.copyFromLogins ?? []);
-  if (opts.autoJoin) logins.add(scope.login);
+  if (opts.autoJoin) logins.add(scope.callerLogin);
   for (const login of logins) {
     await addTeamMember(
       env,
@@ -167,7 +167,7 @@ export async function createGroupInLab(
  * double-book until the next reconcile.
  */
 export async function alreadyInLabGroup(
-  access: ClassAccess,
+  access: ClassScope,
   labId: string,
   login: string,
   exceptGroupId: string,
@@ -290,7 +290,7 @@ export async function regrantWorkRepo(
  * reconciler is the one place that observes a vanished team, and the teacher's
  * decision is the one place it is acted on.
  */
-export async function groupsWithRosters(access: ClassAccess, rows: Group[]) {
+export async function groupsWithRosters(access: ClassScope, rows: Group[]) {
   const rosters = await cachedRosters(
     access.db,
     rows.map((r) => r.id),

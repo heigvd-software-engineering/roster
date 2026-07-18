@@ -15,6 +15,8 @@ const state = vi.hoisted(() => ({
     id: number;
     login: string | null;
     email: string | null;
+    /** GitHub's own role vocabulary — wider than ours on purpose. */
+    role: string;
   }>,
 }));
 
@@ -116,15 +118,17 @@ test("orgPeople splits admins/members and maps pending invitations", async () =>
   state.admins = [{ id: 1, login: "prof", avatar_url: "http://p" }];
   state.members = [{ id: 2, login: "student", avatar_url: "http://s" }];
   state.invitations = [
-    { id: 900, login: "invited-user", email: null },
-    { id: 901, login: null, email: "ext@heig-vd.ch" },
+    { id: 900, login: "invited-user", email: null, role: "direct_member" },
+    { id: 901, login: null, email: "ext@heig-vd.ch", role: "admin" },
   ];
   expect(await orgPeople(env, 1, "acme")).toEqual({
     teachers: [{ id: 1, login: "prof", avatarUrl: "http://p" }],
     students: [{ id: 2, login: "student", avatarUrl: "http://s" }],
     pending: [
-      { id: 900, login: "invited-user", avatarUrl: null },
-      { id: 901, login: "ext@heig-vd.ch", avatarUrl: null },
+      // GitHub's invitation roles are finer than ours: only `admin` becomes a
+      // teacher, everything else collapses to an ordinary member.
+      { id: 900, login: "invited-user", avatarUrl: null, role: "member" },
+      { id: 901, login: "ext@heig-vd.ch", avatarUrl: null, role: "admin" },
     ],
   });
 });

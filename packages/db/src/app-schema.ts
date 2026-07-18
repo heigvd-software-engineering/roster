@@ -1,7 +1,13 @@
 // App-domain tables — HAND-OWNED. Add new feature tables here (labs, groups,
 // group_members, …); never in auth-schema.ts, which the Better Auth CLI
 // overwrites on regeneration.
-import { integer, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
+import {
+  index,
+  integer,
+  sqliteTable,
+  text,
+  unique,
+} from "drizzle-orm/sqlite-core";
 import { user } from "./auth-schema";
 
 /** A connected class = a thin anchor to a GitHub org App installation (F3). */
@@ -160,10 +166,30 @@ export const classMembers = sqliteTable(
     // GitHub USER account id (matches `account.accountId`) — webhook/API
     // payloads and orgPeople carry GitHub ids, not app user ids; resolve to
     // an app user via the `account` table, never store a userId here.
-    githubId: text("github_id").notNull(),
-    // `teacher` = org Owner, cached so the STUDENT class card can name its
-    // teachers with zero GitHub calls. Display only, like the rest.
-    state: text("state", { enum: ["pending", "active", "teacher"] }).notNull(),
+    //
+    // NULL only for a `pending` row we learned about from the live roster:
+    // `GET /orgs/{org}/invitations` returns the invitation id, login and
+    // email — never the invitee's user id — so an invite made on GitHub
+    // directly (or by email) has no user id to record. Our own invites DO
+    // fill it (inviteTeacher knows `ghUser.id`), which is what lets an
+    // accepting teacher find their own stale row by id alone.
+    githubId: text("github_id"),
+    // Set on every `pending` row: the open GitHub invitation's id. Kept in
+    // its OWN column so `githubId` means exactly one thing — the live
+    // roster reports pending people under this id, so the reconciler still
+    // diffs them without inventing a user id.
+    invitationId: text("invitation_id"),
+    // WHERE this person stands with the org, ROLE INCLUDED — `teacher` and
+    // `active` are the same membership state and differ only by role, and the
+    // two pending values mirror that for an invitation that has not been
+    // answered yet. Keeping role on this one axis is why an invited teacher
+    // can be told apart from an invited student at all; a separate role column
+    // would say the same thing a second way, for pending rows only.
+    // `teacher` is cached so the STUDENT class card can name its teachers with
+    // zero GitHub calls. Display only, like the rest.
+    state: text("state", {
+      enum: ["pending", "pending_teacher", "active", "teacher"],
+    }).notNull(),
     // GitHub identity cache (login/avatar) — both write points know it when
     // they observe the membership (orgPeople rows, the joiner's profile).
     login: text("login"),
@@ -171,5 +197,20 @@ export const classMembers = sqliteTable(
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },
-  (t) => [unique().on(t.classId, t.githubId)],
+  // One row per person per class — but "person" is now two id spaces, so it
+  // takes two constraints instead of one. No `WHERE ... IS NOT NULL` needed:
+  // SQLite treats NULLs as DISTINCT in a unique index, so each of these already
+  // constrains only the rows where its column is set and ignores the rest.
+  // Both are plain (non-partial) on purpose — a partial index can only be an
+  // upsert target if the ON CONFLICT clause repeats its predicate, and
+  // `observeMember` upserts on both of these.
+  (t) => [
+    unique().on(t.classId, t.invitationId),
+    unique().on(t.classId, t.githubId),
+    // "Which classes has THIS person been invited to?" — asked at sign-in, for
+    // every user, across all classes. The unique index above leads with
+    // `classId`, so it cannot answer a github-id-only lookup; without this the
+    // question is a full scan of every membership row in the system.
+    index("class_members_github_id_idx").on(t.githubId),
+  ],
 );

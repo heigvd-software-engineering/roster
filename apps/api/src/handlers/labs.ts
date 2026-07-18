@@ -3,7 +3,7 @@ import { labs } from "@labs/db";
 import { and, eq, ne } from "drizzle-orm";
 import { z } from "zod";
 import { authedFactory } from "../factory";
-import { labInClass, resolveClassAsTeacher } from "../lib/access";
+import { findLabInClass, resolveClassAsTeacher } from "../lib/class-scope";
 import { orgTemplateRepos } from "../lib/github/repo";
 
 /**
@@ -95,7 +95,7 @@ export const updateLab = authedFactory.createHandlers(
     if (!access) return c.json({ error: "not_found" }, 404);
     const { db } = access;
 
-    const existing = await labInClass(access, c.req.param("labId"));
+    const existing = await findLabInClass(access, c.req.param("labId"));
     if (!existing) {
       return c.json({ error: "not_found" }, 404);
     }

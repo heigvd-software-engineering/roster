@@ -1,7 +1,7 @@
 import { type Group, type getDb, groups, labs } from "@labs/db";
 import { eq } from "drizzle-orm";
 import { authedFactory } from "../factory";
-import { groupInClass, resolveClassAccess } from "../lib/access";
+import { findGroupInClass, resolveClassAsMember } from "../lib/class-scope";
 import { cachedRoster } from "../lib/group-members";
 import { alreadyInLabGroup, labMax } from "../lib/groups";
 
@@ -42,9 +42,9 @@ async function lockedNow(db: Db, groupId: string): Promise<boolean> {
  *  would put them in two groups OF THE SAME LAB, or when the group's work
  *  repo exists: a locked group only changes through the teacher. */
 export const joinGroup = authedFactory.createHandlers(async (c) => {
-  const access = await resolveClassAccess(c, c.req.param("id"));
+  const access = await resolveClassAsMember(c, c.req.param("id"));
   if (!access) return c.json({ error: "not_found" }, 404);
-  const group = await groupInClass(access, c.req.param("groupId"));
+  const group = await findGroupInClass(access, c.req.param("groupId"));
   if (!group) return c.json({ error: "not_found" }, 404);
 
   // The repo lock (same vocabulary as delete): joining a team means push on
@@ -52,7 +52,9 @@ export const joinGroup = authedFactory.createHandlers(async (c) => {
   if (isLocked(group)) {
     return c.json({ error: "has_repo" }, 409);
   }
-  if (await alreadyInLabGroup(access, group.labId, access.login, group.id)) {
+  if (
+    await alreadyInLabGroup(access, group.labId, access.callerLogin, group.id)
+  ) {
     return c.json({ error: "member_already_participating" }, 409);
   }
   // The size cap: the UI hides Join on full groups, but the API is the
@@ -64,11 +66,11 @@ export const joinGroup = authedFactory.createHandlers(async (c) => {
   if (lab && (await cachedRoster(access.db, group.id)).length >= labMax(lab)) {
     return c.json({ error: "group_full" }, 409);
   }
-  await access.team.add(group.ghTeamSlug, access.login);
+  await access.team.add(group.ghTeamSlug, access.callerLogin);
   // The lock can appear WHILE we add (see lockedNow) — re-check and roll
   // back, or the joiner gains push on a repo that locked without them.
   if (await lockedNow(access.db, group.id)) {
-    await access.team.remove(group.ghTeamSlug, access.login);
+    await access.team.remove(group.ghTeamSlug, access.callerLogin);
     await access.team.syncMembers(group);
     return c.json({ error: "has_repo" }, 409);
   }
@@ -80,20 +82,20 @@ export const joinGroup = authedFactory.createHandlers(async (c) => {
  *  the work repo exists: the lock keeps students from hopping between
  *  groups after work has started. */
 export const leaveGroup = authedFactory.createHandlers(async (c) => {
-  const access = await resolveClassAccess(c, c.req.param("id"));
+  const access = await resolveClassAsMember(c, c.req.param("id"));
   if (!access) return c.json({ error: "not_found" }, 404);
-  const group = await groupInClass(access, c.req.param("groupId"));
+  const group = await findGroupInClass(access, c.req.param("groupId"));
   if (!group) return c.json({ error: "not_found" }, 404);
 
   if (isLocked(group)) {
     return c.json({ error: "has_repo" }, 409);
   }
-  await access.team.remove(group.ghTeamSlug, access.login);
+  await access.team.remove(group.ghTeamSlug, access.callerLogin);
   // Same race as join: if the lock landed while we removed, reinstate —
   // the leave should have been refused, and a locked group must not
   // shrink below the roster its repo was granted to.
   if (await lockedNow(access.db, group.id)) {
-    await access.team.add(group.ghTeamSlug, access.login);
+    await access.team.add(group.ghTeamSlug, access.callerLogin);
     await access.team.syncMembers(group);
     return c.json({ error: "has_repo" }, 409);
   }
@@ -104,9 +106,9 @@ export const leaveGroup = authedFactory.createHandlers(async (c) => {
 /** Teacher-only: put ANY org user into the group — same within-lab
  *  double-booking guard AND the same size cap as self-join. */
 export const addGroupMember = authedFactory.createHandlers(async (c) => {
-  const access = await resolveClassAccess(c, c.req.param("id"));
-  if (!access?.admin) return c.json({ error: "not_found" }, 404);
-  const group = await groupInClass(access, c.req.param("groupId"));
+  const access = await resolveClassAsMember(c, c.req.param("id"));
+  if (!access?.isTeacher) return c.json({ error: "not_found" }, 404);
+  const group = await findGroupInClass(access, c.req.param("groupId"));
   const login = c.req.param("login");
   if (!group || !login) return c.json({ error: "not_found" }, 404);
 
@@ -131,9 +133,9 @@ export const addGroupMember = authedFactory.createHandlers(async (c) => {
 
 /** Teacher-only: remove ANY member from the group. */
 export const removeGroupMember = authedFactory.createHandlers(async (c) => {
-  const access = await resolveClassAccess(c, c.req.param("id"));
-  if (!access?.admin) return c.json({ error: "not_found" }, 404);
-  const group = await groupInClass(access, c.req.param("groupId"));
+  const access = await resolveClassAsMember(c, c.req.param("id"));
+  if (!access?.isTeacher) return c.json({ error: "not_found" }, 404);
+  const group = await findGroupInClass(access, c.req.param("groupId"));
   const login = c.req.param("login");
   if (!group || !login) return c.json({ error: "not_found" }, 404);
 
@@ -146,9 +148,9 @@ export const removeGroupMember = authedFactory.createHandlers(async (c) => {
  *  GitHub still drops the row; a group whose WORK REPO exists is a
  *  deliverable — refuse rather than orphan it. */
 export const deleteGroup = authedFactory.createHandlers(async (c) => {
-  const access = await resolveClassAccess(c, c.req.param("id"));
-  if (!access?.admin) return c.json({ error: "not_found" }, 404);
-  const group = await groupInClass(access, c.req.param("groupId"));
+  const access = await resolveClassAsMember(c, c.req.param("id"));
+  if (!access?.isTeacher) return c.json({ error: "not_found" }, 404);
+  const group = await findGroupInClass(access, c.req.param("groupId"));
   if (!group) return c.json({ error: "not_found" }, 404);
 
   if (isLocked(group)) {

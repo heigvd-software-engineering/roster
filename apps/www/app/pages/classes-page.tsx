@@ -132,17 +132,23 @@ export function ClassesPage() {
                       "labs",
                     )}`}
                   </Text>
-                  {group.map((entry) =>
-                    entry.kind === "teaching" ? (
-                      <ClassCard
-                        key={entry.cls.id}
-                        {...entry.cls}
-                        onChanged={mutate}
-                      />
-                    ) : (
-                      <EnrolledClassCard key={entry.cls.id} cls={entry.cls} />
-                    ),
-                  )}
+                  {/* Cards breathe wider apart than the label sits from its
+                      group: the heading belongs TO the first card, while each
+                      card is its own object. One gap for both made a semester
+                      read as one undifferentiated column. */}
+                  <Stack gap="lg" className="w-full">
+                    {group.map((entry) =>
+                      entry.kind === "teaching" ? (
+                        <ClassCard
+                          key={entry.cls.id}
+                          {...entry.cls}
+                          onChanged={mutate}
+                        />
+                      ) : (
+                        <EnrolledClassCard key={entry.cls.id} cls={entry.cls} />
+                      ),
+                    )}
+                  </Stack>
                 </Stack>
               ))}
               {/* Visible even with nothing left (disabled) — the affordance

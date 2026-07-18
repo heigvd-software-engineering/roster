@@ -4,11 +4,11 @@ import { eq } from "drizzle-orm";
 import type { Context } from "hono";
 import { z } from "zod";
 import { authedFactory } from "../factory";
-import { callerGithub } from "../lib/access";
 import { githubAccessToken } from "../lib/auth/github-token";
 import type { AuthedEnv } from "../lib/auth/require-auth";
 import { isOrgAdmin } from "../lib/github/org";
 import { userInstallationsByOrgId } from "../lib/github/user";
+import { githubIdsForUser } from "../lib/identity";
 import { applyFindings, runAudit } from "../lib/reconcile";
 import { buildContext } from "../lib/reconcile/context";
 
@@ -32,7 +32,7 @@ async function teacherContext(
 ): Promise<{ ctx: ReturnType<typeof buildContext> } | Denied> {
   const db = getDb(c.env.DB);
   const userId = c.get("user").id;
-  const caller = await callerGithub(db, userId);
+  const caller = await githubIdsForUser(db, userId);
   const token = await githubAccessToken(c.env, userId);
   if (!caller || !token) return { error: "not_found", status: 404 };
 

@@ -40,6 +40,7 @@ describe("ClassesPage", () => {
             teachers: [],
             students: [],
             pending: [],
+            pendingTeachers: [],
             users: [],
             labs: [],
           },

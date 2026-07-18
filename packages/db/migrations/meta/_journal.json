@@ -92,6 +92,20 @@
       "when": 1783523606739,
       "tag": "0012_group_members",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1784382321672,
+      "tag": "0013_class_members_invitation_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1784386867652,
+      "tag": "0014_class_members_github_id_index",
+      "breakpoints": true
     }
   ]
 }

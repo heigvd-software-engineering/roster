@@ -104,7 +104,7 @@ async function observeMembership(
     avatarUrl: ctx.avatarUrl,
   };
   if (!membership) {
-    await forgetMember(db, cls.id, ctx.githubId);
+    await forgetMember(db, cls.id, { githubId: ctx.githubId });
     return;
   }
   if (membership.role === "admin") {

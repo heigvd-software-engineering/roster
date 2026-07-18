@@ -1,7 +1,7 @@
 import { env } from "cloudflare:test";
 import { account, getDb, user } from "@labs/db";
 import { beforeEach, expect, test } from "vitest";
-import { callerGithub } from "../src/lib/access";
+import { githubIdsForUser } from "../src/lib/identity";
 
 const db = getDb(env.DB);
 const now = new Date();
@@ -24,18 +24,18 @@ const link = (accountId: string) =>
 
 test("returns both forms of the id", async () => {
   await link("61272178");
-  expect(await callerGithub(db, "u1")).toEqual({
+  expect(await githubIdsForUser(db, "u1")).toEqual({
     ghId: 61272178,
     githubId: "61272178",
   });
 });
 
 test("returns null when GitHub is not linked", async () => {
-  expect(await callerGithub(db, "u1")).toBeNull();
+  expect(await githubIdsForUser(db, "u1")).toBeNull();
 });
 
 test("returns null when accountId is not numeric", async () => {
   // accountId is a TEXT column; a non-numeric value is as good as absent.
   await link("not-a-number");
-  expect(await callerGithub(db, "u1")).toBeNull();
+  expect(await githubIdsForUser(db, "u1")).toBeNull();
 });
