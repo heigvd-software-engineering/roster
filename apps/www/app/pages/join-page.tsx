@@ -284,10 +284,10 @@ export function JoinPage() {
               size="lg"
               variant="outline"
               disabled={submitting}
-              title="Record that you've accepted the invitation on GitHub"
+              title="Check GitHub for your accepted invitation"
               onClick={() => void finishJoining()}
             >
-              {submitting ? "Checking…" : "I've accepted — finish joining"}
+              {submitting ? "Checking…" : "Check my enrollment"}
             </Button>
           </Row>
         </>
