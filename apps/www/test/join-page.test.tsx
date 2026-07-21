@@ -101,7 +101,7 @@ describe("JoinPage", () => {
     render(<JoinPage />);
     fireEvent.click(
       await screen.findByRole("button", {
-        name: "I've accepted — finish joining",
+        name: "Check my enrollment",
       }),
     );
     expect(
@@ -117,7 +117,7 @@ describe("JoinPage", () => {
     render(<JoinPage />);
     fireEvent.click(
       await screen.findByRole("button", {
-        name: "I've accepted — finish joining",
+        name: "Check my enrollment",
       }),
     );
     expect(

@@ -19,12 +19,11 @@ const MAPPING = [
   { term: "Class", detail: "The organization you connect." },
   {
     term: "Teachers",
-    // labs has no way to make someone a teacher: the only org-membership write
-    // in the app invites as `member`, and every teacher check is a live
-    // isOrgAdmin call. Say so here, or a teacher hunts for a button that will
-    // never exist.
+    // Must match InviteTeacherDialog: labs sends the Owner invitation itself
+    // (or promotes an enrolled student on the spot) — the teacher never touches
+    // GitHub's own invite UI.
     detail:
-      "Its Owners. Invite them on GitHub, then promote to Owner — labs never changes roles.",
+      "Its Owners. Invite them by GitHub username from the class page — labs sends the Owner invitation.",
   },
   {
     term: "Students",

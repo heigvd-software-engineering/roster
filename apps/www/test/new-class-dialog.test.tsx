@@ -17,10 +17,10 @@ describe("NewClassDialog", () => {
     expect(screen.getByText("Teachers")).toBeInTheDocument();
     expect(screen.getByText("Students")).toBeInTheDocument();
     expect(screen.getByText("Student work")).toBeInTheDocument();
-    // labs has no promote button and never will — every teacher check is a live
-    // isOrgAdmin call. The dialog is the only place that says where to go.
+    // Teachers are invited from within labs (InviteTeacherDialog) — the dialog
+    // must point there, not at GitHub's own invite UI.
     expect(
-      screen.getByText(/promote to Owner — labs never changes roles/),
+      screen.getByText(/labs sends the Owner invitation/),
     ).toBeInTheDocument();
     // The privacy section: base permission is dropped to No access, keeping
     // student work private — the safety-critical claim must survive.
