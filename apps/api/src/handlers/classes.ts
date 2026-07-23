@@ -1,6 +1,6 @@
 import { zValidator } from "@hono/zod-validator";
 import { account, classes, classMembers, getDb, labs, user } from "@labs/db";
-import { and, desc, eq, gte, inArray, lt } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import { z } from "zod";
 import { authedFactory } from "../factory";
 import { githubAccessToken } from "../lib/auth/github-token";
@@ -236,9 +236,10 @@ export const listClasses = authedFactory.createHandlers(async (c) => {
               rows.map((r) => r.id),
             ),
           )
-          // Latest deadline first — the per-class filter below keeps this
-          // order in the response.
-          .orderBy(desc(labs.deadline));
+          // Effective start, newest first: a lab scheduled for later sits
+          // above earlier ones; an unscheduled lab sorts by its creation.
+          // The per-class filter below keeps this order in the response.
+          .orderBy(desc(sql`coalesce(${labs.startAt}, ${labs.createdAt})`));
 
   // The people, from the enrollment DISPLAY cache — one query for every
   // candidate class. Reconcile is what keeps it true; the caller's OWN row may
@@ -354,7 +355,8 @@ export const listClasses = authedFactory.createHandlers(async (c) => {
           .select()
           .from(labs)
           .where(inArray(labs.classId, enrolledIds))
-          .orderBy(desc(labs.deadline));
+          // Same effective-start order as the teaching hub above.
+          .orderBy(desc(sql`coalesce(${labs.startAt}, ${labs.createdAt})`));
   // The classes' teachers from the same cache (+ linked SWITCH identity),
   // for the card's people popover. LEFT join: a teacher who never signed
   // in to labs still shows with their GitHub identity. Same safe shape as
