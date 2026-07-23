@@ -18,6 +18,7 @@ import {
   PopoverTrigger,
 } from "~/components/ui/popover";
 import type { ClassItem } from "~/lib/api";
+import { semesterOf, timelineSpan } from "~/lib/semester";
 import { cn } from "~/lib/utils";
 
 function peopleLabel(count: number, noun: string, pendingCount: number) {
@@ -36,6 +37,7 @@ export function ClassCard({
   login,
   name,
   avatarUrl,
+  createdAt,
   joinToken,
   teachers,
   students,
@@ -141,6 +143,7 @@ export function ClassCard({
           ) : (
             <LabsTimeline
               labs={labs}
+              span={timelineSpan(labs, semesterOf(new Date(createdAt)))}
               manage
               action={(lab) => (
                 <LabDialog classId={id} lab={lab} onSaved={onChanged} />

@@ -9,10 +9,12 @@ import { Loading } from "~/components/custom/loading";
 import { Text } from "~/components/custom/typography/text";
 import { Button } from "~/components/ui/button";
 import { api, type ClassItem, type EnrolledClassItem, useApi } from "~/lib/api";
+import { formatDay } from "~/lib/format";
 import {
   currentSemester,
   previousSemester,
   type Semester,
+  semesterEnd,
   semesterLabel,
   semesterOf,
   semesterStart,
@@ -20,6 +22,17 @@ import {
 
 function count(n: number, singular: string, plural: string) {
   return `${n} ${n === 1 ? singular : plural}`;
+}
+
+/** The heading's exact dates — the semester's own window ("1 Feb → 30 Jun",
+ *  end shown INCLUSIVE), so the season word above the cards means concrete
+ *  dates, the same window a card's timeline falls back to. */
+function semesterSpanLabel(group: Entry[]) {
+  const first = group[0];
+  if (!first) return "";
+  const semester = semesterOf(new Date(first.cls.createdAt));
+  const lastDay = new Date(semesterEnd(semester).getTime() - 86_400_000);
+  return `${formatDay(semesterStart(semester))} → ${formatDay(lastDay)}`;
 }
 
 /** One hub entry — a class the caller teaches or one they're enrolled in.
@@ -126,7 +139,7 @@ export function ClassesPage() {
               {groupBySemester(entries).map(([label, group]) => (
                 <Stack key={label} gap="md" className="w-full">
                   <Text variant="overline">
-                    {`${label} · ${count(group.length, "class", "classes")} · ${count(
+                    {`${label} · ${semesterSpanLabel(group)} · ${count(group.length, "class", "classes")} · ${count(
                       group.reduce((sum, e) => sum + e.cls.labs.length, 0),
                       "lab",
                       "labs",

@@ -64,10 +64,13 @@ const lockedLab = {
 
 // Passed intentionally OUT of order — the timeline must re-sort by start.
 const labs = [lockedLab, doneLab, runningLab];
+// The span the caller would compute (labs carry explicit starts): earliest
+// start → latest deadline. Tests pass it explicitly, like the cards do.
+const span = { start: new Date(at(-58)), end: new Date(at(50)) };
 
 describe("LabsTimeline", () => {
   it("orders rows chronologically by effective start", () => {
-    render(<LabsTimeline labs={labs} />);
+    render(<LabsTimeline labs={labs} span={span} />);
     const titles = screen
       .getAllByText(/Lab \d/)
       .map((el) => el.textContent ?? "");
@@ -79,7 +82,7 @@ describe("LabsTimeline", () => {
   });
 
   it("marks today and pulses only the running lab", () => {
-    const { container } = render(<LabsTimeline labs={labs} />);
+    const { container } = render(<LabsTimeline labs={labs} span={span} />);
     expect(screen.getByText(/now ·/)).toBeInTheDocument();
     // One sonar cap (two rings) — on the running bar, nowhere else.
     expect(container.querySelectorAll(".animate-ping")).toHaveLength(2);
@@ -87,7 +90,7 @@ describe("LabsTimeline", () => {
   });
 
   it("locks the future lab for students: no link, no starter leak, a starts pill", () => {
-    render(<LabsTimeline labs={labs} />);
+    render(<LabsTimeline labs={labs} span={span} />);
     const links = screen.getAllByRole("link");
     // Done + running link to their lab pages; the locked lab does not.
     expect(links.map((l) => l.getAttribute("href"))).toEqual([
@@ -107,7 +110,7 @@ describe("LabsTimeline", () => {
   });
 
   it("keeps the teacher's locked row clickable, with both pills and the tally", () => {
-    render(<LabsTimeline labs={labs} manage />);
+    render(<LabsTimeline labs={labs} span={span} manage />);
     const links = screen.getAllByRole("link");
     expect(links.map((l) => l.getAttribute("href"))).toEqual([
       "/classes/c1/labs/l1/manage",
@@ -124,15 +127,32 @@ describe("LabsTimeline", () => {
     // createdAt drives the bar's left edge, but printing it as a range
     // would read as a start date the teacher never set.
     const noStart = { ...runningLab, startAt: null } as HubLabItem;
-    render(<LabsTimeline labs={[noStart]} />);
+    render(<LabsTimeline labs={[noStart]} span={span} />);
     expect(screen.getByText(/· due/)).toBeInTheDocument();
     expect(screen.queryByText(/→/)).not.toBeInTheDocument();
+  });
+
+  it("drops the now line when today falls outside the span", () => {
+    // An archived class: every lab done, the whole span in the past. A
+    // clamped "now" would point at the wrong month — so it's absent.
+    const pastSpan = { start: new Date(at(-90)), end: new Date(at(-25)) };
+    render(<LabsTimeline labs={[doneLab]} span={pastSpan} />);
+    expect(screen.queryByText(/now ·/)).not.toBeInTheDocument();
+  });
+
+  it("drops the now line when today is before the span too", () => {
+    // A next-term class scheduled entirely in the future — same rule,
+    // left side.
+    const futureSpan = { start: new Date(at(30)), end: new Date(at(90)) };
+    render(<LabsTimeline labs={[lockedLab]} span={futureSpan} />);
+    expect(screen.queryByText(/now ·/)).not.toBeInTheDocument();
   });
 
   it("renders a per-row action in its own column", () => {
     render(
       <LabsTimeline
         labs={[runningLab]}
+        span={span}
         manage
         action={(lab) => <button type="button">Edit {lab.title}</button>}
       />,

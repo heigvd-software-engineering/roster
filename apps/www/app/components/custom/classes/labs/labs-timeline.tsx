@@ -36,13 +36,20 @@ const effectiveStart = (lab: HubLabItem) =>
 
 const monthStart = (year: number, month: number) => new Date(year, month, 1);
 
-/** The axis: month-floored first start → month-ceiled last deadline, plus
- *  every month boundary in between (the gridlines and their labels). */
-function buildAxis(labs: HubLabItem[]) {
-  const min = new Date(Math.min(...labs.map(effectiveStart)));
-  const max = new Date(Math.max(...labs.map((l) => Date.parse(l.deadline))));
-  const start = monthStart(min.getFullYear(), min.getMonth());
-  const end = monthStart(max.getFullYear(), max.getMonth() + 1);
+/** The chart's span is an INPUT — the semester, or the labs' own dates:
+ *  the caller decides (see `timelineSpan` in lib/semester.ts). */
+export type TimelineSpan = { start: Date; end: Date };
+
+/** The axis: the span padded to month edges, plus every month boundary in
+ *  between (the gridlines and their labels). An end already sitting on a
+ *  month boundary stays put — no phantom empty month. */
+function buildAxis(span: TimelineSpan) {
+  const start = monthStart(span.start.getFullYear(), span.start.getMonth());
+  const endFloor = monthStart(span.end.getFullYear(), span.end.getMonth());
+  const end =
+    endFloor.getTime() === span.end.getTime()
+      ? endFloor
+      : monthStart(span.end.getFullYear(), span.end.getMonth() + 1);
   const months: Date[] = [];
   for (
     let m = start;
@@ -76,10 +83,14 @@ const LABEL_W = "280px";
 
 export function LabsTimeline({
   labs,
+  span,
   manage = false,
   action,
 }: {
   labs: HubLabItem[];
+  /** The chart's date span — computed by the CALLER (semester vs the labs'
+   *  own dates); bars outside it clamp to the edges. */
+  span: TimelineSpan;
   /** Teacher framing: rows link to /manage, locked rows stay clickable,
    *  starter pills survive the lock, and the repo tally shows. */
   manage?: boolean;
@@ -87,8 +98,11 @@ export function LabsTimeline({
   action?: (lab: HubLabItem) => ReactNode;
 }) {
   const rows = [...labs].sort((a, b) => effectiveStart(a) - effectiveStart(b));
-  const axis = buildAxis(rows);
-  const nowPct = pct(axis, Date.now());
+  const axis = buildAxis(span);
+  // A "now" outside the axis (an archived class, a not-yet-started term)
+  // would clamp to an edge and point at the wrong month — drop it instead.
+  const now = Date.now();
+  const nowPct = now >= axis.start && now <= axis.end ? pct(axis, now) : null;
   const trackRight = action ? "40px" : "0px";
 
   return (
@@ -149,17 +163,19 @@ export function LabsTimeline({
 
         {/* Today, cutting through every row. */}
         {/* The visible "now · date" text inside labels this for everyone. */}
-        <div
-          className="absolute top-[22px] bottom-2 z-10 w-[1.5px] bg-role-enrolled"
-          style={{
-            left: `calc(${LABEL_W} + (100% - ${LABEL_W} - ${trackRight}) * ${nowPct / 100})`,
-          }}
-        >
-          <span className="-top-[5px] -translate-x-1/2 absolute left-1/2 size-2 rounded-full bg-role-enrolled" />
-          <span className="-top-[26px] -translate-x-1/2 absolute left-1/2 whitespace-nowrap font-mono font-bold text-[10px] text-role-enrolled uppercase tracking-[0.12em]">
-            now · {formatDay(new Date())}
-          </span>
-        </div>
+        {nowPct !== null ? (
+          <div
+            className="absolute top-[22px] bottom-2 z-10 w-[1.5px] bg-role-enrolled"
+            style={{
+              left: `calc(${LABEL_W} + (100% - ${LABEL_W} - ${trackRight}) * ${nowPct / 100})`,
+            }}
+          >
+            <span className="-top-[5px] -translate-x-1/2 absolute left-1/2 size-2 rounded-full bg-role-enrolled" />
+            <span className="-top-[26px] -translate-x-1/2 absolute left-1/2 whitespace-nowrap font-mono font-bold text-[10px] text-role-enrolled uppercase tracking-[0.12em]">
+              now · {formatDay(new Date())}
+            </span>
+          </div>
+        ) : null}
       </div>
     </div>
   );

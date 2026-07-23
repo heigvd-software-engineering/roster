@@ -8,6 +8,7 @@ import { Stack } from "~/components/custom/layout/stack";
 import { Text } from "~/components/custom/typography/text";
 import { Card } from "~/components/ui/card";
 import type { EnrolledClassItem } from "~/lib/api";
+import { semesterOf, timelineSpan } from "~/lib/semester";
 import { cn } from "~/lib/utils";
 
 /**
@@ -122,7 +123,10 @@ export function EnrolledClassCard({ cls }: { cls: EnrolledClassItem }) {
               No labs yet.
             </Text>
           ) : (
-            <LabsTimeline labs={cls.labs} />
+            <LabsTimeline
+              labs={cls.labs}
+              span={timelineSpan(cls.labs, semesterOf(new Date(cls.createdAt)))}
+            />
           )}
         </div>
       </div>

@@ -54,7 +54,7 @@ describe("ClassesPage", () => {
     expect(screen.getByText("Acme")).toBeInTheDocument();
     // March 2026 → the Spring 2026 semester group heading.
     expect(
-      screen.getByText("Spring 2026 · 1 class · 0 labs"),
+      screen.getByText("Spring 2026 · 1 Feb → 30 Jun · 1 class · 0 labs"),
     ).toBeInTheDocument();
   });
 
@@ -105,7 +105,7 @@ describe("ClassesPage", () => {
     // The class's teachers ride the cache into the people popover chip.
     expect(screen.getByText("1 teacher")).toBeInTheDocument();
     expect(
-      screen.getByText("Spring 2026 · 1 class · 1 lab"),
+      screen.getByText("Spring 2026 · 1 Feb → 30 Jun · 1 class · 1 lab"),
     ).toBeInTheDocument();
     expect(screen.getByText("Lab 1 — Sockets")).toBeInTheDocument();
     // Read-only: no teacher actions. Lab rows DO link — students accept
