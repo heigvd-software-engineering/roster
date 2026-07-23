@@ -1,5 +1,13 @@
 import { env } from "cloudflare:test";
-import { account, classes, classMembers, getDb, labs, user } from "@labs/db";
+import {
+  account,
+  classes,
+  classMembers,
+  getDb,
+  groups,
+  labs,
+  user,
+} from "@labs/db";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { beforeEach, expect, test, vi } from "vitest";
@@ -179,6 +187,7 @@ beforeEach(async () => {
   userInstallationsByOrgIdMock.mockClear();
   userOrgMembershipsMock.mockClear();
 
+  await db.delete(groups);
   await db.delete(labs);
   await db.delete(classMembers);
   await db.delete(classes);
@@ -452,6 +461,56 @@ test("orders a class's labs by effective start (startAt, else createdAt), newest
     "lab-new", //       effective 2099-05-01 (createdAt)
     "lab-old", //       effective 2099-01-01 (createdAt) — latest DEADLINE
   ]);
+});
+
+test("labs carry the DB-derived group/repo tally — no GitHub call", async () => {
+  await seedClass();
+  await db.insert(labs).values({
+    id: "l1",
+    classId: "c1",
+    title: "Lab 1",
+    deadline: new Date("2099-08-01T23:59:00Z"),
+    createdByUserId: "u1",
+    createdAt: now,
+    updatedAt: now,
+  });
+  await db.insert(groups).values([
+    {
+      id: "g1",
+      labId: "l1",
+      ghTeamId: 1,
+      ghTeamSlug: "g1",
+      slug: "lab-1-g1",
+      name: "G1",
+      ghRepoId: 900,
+      ghRepoFullName: "acme/lab-1-g1",
+      creatorUserId: "u1",
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: "g2",
+      labId: "l1",
+      ghTeamId: 2,
+      ghTeamSlug: "g2",
+      slug: "lab-1-g2",
+      name: "G2",
+      creatorUserId: "u1",
+      createdAt: now,
+      updatedAt: now,
+    },
+  ]);
+  const res = await app.request("/api/classes", {}, env);
+  const body = (await res.json()) as {
+    classes: Array<{
+      labs: Array<{ id: string; groupsCount: number; reposCount: number }>;
+    }>;
+  };
+  expect(body.classes[0]?.labs[0]).toMatchObject({
+    id: "l1",
+    groupsCount: 2,
+    reposCount: 1,
+  });
 });
 
 test("orders classes by creation date, newest first", async () => {

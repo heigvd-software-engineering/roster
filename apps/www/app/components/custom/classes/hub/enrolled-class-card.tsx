@@ -1,5 +1,5 @@
 import { PeopleChip } from "~/components/custom/classes/hub/people-chip";
-import { LabRow, LabsHeader } from "~/components/custom/classes/labs/lab-row";
+import { LabsTimeline } from "~/components/custom/classes/labs/labs-timeline";
 import { RoleChip, roleSpine } from "~/components/custom/classes/role-marker";
 import { Hint } from "~/components/custom/hint";
 import { OrgIdentity } from "~/components/custom/identity/org-identity";
@@ -116,20 +116,13 @@ export function EnrolledClassCard({ cls }: { cls: EnrolledClassItem }) {
       </Row>
 
       <div className="w-full overflow-x-auto border-border border-t">
-        {/* No add-row below the table here, so the last row's hairline would
-            double up with the card edge — drop it. */}
-        <div className="min-w-[660px] [&>a:last-child]:border-b-0">
+        <div className="min-w-[720px]">
           {cls.labs.length === 0 ? (
             <Text variant="body2" className="px-5 py-3">
               No labs yet.
             </Text>
           ) : (
-            <>
-              <LabsHeader />
-              {cls.labs.map((lab) => (
-                <LabRow key={lab.id} lab={lab} />
-              ))}
-            </>
+            <LabsTimeline labs={cls.labs} />
           )}
         </div>
       </div>

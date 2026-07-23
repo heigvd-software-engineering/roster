@@ -1,10 +1,50 @@
 import { zValidator } from "@hono/zod-validator";
-import { account, classes, classMembers, getDb, labs, user } from "@labs/db";
+import {
+  account,
+  classes,
+  classMembers,
+  getDb,
+  groups,
+  labs,
+  user,
+} from "@labs/db";
 import { and, desc, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import { z } from "zod";
 import { authedFactory } from "../factory";
 import { githubAccessToken } from "../lib/auth/github-token";
 import { resolveClassAsTeacher } from "../lib/class-scope";
+
+type Db = ReturnType<typeof getDb>;
+
+/** Group/repo tallies per lab — ONE grouped aggregate covering every lab the
+ *  hub shows, so the timeline can say "9/9 repos" without touching GitHub. */
+async function withGroupCounts<T extends { id: string }>(
+  db: Db,
+  labRows: T[],
+): Promise<(T & { groupsCount: number; reposCount: number })[]> {
+  if (labRows.length === 0) return [];
+  const tallies = await db
+    .select({
+      labId: groups.labId,
+      groupsCount: sql<number>`count(*)`,
+      reposCount: sql<number>`count(${groups.ghRepoId})`,
+    })
+    .from(groups)
+    .where(
+      inArray(
+        groups.labId,
+        labRows.map((l) => l.id),
+      ),
+    )
+    .groupBy(groups.labId);
+  const byLab = new Map(tallies.map((t) => [t.labId, t]));
+  return labRows.map((l) => ({
+    ...l,
+    groupsCount: byLab.get(l.id)?.groupsCount ?? 0,
+    reposCount: byLab.get(l.id)?.reposCount ?? 0,
+  }));
+}
+
 import {
   forgetMember,
   isInvited,
@@ -239,7 +279,8 @@ export const listClasses = authedFactory.createHandlers(async (c) => {
           // Effective start, newest first: a lab scheduled for later sits
           // above earlier ones; an unscheduled lab sorts by its creation.
           // The per-class filter below keeps this order in the response.
-          .orderBy(desc(sql`coalesce(${labs.startAt}, ${labs.createdAt})`));
+          .orderBy(desc(sql`coalesce(${labs.startAt}, ${labs.createdAt})`))
+          .then((r) => withGroupCounts(db, r));
 
   // The people, from the enrollment DISPLAY cache — one query for every
   // candidate class. Reconcile is what keeps it true; the caller's OWN row may
@@ -356,7 +397,8 @@ export const listClasses = authedFactory.createHandlers(async (c) => {
           .from(labs)
           .where(inArray(labs.classId, enrolledIds))
           // Same effective-start order as the teaching hub above.
-          .orderBy(desc(sql`coalesce(${labs.startAt}, ${labs.createdAt})`));
+          .orderBy(desc(sql`coalesce(${labs.startAt}, ${labs.createdAt})`))
+          .then((r) => withGroupCounts(db, r));
   // The classes' teachers from the same cache (+ linked SWITCH identity),
   // for the card's people popover. LEFT join: a teacher who never signed
   // in to labs still shows with their GitHub identity. Same safe shape as

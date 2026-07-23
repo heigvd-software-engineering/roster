@@ -27,6 +27,17 @@ export function labStarted(lab: { startAt?: string | null }): boolean {
   return !lab.startAt || new Date(lab.startAt).getTime() <= Date.now();
 }
 
+const DAY_MONTH = new Intl.DateTimeFormat("en-GB", {
+  day: "numeric",
+  month: "short",
+});
+
+/** "1 Jun" — the timeline's compact day (no time, no year: the axis and
+ *  the relative label beside it carry the rest). */
+export function formatDay(d: Date): string {
+  return DAY_MONTH.format(d);
+}
+
 export function formatDeadline(deadline: Date): string {
   const format =
     deadline.getFullYear() === new Date().getFullYear() ? THIS_YEAR : WITH_YEAR;

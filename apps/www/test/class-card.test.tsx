@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 import { ClassCard } from "~/components/custom/classes/hub/class-card";
-import { formatDeadline } from "~/lib/format";
+import { formatDay } from "~/lib/format";
 
 const profUser = {
   name: "Bob Prof",
@@ -16,7 +16,7 @@ const lab = {
   classId: "c1",
   title: "Lab 1 — TCP sockets",
   deadline: "2099-08-01T23:59:00.000Z",
-  startAt: null,
+  startAt: "2099-07-01T08:00:00.000Z",
   groupMode: "group" as const,
   minMembers: 2,
   maxMembers: 3,
@@ -25,6 +25,8 @@ const lab = {
   createdByUserId: "u1",
   createdAt: "1970-01-01T00:00:00.000Z",
   updatedAt: "1970-01-01T00:00:00.000Z",
+  groupsCount: 9,
+  reposCount: 7,
 };
 
 function renderCard() {
@@ -117,11 +119,13 @@ describe("ClassCard labs (F6)", () => {
     expect(screen.getByRole("button", { name: "New lab" })).toBeInTheDocument();
   });
 
-  it("shows the explicit deadline date and time", () => {
+  it("shows the lab's date range and the repo tally", () => {
     renderCard();
-    expect(
-      screen.getByText(formatDeadline(new Date(lab.deadline))),
-    ).toBeInTheDocument();
+    // The timeline's label line: start → deadline, plus the DB-derived
+    // repo tally (never a GitHub call).
+    const range = `${formatDay(new Date(lab.startAt))} → ${formatDay(new Date(lab.deadline))}`;
+    expect(screen.getByText(new RegExp(range))).toBeInTheDocument();
+    expect(screen.getByText(/7\/9 repos/)).toBeInTheDocument();
   });
 });
 
