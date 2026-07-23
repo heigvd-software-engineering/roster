@@ -207,8 +207,7 @@ function TimelineRow({
   const state = stateOf(lab);
   // The bar's left edge is the TRUTH: an explicit start when declared,
   // else the moment the lab appeared (it could not be worked on earlier).
-  // A missing start shows as a FADED edge — crisp cap = a chosen start —
-  // and both ends explain themselves on hover.
+  // The bar's tooltip names which of the two it is.
   const start = effectiveStart(lab);
   const deadline = Date.parse(lab.deadline);
   const startPct = pct(axis, start);
@@ -303,15 +302,8 @@ function TimelineRow({
                     "repeating-linear-gradient(-45deg, color-mix(in oklab, var(--warning) 16%, transparent) 0 5px, transparent 5px 10px)",
                 }
               : {}),
-            ...(lab.startAt === null
-              ? {
-                  maskImage:
-                    "linear-gradient(to right, transparent, black 22px)",
-                }
-              : {}),
           }}
         >
-          <BarTooltip lab={lab} />
           {showStarter ? (
             <span
               aria-hidden
@@ -343,6 +335,9 @@ function TimelineRow({
             <Lock className="-translate-y-1/2 absolute top-1/2 left-2 size-2.5 text-warning" />
           ) : null}
           {state === "running" ? <SonarCap /> : null}
+          {/* LAST child on purpose: the fill/icons above would otherwise
+              paint over the hover surface and eat the tooltip. */}
+          <BarTooltip lab={lab} />
         </div>
         {state === "running" && endPct < 74 ? (
           <span
@@ -421,7 +416,7 @@ function BarTooltip({ lab }: { lab: HubLabItem }) {
   return (
     <Tooltip>
       <TooltipTrigger
-        render={<span className="absolute inset-0 cursor-help" />}
+        render={<span className="absolute inset-0 z-10 cursor-help" />}
       />
       <TooltipContent side="top">
         <span className="flex flex-col gap-0.5 font-mono">

@@ -123,10 +123,10 @@ describe("LabsTimeline", () => {
     expect(screen.getByText(/9\/9 repos/)).toBeInTheDocument();
   });
 
-  it("fades the edge and labels by deadline only when no start is set", () => {
+  it("keeps a truthful edge and labels by deadline only when no start is set", () => {
     // The bar's left edge stays TRUTHFUL (createdAt — the lab could not be
-    // worked on earlier), but it fades instead of showing a crisp cap, and
-    // the label prints no pseudo-start.
+    // worked on earlier); the tooltip names it, the label prints no
+    // pseudo-start.
     const noStart = { ...runningLab, startAt: null } as HubLabItem;
     const { container } = render(<LabsTimeline labs={[noStart]} span={span} />);
     expect(screen.getByText(/· due/)).toBeInTheDocument();
@@ -135,15 +135,18 @@ describe("LabsTimeline", () => {
       '[class*="ring-role-enrolled"]',
     ) as HTMLElement;
     expect(bar.style.left).not.toBe("0%");
-    expect(bar.style.maskImage).toContain("linear-gradient");
+    expect(bar.style.maskImage).toBe("");
   });
 
   it("explains the bar's full span with one hover surface", () => {
     const { container } = render(
       <LabsTimeline labs={[runningLab]} span={span} />,
     );
-    // ONE tooltip zone covering the whole bar — start truth + deadline.
-    expect(container.querySelectorAll(".cursor-help")).toHaveLength(1);
+    // ONE tooltip zone covering the whole bar — start truth + deadline —
+    // rendered as the bar's LAST child so overlays can't eat the hover.
+    const zones = container.querySelectorAll(".cursor-help");
+    expect(zones).toHaveLength(1);
+    expect(zones[0]).toBe(zones[0]?.parentElement?.lastElementChild);
   });
 
   it("drops the now line when today falls outside the span", () => {
