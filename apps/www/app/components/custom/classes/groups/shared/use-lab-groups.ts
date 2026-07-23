@@ -49,6 +49,9 @@ const CONFLICT_MESSAGE: Record<string, string> = {
     "This group already has its work repository — membership and deletion are locked.",
   group_full: "That group is already full — pick another or start your own.",
   name_taken: "A group with that name already exists in this lab.",
+  // Students only — teachers bypass the start gate entirely.
+  not_started:
+    "This lab hasn't started yet — groups and repositories open at the start time.",
   // unlinkGroupRepo re-verifies live before clearing the link — this means
   // someone recreated a repo under the same name between page load and click.
   still_exists:
