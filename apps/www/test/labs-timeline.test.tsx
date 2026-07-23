@@ -34,7 +34,7 @@ const doneLab = {
   id: "l1",
   title: "Lab 1 — TCP sockets",
   createdAt: at(-60),
-  startAt: null,
+  startAt: at(-58),
   deadline: at(-30),
   groupsCount: 9,
   reposCount: 9,
@@ -118,6 +118,15 @@ describe("LabsTimeline", () => {
     expect(screen.getByText(/hidden from students/)).toBeInTheDocument();
     expect(screen.getByText(/7\/9 repos/)).toBeInTheDocument();
     expect(screen.getByText(/9\/9 repos/)).toBeInTheDocument();
+  });
+
+  it("labels a lab without an explicit start by its deadline only", () => {
+    // createdAt drives the bar's left edge, but printing it as a range
+    // would read as a start date the teacher never set.
+    const noStart = { ...runningLab, startAt: null } as HubLabItem;
+    render(<LabsTimeline labs={[noStart]} />);
+    expect(screen.getByText(/· due/)).toBeInTheDocument();
+    expect(screen.queryByText(/→/)).not.toBeInTheDocument();
   });
 
   it("renders a per-row action in its own column", () => {

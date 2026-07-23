@@ -226,9 +226,15 @@ function TimelineRow({
           )}
         >
           <span>{labModeLabel(lab)}</span>
+          {/* Only an EXPLICIT start earns range text — a null startAt means
+              the bar's left edge is merely the creation date, and printing
+              it would read as a chosen start the teacher never set. */}
           <span>
             {" "}
-            · {formatDay(new Date(start))} → {formatDay(new Date(deadline))}
+            ·{" "}
+            {lab.startAt
+              ? `${formatDay(new Date(start))} → ${formatDay(new Date(deadline))}`
+              : `due ${formatDay(new Date(deadline))}`}
           </span>
           {manage && lab.groupsCount > 0 ? (
             <span>
