@@ -145,3 +145,59 @@ test("unauthenticated gets 401", async () => {
   const res = await post(validLab);
   expect(res.status).toBe(401);
 });
+
+// --- the start gate's data model (spec 2026-07-23) ---
+
+test("create persists an explicit start date", async () => {
+  const res = await post({ ...validLab, startAt: "2026-07-01T08:00:00.000Z" });
+  expect(res.status).toBe(200);
+  const [row] = await db.select().from(labs);
+  expect(row?.startAt?.toISOString()).toBe("2026-07-01T08:00:00.000Z");
+});
+
+test("create without a start leaves it null (starts immediately)", async () => {
+  const res = await post(validLab);
+  expect(res.status).toBe(200);
+  const [row] = await db.select().from(labs);
+  expect(row?.startAt).toBeNull();
+});
+
+test("a start at or after the deadline is refused", async () => {
+  const res = await post({ ...validLab, startAt: validLab.deadline });
+  expect(res.status).toBe(409);
+  expect(await res.json()).toEqual({ error: "start_after_deadline" });
+});
+
+test("two labs with overlapping start–deadline ranges both succeed", async () => {
+  const a = await post({ ...validLab, startAt: "2026-07-01T08:00:00.000Z" });
+  const b = await post({
+    ...validLab,
+    title: "Lab 2 — overlapping",
+    startAt: "2026-07-15T08:00:00.000Z",
+  });
+  expect(a.status).toBe(200);
+  expect(b.status).toBe(200);
+});
+
+test("update sets and then clears the start date", async () => {
+  await post(validLab);
+  const [created] = await db.select().from(labs);
+  const put = (body: unknown) =>
+    app.request(
+      `/api/classes/c1/labs/${created?.id}`,
+      {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      },
+      env,
+    );
+  const set = await put({ ...validLab, startAt: "2026-07-01T08:00:00.000Z" });
+  expect(set.status).toBe(200);
+  let [row] = await db.select().from(labs);
+  expect(row?.startAt?.toISOString()).toBe("2026-07-01T08:00:00.000Z");
+  const cleared = await put(validLab);
+  expect(cleared.status).toBe(200);
+  [row] = await db.select().from(labs);
+  expect(row?.startAt).toBeNull();
+});

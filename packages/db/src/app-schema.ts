@@ -53,6 +53,10 @@ export const labs = sqliteTable(
     templateRepoId: integer("template_repo_id"),
     templateRepoFullName: text("template_repo_full_name"),
     deadline: integer("deadline", { mode: "timestamp" }).notNull(),
+    // Optional start gate: before this moment students see the lab but can't
+    // act on it — no groups, no repos, and so no starter code. NULL = starts
+    // at creation. Start–deadline ranges of DIFFERENT labs may overlap.
+    startAt: integer("start_at", { mode: "timestamp" }),
     // `individual` = a group of one (min=max=1); `group` uses min/maxMembers.
     groupMode: text("group_mode", { enum: ["individual", "group"] })
       .notNull()
