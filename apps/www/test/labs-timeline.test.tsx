@@ -123,15 +123,27 @@ describe("LabsTimeline", () => {
     expect(screen.getByText(/9\/9 repos/)).toBeInTheDocument();
   });
 
-  it("hugs the axis start and labels by deadline only when no start is set", () => {
-    // No explicit start: the bar begins at the span's left edge (not at
-    // createdAt), and the label prints no pseudo-start.
+  it("fades the edge and labels by deadline only when no start is set", () => {
+    // The bar's left edge stays TRUTHFUL (createdAt — the lab could not be
+    // worked on earlier), but it fades instead of showing a crisp cap, and
+    // the label prints no pseudo-start.
     const noStart = { ...runningLab, startAt: null } as HubLabItem;
     const { container } = render(<LabsTimeline labs={[noStart]} span={span} />);
     expect(screen.getByText(/· due/)).toBeInTheDocument();
     expect(screen.queryByText(/→/)).not.toBeInTheDocument();
-    const bar = container.querySelector('[class*="ring-role-enrolled"]');
-    expect((bar as HTMLElement).style.left).toBe("0%");
+    const bar = container.querySelector(
+      '[class*="ring-role-enrolled"]',
+    ) as HTMLElement;
+    expect(bar.style.left).not.toBe("0%");
+    expect(bar.style.maskImage).toContain("linear-gradient");
+  });
+
+  it("explains both bar ends on hover", () => {
+    const { container } = render(
+      <LabsTimeline labs={[runningLab]} span={span} />,
+    );
+    // Two hover zones per bar (left: start truth, right: deadline truth).
+    expect(container.querySelectorAll(".cursor-help")).toHaveLength(2);
   });
 
   it("drops the now line when today falls outside the span", () => {

@@ -5,8 +5,18 @@ import {
   isDeadlineUrgent,
   relativeLabel,
 } from "~/components/custom/classes/labs/deadline-text";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "~/components/ui/tooltip";
 import type { HubLabItem } from "~/lib/api";
-import { formatDay, labModeLabel, labStarted } from "~/lib/format";
+import {
+  formatDay,
+  formatDeadline,
+  labModeLabel,
+  labStarted,
+} from "~/lib/format";
 import { cn } from "~/lib/utils";
 
 /**
@@ -195,10 +205,11 @@ function TimelineRow({
   action?: ((lab: HubLabItem) => ReactNode) | undefined;
 }) {
   const state = stateOf(lab);
-  // No explicit start = open since the span began: the bar hugs the axis's
-  // left edge instead of leaking the creation timestamp as a pseudo-start
-  // (createdAt still drives the row ORDER, never the geometry).
-  const start = lab.startAt ? Date.parse(lab.startAt) : axis.start;
+  // The bar's left edge is the TRUTH: an explicit start when declared,
+  // else the moment the lab appeared (it could not be worked on earlier).
+  // A missing start shows as a FADED edge — crisp cap = a chosen start —
+  // and both ends explain themselves on hover.
+  const start = effectiveStart(lab);
   const deadline = Date.parse(lab.deadline);
   const startPct = pct(axis, start);
   const endPct = pct(axis, deadline);
@@ -292,8 +303,26 @@ function TimelineRow({
                     "repeating-linear-gradient(-45deg, color-mix(in oklab, var(--warning) 16%, transparent) 0 5px, transparent 5px 10px)",
                 }
               : {}),
+            ...(lab.startAt === null
+              ? {
+                  maskImage:
+                    "linear-gradient(to right, transparent, black 22px)",
+                }
+              : {}),
           }}
         >
+          <EdgeTooltip
+            side="left"
+            text={
+              lab.startAt
+                ? `starts ${formatDeadline(new Date(lab.startAt))}`
+                : `created ${formatDeadline(new Date(lab.createdAt))} — no start date set`
+            }
+          />
+          <EdgeTooltip
+            side="right"
+            text={`due ${formatDeadline(new Date(lab.deadline))}`}
+          />
           {showStarter ? (
             <span
               aria-hidden
@@ -392,5 +421,29 @@ function SonarCap() {
         className="absolute inset-[-1px] animate-ping rounded-full border-[1.5px] border-role-enrolled [animation-delay:1.3s] [animation-duration:2.6s] motion-reduce:hidden"
       />
     </span>
+  );
+}
+
+/** An invisible hover zone on one end of a bar that tells the exact truth
+ *  about that edge — "starts …" / "created … — no start date set" on the
+ *  left, "due …" on the right. A span, not a button: the row around it is
+ *  already the link. */
+function EdgeTooltip({ side, text }: { side: "left" | "right"; text: string }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <span
+            className={cn(
+              "absolute inset-y-0 w-5 cursor-help",
+              side === "left" ? "left-0" : "right-0",
+            )}
+          />
+        }
+      />
+      <TooltipContent side="top">
+        <span className="font-mono">{text}</span>
+      </TooltipContent>
+    </Tooltip>
   );
 }
