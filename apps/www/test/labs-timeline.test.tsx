@@ -138,12 +138,12 @@ describe("LabsTimeline", () => {
     expect(bar.style.maskImage).toContain("linear-gradient");
   });
 
-  it("explains both bar ends on hover", () => {
+  it("explains the bar's full span with one hover surface", () => {
     const { container } = render(
       <LabsTimeline labs={[runningLab]} span={span} />,
     );
-    // Two hover zones per bar (left: start truth, right: deadline truth).
-    expect(container.querySelectorAll(".cursor-help")).toHaveLength(2);
+    // ONE tooltip zone covering the whole bar — start truth + deadline.
+    expect(container.querySelectorAll(".cursor-help")).toHaveLength(1);
   });
 
   it("drops the now line when today falls outside the span", () => {

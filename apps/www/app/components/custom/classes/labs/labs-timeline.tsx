@@ -311,18 +311,7 @@ function TimelineRow({
               : {}),
           }}
         >
-          <EdgeTooltip
-            side="left"
-            text={
-              lab.startAt
-                ? `starts ${formatDeadline(new Date(lab.startAt))}`
-                : `created ${formatDeadline(new Date(lab.createdAt))} — no start date set`
-            }
-          />
-          <EdgeTooltip
-            side="right"
-            text={`due ${formatDeadline(new Date(lab.deadline))}`}
-          />
+          <BarTooltip lab={lab} />
           {showStarter ? (
             <span
               aria-hidden
@@ -424,25 +413,25 @@ function SonarCap() {
   );
 }
 
-/** An invisible hover zone on one end of a bar that tells the exact truth
- *  about that edge — "starts …" / "created … — no start date set" on the
- *  left, "due …" on the right. A span, not a button: the row around it is
- *  already the link. */
-function EdgeTooltip({ side, text }: { side: "left" | "right"; text: string }) {
+/** ONE hover surface over the whole bar telling the exact truth about its
+ *  span: how it starts (a declared start, or merely its creation — called
+ *  out as such) and when it's due. A span, not a button: the row around it
+ *  is already the link. */
+function BarTooltip({ lab }: { lab: HubLabItem }) {
   return (
     <Tooltip>
       <TooltipTrigger
-        render={
-          <span
-            className={cn(
-              "absolute inset-y-0 w-5 cursor-help",
-              side === "left" ? "left-0" : "right-0",
-            )}
-          />
-        }
+        render={<span className="absolute inset-0 cursor-help" />}
       />
       <TooltipContent side="top">
-        <span className="font-mono">{text}</span>
+        <span className="flex flex-col gap-0.5 font-mono">
+          <span>
+            {lab.startAt
+              ? `starts ${formatDeadline(new Date(lab.startAt))}`
+              : `created ${formatDeadline(new Date(lab.createdAt))} — no start date set`}
+          </span>
+          <span>due {formatDeadline(new Date(lab.deadline))}</span>
+        </span>
       </TooltipContent>
     </Tooltip>
   );
