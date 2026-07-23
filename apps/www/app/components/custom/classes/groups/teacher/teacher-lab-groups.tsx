@@ -46,7 +46,7 @@ import {
 } from "~/components/ui/table";
 import { ToggleGroup, ToggleGroupItem } from "~/components/ui/toggle-group";
 import type { GroupItem, LabItem } from "~/lib/api";
-import { usersByGithubId } from "~/lib/format";
+import { formatDeadline, labStarted, usersByGithubId } from "~/lib/format";
 import { type PersonIdentity, personIdentity } from "~/lib/identity";
 import { cn } from "~/lib/utils";
 
@@ -124,6 +124,8 @@ export function TeacherLabGroups({
     (r) => matchesFilter(r.status) && r.haystack.includes(needle),
   );
 
+  const started = labStarted(lab);
+
   if (g.error) {
     return (
       <Text variant="error">Couldn't load the groups — refresh to retry.</Text>
@@ -135,6 +137,15 @@ export function TeacherLabGroups({
 
   return (
     <>
+      {!started && lab.startAt ? (
+        // The teacher's standing reminder: everything below is invisible to
+        // students until the start — including any pre-created repo's code.
+        <Text variant="body2" className="text-warning">
+          Not started — opens for students on{" "}
+          {formatDeadline(new Date(lab.startAt))}. Until then students see the
+          lab in their list but cannot form groups or create repositories.
+        </Text>
+      ) : null}
       <LabStats
         stats={[
           { value: g.groups.length, label: "groups" },
@@ -168,6 +179,7 @@ export function TeacherLabGroups({
           lateCount={late.length}
           missingCount={missingRepos.length}
           repos={repos}
+          started={started}
         />
 
         {rows.length === 0 ? (
@@ -195,6 +207,7 @@ export function TeacherLabGroups({
                     row={row}
                     max={g.max}
                     deadline={lab.deadline}
+                    started={started}
                     expanded={expandedId === row.group.id}
                     onToggle={() =>
                       setExpandedId(
@@ -238,6 +251,7 @@ function RosterToolbar({
   lateCount,
   missingCount,
   repos,
+  started,
 }: {
   g: LabGroups;
   classId: string;
@@ -253,6 +267,8 @@ function RosterToolbar({
   missingCount: number;
   /** Full names of every work repo in this lab — the clone block's scope. */
   repos: string[];
+  /** False before the lab's startAt — the batch confirm names the leak. */
+  started: boolean;
 }) {
   const [cloneOpen, setCloneOpen] = useState(false);
   return (
@@ -300,7 +316,12 @@ function RosterToolbar({
         // worth an explicit confirm on the batch, like the drawer's Delete.
         <ConfirmDialog
           title="Create the missing repositories?"
-          description="Every complete group that lacks a repository gets one. Creating a repository locks its group: students can no longer join or leave on their own."
+          description={
+            "Every complete group that lacks a repository gets one. Creating a repository locks its group: students can no longer join or leave on their own." +
+            (started
+              ? ""
+              : " This lab hasn't started: creating repositories now gives their groups access to the starter code before the start time.")
+          }
           confirmLabel="Create repositories"
           onConfirm={() => g.createMissingRepos()}
           trigger={
@@ -364,6 +385,7 @@ function GroupRow({
   row: { group, repo, pushedAt, status },
   max,
   deadline,
+  started,
   expanded,
   onToggle,
   addCandidates,
@@ -372,6 +394,8 @@ function GroupRow({
   row: RosterRow;
   max: number;
   deadline: string;
+  /** False before the lab's startAt — the create confirm names the leak. */
+  started: boolean;
   expanded: boolean;
   onToggle: () => void;
   addCandidates: AddCandidate[];
@@ -427,7 +451,12 @@ function GroupRow({
             // repo LOCKS the group, one click shouldn't do that silently.
             <ConfirmDialog
               title="Create the work repository?"
-              description="This locks the group: once the repository exists, students can no longer join or leave on their own."
+              description={
+                "This locks the group: once the repository exists, students can no longer join or leave on their own." +
+                (started
+                  ? ""
+                  : " This lab hasn't started: creating the repository now gives this group access to the starter code before the start time.")
+              }
               confirmLabel="Create repository"
               onConfirm={() => g.createRepo(group.id)}
               trigger={

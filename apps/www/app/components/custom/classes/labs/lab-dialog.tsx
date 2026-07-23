@@ -132,8 +132,7 @@ export function LabDialog({
         // or a start that doesn't precede the deadline.
         const code =
           res.status === 409
-            ? ((await res.json().catch(() => ({}))) as { error?: string })
-                .error
+            ? ((await res.json().catch(() => ({}))) as { error?: string }).error
             : undefined;
         setError(
           code === "start_after_deadline"
@@ -231,8 +230,8 @@ export function LabDialog({
             />
             <Text variant="caption">
               Students see the lab but cannot start it — no groups, no
-              repositories, and no access to the starter code — until this
-              time. Leave empty to open the lab immediately.
+              repositories, and no access to the starter code — until this time.
+              Leave empty to open the lab immediately.
             </Text>
           </Stack>
           <Stack gap="sm">

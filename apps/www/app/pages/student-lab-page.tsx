@@ -57,8 +57,8 @@ export function StudentLabPage() {
             // The server already answers head-only pre-start; this is the
             // matching face: what's next and when — nothing to act on yet.
             <Text variant="body2">
-              This lab starts {formatDeadline(new Date(g.lab.startAt))} —
-              you'll be able to form groups and get the starter code then.
+              This lab starts {formatDeadline(new Date(g.lab.startAt))} — you'll
+              be able to form groups and get the starter code then.
             </Text>
           ) : (
             <StudentLabGroups classId={classId} lab={g.lab} />

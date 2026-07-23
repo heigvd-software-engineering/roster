@@ -476,6 +476,36 @@ describe("TeacherLabPage", () => {
     ).toBeInTheDocument();
   });
 
+  it("shows the not-started note and warns before pre-start repo creation", () => {
+    mockApi({
+      ...groupsData,
+      lab: { ...groupLab, startAt: "2099-07-01T08:00:00.000Z" },
+      groups: [grp({ members: [alice, bob] })],
+    });
+    render(<TeacherLabPage />);
+
+    expect(
+      screen.getByText(/Not started — opens for students on/),
+    ).toBeInTheDocument();
+    // The per-row create stays ENABLED (the escape hatch) but its confirm
+    // names the consequence.
+    fireEvent.click(screen.getByRole("button", { name: "Create repository" }));
+    expect(screen.getByText(/before the start time/)).toBeInTheDocument();
+  });
+
+  it("shows no note and no warning once the lab has started", () => {
+    mockApi({
+      ...groupsData,
+      lab: { ...groupLab, startAt: "2020-01-01T08:00:00.000Z" },
+      groups: [grp({ members: [alice, bob] })],
+    });
+    render(<TeacherLabPage />);
+
+    expect(screen.queryByText(/Not started/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Create repository" }));
+    expect(screen.queryByText(/before the start time/)).not.toBeInTheDocument();
+  });
+
   it("shows a not-found message for an unknown lab", () => {
     // Unknown lab (or class, or no access) = a 404 from the one endpoint.
     params.labId = "nope";
