@@ -5,7 +5,16 @@ import { UserIdentity } from "~/components/custom/identity/user-identity";
 import { Row } from "~/components/custom/layout/row";
 import { Stack } from "~/components/custom/layout/stack";
 import { Text } from "~/components/custom/typography/text";
+import { Badge } from "~/components/ui/badge";
+import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
+import {
+  Popover,
+  PopoverContent,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
+} from "~/components/ui/popover";
 import type { ClassItem, GroupItem } from "~/lib/api";
 import { usersByGithubId } from "~/lib/format";
 import { personIdentity } from "~/lib/identity";
@@ -83,6 +92,69 @@ export function RepoLink({ fullName }: { fullName: string }) {
       <GitBranch className="size-3.5 text-muted-foreground" />
       {fullName}
     </a>
+  );
+}
+
+/**
+ * Sits next to `RepoLink` when its repo was deleted directly on GitHub
+ * (`repoStatus: "missing"`). Visible to everyone — it's just status — but
+ * `onUnlink` (present only for the teacher who can act on it) is what turns
+ * this from a dead end into a fix: unlinking flips the group back to
+ * "no repo", which reveals the tile's own existing Delete-group and
+ * Create-repo controls — no bespoke recovery UI beyond this one button.
+ */
+export function MissingRepoBadge({
+  onUnlink,
+  busy = false,
+}: {
+  onUnlink?: () => void;
+  busy?: boolean;
+}) {
+  return (
+    <Popover>
+      <PopoverTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="sm"
+            type="button"
+            aria-label="This repository no longer exists on GitHub"
+          />
+        }
+      >
+        <Badge variant="destructive" className="font-mono">
+          404
+        </Badge>
+      </PopoverTrigger>
+      <PopoverContent align="start">
+        <PopoverHeader>
+          <PopoverTitle>
+            This repository no longer exists on GitHub
+          </PopoverTitle>
+        </PopoverHeader>
+        {onUnlink ? (
+          <>
+            <Text variant="caption">
+              Unlink it to delete this group or create a new repository.
+            </Text>
+            <Button
+              variant="outline"
+              size="sm"
+              type="button"
+              disabled={busy}
+              title="Clear the stale repository link"
+              onClick={onUnlink}
+            >
+              Unlink repository
+            </Button>
+          </>
+        ) : (
+          <Text variant="caption">
+            Ask your teacher to unlink it so the group can get a new one.
+          </Text>
+        )}
+      </PopoverContent>
+    </Popover>
   );
 }
 

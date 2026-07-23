@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { authedFactory } from "../factory";
 import { findGroupInClass, resolveClassAsMember } from "../lib/class-scope";
 import { cachedRoster } from "../lib/group-members";
-import { alreadyInLabGroup, labMax } from "../lib/groups";
+import { alreadyInLabGroup, checkRepoExists, labMax } from "../lib/groups";
 
 type Db = ReturnType<typeof getDb>;
 
@@ -164,5 +164,28 @@ export const deleteGroup = authedFactory.createHandlers(async (c) => {
   }
   // group_members rows go with it (FK ON DELETE CASCADE).
   await access.db.delete(groups).where(eq(groups.id, group.id));
+  return c.json({ ok: true });
+});
+
+/** Teacher-only: clear a repo link the lab page has flagged as missing
+ *  (`repoStatus: "missing"`, `listLabGroups` / `resolveRepoStatuses`) — the
+ *  repo was deleted directly on GitHub, which otherwise leaves the group
+ *  locked forever (`isLocked` reads `ghRepoId`, with no path back to null).
+ *  Re-verifies live rather than trusting a possibly stale client flag: if
+ *  the repo has reappeared (recreated with the same name after the page
+ *  loaded), refuse rather than rip out a working link. */
+export const unlinkGroupRepo = authedFactory.createHandlers(async (c) => {
+  const access = await resolveClassAsMember(c, c.req.param("id"));
+  if (!access?.isTeacher) return c.json({ error: "not_found" }, 404);
+  const group = await findGroupInClass(access, c.req.param("groupId"));
+  if (!group?.ghRepoFullName) return c.json({ error: "not_found" }, 404);
+
+  const repo = await checkRepoExists(c.env, access, group);
+  if (repo !== null) return c.json({ error: "still_exists" }, 409);
+
+  await access.db
+    .update(groups)
+    .set({ ghRepoId: null, ghRepoFullName: null, updatedAt: new Date() })
+    .where(eq(groups.id, group.id));
   return c.json({ ok: true });
 });

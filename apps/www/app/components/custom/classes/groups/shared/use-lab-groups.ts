@@ -49,6 +49,10 @@ const CONFLICT_MESSAGE: Record<string, string> = {
     "This group already has its work repository — membership and deletion are locked.",
   group_full: "That group is already full — pick another or start your own.",
   name_taken: "A group with that name already exists in this lab.",
+  // unlinkGroupRepo re-verifies live before clearing the link — this means
+  // someone recreated a repo under the same name between page load and click.
+  still_exists:
+    "That repository still exists on GitHub — refresh to see its current state.",
   // The page thought this was an individual lab and the server disagrees —
   // the teacher changed its mode while it was open. Reloading is the fix, so
   // say that rather than describing the mismatch.
@@ -203,6 +207,10 @@ export function useLabGroups(classId: string, labId: string) {
       ),
     deleteGroup: (groupId: string) =>
       act(() => classGroupsApi[":groupId"].$delete(groupParam(groupId))),
+    /** Clear a repo link the server has confirmed is gone from GitHub —
+     *  the escape hatch for a repo deleted directly on GitHub. */
+    unlinkRepo: (groupId: string) =>
+      act(() => classGroupsApi[":groupId"].repo.$delete(groupParam(groupId))),
     /** The explicit accept-completion step: create the group's repo. */
     createRepo: (groupId: string) =>
       act(() => labGroupsApi[":groupId"].repo.$post(labGroupParam(groupId))),

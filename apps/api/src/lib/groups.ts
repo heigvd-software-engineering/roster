@@ -7,6 +7,7 @@ import {
   classifyRepoFailure,
   createOrgRepo,
   generateFromTemplate,
+  getOrgRepo,
   grantTeamRepo,
   type RepoFailure,
 } from "./github/repo";
@@ -279,6 +280,86 @@ export async function regrantWorkRepo(
     group.ghTeamSlug,
     group.ghRepoFullName,
   );
+}
+
+/**
+ * Whether a group's work repo still exists on GitHub, checked by its
+ * ORIGINAL name (`group.slug` — set once at creation, never changed; see
+ * `createWorkRepo`). That matters for a repo renamed directly on GitHub:
+ * a GET by the old name follows GitHub's rename redirect and still resolves,
+ * carrying the NEW full name, so a rename is never mistaken for a deletion.
+ * Returns `null` only on a confirmed 404 (truly deleted); any other failure
+ * (network, rate limit) is rethrown rather than silently reported as gone.
+ */
+export async function checkRepoExists(
+  env: AuthEnv,
+  scope: { cls: Class; org: string },
+  group: Pick<Group, "slug">,
+): Promise<CreatedRepo | null> {
+  try {
+    return await getOrgRepo(
+      env,
+      scope.cls.installationId,
+      scope.org,
+      group.slug,
+    );
+  } catch (err) {
+    if ((err as { status?: number }).status === 404) return null;
+    throw err;
+  }
+}
+
+/**
+ * Per-group repo status for the lab page's live org listing
+ * (`orgRepoActivity`): a `ghRepoFullName` absent from that listing is a
+ * SUSPECT, not proof — a rename also drops a repo's OLD full name from a
+ * by-name listing, same as a deletion would. Only suspects (rare — zero in
+ * the common case) cost an extra call, confirmed via `checkRepoExists`:
+ *
+ *   - found, same full name      -> already handled by the caller's fast
+ *     path before this runs, never reaches here;
+ *   - found, a DIFFERENT full name -> renamed, not deleted. Healed here
+ *     (`ghRepoFullName` updated) rather than surfaced to anyone;
+ *   - not found (404)            -> "missing" — a teacher unlinks it from
+ *     here (see `unlinkGroupRepo`).
+ *
+ * A `checkRepoExists` failure that ISN'T a 404 propagates up rather than
+ * mislabeling a group "missing" on a transient GitHub error.
+ */
+export async function resolveRepoStatuses(
+  env: AuthEnv,
+  scope: { db: Db; cls: Class; org: string },
+  rows: Pick<Group, "id" | "slug" | "ghRepoFullName">[],
+  knownFullNames: ReadonlySet<string>,
+): Promise<Map<string, { status: "ok" | "missing"; repoFullName: string }>> {
+  const out = new Map<
+    string,
+    { status: "ok" | "missing"; repoFullName: string }
+  >();
+  for (const row of rows) {
+    if (!row.ghRepoFullName) continue;
+    if (knownFullNames.has(row.ghRepoFullName)) {
+      out.set(row.id, { status: "ok", repoFullName: row.ghRepoFullName });
+      continue;
+    }
+    const repo = await checkRepoExists(env, scope, row);
+    if (repo === null) {
+      out.set(row.id, { status: "missing", repoFullName: row.ghRepoFullName });
+      continue;
+    }
+    if (repo.fullName !== row.ghRepoFullName) {
+      await scope.db
+        .update(groups)
+        .set({
+          ghRepoId: repo.id,
+          ghRepoFullName: repo.fullName,
+          updatedAt: new Date(),
+        })
+        .where(eq(groups.id, row.id));
+    }
+    out.set(row.id, { status: "ok", repoFullName: repo.fullName });
+  }
+  return out;
 }
 
 /**

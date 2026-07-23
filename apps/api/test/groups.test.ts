@@ -30,6 +30,9 @@ const state = vi.hoisted(() => ({
   // state that changes while the request is in flight (e.g. repo creation).
   onTeamAdd: null as (() => Promise<void>) | null,
   onTeamRemove: null as (() => Promise<void>) | null,
+  // group.slug → is the repo still visible to the App installation? Missing
+  // = 404 (deleted). Backs unlinkGroupRepo's live re-check.
+  orgRepoVisible: {} as Record<string, boolean>,
 }));
 
 vi.mock("../src/lib/auth/config", () => ({
@@ -44,6 +47,19 @@ vi.mock("../src/lib/github/user", () => ({
 vi.mock("../src/lib/github/app", () => ({ orgLogin: async () => "acme" }));
 vi.mock("../src/lib/github/org", () => ({
   orgMembership: async () => state.membership,
+}));
+vi.mock("../src/lib/github/repo", () => ({
+  getOrgRepo: async (
+    _env: unknown,
+    _inst: number,
+    org: string,
+    name: string,
+  ) => {
+    if (!state.orgRepoVisible[name]) {
+      throw Object.assign(new Error("Not Found"), { status: 404 });
+    }
+    return { id: 1, fullName: `${org}/${name}` };
+  },
 }));
 
 vi.mock("../src/lib/github/team", () => ({
@@ -162,6 +178,7 @@ beforeEach(async () => {
   state.calls = [];
   state.onTeamAdd = null;
   state.onTeamRemove = null;
+  state.orgRepoVisible = {};
 
   await db.delete(groupMembers);
   await db.delete(groups);
@@ -606,5 +623,67 @@ test("deleting a group whose team is already gone still drops the row", async ()
     env,
   );
   expect(res.status).toBe(200);
+  expect(await db.select().from(groups)).toHaveLength(0);
+});
+
+// --- unlink repo (a repo deleted directly on GitHub) ---
+
+function unlinkRepo(groupId = "g1", classId = "c1") {
+  return app.request(
+    `/api/classes/${classId}/groups/${groupId}/repo`,
+    { method: "DELETE" },
+    env,
+  );
+}
+
+test("unlink-repo is teacher-only", async () => {
+  await seedLab("l1");
+  await seedGroup({ id: "g1", labId: "l1", repo: true });
+  expect((await unlinkRepo()).status).toBe(404);
+});
+
+test("unlink-repo 404s when the group has no repo linked", async () => {
+  state.membership = { state: "active", role: "admin" };
+  await seedLab("l1");
+  await seedGroup({ id: "g1", labId: "l1" });
+  expect((await unlinkRepo()).status).toBe(404);
+});
+
+test("unlink-repo refuses when the repo still resolves on GitHub — re-verified live, not trusted from the client", async () => {
+  state.membership = { state: "active", role: "admin" };
+  await seedLab("l1");
+  await seedGroup({ id: "g1", labId: "l1", repo: true });
+  state.orgRepoVisible["l1-g1"] = true; // group.slug, not ghRepoFullName
+  const res = await unlinkRepo();
+  expect(res.status).toBe(409);
+  expect(await res.json()).toEqual({ error: "still_exists" });
+  const [row] = await db.select().from(groups).where(eq(groups.id, "g1"));
+  expect(row?.ghRepoFullName).toBe("acme/g1");
+});
+
+test("unlink-repo clears the link once GitHub confirms 404", async () => {
+  state.membership = { state: "active", role: "admin" };
+  await seedLab("l1");
+  await seedGroup({ id: "g1", labId: "l1", repo: true });
+  // "l1-g1" absent from orgRepoVisible → getOrgRepo 404s.
+  const res = await unlinkRepo();
+  expect(res.status).toBe(200);
+  const [row] = await db.select().from(groups).where(eq(groups.id, "g1"));
+  expect(row?.ghRepoId).toBeNull();
+  expect(row?.ghRepoFullName).toBeNull();
+});
+
+test("unlink-repo unlocks deletion: the group can then be deleted", async () => {
+  state.membership = { state: "active", role: "admin" };
+  await seedLab("l1");
+  await seedGroup({ id: "g1", labId: "l1", repo: true });
+  state.rosters["g1-slug"] = [];
+  expect((await unlinkRepo()).status).toBe(200);
+  const del = await app.request(
+    "/api/classes/c1/groups/g1",
+    { method: "DELETE" },
+    env,
+  );
+  expect(del.status).toBe(200);
   expect(await db.select().from(groups)).toHaveLength(0);
 });

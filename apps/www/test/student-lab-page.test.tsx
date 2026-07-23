@@ -227,6 +227,49 @@ describe("StudentLabPage — group lab", () => {
     expect(screen.getByRole("button", { name: "Leave" })).toBeDisabled();
   });
 
+  it("replaces the link and clone commands with a clear error when the repo is missing", () => {
+    mockApi(
+      groupsData({
+        groups: [
+          grp({
+            members: [alice, bob],
+            repoFullName: "acme/lab-1-team-alpha",
+            repoStatus: "missing",
+          }),
+        ],
+      }),
+    );
+    render(<StudentLabPage />);
+
+    // Visible without clicking anything — not just a small badge.
+    expect(
+      screen.getByText("This repository no longer exists on GitHub"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("repository deleted on GitHub"),
+    ).toBeInTheDocument();
+    // Cloning a deleted repo makes no sense — neither the link nor the
+    // clone commands render.
+    expect(
+      screen.queryByRole("link", { name: /acme\/lab-1-team-alpha/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Clone it to work locally:"),
+    ).not.toBeInTheDocument();
+    // The 404 badge stays (same explanation as the teacher's), info-only.
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "This repository no longer exists on GitHub",
+      }),
+    );
+    expect(
+      screen.getByText(/Ask your teacher to unlink it/),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Unlink repository" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("locks Join on a group whose repo exists", async () => {
     // Someone else's group: room left (1/3) but already locked by its repo.
     mockApi(
@@ -298,6 +341,40 @@ describe("StudentLabPage — individual lab", () => {
     // The repo exists → the solo group is a deliverable: no Withdraw.
     expect(
       screen.queryByRole("button", { name: "Withdraw" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows the same missing-repo error on the solo tile when the individual lab's repo is deleted", () => {
+    params.labId = "l2";
+    mockApi(
+      groupsData({
+        lab: individualLab,
+        groups: [
+          grp({
+            id: "solo",
+            name: "alice",
+            slug: "alice",
+            members: [alice],
+            repoFullName: "acme/lab-2-solo-alice",
+            repoStatus: "missing",
+          }),
+        ],
+      }),
+    );
+    render(<StudentLabPage />);
+
+    expect(screen.getByText("Your lab is ready")).toBeInTheDocument();
+    expect(
+      screen.getByText("This repository no longer exists on GitHub"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("repository deleted on GitHub"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /acme\/lab-2-solo-alice/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/git clone https:\/\/github\.com/),
     ).not.toBeInTheDocument();
   });
 

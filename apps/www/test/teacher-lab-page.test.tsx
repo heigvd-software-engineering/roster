@@ -165,6 +165,57 @@ describe("TeacherLabPage", () => {
     ).toBeInTheDocument();
   });
 
+  it("shows the missing-repo badge and offers Unlink when the repo was deleted on GitHub", () => {
+    mockApi({
+      ...groupsData,
+      groups: [
+        grp({
+          members: [alice, bob],
+          repoFullName: "acme/lab1-team-alpha",
+          repoStatus: "missing",
+        }),
+      ],
+    });
+    render(<TeacherLabPage />);
+
+    // The link still renders (the group still points at that name)...
+    expect(
+      screen.getByRole("link", { name: /acme\/lab1-team-alpha/ }),
+    ).toBeInTheDocument();
+    // ...next to a badge explaining it's gone, with the escape hatch.
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "This repository no longer exists on GitHub",
+      }),
+    );
+    expect(
+      screen.getByText("This repository no longer exists on GitHub"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Unlink repository" }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows no missing-repo badge once the repo is confirmed present", () => {
+    mockApi({
+      ...groupsData,
+      groups: [
+        grp({
+          members: [alice, bob],
+          repoFullName: "acme/lab1-team-alpha",
+          repoStatus: "ok",
+        }),
+      ],
+    });
+    render(<TeacherLabPage />);
+
+    expect(
+      screen.queryByRole("button", {
+        name: "This repository no longer exists on GitHub",
+      }),
+    ).not.toBeInTheDocument();
+  });
+
   it("flags members whose GitHub account has no SWITCH identity", () => {
     mockApi({
       ...groupsData,
