@@ -32,7 +32,14 @@ would drift apart; a lab with no start date simply starts immediately.
   and update — safe because the lab dialog always submits the complete form,
   so an emptied Start field genuinely means "starts immediately".
 - One validation: a set `startAt` must be **before** `deadline`, refused as
-  `409 { error: "start_after_deadline" }` on create and update.
+  `409 { error: "start_after_deadline" }` on create and update. That is the
+  **only** date rule: start–deadline ranges of different labs may overlap
+  freely (lab 2 can open while lab 1 is still running) — no cross-lab
+  validation, deliberately.
+- **Ordering**: the class lists order labs by **effective start** —
+  `coalesce(startAt, createdAt)` — newest first, replacing the current
+  `desc(deadline)` in both lab queries of `handlers/classes.ts`. Same order
+  for teacher and student.
 - One shared derivation, `labStarted(lab)` (`startAt === null || startAt <=
   now`), lives in `apps/api/src/lib/groups.ts` next to `labMax`; the client
   derives the same from the `startAt` riding on every lab response (types
@@ -108,12 +115,14 @@ The professor must understand the implications wherever they touch them:
 
 ### 6. Tests
 
-- **API** (`labs.test.ts`, `lab-groups.test.ts`, `groups.test.ts`):
-  create/update accepts, persists, and clears `startAt`; `startAt ≥
-  deadline` is `409 start_after_deadline`; each gated verb answers
-  `not_started` pre-start and succeeds post-start; a teacher passes every
-  gate; student `listLabGroups` pre-start returns head + empty lists while
-  the teacher gets the full response.
+- **API** (`labs.test.ts`, `lab-groups.test.ts`, `groups.test.ts`,
+  `classes-list.test.ts`): create/update accepts, persists, and clears
+  `startAt`; `startAt ≥ deadline` is `409 start_after_deadline`; two labs
+  with overlapping ranges both succeed; labs order by effective start,
+  newest first; each gated verb answers `not_started` pre-start and
+  succeeds post-start; a teacher passes every gate; student `listLabGroups`
+  pre-start returns head + empty lists while the teacher gets the full
+  response.
 - **www** (`lab-dialog.test.tsx`, `student-lab-page.test.tsx`,
   `teacher-lab-page.test.tsx`, class/hub card tests): the dialog field and
   its helper copy; a pre-start row is dimmed, not a link, shows "starts",
