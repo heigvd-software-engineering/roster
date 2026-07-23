@@ -21,6 +21,7 @@ import {
   createGroupInLab,
   createWorkRepo,
   groupsWithRosters,
+  labStarted,
   regrantWorkRepo,
   resolveRepoStatuses,
   reuseBlocker,
@@ -116,6 +117,12 @@ export const listLabGroups = authedFactory.createHandlers(async (c) => {
     membershipState: access.membershipState,
   };
   if (access.membershipState === "pending") {
+    return c.json({ ...head, groups: [], users: [], students: [] });
+  }
+  // The start gate, list edition: a student on a not-yet-open lab gets the
+  // head (a direct URL renders "starts …", never a 404) and EMPTY lists —
+  // pre-formed rosters stay invisible until the start. Teachers see all.
+  if (!access.isTeacher && !labStarted(lab)) {
     return c.json({ ...head, groups: [], users: [], students: [] });
   }
 
@@ -267,6 +274,11 @@ export const createLabGroup = authedFactory.createHandlers(
     if (!access) return c.json({ error: "not_found" }, 404);
     const lab = await findLabInClass(access, c.req.param("labId"));
     if (!lab) return c.json({ error: "not_found" }, 404);
+    // The start gate: before the lab opens, students change nothing — no
+    // groups, no repos, no starter code. Teachers pass (escape hatch).
+    if (!access.isTeacher && !labStarted(lab)) {
+      return c.json({ error: "not_started" }, 409);
+    }
     const { name, copyFromGroupId } = c.req.valid("json");
 
     let copyFromLogins: string[] | undefined;
@@ -333,6 +345,12 @@ export const createLabRepo = authedFactory.createHandlers(async (c) => {
   const group = await findGroupInClass(access, c.req.param("groupId"));
   if (!lab || !group || group.labId !== lab.id) {
     return c.json({ error: "not_found" }, 404);
+  }
+  // The start gate precedes even the idempotent return: a teacher may have
+  // pre-created the repo (escape hatch) — that must not open it to students
+  // early, so a pre-start student gets not_started, never the repo.
+  if (!access.isTeacher && !labStarted(lab)) {
+    return c.json({ error: "not_started" }, 409);
   }
   if (group.ghRepoFullName) {
     // Idempotent hit — and the HEAL path for a create that wrote the row and
@@ -433,6 +451,9 @@ export const acceptIndividualLab = authedFactory.createHandlers(async (c) => {
   if (!lab) return c.json({ error: "not_found" }, 404);
   if (lab.groupMode !== "individual") {
     return c.json({ error: "group_lab" }, 409);
+  }
+  if (!access.isTeacher && !labStarted(lab)) {
+    return c.json({ error: "not_started" }, 409);
   }
 
   async function finish(solo: Group) {
