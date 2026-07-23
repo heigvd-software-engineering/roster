@@ -195,7 +195,10 @@ function TimelineRow({
   action?: ((lab: HubLabItem) => ReactNode) | undefined;
 }) {
   const state = stateOf(lab);
-  const start = effectiveStart(lab);
+  // No explicit start = open since the span began: the bar hugs the axis's
+  // left edge instead of leaking the creation timestamp as a pseudo-start
+  // (createdAt still drives the row ORDER, never the geometry).
+  const start = lab.startAt ? Date.parse(lab.startAt) : axis.start;
   const deadline = Date.parse(lab.deadline);
   const startPct = pct(axis, start);
   const endPct = pct(axis, deadline);

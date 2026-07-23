@@ -123,13 +123,15 @@ describe("LabsTimeline", () => {
     expect(screen.getByText(/9\/9 repos/)).toBeInTheDocument();
   });
 
-  it("labels a lab without an explicit start by its deadline only", () => {
-    // createdAt drives the bar's left edge, but printing it as a range
-    // would read as a start date the teacher never set.
+  it("hugs the axis start and labels by deadline only when no start is set", () => {
+    // No explicit start: the bar begins at the span's left edge (not at
+    // createdAt), and the label prints no pseudo-start.
     const noStart = { ...runningLab, startAt: null } as HubLabItem;
-    render(<LabsTimeline labs={[noStart]} span={span} />);
+    const { container } = render(<LabsTimeline labs={[noStart]} span={span} />);
     expect(screen.getByText(/· due/)).toBeInTheDocument();
     expect(screen.queryByText(/→/)).not.toBeInTheDocument();
+    const bar = container.querySelector('[class*="ring-role-enrolled"]');
+    expect((bar as HTMLElement).style.left).toBe("0%");
   });
 
   it("drops the now line when today falls outside the span", () => {
