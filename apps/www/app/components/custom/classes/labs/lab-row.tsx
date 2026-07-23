@@ -2,6 +2,7 @@ import { Link } from "react-router";
 import {
   DeadlineText,
   isDeadlineUrgent,
+  relativeLabel,
 } from "~/components/custom/classes/labs/deadline-text";
 import { CAPS_LABEL } from "~/components/custom/typography/text";
 import {
@@ -10,7 +11,7 @@ import {
   TooltipTrigger,
 } from "~/components/ui/tooltip";
 import type { LabItem } from "~/lib/api";
-import { formatDeadline, labModeLabel } from "~/lib/format";
+import { formatDeadline, labModeLabel, labStarted } from "~/lib/format";
 import { cn } from "~/lib/utils";
 
 /** One shared column template so the header and every row stay aligned:
@@ -82,37 +83,68 @@ export function LabRow({
   const mode = labModeLabel(lab);
   const deadline = new Date(lab.deadline);
   const urgent = isDeadlineUrgent(deadline);
+  const started = labStarted(lab);
+  const start = lab.startAt ? new Date(lab.startAt) : null;
   const cells = (
     <>
       <span className="flex min-w-0 items-center gap-2">
         <span className="truncate font-medium text-sm">{lab.title}</span>
-        {lab.templateRepoFullName ? (
+        {/* Pre-start, the template's NAME is itself a leak (a template called
+            lab1-solution says the solution exists and where): students see no
+            badge until the lab opens. The teacher keeps it. */}
+        {lab.templateRepoFullName && (started || manage) ? (
           <TemplateBadge fullName={lab.templateRepoFullName} />
+        ) : null}
+        {manage && !started && start ? (
+          <span className="inline-flex shrink-0 items-center rounded-full bg-warning/10 px-2 py-0.5 font-mono text-[10px] text-warning uppercase tracking-wider">
+            starts {formatDeadline(start)}
+          </span>
         ) : null}
       </span>
       <span className="font-mono text-muted-foreground text-xs">{mode}</span>
-      {/* Urgent deadlines light up the whole cell — date included. */}
-      <span className="flex items-baseline gap-1.5 whitespace-nowrap">
-        <span
-          className={cn(
-            "font-mono text-xs tabular-nums",
-            urgent ? "font-medium text-brand" : "text-muted-foreground",
-          )}
-        >
-          {formatDeadline(deadline)}
+      {!started && !manage && start ? (
+        // The student's locked row answers "when does it open?", not "when is
+        // it due?" — muted throughout (urgency is a deadline concept).
+        <span className="whitespace-nowrap font-mono text-muted-foreground text-xs tabular-nums">
+          starts {formatDeadline(start)} · {relativeLabel(start)}
         </span>
-        <span
-          className={cn(
-            "font-mono text-xs",
-            urgent ? "text-brand/60" : "text-muted-foreground/60",
-          )}
-        >
-          ·
+      ) : (
+        /* Urgent deadlines light up the whole cell — date included. */
+        <span className="flex items-baseline gap-1.5 whitespace-nowrap">
+          <span
+            className={cn(
+              "font-mono text-xs tabular-nums",
+              urgent ? "font-medium text-brand" : "text-muted-foreground",
+            )}
+          >
+            {formatDeadline(deadline)}
+          </span>
+          <span
+            className={cn(
+              "font-mono text-xs",
+              urgent ? "text-brand/60" : "text-muted-foreground/60",
+            )}
+          >
+            ·
+          </span>
+          <DeadlineText deadline={deadline} />
         </span>
-        <DeadlineText deadline={deadline} />
-      </span>
+      )}
     </>
   );
+
+  if (!started && !manage) {
+    // Nothing behind the row a student may act on — not a link, dimmed.
+    return (
+      <div
+        aria-disabled="true"
+        title="This lab hasn't started yet"
+        className={cn(LAB_GRID, "border-border border-b py-2.5 opacity-60")}
+      >
+        {cells}
+      </div>
+    );
+  }
 
   const row = (
     <Link

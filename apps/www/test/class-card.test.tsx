@@ -16,6 +16,7 @@ const lab = {
   classId: "c1",
   title: "Lab 1 — TCP sockets",
   deadline: "2099-08-01T23:59:00.000Z",
+  startAt: null,
   groupMode: "group" as const,
   minMembers: 2,
   maxMembers: 3,

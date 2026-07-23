@@ -20,6 +20,13 @@ const THIS_YEAR = new Intl.DateTimeFormat("en-GB", {
   minute: "2-digit",
 });
 
+/** Whether the lab is open to students — mirrors the API's `labStarted`
+ *  (apps/api/src/lib/groups.ts); the server verdict is authoritative, this
+ *  only drives rendering. No start date = open since creation. */
+export function labStarted(lab: { startAt?: string | null }): boolean {
+  return !lab.startAt || new Date(lab.startAt).getTime() <= Date.now();
+}
+
 export function formatDeadline(deadline: Date): string {
   const format =
     deadline.getFullYear() === new Date().getFullYear() ? THIS_YEAR : WITH_YEAR;

@@ -25,8 +25,10 @@ export function isDeadlineUrgent(deadline: Date) {
  *  under an hour ("in 42 min"), hours + minutes under a day ("in 3h 30m"),
  *  whole days beyond ("in 3 days"). The exact moment sits beside it. Minutes
  *  are rounded up so a future deadline never reads "in 0 min" and the label
- *  only says "closed" once the time is genuinely reached. */
-function deadlineLabel(ms: number) {
+ *  only says "closed" once the time is genuinely reached. Exported for the
+ *  locked lab row's "starts …" countdown, which shares the vocabulary. */
+export function relativeLabel(date: Date) {
+  const ms = msUntil(date);
   if (ms <= 0) return "closed";
   const totalMins = Math.ceil(ms / MINUTE);
   if (totalMins < MINS_PER_HOUR) return `in ${totalMins} min`;
@@ -46,7 +48,7 @@ function deadlineLabel(ms: number) {
  * exactly when a teacher must act.
  */
 export function DeadlineText({ deadline }: { deadline: Date }) {
-  const label = deadlineLabel(msUntil(deadline));
+  const label = relativeLabel(deadline);
 
   return (
     <span
