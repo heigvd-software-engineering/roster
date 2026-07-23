@@ -687,3 +687,25 @@ test("unlink-repo unlocks deletion: the group can then be deleted", async () => 
   expect(del.status).toBe(200);
   expect(await db.select().from(groups)).toHaveLength(0);
 });
+
+// --- the start gate (membership frozen before the lab opens) ---
+
+test("join is refused before the lab starts", async () => {
+  await seedLab("l1", { startAt: new Date("2098-01-01T08:00:00Z") });
+  await seedGroup({ id: "g1", labId: "l1" });
+  const res = await join();
+  expect(res.status).toBe(409);
+  expect(await res.json()).toEqual({ error: "not_started" });
+});
+
+test("leave is refused before the lab starts", async () => {
+  await seedLab("l1", { startAt: new Date("2098-01-01T08:00:00Z") });
+  await seedGroup({ id: "g1", labId: "l1", members: [alice] });
+  const res = await app.request(
+    "/api/classes/c1/groups/g1/membership",
+    { method: "DELETE" },
+    env,
+  );
+  expect(res.status).toBe(409);
+  expect(await res.json()).toEqual({ error: "not_started" });
+});

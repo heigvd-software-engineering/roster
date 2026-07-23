@@ -3,7 +3,12 @@ import { eq } from "drizzle-orm";
 import { authedFactory } from "../factory";
 import { findGroupInClass, resolveClassAsMember } from "../lib/class-scope";
 import { cachedRoster } from "../lib/group-members";
-import { alreadyInLabGroup, checkRepoExists, labMax } from "../lib/groups";
+import {
+  alreadyInLabGroup,
+  checkRepoExists,
+  labMax,
+  labStarted,
+} from "../lib/groups";
 
 type Db = ReturnType<typeof getDb>;
 
@@ -47,6 +52,16 @@ export const joinGroup = authedFactory.createHandlers(async (c) => {
   const group = await findGroupInClass(access, c.req.param("groupId"));
   if (!group) return c.json({ error: "not_found" }, 404);
 
+  const [lab] = await access.db
+    .select()
+    .from(labs)
+    .where(eq(labs.id, group.labId));
+  // The start gate comes first: before the lab opens, membership is frozen
+  // for students — a teacher may pre-form groups (escape hatch), and
+  // students must not reshape them early. Teachers manage top-down.
+  if (lab && !access.isTeacher && !labStarted(lab)) {
+    return c.json({ error: "not_started" }, 409);
+  }
   // The repo lock (same vocabulary as delete): joining a team means push on
   // its work repo — once that repo exists, only the teacher moves people.
   if (isLocked(group)) {
@@ -59,10 +74,6 @@ export const joinGroup = authedFactory.createHandlers(async (c) => {
   }
   // The size cap: the UI hides Join on full groups, but the API is the
   // boundary — a direct request must not oversize the group either.
-  const [lab] = await access.db
-    .select()
-    .from(labs)
-    .where(eq(labs.id, group.labId));
   if (lab && (await cachedRoster(access.db, group.id)).length >= labMax(lab)) {
     return c.json({ error: "group_full" }, 409);
   }
@@ -87,6 +98,14 @@ export const leaveGroup = authedFactory.createHandlers(async (c) => {
   const group = await findGroupInClass(access, c.req.param("groupId"));
   if (!group) return c.json({ error: "not_found" }, 404);
 
+  // Same start gate as join: membership is frozen until the lab opens.
+  const [lab] = await access.db
+    .select()
+    .from(labs)
+    .where(eq(labs.id, group.labId));
+  if (lab && !access.isTeacher && !labStarted(lab)) {
+    return c.json({ error: "not_started" }, 409);
+  }
   if (isLocked(group)) {
     return c.json({ error: "has_repo" }, 409);
   }
