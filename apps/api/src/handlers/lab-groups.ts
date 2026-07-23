@@ -22,6 +22,7 @@ import {
   createWorkRepo,
   groupsWithRosters,
   regrantWorkRepo,
+  resolveRepoStatuses,
   reuseBlocker,
 } from "../lib/groups";
 import { profilesByGithubId } from "../lib/identity";
@@ -132,6 +133,7 @@ export const listLabGroups = authedFactory.createHandlers(async (c) => {
     string,
     { pushedAt: string | null; createdAt: string | null }
   >();
+  let activityFetched = false;
   if (out.some((g) => g.repoFullName)) {
     try {
       activity = await orgRepoActivity(
@@ -139,17 +141,31 @@ export const listLabGroups = authedFactory.createHandlers(async (c) => {
         access.cls.installationId,
         access.org,
       );
+      activityFetched = true;
     } catch {}
   }
-  const groupsOut = out.map((g) => ({
-    ...g,
-    pushedAt: g.repoFullName
-      ? (activity.get(g.repoFullName)?.pushedAt ?? null)
-      : null,
-    repoCreatedAt: g.repoFullName
-      ? (activity.get(g.repoFullName)?.createdAt ?? null)
-      : null,
-  }));
+  // A linked repo absent from that listing is a SUSPECT (deleted directly on
+  // GitHub, or renamed — the listing can't tell which): confirmed per suspect
+  // below. Gated on the listing itself having succeeded — an empty `activity`
+  // from a failed fetch must never read as "every repo is gone".
+  const repoStatuses = activityFetched
+    ? await resolveRepoStatuses(c.env, access, rows, new Set(activity.keys()))
+    : new Map<string, { status: "ok" | "missing"; repoFullName: string }>();
+  const groupsOut = out.map((g) => {
+    const resolved = g.repoFullName ? repoStatuses.get(g.id) : undefined;
+    const repoFullName = resolved?.repoFullName ?? g.repoFullName;
+    return {
+      ...g,
+      repoFullName,
+      repoStatus: resolved?.status ?? ("ok" as const),
+      pushedAt: repoFullName
+        ? (activity.get(repoFullName)?.pushedAt ?? null)
+        : null,
+      repoCreatedAt: repoFullName
+        ? (activity.get(repoFullName)?.createdAt ?? null)
+        : null,
+    };
+  });
 
   // Active students AND teachers, each with their state: the "without a
   // group" strip shows only students, but the teacher's add-picker must be

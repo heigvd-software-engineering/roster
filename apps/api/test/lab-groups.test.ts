@@ -29,6 +29,9 @@ const state = vi.hoisted(() => ({
     string,
     { pushedAt: string | null; createdAt: string | null }
   >,
+  // Make the org-repos LISTING itself fail (rate limit, outage) — distinct
+  // from a repo simply being absent from it.
+  activityFails: false,
   // Repo names ALREADY in the org — creating them 422s. `visible` says whether
   // the App installation can then read the repo back (adoption) or not.
   orgRepos: {} as Record<string, { visible: boolean }>,
@@ -140,7 +143,12 @@ vi.mock("../src/lib/github/repo", async (importOriginal) => {
       }
       state.grants.push({ team, repo });
     },
-    orgRepoActivity: async () => new Map(Object.entries(state.activity)),
+    orgRepoActivity: async () => {
+      if (state.activityFails) {
+        throw Object.assign(new Error("rate limited"), { status: 403 });
+      }
+      return new Map(Object.entries(state.activity));
+    },
   };
 });
 
@@ -305,6 +313,7 @@ beforeEach(async () => {
   state.membership = { state: "active", role: "member" };
   state.rosters = {};
   state.activity = {};
+  state.activityFails = false;
   state.orgRepos = {};
   state.templateGone = false;
   state.grants = [];
@@ -627,6 +636,60 @@ test("lists only THIS lab's groups, with roster + repo + activity", async () => 
     repoCreatedAt: "2099-01-15T00:00:00Z",
   });
   expect(body.groups[0]?.members).toEqual([alice, bob]);
+});
+
+test("a repo absent from the org listing AND a confirmed 404 is reported missing", async () => {
+  await seedLab({ id: "l1" });
+  await seedGroup({ id: "g1", labId: "l1", name: "A", repo: true });
+  // Not in state.activity (absent from the bulk listing) and not in
+  // state.orgRepos either → getOrgRepo's confirm call 404s.
+
+  const res = await app.request("/api/classes/c1/labs/l1/groups", {}, env);
+  const body = (await res.json()) as {
+    groups: Array<{ repoFullName: string | null; repoStatus: string }>;
+  };
+  expect(body.groups[0]).toMatchObject({
+    repoFullName: "acme/g1",
+    repoStatus: "missing",
+  });
+  const [row] = await db.select().from(groups).where(eq(groups.id, "g1"));
+  expect(row?.ghRepoFullName).toBe("acme/g1"); // untouched until Unlink
+});
+
+test("a repo absent from the listing but found under a NEW name (renamed) heals silently", async () => {
+  await seedLab({ id: "l1" });
+  await seedGroup({ id: "g1", labId: "l1", name: "A", repo: true }); // ghRepoFullName: acme/g1
+  // Not in state.activity, but the confirm call (by group.slug, "l1-g1")
+  // finds it — under a DIFFERENT full name than what's stored.
+  state.orgRepos["l1-g1"] = { visible: true };
+
+  const res = await app.request("/api/classes/c1/labs/l1/groups", {}, env);
+  const body = (await res.json()) as {
+    groups: Array<{ repoFullName: string | null; repoStatus: string }>;
+  };
+  expect(body.groups[0]).toMatchObject({
+    repoFullName: "acme/l1-g1",
+    repoStatus: "ok",
+  });
+  const [row] = await db.select().from(groups).where(eq(groups.id, "g1"));
+  expect(row?.ghRepoFullName).toBe("acme/l1-g1"); // healed, not just in the response
+});
+
+test("a failed org-listing fetch never reports a repo as missing", async () => {
+  await seedLab({ id: "l1" });
+  await seedGroup({ id: "g1", labId: "l1", name: "A", repo: true });
+  state.activityFails = true;
+
+  const res = await app.request("/api/classes/c1/labs/l1/groups", {}, env);
+  const body = (await res.json()) as {
+    groups: Array<{ repoFullName: string | null; repoStatus: string }>;
+  };
+  expect(body.groups[0]).toMatchObject({
+    repoFullName: "acme/g1",
+    repoStatus: "ok",
+  });
+  const [row] = await db.select().from(groups).where(eq(groups.id, "g1"));
+  expect(row?.ghRepoFullName).toBe("acme/g1"); // never touched
 });
 
 // --- the merged head (lab + class + role + membership state) ---

@@ -2,6 +2,7 @@ import { Download, Search, UserPlus, X } from "lucide-react";
 import { Fragment, useState } from "react";
 import {
   GroupMembers,
+  MissingRepoBadge,
   RepoLink,
 } from "~/components/custom/classes/groups/shared/group-tile";
 import { NewGroupDialog } from "~/components/custom/classes/groups/shared/new-group-dialog";
@@ -412,7 +413,15 @@ function GroupRow({
         </TableCell>
         <TableCell>
           {repo ? (
-            <RepoLink fullName={repo} />
+            <Row gap="xs" align="center">
+              <RepoLink fullName={repo} />
+              {group.repoStatus === "missing" ? (
+                <MissingRepoBadge
+                  onUnlink={() => g.unlinkRepo(group.id)}
+                  busy={g.busy}
+                />
+              ) : null}
+            </Row>
           ) : status === "no_repo" ? (
             // Same confirm gate as the batch toolbar button: creating the
             // repo LOCKS the group, one click shouldn't do that silently.

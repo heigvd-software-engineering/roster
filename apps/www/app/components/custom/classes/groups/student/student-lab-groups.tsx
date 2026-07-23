@@ -63,6 +63,7 @@ export function StudentLabGroups({
         ? [{ id: github.id, login: github.login, avatarUrl: github.avatarUrl }]
         : [],
       repoFullName: null,
+      repoStatus: "ok" as const,
       pushedAt: null,
       repoCreatedAt: null,
     };
@@ -93,6 +94,7 @@ export function StudentLabGroups({
               mode="individual"
               accepted={mine !== undefined}
               repoFullName={repo}
+              repoStatus={mine?.repoStatus}
               busy={g.busy}
               onAccept={() => g.acceptIndividual()}
               onCreate={() => mine && g.createRepo(mine.id)}
@@ -155,6 +157,7 @@ export function StudentLabGroups({
               <div className="lg:col-span-2">
                 <StartLabCard
                   repoFullName={g.repoFor(mine.id)}
+                  repoStatus={mine.repoStatus}
                   busy={g.busy}
                   onCreate={() => g.createRepo(mine.id)}
                 />
