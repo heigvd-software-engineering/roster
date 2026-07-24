@@ -25,8 +25,6 @@ const lab = {
   createdByUserId: "u1",
   createdAt: "1970-01-01T00:00:00.000Z",
   updatedAt: "1970-01-01T00:00:00.000Z",
-  groupsCount: 9,
-  reposCount: 7,
 };
 
 function renderCard() {
@@ -119,13 +117,12 @@ describe("ClassCard labs (F6)", () => {
     expect(screen.getByRole("button", { name: "New lab" })).toBeInTheDocument();
   });
 
-  it("shows the lab's date range and the repo tally", () => {
+  it("shows the lab's date range and its status word", () => {
     renderCard();
-    // The timeline's label line: start → deadline, plus the DB-derived
-    // repo tally (never a GitHub call).
+    // The timeline's meta line (start → deadline) and the one status slot.
     const range = `${formatDay(new Date(lab.startAt))} → ${formatDay(new Date(lab.deadline))}`;
     expect(screen.getByText(new RegExp(range))).toBeInTheDocument();
-    expect(screen.getByText(/7\/9 repos/)).toBeInTheDocument();
+    expect(screen.getByText("not started")).toBeInTheDocument();
   });
 });
 

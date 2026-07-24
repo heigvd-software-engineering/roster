@@ -135,7 +135,7 @@ export function ClassCard({
 
       {/* The labs timeline — sectioned off by a hairline, not a nested box. */}
       <div className="w-full overflow-x-auto border-border border-t">
-        <div className="min-w-[720px]">
+        <div className="min-w-[760px]">
           {labs.length === 0 ? (
             <Text variant="body2" className="px-5 py-3">
               No labs yet — use "New lab" above.

@@ -1,5 +1,5 @@
-import { GitBranch, Lock } from "lucide-react";
-import type { ReactNode } from "react";
+import { Check, Lock } from "lucide-react";
+import type { CSSProperties, ReactNode } from "react";
 import { Link } from "react-router";
 import {
   isDeadlineUrgent,
@@ -29,15 +29,14 @@ import { cn } from "~/lib/utils";
  *
  * Three states, derived per render from the clock alone:
  *   done     deadline passed — dimmed, muted bar, ✓;
- *   running  started and not due — teal bar, elapsed fill, SONAR on the
- *            deadline end (the thing approaching you);
+ *   running  started and not due — teal bar, elapsed fill; the label's
+ *            status dot pulses (the chart's one animation);
  *   locked   before startAt — amber hatch; for students the row is not a
- *            link and the starter-code pill/seed are hidden, exactly the
+ *            link and the starter-code chip is hidden, exactly the
  *            locked-row semantics the old LabRow carried.
  *
- * NO GitHub calls behind any of this: bars and statuses are clock math, and
- * the teacher's "x/y repos" tally is a DB aggregate riding on the classes
- * response. Push-based standing (late, last push) stays on the lab pages.
+ * NO GitHub calls behind any of this: bars and statuses are clock math.
+ * Push-based standing (late, last push) stays on the lab pages.
  */
 
 /** A lab's place on the axis starts when students can act on it. */
@@ -46,29 +45,32 @@ const effectiveStart = (lab: HubLabItem) =>
 
 const monthStart = (year: number, month: number) => new Date(year, month, 1);
 
-/** The chart's span is an INPUT — the semester, or the labs' own dates:
- *  the caller decides (see `timelineSpan` in lib/semester.ts). */
+/** The chart's span is an INPUT — the caller decides (see `timelineSpan`
+ *  in lib/semester.ts: the labs' own dates). */
 export type TimelineSpan = { start: Date; end: Date };
 
-/** The axis: the span padded to month edges, plus every month boundary in
- *  between (the gridlines and their labels). An end already sitting on a
- *  month boundary stays put — no phantom empty month. */
+/** The axis: EXACTLY the span — the earliest effective start to the last
+ *  deadline, no month padding on either side, so the first bar begins at
+ *  the chart's left edge and the last ends at its right. `months` holds
+ *  every month boundary that falls INSIDE the axis (the gridlines and
+ *  their labels); the partial months at the edges have no boundary of
+ *  their own, which is the point. */
 function buildAxis(span: TimelineSpan) {
-  const start = monthStart(span.start.getFullYear(), span.start.getMonth());
-  const endFloor = monthStart(span.end.getFullYear(), span.end.getMonth());
-  const end =
-    endFloor.getTime() === span.end.getTime()
-      ? endFloor
-      : monthStart(span.end.getFullYear(), span.end.getMonth() + 1);
+  const start = span.start.getTime();
+  const end = span.end.getTime();
+  let first = monthStart(span.start.getFullYear(), span.start.getMonth());
+  if (first.getTime() < start) {
+    first = monthStart(first.getFullYear(), first.getMonth() + 1);
+  }
   const months: Date[] = [];
   for (
-    let m = start;
-    m < end;
+    let m = first;
+    m.getTime() < end;
     m = monthStart(m.getFullYear(), m.getMonth() + 1)
   ) {
     months.push(m);
   }
-  return { start: start.getTime(), end: end.getTime(), months };
+  return { start, end, months };
 }
 
 type Axis = ReturnType<typeof buildAxis>;
@@ -89,7 +91,7 @@ const stateOf = (lab: HubLabItem): LabState =>
       : "running";
 
 /** Label column width — the one number the axis overlay and every row share. */
-const LABEL_W = "280px";
+const LABEL_W = "320px";
 
 export function LabsTimeline({
   labs,
@@ -98,11 +100,11 @@ export function LabsTimeline({
   action,
 }: {
   labs: HubLabItem[];
-  /** The chart's date span — computed by the CALLER (semester vs the labs'
-   *  own dates); bars outside it clamp to the edges. */
+  /** The chart's date span — computed by the CALLER (see `timelineSpan`);
+   *  bars outside it clamp to the edges. */
   span: TimelineSpan;
   /** Teacher framing: rows link to /manage, locked rows stay clickable,
-   *  starter pills survive the lock, and the repo tally shows. */
+   *  and the starter-code chip survives the lock. */
   manage?: boolean;
   /** Per-row trailing control (the teacher's edit pencil). */
   action?: (lab: HubLabItem) => ReactNode;
@@ -117,49 +119,9 @@ export function LabsTimeline({
 
   return (
     <div className="px-7 pt-[30px] pb-[18px]">
-      {/* Month labels above the chart, aligned to the track column. */}
-      <div
-        className="relative mb-2.5 h-[18px]"
-        style={{ marginLeft: LABEL_W, marginRight: trackRight }}
-      >
-        {axis.months.map((m) => (
-          <i
-            key={m.getTime()}
-            className="-translate-x-1/2 absolute top-0 font-mono text-[10.5px] text-muted-foreground uppercase not-italic tracking-[0.12em]"
-            style={{ left: `${pct(axis, m.getTime())}%` }}
-          >
-            {m.toLocaleString("en-GB", { month: "short" })}
-          </i>
-        ))}
-      </div>
-
+      <MonthLabels axis={axis} right={trackRight} />
       <div className="relative">
-        {/* One continuous grid behind every row: strong month lines, faint
-            mid-month lines. */}
-        <div
-          aria-hidden
-          className="absolute inset-y-0"
-          style={{ left: LABEL_W, right: trackRight }}
-        >
-          {axis.months.map((m) => {
-            const next = monthStart(m.getFullYear(), m.getMonth() + 1);
-            const mid = (m.getTime() + next.getTime()) / 2;
-            return (
-              <span key={m.getTime()}>
-                <i
-                  className="absolute inset-y-0 w-px bg-foreground/10"
-                  style={{ left: `${pct(axis, m.getTime())}%` }}
-                />
-                <i
-                  className="absolute inset-y-0 w-px bg-foreground/5"
-                  style={{ left: `${pct(axis, mid)}%` }}
-                />
-              </span>
-            );
-          })}
-          <i className="absolute inset-y-0 right-0 w-px bg-foreground/10" />
-        </div>
-
+        <MonthGrid axis={axis} right={trackRight} />
         {rows.map((lab, i) => (
           <TimelineRow
             key={lab.id}
@@ -170,23 +132,83 @@ export function LabsTimeline({
             action={action}
           />
         ))}
-
-        {/* Today, cutting through every row. */}
-        {/* The visible "now · date" text inside labels this for everyone. */}
         {nowPct !== null ? (
-          <div
-            className="absolute top-[22px] bottom-2 z-10 w-[1.5px] bg-role-enrolled"
-            style={{
-              left: `calc(${LABEL_W} + (100% - ${LABEL_W} - ${trackRight}) * ${nowPct / 100})`,
-            }}
-          >
-            <span className="-top-[5px] -translate-x-1/2 absolute left-1/2 size-2 rounded-full bg-role-enrolled" />
-            <span className="-top-[26px] -translate-x-1/2 absolute left-1/2 whitespace-nowrap font-mono font-bold text-[10px] text-role-enrolled uppercase tracking-[0.12em]">
-              now · {formatDay(new Date())}
-            </span>
-          </div>
+          <NowLine leftPct={nowPct} right={trackRight} />
         ) : null}
       </div>
+    </div>
+  );
+}
+
+/** The month names above the chart, aligned to the track column. */
+function MonthLabels({ axis, right }: { axis: Axis; right: string }) {
+  return (
+    <div
+      className="relative mb-2.5 h-[18px]"
+      style={{ marginLeft: LABEL_W, marginRight: right }}
+    >
+      {axis.months.map((m) => (
+        <i
+          key={m.getTime()}
+          className="-translate-x-1/2 absolute top-0 font-mono text-[10.5px] text-muted-foreground uppercase not-italic tracking-[0.12em]"
+          style={{ left: `${pct(axis, m.getTime())}%` }}
+        >
+          {m.toLocaleString("en-GB", { month: "short" })}
+        </i>
+      ))}
+    </div>
+  );
+}
+
+/** One continuous grid behind every row: a strong line on each month
+ *  boundary, a faint one mid-month, and the axis's right border. */
+function MonthGrid({ axis, right }: { axis: Axis; right: string }) {
+  return (
+    <div
+      aria-hidden
+      className="absolute inset-y-0"
+      style={{ left: LABEL_W, right }}
+    >
+      {axis.months.map((m) => {
+        const next = monthStart(m.getFullYear(), m.getMonth() + 1);
+        const mid = (m.getTime() + next.getTime()) / 2;
+        return (
+          <span key={m.getTime()}>
+            <i
+              className="absolute inset-y-0 w-px bg-foreground/10"
+              style={{ left: `${pct(axis, m.getTime())}%` }}
+            />
+            {/* The last month may be PARTIAL (the axis ends at the last
+                deadline) — a midpoint past the end would clamp onto the
+                right border; skip it. */}
+            {mid < axis.end ? (
+              <i
+                className="absolute inset-y-0 w-px bg-foreground/5"
+                style={{ left: `${pct(axis, mid)}%` }}
+              />
+            ) : null}
+          </span>
+        );
+      })}
+      <i className="absolute inset-y-0 right-0 w-px bg-foreground/10" />
+    </div>
+  );
+}
+
+/** Today, cutting through every row — dot head, mono caps "now · date"
+ *  (the label names the line for everyone; there is no tooltip). */
+function NowLine({ leftPct, right }: { leftPct: number; right: string }) {
+  return (
+    <div
+      className="absolute top-[22px] bottom-2 z-10 w-[1.5px] bg-role-enrolled"
+      style={{
+        left: `calc(${LABEL_W} + (100% - ${LABEL_W} - ${right}) * ${leftPct / 100})`,
+      }}
+    >
+      <span className="-top-[5px] -translate-x-1/2 absolute left-1/2 size-2 rounded-full bg-role-enrolled" />
+      <span className="-top-[26px] -translate-x-1/2 absolute left-1/2 whitespace-nowrap font-mono font-bold text-[10px] text-role-enrolled uppercase tracking-[0.12em]">
+        now · {formatDay(new Date())}
+      </span>
     </div>
   );
 }
@@ -208,148 +230,27 @@ function TimelineRow({
   // The bar's left edge is the TRUTH: an explicit start when declared,
   // else the moment the lab appeared (it could not be worked on earlier).
   // The bar's tooltip names which of the two it is.
-  const start = effectiveStart(lab);
-  const deadline = Date.parse(lab.deadline);
-  const startPct = pct(axis, start);
-  const endPct = pct(axis, deadline);
-  const width = Math.max(endPct - startPct, 1.5);
-  const urgent = isDeadlineUrgent(new Date(lab.deadline));
-  // The seed/pill hide from students while locked: the template's NAME
-  // (e.g. lab1-solution) is the leak the start gate exists to prevent.
-  const showStarter =
-    lab.templateRepoFullName !== null && (state !== "locked" || manage);
+  const startPct = pct(axis, effectiveStart(lab));
+  const endPct = pct(axis, Date.parse(lab.deadline));
+  const bar = {
+    lab,
+    leftPct: startPct,
+    widthPct: Math.max(endPct - startPct, 1.5),
+  };
 
   const cells = (
     <>
-      {/* ---- label column ---- */}
-      <div className="min-w-0 pr-5">
-        <div className="flex min-w-0 items-center gap-2">
-          <span
-            className={cn(
-              "truncate font-medium text-sm",
-              state === "done" && "opacity-55",
-              state === "locked" && "text-muted-foreground",
-            )}
-          >
-            {lab.title}
-          </span>
-          {showStarter ? (
-            <span
-              title={lab.templateRepoFullName ?? undefined}
-              className="inline-flex shrink-0 items-center rounded-full bg-foreground/6 px-2 py-0.5 font-mono text-[9.5px] text-muted-foreground uppercase tracking-[0.12em]"
-            >
-              starter code
-            </span>
-          ) : null}
-          {state === "locked" && lab.startAt ? (
-            <span className="inline-flex shrink-0 items-center rounded-full bg-warning/10 px-2 py-0.5 font-mono text-[9.5px] text-warning uppercase tracking-[0.12em]">
-              starts {formatDay(new Date(lab.startAt))}
-            </span>
-          ) : null}
-        </div>
-        <div
-          className={cn(
-            "mt-0.5 font-mono text-[11px] text-muted-foreground tabular-nums",
-            state === "done" && "opacity-55",
-            state === "locked" && "text-warning",
-          )}
-        >
-          <span>{labModeLabel(lab)}</span>
-          {/* Only an EXPLICIT start earns range text — a null startAt means
-              the bar's left edge is merely the creation date, and printing
-              it would read as a chosen start the teacher never set. */}
-          <span>
-            {" "}
-            ·{" "}
-            {lab.startAt
-              ? `${formatDay(new Date(start))} → ${formatDay(new Date(deadline))}`
-              : `due ${formatDay(new Date(deadline))}`}
-          </span>
-          {manage && lab.groupsCount > 0 ? (
-            <span>
-              {" "}
-              · {lab.reposCount}/{lab.groupsCount} repos
-            </span>
-          ) : null}
-          {state === "locked" ? (
-            <span>
-              {" "}
-              ·{" "}
-              {manage
-                ? "hidden from students"
-                : `opens ${relativeLabel(new Date(start))}`}
-            </span>
-          ) : null}
-        </div>
-      </div>
-
-      {/* ---- track ---- */}
-      <div className="relative h-16">
-        <div
-          className={cn(
-            "-translate-y-1/2 absolute top-1/2 flex h-5 items-center rounded-full",
-            state === "done" && "bg-muted ring-1 ring-border ring-inset",
-            state === "running" &&
-              "bg-role-enrolled/15 ring-[1.5px] ring-role-enrolled ring-inset",
-            state === "locked" && "ring-[1.5px] ring-warning ring-inset",
-          )}
-          style={{
-            left: `${startPct}%`,
-            width: `${width}%`,
-            ...(state === "locked"
-              ? {
-                  backgroundImage:
-                    "repeating-linear-gradient(-45deg, color-mix(in oklab, var(--warning) 16%, transparent) 0 5px, transparent 5px 10px)",
-                }
-              : {}),
-          }}
-        >
-          {showStarter ? (
-            <span
-              aria-hidden
-              className={cn(
-                "-left-[5px] -translate-y-1/2 absolute top-1/2 grid size-3 place-items-center rounded-full bg-card ring-[1.5px]",
-                state === "locked"
-                  ? "text-warning ring-warning"
-                  : "text-muted-foreground ring-muted-foreground",
-              )}
-            >
-              <GitBranch className="size-2" />
-            </span>
-          ) : null}
-          {state === "running" ? (
-            <span
-              aria-hidden
-              className="absolute inset-0 origin-left rounded-full bg-role-enrolled opacity-20"
-              style={{
-                width: `${Math.min(100, Math.max(0, ((Date.now() - start) / (deadline - start)) * 100))}%`,
-              }}
-            />
-          ) : null}
-          {state === "done" ? (
-            <span className="mr-2 ml-auto text-[10px] text-muted-foreground">
-              ✓
-            </span>
-          ) : null}
-          {state === "locked" ? (
-            <Lock className="-translate-y-1/2 absolute top-1/2 left-2 size-2.5 text-warning" />
-          ) : null}
-          {state === "running" ? <SonarCap /> : null}
-          {/* LAST child on purpose: the fill/icons above would otherwise
-              paint over the hover surface and eat the tooltip. */}
-          <BarTooltip lab={lab} />
-        </div>
-        {state === "running" && endPct < 74 ? (
-          <span
-            className={cn(
-              "-translate-y-1/2 absolute top-1/2 whitespace-nowrap font-mono text-[10px] tabular-nums",
-              urgent ? "font-semibold text-brand" : "text-muted-foreground",
-            )}
-            style={{ left: `calc(${endPct}% + 10px)` }}
-          >
-            due {formatDay(new Date(deadline))} ·{" "}
-            {relativeLabel(new Date(deadline))}
-          </span>
+      <RowLabel lab={lab} state={state} manage={manage} />
+      <div className="relative h-[92px]">
+        {state === "done" ? (
+          <DoneBar {...bar} />
+        ) : state === "running" ? (
+          <RunningBar {...bar} />
+        ) : (
+          <LockedBar {...bar} />
+        )}
+        {state === "running" ? (
+          <DueAnnotation deadline={new Date(lab.deadline)} endPct={endPct} />
         ) : null}
       </div>
     </>
@@ -358,8 +259,8 @@ function TimelineRow({
   const rowClass = cn(
     "grid items-center",
     action
-      ? "grid-cols-[280px_minmax(0,1fr)_40px]"
-      : "grid-cols-[280px_minmax(0,1fr)]",
+      ? "grid-cols-[320px_minmax(0,1fr)_40px]"
+      : "grid-cols-[320px_minmax(0,1fr)]",
     !first && "border-foreground/5 border-t",
   );
 
@@ -391,19 +292,212 @@ function TimelineRow({
   );
 }
 
-/** The pulse on a running bar's deadline end — two staggered rings, calm
- *  cadence; a static halo when the user prefers reduced motion. */
-function SonarCap() {
+/**
+ * Label column: title / meta / status (design 2026-07-24). The label
+ * mirrors the edit form's fields — title, mode, the date range, the
+ * template chip — plus ONE derived status word. The range is the only
+ * date statement (no "starts" pill).
+ */
+function RowLabel({
+  lab,
+  state,
+  manage,
+}: {
+  lab: HubLabItem;
+  state: LabState;
+  manage: boolean;
+}) {
+  const start = effectiveStart(lab);
+  const deadline = Date.parse(lab.deadline);
+  // The chip hides from students while locked: the template's NAME
+  // (e.g. lab1-solution) is the leak the start gate exists to prevent.
+  const showStarter =
+    lab.templateRepoFullName !== null && (state !== "locked" || manage);
   return (
-    <span className="-right-1 -translate-y-1/2 absolute top-1/2 size-[9px] rounded-full bg-role-enrolled">
+    <div className="min-w-0 pr-5">
+      <div
+        className={cn(
+          "line-clamp-2 font-medium text-sm leading-snug",
+          state === "done" && "opacity-55",
+          state === "locked" && "text-muted-foreground",
+        )}
+      >
+        {lab.title}
+      </div>
+      <div
+        className={cn(
+          "mt-0.5 font-mono text-[11px] text-muted-foreground tabular-nums",
+          state === "done" && "opacity-55",
+        )}
+      >
+        <span>{labModeLabel(lab)}</span>
+        {/* Only an EXPLICIT start earns range text — a null startAt means
+            the bar's left edge is merely the creation date, and printing
+            it would read as a chosen start the teacher never set. */}
+        <span>
+          {" "}
+          ·{" "}
+          {lab.startAt
+            ? `${formatDay(new Date(start))} → ${formatDay(new Date(deadline))}`
+            : `due ${formatDay(new Date(deadline))}`}
+        </span>
+        {showStarter ? <StarterChip name={lab.templateRepoFullName} /> : null}
+      </div>
+      <RowStatus state={state} />
+    </div>
+  );
+}
+
+/** The template marker — full repo name on hover, never in the text. */
+function StarterChip({ name }: { name: string | null }) {
+  return (
+    <span
+      title={name ?? undefined}
+      className="ml-1.5 inline-flex items-center rounded-full bg-foreground/6 px-2 py-0.5 font-mono text-[9.5px] text-muted-foreground uppercase tracking-[0.12em]"
+    >
+      starter code
+    </span>
+  );
+}
+
+/** ONE status slot, one word per state — the same word for both roles:
+ *  the lab is never "hidden", students see it locked. */
+function RowStatus({ state }: { state: LabState }) {
+  return (
+    <div
+      className={cn(
+        "mt-1 flex items-center gap-1.5 font-mono text-[11px]",
+        state === "done" && "text-muted-foreground opacity-55",
+        state === "running" && "font-semibold text-role-enrolled",
+        state === "locked" && "font-semibold text-warning",
+      )}
+    >
+      {state === "done" ? (
+        <>
+          <Check className="size-3" /> done
+        </>
+      ) : state === "running" ? (
+        <>
+          {/* The chart's one animation — a calm ping on the status dot;
+              static under prefers-reduced-motion. */}
+          <span className="relative size-[7px] rounded-full bg-role-enrolled">
+            <span
+              aria-hidden
+              className="absolute inset-[-1px] animate-ping rounded-full border border-role-enrolled [animation-duration:2.6s] motion-reduce:hidden"
+            />
+          </span>{" "}
+          in progress
+        </>
+      ) : (
+        <>
+          <Lock className="size-3" /> not started
+        </>
+      )}
+    </div>
+  );
+}
+
+type BarProps = { lab: HubLabItem; leftPct: number; widthPct: number };
+
+/** The shared bar shell: the pill positioned on the axis, its tooltip as
+ *  the LAST child (overlays painted before it can't eat the hover). The
+ *  state components style and fill it. */
+function Bar({
+  lab,
+  leftPct,
+  widthPct,
+  className,
+  style,
+  children,
+}: BarProps & {
+  className: string;
+  style?: CSSProperties;
+  children?: ReactNode;
+}) {
+  return (
+    <div
+      className={cn(
+        "-translate-y-1/2 absolute top-1/2 flex h-[26px] items-center rounded-full",
+        className,
+      )}
+      style={{ left: `${leftPct}%`, width: `${widthPct}%`, ...style }}
+    >
+      {children}
+      <BarTooltip lab={lab} />
+    </div>
+  );
+}
+
+/** Done: a quiet muted pill, ✓ at the deadline end. */
+function DoneBar(props: BarProps) {
+  return (
+    <Bar {...props} className="bg-muted ring-1 ring-border ring-inset">
+      <span className="mr-2 ml-auto text-[10px] text-muted-foreground">✓</span>
+    </Bar>
+  );
+}
+
+/** Running: teal pill with the elapsed share filled up to "now" — flat on
+ *  its leading edge (only the bar's own caps are round). */
+function RunningBar(props: BarProps) {
+  const start = effectiveStart(props.lab);
+  const deadline = Date.parse(props.lab.deadline);
+  const elapsedPct = Math.min(
+    100,
+    Math.max(0, ((Date.now() - start) / (deadline - start)) * 100),
+  );
+  return (
+    <Bar
+      {...props}
+      className="bg-role-enrolled/15 ring-[1.5px] ring-role-enrolled ring-inset"
+    >
       <span
         aria-hidden
-        className="motion-reduce:!animate-none absolute inset-[-1px] animate-ping rounded-full border-[1.5px] border-role-enrolled [animation-duration:2.6s] motion-reduce:scale-[1.9] motion-reduce:opacity-30"
+        className="absolute inset-0 origin-left rounded-l-full bg-role-enrolled opacity-20"
+        style={{ width: `${elapsedPct}%` }}
       />
-      <span
-        aria-hidden
-        className="absolute inset-[-1px] animate-ping rounded-full border-[1.5px] border-role-enrolled [animation-delay:1.3s] [animation-duration:2.6s] motion-reduce:hidden"
-      />
+    </Bar>
+  );
+}
+
+/** Locked: amber hatch + lock — visibly "not yet", never just dimmed. */
+function LockedBar(props: BarProps) {
+  return (
+    <Bar
+      {...props}
+      className="ring-[1.5px] ring-warning ring-inset"
+      style={{
+        backgroundImage:
+          "repeating-linear-gradient(-45deg, color-mix(in oklab, var(--warning) 16%, transparent) 0 5px, transparent 5px 10px)",
+      }}
+    >
+      <Lock className="-translate-y-1/2 absolute top-1/2 left-2 size-3 text-warning" />
+    </Bar>
+  );
+}
+
+/** The floating "due … · in N d" right of a running bar — brand-red when
+ *  urgent; suppressed when the bar ends too close to the chart's edge to
+ *  fit it (the bar's tooltip still carries the date). */
+function DueAnnotation({
+  deadline,
+  endPct,
+}: {
+  deadline: Date;
+  endPct: number;
+}) {
+  if (endPct >= 74) return null;
+  return (
+    <span
+      className={cn(
+        "-translate-y-1/2 absolute top-1/2 whitespace-nowrap font-mono text-[10px] tabular-nums",
+        isDeadlineUrgent(deadline)
+          ? "font-semibold text-brand"
+          : "text-muted-foreground",
+      )}
+      style={{ left: `calc(${endPct}% + 10px)` }}
+    >
+      due {formatDay(deadline)} · {relativeLabel(deadline)}
     </span>
   );
 }

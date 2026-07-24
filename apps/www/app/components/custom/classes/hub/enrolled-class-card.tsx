@@ -117,7 +117,7 @@ export function EnrolledClassCard({ cls }: { cls: EnrolledClassItem }) {
       </Row>
 
       <div className="w-full overflow-x-auto border-border border-t">
-        <div className="min-w-[720px]">
+        <div className="min-w-[760px]">
           {cls.labs.length === 0 ? (
             <Text variant="body2" className="px-5 py-3">
               No labs yet.

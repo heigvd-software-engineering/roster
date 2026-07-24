@@ -21,8 +21,6 @@ const base = {
   groupMode: "group",
   createdByUserId: "u1",
   updatedAt: "2026-01-01T00:00:00.000Z",
-  groupsCount: 0,
-  reposCount: 0,
 };
 
 // Anchored around "today" so states derive live from the clock, like the app.
@@ -36,8 +34,6 @@ const doneLab = {
   createdAt: at(-60),
   startAt: at(-58),
   deadline: at(-30),
-  groupsCount: 9,
-  reposCount: 9,
 } as HubLabItem;
 const runningLab = {
   ...base,
@@ -48,8 +44,6 @@ const runningLab = {
   deadline: at(20),
   templateRepoId: 7,
   templateRepoFullName: "acme/lab1-solution",
-  groupsCount: 9,
-  reposCount: 7,
 } as HubLabItem;
 const lockedLab = {
   ...base,
@@ -81,15 +75,23 @@ describe("LabsTimeline", () => {
     ]);
   });
 
-  it("marks today and pulses only the running lab", () => {
+  it("gives every state its one status word", () => {
+    render(<LabsTimeline labs={labs} span={span} />);
+    expect(screen.getByText("done")).toBeInTheDocument();
+    expect(screen.getByText("in progress")).toBeInTheDocument();
+    expect(screen.getByText("not started")).toBeInTheDocument();
+  });
+
+  it("marks today and pulses only the running lab's status dot", () => {
     const { container } = render(<LabsTimeline labs={labs} span={span} />);
     expect(screen.getByText(/now ·/)).toBeInTheDocument();
-    // One sonar cap (two rings) — on the running bar, nowhere else.
-    expect(container.querySelectorAll(".animate-ping")).toHaveLength(2);
+    // ONE ping ring — on the in-progress status dot, nowhere else (the bar
+    // itself carries no animation).
+    expect(container.querySelectorAll(".animate-ping")).toHaveLength(1);
     expect(screen.getByText(/due/)).toBeInTheDocument();
   });
 
-  it("locks the future lab for students: no link, no starter leak, a starts pill", () => {
+  it("locks the future lab for students: no link, no starter leak", () => {
     render(<LabsTimeline labs={labs} span={span} />);
     const links = screen.getAllByRole("link");
     // Done + running link to their lab pages; the locked lab does not.
@@ -101,15 +103,12 @@ describe("LabsTimeline", () => {
       screen.getByTitle("This lab hasn't started yet"),
     ).toBeInTheDocument();
     // The running lab's template shows; the locked lab's must not (its name
-    // is the leak the start gate prevents) — so exactly ONE starter pill.
+    // is the leak the start gate prevents) — so exactly ONE starter chip.
     expect(screen.getAllByText("starter code")).toHaveLength(1);
-    expect(screen.getByText(/starts/)).toBeInTheDocument();
-    expect(screen.getByText(/opens in/)).toBeInTheDocument();
-    // Students never see the repo tally.
-    expect(screen.queryByText(/repos/)).not.toBeInTheDocument();
+    expect(screen.getByText("not started")).toBeInTheDocument();
   });
 
-  it("keeps the teacher's locked row clickable, with both pills and the tally", () => {
+  it("keeps the teacher's locked row clickable, with both starter chips", () => {
     render(<LabsTimeline labs={labs} span={span} manage />);
     const links = screen.getAllByRole("link");
     expect(links.map((l) => l.getAttribute("href"))).toEqual([
@@ -118,9 +117,9 @@ describe("LabsTimeline", () => {
       "/classes/c1/labs/l3/manage",
     ]);
     expect(screen.getAllByText("starter code")).toHaveLength(2);
-    expect(screen.getByText(/hidden from students/)).toBeInTheDocument();
-    expect(screen.getByText(/7\/9 repos/)).toBeInTheDocument();
-    expect(screen.getByText(/9\/9 repos/)).toBeInTheDocument();
+    // Same status word as the student side — the lab is locked, not hidden.
+    expect(screen.getByText("not started")).toBeInTheDocument();
+    expect(screen.queryByText(/hidden/)).not.toBeInTheDocument();
   });
 
   it("keeps a truthful edge and labels by deadline only when no start is set", () => {
@@ -135,7 +134,6 @@ describe("LabsTimeline", () => {
       '[class*="ring-role-enrolled"]',
     ) as HTMLElement;
     expect(bar.style.left).not.toBe("0%");
-    expect(bar.style.maskImage).toBe("");
   });
 
   it("explains the bar's full span with one hover surface", () => {
