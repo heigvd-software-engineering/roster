@@ -164,7 +164,10 @@ export function LabDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={openChange}>
+    // NOT dismissible by outside press: date pickers invite clicking away
+    // to unfocus a field, and that must not eat a half-filled form. Cancel,
+    // the X, and Escape remain the deliberate ways out.
+    <Dialog open={open} onOpenChange={openChange} disablePointerDismissal>
       {lab ? (
         <DialogTrigger
           render={
@@ -194,7 +197,7 @@ export function LabDialog({
           New lab
         </DialogTrigger>
       )}
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-1">
             {lab ? "Edit lab" : "New lab"}
