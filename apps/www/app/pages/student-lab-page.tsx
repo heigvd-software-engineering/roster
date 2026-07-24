@@ -6,6 +6,7 @@ import { Page } from "~/components/custom/layout/page";
 import { Loading } from "~/components/custom/loading";
 import { Text } from "~/components/custom/typography/text";
 import { errorStatus } from "~/lib/api";
+import { formatDeadline, labStarted } from "~/lib/format";
 
 /**
  * /classes/:classId/labs/:labId — the STUDENT's lab page: accept the lab.
@@ -51,6 +52,13 @@ export function StudentLabPage() {
             <Text variant="body2">
               Accept your invitation on GitHub first — then you can accept this
               lab.
+            </Text>
+          ) : g.lab.startAt && !labStarted(g.lab) ? (
+            // The server already answers head-only pre-start; this is the
+            // matching face: what's next and when — nothing to act on yet.
+            <Text variant="body2">
+              This lab starts {formatDeadline(new Date(g.lab.startAt))} — you'll
+              be able to form groups and get the starter code then.
             </Text>
           ) : (
             <StudentLabGroups classId={classId} lab={g.lab} />

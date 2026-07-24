@@ -206,6 +206,7 @@ async function seedLab(args?: {
   minMembers?: number | null;
   maxMembers?: number | null;
   templateRepoFullName?: string;
+  startAt?: Date;
 }) {
   const id = args?.id ?? "l1";
   await db.insert(labs).values({
@@ -213,6 +214,7 @@ async function seedLab(args?: {
     classId: "c1",
     title: `Lab ${id}`, // distinct titles → distinct lab slugs
     deadline: new Date("2099-01-01"),
+    startAt: args?.startAt ?? null,
     groupMode: args?.groupMode ?? "group",
     minMembers: args?.minMembers ?? 1,
     maxMembers: args?.maxMembers ?? 3,
@@ -1033,4 +1035,96 @@ test("a lab from another class is unreachable", async () => {
     updatedAt: now,
   });
   expect((await createGroup("l9", { name: "X" })).status).toBe(404);
+});
+
+// --- the start gate (spec 2026-07-23: students act only once the lab opens) ---
+
+const FUTURE_START = new Date("2098-01-01T08:00:00Z"); // < the 2099 deadline
+
+test("a student cannot create a group before the lab starts", async () => {
+  await seedLab({ id: "l1", startAt: FUTURE_START });
+  const res = await app.request(
+    "/api/classes/c1/labs/l1/groups",
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "Alpha" }),
+    },
+    env,
+  );
+  expect(res.status).toBe(409);
+  expect(await res.json()).toEqual({ error: "not_started" });
+});
+
+test("a teacher creates groups before the start (the escape hatch)", async () => {
+  state.membership = { state: "active", role: "admin" };
+  await seedLab({ id: "l1", startAt: FUTURE_START });
+  const res = await app.request(
+    "/api/classes/c1/labs/l1/groups",
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "Alpha" }),
+    },
+    env,
+  );
+  expect(res.status).toBe(200);
+});
+
+test("a student cannot reach the repo before the start — even one a teacher pre-created", async () => {
+  await seedLab({ id: "l1", startAt: FUTURE_START });
+  await seedGroup({ id: "g1", labId: "l1", repo: true, members: [alice] });
+  const res = await app.request(
+    "/api/classes/c1/labs/l1/groups/g1/repo",
+    { method: "POST" },
+    env,
+  );
+  expect(res.status).toBe(409);
+  expect(await res.json()).toEqual({ error: "not_started" });
+});
+
+test("accept refuses an individual lab before the start", async () => {
+  await seedLab({ id: "l1", groupMode: "individual", startAt: FUTURE_START });
+  const res = await app.request(
+    "/api/classes/c1/labs/l1/accept",
+    { method: "POST" },
+    env,
+  );
+  expect(res.status).toBe(409);
+  expect(await res.json()).toEqual({ error: "not_started" });
+});
+
+test("a past start behaves exactly like no start", async () => {
+  await seedLab({ id: "l1", startAt: new Date("2000-01-01T00:00:00Z") });
+  const res = await app.request(
+    "/api/classes/c1/labs/l1/groups",
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "Alpha" }),
+    },
+    env,
+  );
+  expect(res.status).toBe(200);
+});
+
+test("a student's list is head-only before the start; the teacher's is full", async () => {
+  await seedLab({ id: "l1", startAt: FUTURE_START });
+  await seedGroup({ id: "g1", labId: "l1", name: "A", members: [alice] });
+
+  const student = await app.request("/api/classes/c1/labs/l1/groups", {}, env);
+  expect(student.status).toBe(200);
+  const sBody = (await student.json()) as {
+    lab: { startAt: string | null };
+    groups: unknown[];
+    students: unknown[];
+  };
+  expect(sBody.groups).toEqual([]);
+  expect(sBody.students).toEqual([]);
+  expect(sBody.lab.startAt).toBe("2098-01-01T08:00:00.000Z");
+
+  state.membership = { state: "active", role: "admin" };
+  const teacher = await app.request("/api/classes/c1/labs/l1/groups", {}, env);
+  const tBody = (await teacher.json()) as { groups: unknown[] };
+  expect(tBody.groups).toHaveLength(1);
 });

@@ -115,6 +115,58 @@ describe("LabDialog", () => {
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
   });
 
+  it("posts the start date and explains what it gates", async () => {
+    openDialog();
+    fireEvent.change(screen.getByLabelText("Title"), {
+      target: { value: "Lab 2" },
+    });
+    fireEvent.change(screen.getByLabelText("Deadline"), {
+      target: { value: "2099-08-01T23:59" },
+    });
+    fireEvent.change(screen.getByLabelText("Start (optional)"), {
+      target: { value: "2099-07-01T08:00" },
+    });
+    expect(
+      screen.getByText(/no access to the starter code/),
+    ).toBeInTheDocument();
+    labsPost.mockResolvedValue({ ok: true });
+    fireEvent.click(screen.getByRole("button", { name: "Create lab" }));
+    await waitFor(() => expect(labsPost).toHaveBeenCalled());
+    const arg = labsPost.mock.calls[0]?.[0] as { json: { startAt?: string } };
+    expect(arg.json.startAt).toBe(new Date("2099-07-01T08:00").toISOString());
+  });
+
+  it("omits startAt entirely when the field stays empty", async () => {
+    openDialog();
+    fireEvent.change(screen.getByLabelText("Title"), {
+      target: { value: "Lab 2" },
+    });
+    fireEvent.change(screen.getByLabelText("Deadline"), {
+      target: { value: "2099-08-01T23:59" },
+    });
+    labsPost.mockResolvedValue({ ok: true });
+    fireEvent.click(screen.getByRole("button", { name: "Create lab" }));
+    await waitFor(() => expect(labsPost).toHaveBeenCalled());
+    const arg = labsPost.mock.calls[0]?.[0] as {
+      json: Record<string, unknown>;
+    };
+    expect("startAt" in arg.json).toBe(false);
+  });
+
+  it("disables Create when the start is not before the deadline", async () => {
+    openDialog();
+    fireEvent.change(screen.getByLabelText("Title"), {
+      target: { value: "Lab 2" },
+    });
+    fireEvent.change(screen.getByLabelText("Deadline"), {
+      target: { value: "2099-08-01T23:59" },
+    });
+    fireEvent.change(screen.getByLabelText("Start (optional)"), {
+      target: { value: "2099-09-01T08:00" },
+    });
+    expect(screen.getByRole("button", { name: "Create lab" })).toBeDisabled();
+  });
+
   it("shows an error when the API refuses", async () => {
     labsPost.mockResolvedValue({ ok: false, status: 400 });
     openDialog();

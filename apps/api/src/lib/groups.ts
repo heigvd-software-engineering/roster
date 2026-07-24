@@ -29,6 +29,12 @@ export const labMax = (lab: Lab) =>
     ? 1
     : (lab.maxMembers ?? Number.POSITIVE_INFINITY);
 
+/** Whether the lab is OPEN to students: an unset start means "starts at
+ *  creation". Teachers bypass every gate built on this — the deliberate
+ *  escape hatch (they are warned in the UI, never blocked). */
+export const labStarted = (lab: Pick<Lab, "startAt">) =>
+  lab.startAt === null || lab.startAt.getTime() <= Date.now();
+
 /**
  * Why a source group can't be copied into `lab` — or null when it can.
  * Reuse is ALL-OR-NOTHING: "reuse this group" means the same team on this

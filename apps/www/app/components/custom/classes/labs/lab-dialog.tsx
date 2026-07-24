@@ -28,6 +28,26 @@ import { api, type LabItem, useApi } from "~/lib/api";
 
 const NO_TEMPLATE = "No template — empty repository";
 
+/** The words for a failed save: the 409s the teacher can act on get
+ *  specific messages (a start that doesn't precede the deadline; a
+ *  duplicate title — the title decides group repo names, so it must be
+ *  unique in the class); everything else gets the per-mode generic. */
+function saveErrorMessage(
+  status: number,
+  code: string | undefined,
+  editing: boolean,
+) {
+  if (code === "start_after_deadline") {
+    return "The start must be before the deadline.";
+  }
+  if (status === 409) {
+    return "A lab with that title already exists in this class.";
+  }
+  return editing
+    ? "Couldn't save the lab — check the fields and try again."
+    : "Couldn't create the lab — check the fields and try again.";
+}
+
 /** `datetime-local` wants "YYYY-MM-DDTHH:mm" in LOCAL time. */
 function toDatetimeLocal(iso: string) {
   const d = new Date(iso);
@@ -56,6 +76,7 @@ export function LabDialog({
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [deadline, setDeadline] = useState("");
+  const [startAt, setStartAt] = useState("");
   const [groupMode, setGroupMode] = useState<"individual" | "group">(
     "individual",
   );
@@ -75,6 +96,7 @@ export function LabDialog({
       // otherwise — so a cancelled edit doesn't leak into the next one.
       setTitle(lab?.title ?? "");
       setDeadline(lab ? toDatetimeLocal(lab.deadline) : "");
+      setStartAt(lab?.startAt ? toDatetimeLocal(lab.startAt) : "");
       setGroupMode(lab?.groupMode ?? "individual");
       setMinMembers(String(lab?.minMembers ?? 2));
       setMaxMembers(String(lab?.maxMembers ?? 3));
@@ -90,6 +112,9 @@ export function LabDialog({
   const valid =
     title.trim().length > 0 &&
     deadline !== "" &&
+    (startAt === "" ||
+      deadline === "" ||
+      new Date(startAt) < new Date(deadline)) &&
     (groupMode === "individual" ||
       (Number(minMembers) >= 1 && Number(minMembers) <= Number(maxMembers)));
 
@@ -99,6 +124,7 @@ export function LabDialog({
     const json = {
       title: title.trim(),
       deadline: new Date(deadline).toISOString(),
+      ...(startAt !== "" ? { startAt: new Date(startAt).toISOString() } : {}),
       groupMode,
       ...(groupMode === "group"
         ? { minMembers: Number(minMembers), maxMembers: Number(maxMembers) }
@@ -121,15 +147,11 @@ export function LabDialog({
             json,
           });
       if (!res.ok) {
-        // A duplicate title is the one failure the teacher can act on: the lab
-        // title decides the group repo names, so it must be unique in the class.
-        setError(
+        const code =
           res.status === 409
-            ? "A lab with that title already exists in this class."
-            : lab
-              ? "Couldn't save the lab — check the fields and try again."
-              : "Couldn't create the lab — check the fields and try again.",
-        );
+            ? ((await res.json().catch(() => ({}))) as { error?: string }).error
+            : undefined;
+        setError(saveErrorMessage(res.status, code, lab !== undefined));
         return;
       }
       await onSaved();
@@ -142,7 +164,10 @@ export function LabDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={openChange}>
+    // NOT dismissible by outside press: date pickers invite clicking away
+    // to unfocus a field, and that must not eat a half-filled form. Cancel,
+    // the X, and Escape remain the deliberate ways out.
+    <Dialog open={open} onOpenChange={openChange} disablePointerDismissal>
       {lab ? (
         <DialogTrigger
           render={
@@ -172,7 +197,7 @@ export function LabDialog({
           New lab
         </DialogTrigger>
       )}
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-1">
             {lab ? "Edit lab" : "New lab"}
@@ -194,7 +219,7 @@ export function LabDialog({
           <DialogDescription>
             {lab
               ? "Changes are visible to students immediately."
-              : "The lab is visible to students as soon as it is created; the deadline controls timing."}
+              : "The lab is visible to students as soon as it is created; a start date keeps them from beginning — and from the starter code — before it."}
           </DialogDescription>
         </DialogHeader>
         <Stack gap="md">
@@ -206,6 +231,20 @@ export function LabDialog({
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Lab 1 — TCP sockets"
             />
+          </Stack>
+          <Stack gap="sm">
+            <Label htmlFor="lab-start">Start (optional)</Label>
+            <Input
+              id="lab-start"
+              type="datetime-local"
+              value={startAt}
+              onChange={(e) => setStartAt(e.target.value)}
+            />
+            <Text variant="caption">
+              Students see the lab but cannot start it — no groups, no
+              repositories, and no access to the starter code — until this time.
+              Leave empty to open the lab immediately.
+            </Text>
           </Stack>
           <Stack gap="sm">
             <Label htmlFor="lab-deadline">Deadline</Label>

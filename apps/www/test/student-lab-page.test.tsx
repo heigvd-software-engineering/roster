@@ -419,6 +419,22 @@ describe("StudentLabPage — edges", () => {
     );
   });
 
+  it("gates a not-yet-started lab with its start date", () => {
+    // Mirrors the server: pre-start, a student's response is head-only.
+    mockApi(
+      groupsData({
+        lab: { ...groupLab, startAt: "2099-07-01T08:00:00.000Z" },
+        groups: [],
+        students: [],
+      }),
+    );
+    render(<StudentLabPage />);
+    expect(screen.getByText(/This lab starts/)).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "+ New group" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("shows a not-found message for an unknown lab", () => {
     // Unknown lab (or class, or no access) = a 404 from the one endpoint.
     params.labId = "nope";

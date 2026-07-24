@@ -21,7 +21,8 @@ export type ClassItem = InferResponseType<
   typeof api.api.classes.$get,
   200
 >["classes"][number];
-export type LabItem = ClassItem["labs"][number];
+/** A lab as the HUB serves it — the timeline types against this. */
+export type HubLabItem = ClassItem["labs"][number];
 /** A class the caller is ENROLLED in (student side) — served entirely from
  *  the DB caches; carries no join token, people, or teacher-only fields. */
 export type EnrolledClassItem = InferResponseType<
@@ -31,6 +32,12 @@ export type EnrolledClassItem = InferResponseType<
 /** The lab page's one groups endpoint: all class groups with live rosters,
  *  linked users, and which groups participate in this lab. */
 export const labGroupsApi = api.api.classes[":id"].labs[":labId"].groups;
+/** The lab ROW alone, as the lab page receives it — the shape every
+ *  lab-scoped component types against (a HubLabItem satisfies it too). */
+export type LabItem = InferResponseType<
+  (typeof labGroupsApi)["$get"],
+  200
+>["lab"];
 /** The caller's groups in OTHER labs — copy-forward sources for "reuse". */
 export const reusableGroupsApi = api.api.classes[":id"].labs[":labId"].reusable;
 export type ReusableGroup = InferResponseType<

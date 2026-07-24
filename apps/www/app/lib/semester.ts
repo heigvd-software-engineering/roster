@@ -80,3 +80,41 @@ export function semesterStart(
   if (!term) throw new Error(`Unknown season: ${semester.season}`);
   return new Date(semester.year, term.startMonth - 1, 1);
 }
+
+/** The moment the semester ends — EXCLUSIVE: the next term's start (autumn
+ *  rolls into the next calendar year's first term). */
+export function semesterEnd(
+  semester: Semester,
+  config: SemesterConfig = SEMESTER_CONFIG,
+): Date {
+  const index = config.terms.findIndex((t) => t.season === semester.season);
+  const next = config.terms[index + 1];
+  if (next) return new Date(semester.year, next.startMonth - 1, 1);
+  const first = config.terms[0];
+  if (!first) throw new Error("SEMESTER_CONFIG.terms must not be empty");
+  return new Date(semester.year + 1, first.startMonth - 1, 1);
+}
+
+/**
+ * The labs timeline's date span — the CALLER-side rule the chart itself
+ * stays ignorant of (it just draws whatever span it's given): always the
+ * labs' OWN dates, earliest effective start (startAt, else createdAt) to
+ * the latest deadline. The axis hugs the actual work, not the term — a
+ * class whose labs run five weeks reads as five weeks, not a semester of
+ * mostly-empty months. The semester window remains only as the no-labs
+ * fallback (the hub cards render an empty state instead of the chart, so
+ * it's a type-level safety net, not a path users see).
+ */
+export function timelineSpan(
+  labs: { startAt: string | null; createdAt: string; deadline: string }[],
+  semester: Semester,
+): { start: Date; end: Date } {
+  if (labs.length === 0) {
+    return { start: semesterStart(semester), end: semesterEnd(semester) };
+  }
+  const start = Math.min(
+    ...labs.map((l) => Date.parse(l.startAt ?? l.createdAt)),
+  );
+  const end = Math.max(...labs.map((l) => Date.parse(l.deadline)));
+  return { start: new Date(start), end: new Date(end) };
+}

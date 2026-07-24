@@ -17,6 +17,7 @@ const labInput = z
   .object({
     title: z.string().trim().min(1).max(200),
     deadline: z.coerce.date(),
+    startAt: z.coerce.date().optional(),
     groupMode: z.enum(["individual", "group"]),
     minMembers: z.number().int().min(1).optional(),
     maxMembers: z.number().int().min(1).optional(),
@@ -60,6 +61,12 @@ export const createLab = authedFactory.createHandlers(
       .where(and(eq(labs.classId, cls.id), eq(labs.title, input.title)));
     if (clash) return c.json({ error: "title_taken" }, 409);
 
+    // The one date rule: a set start must precede the deadline. Ranges of
+    // DIFFERENT labs may overlap freely — lab 2 can open while lab 1 runs.
+    if (input.startAt && input.startAt >= input.deadline) {
+      return c.json({ error: "start_after_deadline" }, 409);
+    }
+
     const now = new Date();
     const [lab] = await db
       .insert(labs)
@@ -68,6 +75,7 @@ export const createLab = authedFactory.createHandlers(
         classId: cls.id,
         title: input.title,
         deadline: input.deadline,
+        startAt: input.startAt ?? null,
         groupMode: input.groupMode,
         minMembers: input.minMembers ?? null,
         maxMembers: input.maxMembers ?? null,
@@ -115,11 +123,18 @@ export const updateLab = authedFactory.createHandlers(
       );
     if (clash) return c.json({ error: "title_taken" }, 409);
 
+    if (input.startAt && input.startAt >= input.deadline) {
+      return c.json({ error: "start_after_deadline" }, 409);
+    }
+
     const [lab] = await db
       .update(labs)
       .set({
         title: input.title,
         deadline: input.deadline,
+        // Absent means NULL on update too — the dialog always submits the
+        // complete form, so an emptied Start genuinely means "starts now".
+        startAt: input.startAt ?? null,
         groupMode: input.groupMode,
         minMembers: input.minMembers ?? null,
         maxMembers: input.maxMembers ?? null,

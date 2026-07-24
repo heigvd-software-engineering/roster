@@ -4,7 +4,7 @@ import { Link } from "react-router";
 import { InviteTeacherDialog } from "~/components/custom/classes/hub/invite-teacher-dialog";
 import { PeopleChip } from "~/components/custom/classes/hub/people-chip";
 import { LabDialog } from "~/components/custom/classes/labs/lab-dialog";
-import { LabRow, LabsHeader } from "~/components/custom/classes/labs/lab-row";
+import { LabsTimeline } from "~/components/custom/classes/labs/labs-timeline";
 import { RoleChip, roleSpine } from "~/components/custom/classes/role-marker";
 import { OrgIdentity } from "~/components/custom/identity/org-identity";
 import { Row } from "~/components/custom/layout/row";
@@ -18,6 +18,7 @@ import {
   PopoverTrigger,
 } from "~/components/ui/popover";
 import type { ClassItem } from "~/lib/api";
+import { semesterOf, timelineSpan } from "~/lib/semester";
 import { cn } from "~/lib/utils";
 
 function peopleLabel(count: number, noun: string, pendingCount: number) {
@@ -36,6 +37,7 @@ export function ClassCard({
   login,
   name,
   avatarUrl,
+  createdAt,
   joinToken,
   teachers,
   students,
@@ -131,27 +133,22 @@ export function ClassCard({
         <ReconcileAction classId={id} />
       </Row>
 
-      {/* The labs table — sectioned off by a hairline, not a nested box. */}
+      {/* The labs timeline — sectioned off by a hairline, not a nested box. */}
       <div className="w-full overflow-x-auto border-border border-t">
-        <div className="min-w-[660px]">
+        <div className="min-w-[760px]">
           {labs.length === 0 ? (
             <Text variant="body2" className="px-5 py-3">
               No labs yet — use "New lab" above.
             </Text>
           ) : (
-            <>
-              <LabsHeader actions />
-              {labs.map((lab) => (
-                <LabRow
-                  key={lab.id}
-                  lab={lab}
-                  manage
-                  action={
-                    <LabDialog classId={id} lab={lab} onSaved={onChanged} />
-                  }
-                />
-              ))}
-            </>
+            <LabsTimeline
+              labs={labs}
+              span={timelineSpan(labs, semesterOf(new Date(createdAt)))}
+              manage
+              action={(lab) => (
+                <LabDialog classId={id} lab={lab} onSaved={onChanged} />
+              )}
+            />
           )}
         </div>
       </div>

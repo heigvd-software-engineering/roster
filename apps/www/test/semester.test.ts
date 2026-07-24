@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   previousSemester,
+  semesterEnd,
   semesterLabel,
   semesterOf,
   semesterStart,
+  timelineSpan,
 } from "~/lib/semester";
 
 describe("semesterOf", () => {
@@ -84,5 +86,52 @@ describe("semesterStart", () => {
     expect(semesterStart({ season: "autumn", year: 2025 })).toEqual(
       new Date(2025, 8, 1),
     );
+  });
+});
+
+describe("semesterEnd", () => {
+  it("ends where the next term starts (exclusive)", () => {
+    expect(semesterEnd({ season: "spring", year: 2026 })).toEqual(
+      new Date(2026, 6, 1), // summer starts in July
+    );
+  });
+
+  it("rolls autumn into the next year's first term", () => {
+    expect(semesterEnd({ season: "autumn", year: 2025 })).toEqual(
+      new Date(2026, 1, 1), // spring starts in February
+    );
+  });
+});
+
+describe("timelineSpan", () => {
+  const semester = { season: "spring", year: 2026 } as const;
+
+  it("spans earliest effective start (startAt, else createdAt) to latest deadline", () => {
+    const labs = [
+      // Runs past the semester's end — the span follows the labs.
+      {
+        startAt: "2026-03-01T08:00:00.000Z",
+        createdAt: "2026-02-20T10:00:00.000Z",
+        deadline: "2026-09-15T23:59:00.000Z",
+      },
+      // No explicit start: its CREATION anchors the left edge — and being
+      // earlier than every startAt, it decides the span here.
+      {
+        startAt: null,
+        createdAt: "2026-02-10T10:00:00.000Z",
+        deadline: "2026-04-01T23:59:00.000Z",
+      },
+    ];
+    expect(timelineSpan(labs, semester)).toEqual({
+      start: new Date("2026-02-10T10:00:00.000Z"),
+      end: new Date("2026-09-15T23:59:00.000Z"),
+    });
+  });
+
+  it("falls back to the semester window only when there are no labs", () => {
+    expect(timelineSpan([], semester)).toEqual({
+      start: new Date(2026, 1, 1),
+      end: new Date(2026, 6, 1),
+    });
   });
 });
