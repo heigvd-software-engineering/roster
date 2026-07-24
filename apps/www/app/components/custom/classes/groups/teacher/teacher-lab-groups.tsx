@@ -46,7 +46,7 @@ import {
 } from "~/components/ui/table";
 import { ToggleGroup, ToggleGroupItem } from "~/components/ui/toggle-group";
 import type { GroupItem, LabItem } from "~/lib/api";
-import { formatDeadline, labStarted, usersByGithubId } from "~/lib/format";
+import { labStarted, usersByGithubId } from "~/lib/format";
 import { type PersonIdentity, personIdentity } from "~/lib/identity";
 import { cn } from "~/lib/utils";
 
@@ -137,9 +137,6 @@ export function TeacherLabGroups({
 
   return (
     <>
-      {!started && lab.startAt ? (
-        <NotStartedNotice startAt={lab.startAt} />
-      ) : null}
       <LabStats
         stats={[
           { value: g.groups.length, label: "groups" },
@@ -227,19 +224,6 @@ export function TeacherLabGroups({
         )}
       </Stack>
     </>
-  );
-}
-
-/** The teacher's standing reminder above a pre-start lab: everything below
- *  is invisible to students until the start — including any pre-created
- *  repo's code. */
-function NotStartedNotice({ startAt }: { startAt: string }) {
-  return (
-    <Text variant="body2" className="text-warning">
-      Not started — opens for students on {formatDeadline(new Date(startAt))}.
-      Until then students see the lab in their list but cannot form groups or
-      create repositories.
-    </Text>
   );
 }
 

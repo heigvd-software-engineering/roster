@@ -1,4 +1,4 @@
-import { Check, Lock } from "lucide-react";
+import { Lock } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
 import { Link } from "react-router";
 import {
@@ -6,17 +6,17 @@ import {
   relativeLabel,
 } from "~/components/custom/classes/labs/deadline-text";
 import {
+  type LabState,
+  LabStatus,
+  labState,
+} from "~/components/custom/classes/labs/lab-status";
+import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "~/components/ui/tooltip";
 import type { HubLabItem } from "~/lib/api";
-import {
-  formatDay,
-  formatDeadline,
-  labModeLabel,
-  labStarted,
-} from "~/lib/format";
+import { formatDay, formatDeadline, labModeLabel } from "~/lib/format";
 import { cn } from "~/lib/utils";
 
 /**
@@ -80,15 +80,6 @@ const pct = (axis: Axis, t: number) =>
     100,
     Math.max(0, ((t - axis.start) / (axis.end - axis.start)) * 100),
   );
-
-type LabState = "done" | "running" | "locked";
-
-const stateOf = (lab: HubLabItem): LabState =>
-  !labStarted(lab)
-    ? "locked"
-    : Date.parse(lab.deadline) < Date.now()
-      ? "done"
-      : "running";
 
 /** Label column width — the one number the axis overlay and every row share. */
 const LABEL_W = "320px";
@@ -233,7 +224,7 @@ function TimelineRow({
   first: boolean;
   action?: ((lab: HubLabItem) => ReactNode) | undefined;
 }) {
-  const state = stateOf(lab);
+  const state = labState(lab);
   // The bar's left edge is the TRUTH: an explicit start when declared,
   // else the moment the lab appeared (it could not be worked on earlier).
   // The bar's tooltip names which of the two it is.
@@ -350,7 +341,10 @@ function RowLabel({
         </span>
         {showStarter ? <StarterChip name={lab.templateRepoFullName} /> : null}
       </div>
-      <RowStatus state={state} />
+      <LabStatus
+        state={state}
+        className={cn("mt-1", state === "done" && "opacity-55")}
+      />
     </div>
   );
 }
@@ -364,43 +358,6 @@ function StarterChip({ name }: { name: string | null }) {
     >
       starter code
     </span>
-  );
-}
-
-/** ONE status slot, one word per state — the same word for both roles:
- *  the lab is never "hidden", students see it locked. */
-function RowStatus({ state }: { state: LabState }) {
-  return (
-    <div
-      className={cn(
-        "mt-1 flex items-center gap-1.5 font-mono text-[11px]",
-        state === "done" && "text-muted-foreground opacity-55",
-        state === "running" && "font-semibold text-role-enrolled",
-        state === "locked" && "font-semibold text-warning",
-      )}
-    >
-      {state === "done" ? (
-        <>
-          <Check className="size-3" /> done
-        </>
-      ) : state === "running" ? (
-        <>
-          {/* The chart's one animation — a calm ping on the status dot;
-              static under prefers-reduced-motion. */}
-          <span className="relative size-[7px] rounded-full bg-role-enrolled">
-            <span
-              aria-hidden
-              className="absolute inset-[-1px] animate-ping rounded-full border border-role-enrolled [animation-duration:2.6s] motion-reduce:hidden"
-            />
-          </span>{" "}
-          in progress
-        </>
-      ) : (
-        <>
-          <Lock className="size-3" /> not started
-        </>
-      )}
-    </div>
   );
 }
 

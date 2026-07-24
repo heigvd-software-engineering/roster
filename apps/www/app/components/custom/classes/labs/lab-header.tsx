@@ -1,5 +1,6 @@
 import { Link } from "react-router";
 import { DeadlineText } from "~/components/custom/classes/labs/deadline-text";
+import { LabStatusHover } from "~/components/custom/classes/labs/lab-status";
 import { type Role, RoleChip } from "~/components/custom/classes/role-marker";
 import { Row } from "~/components/custom/layout/row";
 import { Stack } from "~/components/custom/layout/stack";
@@ -40,6 +41,9 @@ export function LabHeader({
           <Text variant="body2" className="tabular-nums">
             {formatDeadline(new Date(lab.deadline))}
           </Text>
+          {/* The status word, same vocabulary as the hub timeline — the
+              full story (what a locked lab means, when it opens) on hover. */}
+          <LabStatusHover lab={lab} />
         </Row>
         <RoleChip kind={kind} />
       </Row>
