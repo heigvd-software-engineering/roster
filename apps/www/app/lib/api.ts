@@ -21,9 +21,7 @@ export type ClassItem = InferResponseType<
   typeof api.api.classes.$get,
   200
 >["classes"][number];
-/** A lab as the HUB serves it — the lab row plus the card's DB-derived
- *  repo tally (`groupsCount`/`reposCount`), which the lab-page endpoints
- *  don't carry. */
+/** A lab as the HUB serves it — the timeline types against this. */
 export type HubLabItem = ClassItem["labs"][number];
 /** A class the caller is ENROLLED in (student side) — served entirely from
  *  the DB caches; carries no join token, people, or teacher-only fields. */
@@ -35,8 +33,7 @@ export type EnrolledClassItem = InferResponseType<
  *  linked users, and which groups participate in this lab. */
 export const labGroupsApi = api.api.classes[":id"].labs[":labId"].groups;
 /** The lab ROW alone, as the lab page receives it — the shape every
- *  lab-scoped component types against (a HubLabItem satisfies it too:
- *  the tally fields just ride along unused). */
+ *  lab-scoped component types against (a HubLabItem satisfies it too). */
 export type LabItem = InferResponseType<
   (typeof labGroupsApi)["$get"],
   200
