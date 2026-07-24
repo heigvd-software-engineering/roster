@@ -28,6 +28,26 @@ import { api, type LabItem, useApi } from "~/lib/api";
 
 const NO_TEMPLATE = "No template — empty repository";
 
+/** The words for a failed save: the 409s the teacher can act on get
+ *  specific messages (a start that doesn't precede the deadline; a
+ *  duplicate title — the title decides group repo names, so it must be
+ *  unique in the class); everything else gets the per-mode generic. */
+function saveErrorMessage(
+  status: number,
+  code: string | undefined,
+  editing: boolean,
+) {
+  if (code === "start_after_deadline") {
+    return "The start must be before the deadline.";
+  }
+  if (status === 409) {
+    return "A lab with that title already exists in this class.";
+  }
+  return editing
+    ? "Couldn't save the lab — check the fields and try again."
+    : "Couldn't create the lab — check the fields and try again.";
+}
+
 /** `datetime-local` wants "YYYY-MM-DDTHH:mm" in LOCAL time. */
 function toDatetimeLocal(iso: string) {
   const d = new Date(iso);
@@ -127,22 +147,11 @@ export function LabDialog({
             json,
           });
       if (!res.ok) {
-        // The 409s the teacher can act on: a duplicate title (the lab title
-        // decides the group repo names, so it must be unique in the class)
-        // or a start that doesn't precede the deadline.
         const code =
           res.status === 409
             ? ((await res.json().catch(() => ({}))) as { error?: string }).error
             : undefined;
-        setError(
-          code === "start_after_deadline"
-            ? "The start must be before the deadline."
-            : res.status === 409
-              ? "A lab with that title already exists in this class."
-              : lab
-                ? "Couldn't save the lab — check the fields and try again."
-                : "Couldn't create the lab — check the fields and try again.",
-        );
+        setError(saveErrorMessage(res.status, code, lab !== undefined));
         return;
       }
       await onSaved();

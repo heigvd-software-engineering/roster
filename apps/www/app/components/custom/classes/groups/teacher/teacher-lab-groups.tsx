@@ -138,13 +138,7 @@ export function TeacherLabGroups({
   return (
     <>
       {!started && lab.startAt ? (
-        // The teacher's standing reminder: everything below is invisible to
-        // students until the start — including any pre-created repo's code.
-        <Text variant="body2" className="text-warning">
-          Not started — opens for students on{" "}
-          {formatDeadline(new Date(lab.startAt))}. Until then students see the
-          lab in their list but cannot form groups or create repositories.
-        </Text>
+        <NotStartedNotice startAt={lab.startAt} />
       ) : null}
       <LabStats
         stats={[
@@ -236,6 +230,30 @@ export function TeacherLabGroups({
   );
 }
 
+/** The teacher's standing reminder above a pre-start lab: everything below
+ *  is invisible to students until the start — including any pre-created
+ *  repo's code. */
+function NotStartedNotice({ startAt }: { startAt: string }) {
+  return (
+    <Text variant="body2" className="text-warning">
+      Not started — opens for students on {formatDeadline(new Date(startAt))}.
+      Until then students see the lab in their list but cannot form groups or
+      create repositories.
+    </Text>
+  );
+}
+
+/** The escape hatch, labeled as such: while the lab hasn't started, both
+ *  repo-create confirms carry this extra sentence — a repository created
+ *  now hands its group the starter code before the start time. Empty once
+ *  started. */
+function preStartRepoWarning(started: boolean, scope: "one" | "many") {
+  if (started) return "";
+  return scope === "one"
+    ? " This lab hasn't started: creating the repository now gives this group access to the starter code before the start time."
+    : " This lab hasn't started: creating repositories now gives their groups access to the starter code before the start time.";
+}
+
 /** Search + status segments (they filter ONE list) + the toolbar verbs:
  *  batch repo creation, create a group, and clone every work repo. */
 function RosterToolbar({
@@ -318,9 +336,7 @@ function RosterToolbar({
           title="Create the missing repositories?"
           description={
             "Every complete group that lacks a repository gets one. Creating a repository locks its group: students can no longer join or leave on their own." +
-            (started
-              ? ""
-              : " This lab hasn't started: creating repositories now gives their groups access to the starter code before the start time.")
+            preStartRepoWarning(started, "many")
           }
           confirmLabel="Create repositories"
           onConfirm={() => g.createMissingRepos()}
@@ -453,9 +469,7 @@ function GroupRow({
               title="Create the work repository?"
               description={
                 "This locks the group: once the repository exists, students can no longer join or leave on their own." +
-                (started
-                  ? ""
-                  : " This lab hasn't started: creating the repository now gives this group access to the starter code before the start time.")
+                preStartRepoWarning(started, "one")
               }
               confirmLabel="Create repository"
               onConfirm={() => g.createRepo(group.id)}
