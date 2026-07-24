@@ -6,6 +6,7 @@ import { beforeEach, expect, test, vi } from "vitest";
 const state = vi.hoisted(() => ({
   session: { user: { id: "u1" } } as { user: { id: string } } | null,
   defaultRepositoryPermission: "none" as string,
+  membersCanCreateRepos: false,
   admins: [{ id: 111 }] as Array<{ id: number }>,
   patchCalls: [] as unknown[],
 }));
@@ -27,14 +28,21 @@ vi.mock("../src/lib/github/org", () => ({
     _org: string,
     githubUserId: number,
   ) => state.admins.some((a) => a.id === githubUserId),
-  setBasePermissionNone: async (
+  enforceOrgPolicy: async (
     _env: unknown,
     _installationId: number,
     org: string,
   ) => {
-    state.patchCalls.push({ org, default_repository_permission: "none" });
+    state.patchCalls.push({
+      org,
+      default_repository_permission: "none",
+      members_can_create_repositories: false,
+    });
   },
-  basePermission: async () => state.defaultRepositoryPermission,
+  orgPolicy: async () => ({
+    basePermission: state.defaultRepositoryPermission,
+    membersCanCreateRepos: state.membersCanCreateRepos,
+  }),
   orgInfo: async () => {
     throw new Error("unexpected orgInfo call");
   },
@@ -65,6 +73,7 @@ async function seedClass(connectedByUserId = "u1") {
 beforeEach(async () => {
   state.session = { user: { id: "u1" } };
   state.defaultRepositoryPermission = "none";
+  state.membersCanCreateRepos = false;
   state.admins = [{ id: 111 }];
   state.patchCalls = [];
   await db.delete(classes);
@@ -85,7 +94,7 @@ beforeEach(async () => {
   });
 });
 
-test("sets the org base permission to none and returns ok:true", async () => {
+test("locks the org policy (base none + no member repo creation) and returns ok:true", async () => {
   await seedClass();
   const res = await app.request(
     "/api/classes/c1/confirm",
@@ -95,13 +104,29 @@ test("sets the org base permission to none and returns ok:true", async () => {
   expect(res.status).toBe(200);
   expect(await res.json()).toEqual({ ok: true, org: { login: "acme" } });
   expect(state.patchCalls).toEqual([
-    { org: "acme", default_repository_permission: "none" },
+    {
+      org: "acme",
+      default_repository_permission: "none",
+      members_can_create_repositories: false,
+    },
   ]);
 });
 
-test("returns ok:false when the re-GET doesn't confirm none", async () => {
+test("returns ok:false when the re-GET doesn't confirm base none", async () => {
   await seedClass();
   state.defaultRepositoryPermission = "read";
+  const res = await app.request(
+    "/api/classes/c1/confirm",
+    { method: "POST" },
+    env,
+  );
+  expect(res.status).toBe(200);
+  expect(await res.json()).toEqual({ ok: false, org: { login: "acme" } });
+});
+
+test("returns ok:false when members can still create repositories", async () => {
+  await seedClass();
+  state.membersCanCreateRepos = true;
   const res = await app.request(
     "/api/classes/c1/confirm",
     { method: "POST" },
@@ -131,7 +156,11 @@ test("confirms for a co-owner (admin) even if they didn't connect it", async () 
   expect(res.status).toBe(200);
   expect(await res.json()).toEqual({ ok: true, org: { login: "acme" } });
   expect(state.patchCalls).toEqual([
-    { org: "acme", default_repository_permission: "none" },
+    {
+      org: "acme",
+      default_repository_permission: "none",
+      members_can_create_repositories: false,
+    },
   ]);
 });
 

@@ -20,7 +20,10 @@ vi.mock("../src/lib/github/org", () => ({
     if (state.orgPeopleThrows) throw new Error("simulated GitHub failure");
     return state.people;
   }),
-  basePermission: vi.fn(async () => "none"),
+  orgPolicy: vi.fn(async () => ({
+    basePermission: "none",
+    membersCanCreateRepos: false,
+  })),
 }));
 
 vi.mock("../src/lib/github/repo", () => ({

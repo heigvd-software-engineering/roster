@@ -56,7 +56,7 @@ describe("ClassConfirmPage", () => {
 
     expect(
       await screen.findByText(
-        "Couldn't set the permission — check the App has Administration access.",
+        "Couldn't apply the organization settings — check the App has Administration access.",
       ),
     ).toBeInTheDocument();
   });

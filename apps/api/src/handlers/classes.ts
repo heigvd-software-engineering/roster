@@ -12,13 +12,13 @@ import {
   observeMember,
 } from "../lib/enrollment";
 import {
-  basePermission,
+  enforceOrgPolicy,
   inviteOrgAdmin,
   lookupUser,
   type OrgPerson,
   orgMembership,
+  orgPolicy,
   promoteToOrgAdmin,
-  setBasePermissionNone,
 } from "../lib/github/org";
 import {
   userInstallationsByOrgId,
@@ -45,20 +45,20 @@ const person = (m: typeof classMembers.$inferSelect): OrgPerson => ({
   avatarUrl: m.avatarUrl,
 });
 
-/** Teacher-only: lock the class org's base repository permission to "none"
- *  and verify it took. */
+/** Teacher-only: lock the class org to labs' policy — base repository
+ *  permission "none" AND no member repo creation — and verify both took. */
 export const confirmClass = authedFactory.createHandlers(async (c) => {
   const access = await resolveClassAsTeacher(c, c.req.param("id"));
   if (!access) return c.json({ error: "not_found" }, 404);
 
-  await setBasePermissionNone(c.env, access.cls.installationId, access.org);
-  const verified = await basePermission(
+  await enforceOrgPolicy(c.env, access.cls.installationId, access.org);
+  const verified = await orgPolicy(
     c.env,
     access.cls.installationId,
     access.org,
   );
   return c.json({
-    ok: verified === "none",
+    ok: verified.basePermission === "none" && !verified.membersCanCreateRepos,
     org: { login: access.org },
   });
 });

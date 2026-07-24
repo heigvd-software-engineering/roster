@@ -104,19 +104,23 @@ export function NewClassDialog({
             </dl>
           </Stack>
 
-          {/* The safety-critical part: everything about who can see what,
-              folded into one paragraph and boxed so it can't be skimmed past.
-              labs sets base permission to No access on connect; access is
-              per-repo grant only, which is what makes student work private. */}
+          {/* The safety-critical part: everything about who can see and do
+              what, folded into one paragraph and boxed so it can't be skimmed
+              past. labs locks the org on connect: base permission No access +
+              no member repo creation; access is per-repo grant only, which is
+              what makes student work private. */}
           <Stack gap="sm" className="rounded-lg border bg-muted/40 p-4">
-            <Text variant="overline">Who can see what</Text>
+            <Text variant="overline">Who can see and do what</Text>
             <Text variant="body2">
               On connect, labs sets the organization's base permission to{" "}
               <strong>No access</strong> — membership grants nothing on its own.
               Each student reaches only their own lab repo, never another
-              student's, and never your private repositories. Only{" "}
-              <strong>public</strong> repos stay visible, to anyone on the
-              internet, so keep confidential material private.
+              student's, and never your private repositories. labs also turns
+              off <strong>member repository creation</strong>, so students can't
+              create repos in the organization themselves — every student
+              repository is born through labs. Only <strong>public</strong>{" "}
+              repos stay visible, to anyone on the internet, so keep
+              confidential material private.
             </Text>
           </Stack>
         </Stack>
