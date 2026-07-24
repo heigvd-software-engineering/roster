@@ -7,7 +7,8 @@ import { Text } from "~/components/custom/typography/text";
 import { Button } from "~/components/ui/button";
 import { api, useApi } from "~/lib/api";
 
-/** /classes/:id/confirm — sets the org's base repo permission to No access. */
+/** /classes/:id/confirm — locks the org to labs' policy: base repo
+ *  permission No access + no member repository creation. */
 export function ClassConfirmPage() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
@@ -33,7 +34,7 @@ export function ClassConfirmPage() {
         }
       }
       setSubmitError(
-        "Couldn't set the permission — check the App has Administration access.",
+        "Couldn't apply the organization settings — check the App has Administration access.",
       );
     } catch {
       setSubmitError(
@@ -56,14 +57,16 @@ export function ClassConfirmPage() {
         <Stack gap="lg" align="start" justify="center" className="flex-1">
           <BrandHeader title={`Connect ${orgName}`} />
           <Text variant="subtitle" className="max-w-md">
-            labs will set this organization's base repository permission to{" "}
-            <strong>No access</strong>, so students only see repos they're
-            granted — their own lab repos, never other students' work or the
-            organization's private repos.
+            labs will apply two settings to this organization: the base
+            repository permission becomes <strong>No access</strong>, so
+            students only see repos they're granted — their own lab repos, never
+            other students' work or the organization's private repos — and{" "}
+            <strong>member repository creation is turned off</strong>, so every
+            repository is born through labs, never directly on GitHub.
           </Text>
           <Button
             size="lg"
-            title="Lock the organization's base permission and finish the class setup"
+            title="Lock the organization's settings and finish the class setup"
             onClick={handleConfirm}
             disabled={submitting}
           >

@@ -26,7 +26,10 @@ vi.mock("../src/lib/github/org", () => ({
     avatarUrl: "http://a",
   })),
   orgPeople: vi.fn(async () => state.people),
-  basePermission: vi.fn(async () => "none"),
+  orgPolicy: vi.fn(async () => ({
+    basePermission: "none",
+    membersCanCreateRepos: false,
+  })),
 }));
 
 vi.mock("../src/lib/github/repo", () => ({

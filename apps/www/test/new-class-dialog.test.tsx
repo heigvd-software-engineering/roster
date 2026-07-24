@@ -22,9 +22,11 @@ describe("NewClassDialog", () => {
     expect(
       screen.getByText(/labs sends the Owner invitation/),
     ).toBeInTheDocument();
-    // The privacy section: base permission is dropped to No access, keeping
-    // student work private — the safety-critical claim must survive.
-    expect(screen.getByText("Who can see what")).toBeInTheDocument();
+    // The privacy section: base permission is dropped to No access and member
+    // repo creation turned off, keeping student work private and repo
+    // creation inside labs — the safety-critical claims must survive.
+    expect(screen.getByText("Who can see and do what")).toBeInTheDocument();
+    expect(screen.getByText(/member repository creation/)).toBeInTheDocument();
     expect(
       screen.getByText(/keep confidential material private/),
     ).toBeInTheDocument();

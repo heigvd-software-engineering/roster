@@ -16,7 +16,7 @@ named operations below.
 |---|---|---|
 | `clients.ts` | — (folder-internal octokit factories) | `appJwtOctokit`, `installationOctokit`, `WorkersOctokit` |
 | `app.ts` | the App (JWT) | `installationAccount`, `orgLogin` |
-| `org.ts` | the App's **installation** on a class org | `orgInfo`, `basePermission`, `setBasePermissionNone`, `isOrgAdmin`, `orgMembership`, `inviteOrgMember`, `orgPeople`, `lookupUser`, `promoteToOrgAdmin`, `inviteOrgAdmin` |
+| `org.ts` | the App's **installation** on a class org | `orgInfo`, `orgPolicy`, `enforceOrgPolicy`, `isOrgAdmin`, `orgMembership`, `inviteOrgMember`, `orgPeople`, `lookupUser`, `promoteToOrgAdmin`, `inviteOrgAdmin` |
 | `team.ts` | the App's **installation** on a class org | `createTeam`, `teamMembers`, `addTeamMember`, `removeTeamMember`, `deleteTeam` (groups = GitHub Teams, F7) |
 | `repo.ts` | the App's **installation** on a class org | `createOrgRepo`, `generateFromTemplate`, `getOrgRepo`, `grantTeamRepo`, `orgRepoActivity`, `orgTemplateRepos` (work repos, F8); `classifyRepoFailure` (no call — octokit error-shape knowledge stays in this folder) |
 | `user.ts` | the caller's **own** OAuth token | `fetchGithubProfile`, `userInstallationsByOrgId`, `userOrgMemberships`, `userHasInstallation` |
@@ -31,7 +31,7 @@ named operations below.
 The GitHub App's granted permissions map onto operations — when a permission
 review asks "why does labs need X?", the answer is a function in this folder:
 
-- **Organization Administration: write** → `setBasePermissionNone` (+ `basePermission` read)
+- **Organization Administration: write** → `enforceOrgPolicy` — one PATCH asserting base repository permission "none" AND member repository creation off (+ `orgPolicy` read)
 - **Repository Administration + Contents: write** (F8 — must be granted on the App AND re-approved on installations) → `createOrgRepo`, `generateFromTemplate`, `grantTeamRepo` (+ `orgTemplateRepos` read)
 - **Organization Members: write** → `inviteOrgMember`, `team.ts` (create/delete teams, manage team membership) (+ `orgPeople`, `orgMembership`, `isOrgAdmin`, `teamMembers`, `lookupUser` reads)
 - **Organization Members: write — Owner-granting** → `promoteToOrgAdmin`

@@ -13,7 +13,7 @@ import {
 } from "@labs/db";
 import { eq } from "drizzle-orm";
 import type { AuthEnv } from "../auth/config";
-import { basePermission, orgInfo, orgPeople } from "../github/org";
+import { orgInfo, orgPeople, orgPolicy } from "../github/org";
 import { orgRepoActivity } from "../github/repo";
 import type { ClassContext } from "./types";
 
@@ -60,7 +60,7 @@ export function buildContext(
     installationId,
     orgInfo: once(() => orgInfo(env, installationId, org)),
     people: once(() => orgPeople(env, installationId, org)),
-    basePermission: once(() => basePermission(env, installationId, org)),
+    orgPolicy: once(() => orgPolicy(env, installationId, org)),
     groups: once(() => groupsOfClass(db, cls.id)),
     orgRepos: once(() => orgRepoActivity(env, installationId, org)),
     members: once(() =>

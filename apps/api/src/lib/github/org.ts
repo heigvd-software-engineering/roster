@@ -19,20 +19,36 @@ export async function orgInfo(
   };
 }
 
-/** The org's base repository permission (labs wants "none"). */
-export async function basePermission(
+/** The two org settings labs enforces — its "org policy". */
+export type OrgPolicy = {
+  /** Base repository permission (labs wants "none"). */
+  basePermission: string;
+  /** Whether plain Members may create repositories (labs wants false). */
+  membersCanCreateRepos: boolean;
+};
+
+/** The org's current policy settings, read live. */
+export async function orgPolicy(
   env: AuthEnv,
   installationId: number,
   org: string,
-): Promise<string> {
+): Promise<OrgPolicy> {
   const gh = await installationOctokit(env, installationId);
   const { data } = await gh.request("GET /orgs/{org}", { org });
-  return data.default_repository_permission ?? "";
+  return {
+    basePermission: data.default_repository_permission ?? "",
+    // Absent from the payload would mean the API hid the field — treat as
+    // the UNSAFE value so the caller flags it rather than trusting it.
+    membersCanCreateRepos: data.members_can_create_repositories ?? true,
+  };
 }
 
-/** Set the org's base repository permission to No access, so students only
- *  see repos they're explicitly granted. Callers re-read to verify. */
-export async function setBasePermissionNone(
+/** Lock the org to labs' policy, in one PATCH: base repository permission
+ *  "none" (membership grants nothing on its own — students only see repos
+ *  they're explicitly granted) AND no member repository creation (work
+ *  repos are born through labs; a repo a student creates directly on
+ *  GitHub would sit outside every gate). Callers re-read to verify. */
+export async function enforceOrgPolicy(
   env: AuthEnv,
   installationId: number,
   org: string,
@@ -41,6 +57,7 @@ export async function setBasePermissionNone(
   await gh.request("PATCH /orgs/{org}", {
     org,
     default_repository_permission: "none",
+    members_can_create_repositories: false,
   });
 }
 

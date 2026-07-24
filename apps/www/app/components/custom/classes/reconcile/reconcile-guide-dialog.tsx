@@ -90,6 +90,11 @@ const GUIDE: {
         handled:
           "Every member could then read every repository, including other groups' work. Reconcile sets it back to No access — leaving it unfixed is the real hazard.",
       },
+      {
+        what: "Members can create repositories in the organization",
+        handled:
+          "Students could then create repos directly on GitHub, outside the labs workflow. Reconcile turns member repository creation back off — repositories are born through labs only.",
+      },
     ],
   },
 ];

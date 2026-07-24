@@ -12,7 +12,10 @@ const state = vi.hoisted(() => ({
 vi.mock("../src/lib/github/org", () => ({
   orgInfo: vi.fn(async () => state.org),
   orgPeople: vi.fn(async () => ({ teachers: [], students: [], pending: [] })),
-  basePermission: vi.fn(async () => "none"),
+  orgPolicy: vi.fn(async () => ({
+    basePermission: "none",
+    membersCanCreateRepos: false,
+  })),
 }));
 
 vi.mock("../src/lib/github/repo", () => ({
