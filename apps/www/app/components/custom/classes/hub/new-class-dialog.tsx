@@ -117,10 +117,10 @@ export function NewClassDialog({
               Each student reaches only their own lab repo, never another
               student's, and never your private repositories. labs also turns
               off <strong>member repository creation</strong>, so students can't
-              create repos in the organization themselves — every repository is
-              born through labs. Only <strong>public</strong> repos stay
-              visible, to anyone on the internet, so keep confidential material
-              private.
+              create repos in the organization themselves — every student
+              repository is born through labs. Only <strong>public</strong>{" "}
+              repos stay visible, to anyone on the internet, so keep
+              confidential material private.
             </Text>
           </Stack>
         </Stack>

@@ -62,7 +62,7 @@ export function ClassConfirmPage() {
             students only see repos they're granted — their own lab repos, never
             other students' work or the organization's private repos — and{" "}
             <strong>member repository creation is turned off</strong>, so every
-            repository is born through labs, never directly on GitHub.
+            student repository is born through labs, never directly on GitHub.
           </Text>
           <Button
             size="lg"

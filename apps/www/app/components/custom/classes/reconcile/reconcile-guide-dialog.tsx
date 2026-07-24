@@ -93,7 +93,7 @@ const GUIDE: {
       {
         what: "Members can create repositories in the organization",
         handled:
-          "Students could then create repos directly on GitHub, outside the labs workflow. Reconcile turns member repository creation back off — repositories are born through labs only.",
+          "Students could then create repos directly on GitHub, outside the labs workflow. Reconcile turns member repository creation back off — student repositories are born through labs only.",
       },
     ],
   },
