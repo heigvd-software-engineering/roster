@@ -106,29 +106,32 @@ describe("semesterEnd", () => {
 describe("timelineSpan", () => {
   const semester = { season: "spring", year: 2026 } as const;
 
-  it("falls back to the semester when no lab has an explicit start", () => {
-    const labs = [
-      { startAt: null, deadline: "2026-03-15T23:59:00.000Z" },
-      { startAt: null, deadline: "2026-05-15T23:59:00.000Z" },
-    ];
-    expect(timelineSpan(labs, semester)).toEqual({
-      start: new Date(2026, 1, 1),
-      end: new Date(2026, 6, 1),
-    });
-  });
-
-  it("spans earliest explicit start to latest deadline, ignoring the semester", () => {
+  it("spans earliest effective start (startAt, else createdAt) to latest deadline", () => {
     const labs = [
       // Runs past the semester's end — the span follows the labs.
       {
         startAt: "2026-03-01T08:00:00.000Z",
+        createdAt: "2026-02-20T10:00:00.000Z",
         deadline: "2026-09-15T23:59:00.000Z",
       },
-      { startAt: null, deadline: "2026-04-01T23:59:00.000Z" },
+      // No explicit start: its CREATION anchors the left edge — and being
+      // earlier than every startAt, it decides the span here.
+      {
+        startAt: null,
+        createdAt: "2026-02-10T10:00:00.000Z",
+        deadline: "2026-04-01T23:59:00.000Z",
+      },
     ];
     expect(timelineSpan(labs, semester)).toEqual({
-      start: new Date("2026-03-01T08:00:00.000Z"),
+      start: new Date("2026-02-10T10:00:00.000Z"),
       end: new Date("2026-09-15T23:59:00.000Z"),
+    });
+  });
+
+  it("falls back to the semester window only when there are no labs", () => {
+    expect(timelineSpan([], semester)).toEqual({
+      start: new Date(2026, 1, 1),
+      end: new Date(2026, 6, 1),
     });
   });
 });

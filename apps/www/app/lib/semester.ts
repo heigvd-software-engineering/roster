@@ -97,25 +97,24 @@ export function semesterEnd(
 
 /**
  * The labs timeline's date span — the CALLER-side rule the chart itself
- * stays ignorant of (it just draws whatever span it's given):
- *
- *   - any lab with an EXPLICIT start → earliest such start to the latest
- *     deadline, regardless of the semester's window (a course may well
- *     run past it);
- *   - no explicit starts anywhere → the class's semester, so a card whose
- *     labs are only "created, due someday" still reads as a term, not as
- *     an accident of creation timestamps.
+ * stays ignorant of (it just draws whatever span it's given): always the
+ * labs' OWN dates, earliest effective start (startAt, else createdAt) to
+ * the latest deadline. The axis hugs the actual work, not the term — a
+ * class whose labs run five weeks reads as five weeks, not a semester of
+ * mostly-empty months. The semester window remains only as the no-labs
+ * fallback (the hub cards render an empty state instead of the chart, so
+ * it's a type-level safety net, not a path users see).
  */
 export function timelineSpan(
-  labs: { startAt: string | null; deadline: string }[],
+  labs: { startAt: string | null; createdAt: string; deadline: string }[],
   semester: Semester,
 ): { start: Date; end: Date } {
-  const starts = labs.flatMap((l) =>
-    l.startAt ? [Date.parse(l.startAt)] : [],
-  );
-  if (starts.length === 0) {
+  if (labs.length === 0) {
     return { start: semesterStart(semester), end: semesterEnd(semester) };
   }
+  const start = Math.min(
+    ...labs.map((l) => Date.parse(l.startAt ?? l.createdAt)),
+  );
   const end = Math.max(...labs.map((l) => Date.parse(l.deadline)));
-  return { start: new Date(Math.min(...starts)), end: new Date(end) };
+  return { start: new Date(start), end: new Date(end) };
 }
