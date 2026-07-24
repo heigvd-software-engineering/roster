@@ -409,7 +409,7 @@ test("returns [] when the GitHub token is dead and unrefreshable", async () => {
   expect(userInstallationsByOrgIdMock).not.toHaveBeenCalled();
 });
 
-test("orders a class's labs by effective start (startAt, else createdAt), newest first", async () => {
+test("orders a class's labs by effective start (startAt, else createdAt), first worked on first", async () => {
   await seedClass();
   // Deadlines deliberately CONTRADICT the expected order: the sort key is
   // the effective start, not the deadline.
@@ -448,9 +448,9 @@ test("orders a class's labs by effective start (startAt, else createdAt), newest
     classes: Array<{ labs: Array<{ id: string }> }>;
   };
   expect(body.classes[0]?.labs.map((l) => l.id)).toEqual([
-    "lab-scheduled", // effective 2099-06-01 (startAt)
-    "lab-new", //       effective 2099-05-01 (createdAt)
     "lab-old", //       effective 2099-01-01 (createdAt) — latest DEADLINE
+    "lab-new", //       effective 2099-05-01 (createdAt)
+    "lab-scheduled", // effective 2099-06-01 (startAt)
   ]);
 });
 

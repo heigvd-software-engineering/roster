@@ -24,8 +24,8 @@ import { cn } from "~/lib/utils";
  * bar from its effective start (`startAt ?? createdAt`) to its deadline on a
  * shared month axis, so overlapping labs look overlapping and the teal
  * now-line answers "where are we in the course" at a glance. Rows read
- * CHRONOLOGICALLY (top = first lab) — on a timeline, reading order is time
- * order — a deliberate flip of the hub's newest-first sort.
+ * CHRONOLOGICALLY (top = the first lab worked on) — on a timeline, reading
+ * order is time order, the same order the API serves.
  *
  * Three states, derived per render from the clock alone:
  *   done     deadline passed — dimmed, muted bar, ✓;
@@ -109,7 +109,14 @@ export function LabsTimeline({
   /** Per-row trailing control (the teacher's edit pencil). */
   action?: (lab: HubLabItem) => ReactNode;
 }) {
-  const rows = [...labs].sort((a, b) => effectiveStart(a) - effectiveStart(b));
+  // Course order — chronological by effective start, deadline breaking
+  // ties. The API already serves this order; sorting here keeps it a
+  // component INVARIANT rather than a hope about the caller.
+  const rows = [...labs].sort(
+    (a, b) =>
+      effectiveStart(a) - effectiveStart(b) ||
+      Date.parse(a.deadline) - Date.parse(b.deadline),
+  );
   const axis = buildAxis(span);
   // A "now" outside the axis (an archived class, a not-yet-started term)
   // would clamp to an edge and point at the wrong month — drop it instead.
