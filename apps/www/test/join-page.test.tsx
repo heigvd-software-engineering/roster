@@ -121,7 +121,7 @@ describe("JoinPage", () => {
       }),
     );
     expect(
-      await screen.findByText(/Your link is fine, but labs can't reach/),
+      await screen.findByText(/Your link is fine, but roster can't reach/),
     ).toBeInTheDocument();
   });
 

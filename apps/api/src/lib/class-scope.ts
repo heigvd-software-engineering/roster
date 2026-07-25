@@ -6,7 +6,7 @@ import {
   getDb,
   groups,
   labs,
-} from "@labs/db";
+} from "@roster/db";
 import { and, eq } from "drizzle-orm";
 import type { Context } from "hono";
 import type { AuthEnv } from "./auth/config";

@@ -104,7 +104,7 @@ export function ConnectFailedPage() {
 
         <Stack gap="sm" align="start">
           <Button
-            title="Opens GitHub to pick the organization and install the labs App"
+            title="Opens GitHub to pick the organization and install the roster App"
             render={<a href={githubAppInstallUrl} />}
           >
             Try connecting again

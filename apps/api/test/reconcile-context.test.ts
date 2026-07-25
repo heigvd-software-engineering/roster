@@ -1,5 +1,5 @@
 import { env } from "cloudflare:test";
-import { classes, getDb, groups, labs, user } from "@labs/db";
+import { classes, getDb, groups, labs, user } from "@roster/db";
 import { eq } from "drizzle-orm";
 import { beforeEach, expect, test, vi } from "vitest";
 import type { AuthEnv } from "../src/lib/auth/config";
@@ -49,7 +49,7 @@ const authEnv = {
   GITHUB_CLIENT_SECRET: "gh-secret",
   GITHUB_APP_ID: "1",
   GITHUB_APP_PRIVATE_KEY: "unused",
-  GITHUB_APP_SLUG: "labs",
+  GITHUB_APP_SLUG: "roster",
 } as AuthEnv;
 
 async function seedClass(id: string, installationId: number) {

@@ -1,11 +1,11 @@
-import { account, type getDb, user } from "@labs/db";
+import { account, type getDb, user } from "@roster/db";
 import { and, eq, inArray } from "drizzle-orm";
 import { readAffiliationEmails } from "./auth/switch-claims";
 
 /**
  * WHO people are, across the three identity systems this app straddles:
  *
- * - a **labs user** (`user.id`) — created by Better Auth at sign-in
+ * - a **roster user** (`user.id`) — created by Better Auth at sign-in
  * - a **GitHub account** (`account.accountId` for provider `github`) — what
  *   every org, team and repo API speaks in, and what `class_members` stores
  * - a **SWITCH edu-ID** (provider `switch`) — where the real name and the
@@ -19,7 +19,7 @@ import { readAffiliationEmails } from "./auth/switch-claims";
 type Db = ReturnType<typeof getDb>;
 
 /**
- * A labs user's GitHub account id, in the two forms the codebase needs: `ghId`
+ * A roster user's GitHub account id, in the two forms the codebase needs: `ghId`
  * as a NUMBER for GitHub APIs, `githubId` as the STRING stored in
  * `class_members.githubId`.
  *
@@ -42,7 +42,7 @@ export async function githubIdsForUser(
 }
 
 /**
- * The labs users behind a set of GitHub ids, in the ONE shape allowed to leave
+ * The roster users behind a set of GitHub ids, in the ONE shape allowed to leave
  * the server for other class members: display-name fields plus affiliation
  * (professional) emails.
  *

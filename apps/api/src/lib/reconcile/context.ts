@@ -10,7 +10,7 @@ import {
   type getDb,
   groups,
   labs,
-} from "@labs/db";
+} from "@roster/db";
 import { eq } from "drizzle-orm";
 import type { AuthEnv } from "../auth/config";
 import { orgInfo, orgPeople, orgPolicy } from "../github/org";

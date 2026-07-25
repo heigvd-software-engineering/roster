@@ -1,5 +1,5 @@
 import { env } from "cloudflare:test";
-import { account, classes, classMembers, getDb, user } from "@labs/db";
+import { account, classes, classMembers, getDb, user } from "@roster/db";
 import { beforeEach, expect, test, vi } from "vitest";
 import type { AuthEnv } from "../src/lib/auth/config";
 

@@ -4,7 +4,7 @@
 // student cannot repair it, because re-deriving the id needs
 // `GET /user/installations`, which only lists installations the caller
 // administers. So this reconciler and setup.ts are the only two writers.
-import { classes } from "@labs/db";
+import { classes } from "@roster/db";
 import { eq } from "drizzle-orm";
 import type { Reconciler } from "./types";
 

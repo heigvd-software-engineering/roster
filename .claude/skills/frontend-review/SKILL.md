@@ -5,7 +5,7 @@ description: Use when reviewing the QUALITY of React/frontend code in this proje
 
 # Frontend review
 
-Opinionated quality review for the labs React SPA (`apps/www`): is the code
+Opinionated quality review for the roster React SPA (`apps/www`): is the code
 well-organized, well-named, readable, and optimized? Grounded in a sourced
 `checklist.md`. Reports findings; only edits with `--fix`.
 

@@ -9,7 +9,7 @@
 // alone decides a vanished team's fate — a missing roster means "unknowable", and
 // a diff against nothing would propose emptying a group whose team we merely
 // failed to read.
-import { labs } from "@labs/db";
+import { labs } from "@roster/db";
 import { inArray } from "drizzle-orm";
 import type { OrgPerson } from "../github/org";
 import { teamMembers } from "../github/team";

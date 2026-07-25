@@ -1,15 +1,23 @@
 # Template for apps/api/.dev.vars — copy this file to `.dev.vars` (git-ignored)
-# and fill in the values. `wrangler dev --env dev` loads it automatically.
+# and fill in the values. `wrangler dev` loads it automatically.
 #
-# Only SECRETS live here. The public dev config (BETTER_AUTH_URL,
-# EDUID_ISSUER, GITHUB_APP_SLUG) is committed in wrangler.jsonc's `env.dev`
-# block and needs no override.
+# There is ONE environment: production values live in wrangler.jsonc. For LOCAL
+# dev, .dev.vars supplies the secrets AND overrides the two public vars that
+# differ locally (BETTER_AUTH_URL, GITHUB_APP_SLUG) — a value set here wins over
+# wrangler.jsonc's `vars` during `wrangler dev`.
 #
 # Where each value comes from: GITHUB_APP_SETUP.md (the GitHub App ones) and
-# DEPLOY.md phase 5 (the full list, including the BOM warning — don't pipe
-# values from PowerShell 5.1).
+# DEPLOY.md (the full list, including the BOM warning — don't pipe values from
+# PowerShell 5.1).
 
-# Better Auth — fresh random per environment, never shared:
+# --- Local dev overrides (public, not secret) ---
+# Sign-in only works at https://localhost:3000 (the registered redirect origin).
+BETTER_AUTH_URL=https://localhost:3000
+# The GitHub App whose callback/setup URLs point at localhost (GITHUB_APP_SETUP.md).
+GITHUB_APP_SLUG=
+
+# --- Secrets ---
+# Better Auth — fresh random, never shared:
 #   node -e "console.log(crypto.randomBytes(32).toString('hex'))"
 BETTER_AUTH_SECRET=
 
@@ -17,11 +25,11 @@ BETTER_AUTH_SECRET=
 EDUID_CLIENT_ID=
 EDUID_CLIENT_SECRET=
 
-# The dev GitHub App's OAuth pair (App settings → General)
+# The GitHub App's OAuth pair (App settings → General)
 GITHUB_CLIENT_ID=
 GITHUB_CLIENT_SECRET=
 
-# The dev GitHub App's numeric id + private key as single-line PKCS#8
+# The GitHub App's numeric id + private key as single-line PKCS#8
 # (conversion steps in GITHUB_APP_SETUP.md)
 GITHUB_APP_ID=
 GITHUB_APP_PRIVATE_KEY=

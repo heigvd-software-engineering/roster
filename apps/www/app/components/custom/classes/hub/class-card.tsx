@@ -50,7 +50,7 @@ export function ClassCard({
   /** The hub's own revalidate — lab edits refresh the data they came from. */
   onChanged: () => unknown;
 }) {
-  // Correlate GitHub org members with their labs users (raw query rows from
+  // Correlate GitHub org members with their roster users (raw query rows from
   // the API — the client does the joining, endpoints return results as-is).
   const userByGithubId = new Map(users.map((u) => [u.githubId, u.user]));
   const withUser = (p: ClassItem["students"][number], pendingRow = false) => ({
@@ -265,7 +265,7 @@ function ReconcileAction({ classId }: { classId: string }) {
             Sync with GitHub
           </Text>
           <Text variant="caption">
-            labs orchestrates this class on GitHub — day to day, everything is
+            roster orchestrates this class on GitHub — day to day, everything is
             managed from the app. But changes can still be made directly on
             GitHub; sync is how you track and fix them.
           </Text>

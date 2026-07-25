@@ -1,4 +1,4 @@
-import { getDb } from "@labs/db";
+import { getDb } from "@roster/db";
 import { healAcceptedInvitations } from "./accepted-invitation-heal";
 import type { AuthEnv } from "./config";
 

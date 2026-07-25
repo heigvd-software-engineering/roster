@@ -53,7 +53,7 @@ export async function fetchGithubProfile(
       headers: {
         Authorization: `Bearer ${token}`,
         Accept: "application/vnd.github+json",
-        "User-Agent": "labs",
+        "User-Agent": "roster",
       },
     });
   } catch (err) {

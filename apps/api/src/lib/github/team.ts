@@ -1,7 +1,7 @@
-// Installation-token operations on a class org's TEAMS — a labs group is a
+// Installation-token operations on a class org's TEAMS — a roster group is a
 // GitHub Team (F7). One GitHub call + narrowing per function; no
 // orchestration (see README.md). Students are always role `member`, so only
-// labs (installation token) and org Owners can manage rosters.
+// roster (installation token) and org Owners can manage rosters.
 import type { AuthEnv } from "../auth/config";
 import { installationOctokit } from "./clients";
 import type { OrgPerson } from "./org";

@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
-import { account, classes, classMembers, getDb, labs, user } from "@labs/db";
+import { account, classes, classMembers, getDb, labs, user } from "@roster/db";
 import { and, asc, desc, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import { z } from "zod";
 import { authedFactory } from "../factory";
@@ -45,7 +45,7 @@ const person = (m: typeof classMembers.$inferSelect): OrgPerson => ({
   avatarUrl: m.avatarUrl,
 });
 
-/** Teacher-only: lock the class org to labs' policy — base repository
+/** Teacher-only: lock the class org to roster's policy — base repository
  *  permission "none" AND no member repo creation — and verify both took. */
 export const confirmClass = authedFactory.createHandlers(async (c) => {
   const access = await resolveClassAsTeacher(c, c.req.param("id"));
@@ -156,7 +156,7 @@ export const inviteTeacher = authedFactory.createHandlers(
 );
 
 /** The teacher hub's data: the caller's classes (live org Owner check),
- *  each with live people, linked labs users, and its labs. `?from=<iso>`
+ *  each with live people, linked roster users, and its labs. `?from=<iso>`
  *  windows the list by class creation date BEFORE any live GitHub work —
  *  the hub loads only the current semester and pages older ones on demand;
  *  `hasOlder` (pure DB) tells the client whether "Load more" has anything

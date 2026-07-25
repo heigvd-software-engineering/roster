@@ -1,4 +1,4 @@
-import { classes, getDb } from "@labs/db";
+import { classes, getDb } from "@roster/db";
 import { eq } from "drizzle-orm";
 import { factory } from "../factory";
 import type { AuthEnv } from "../lib/auth/config";
@@ -16,7 +16,7 @@ import { mintJoinToken } from "../lib/join-token";
  *
  * REPAIR (an existing class). A reinstall mints a new installation id, and
  * GitHub fires the Setup URL in whatever browser performed it — possibly with no
- * labs cookie (the org-settings page; a second org owner who has never signed in
+ * roster cookie (the org-settings page; a second org owner who has never signed in
  * here). `installationAccount` runs on the App's OWN JWT, so GitHub — not the
  * caller — names the org that owns this installation. An attacker passing an
  * arbitrary `installation_id` therefore cannot choose the WHERE: GitHub resolves

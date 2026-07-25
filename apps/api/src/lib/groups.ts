@@ -1,4 +1,10 @@
-import { type Class, type Group, type getDb, groups, type Lab } from "@labs/db";
+import {
+  type Class,
+  type Group,
+  type getDb,
+  groups,
+  type Lab,
+} from "@roster/db";
 import { and, eq, ne } from "drizzle-orm";
 import type { AuthEnv } from "./auth/config";
 import type { ClassScope } from "./class-scope";

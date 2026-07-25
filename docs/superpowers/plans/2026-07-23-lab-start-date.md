@@ -94,7 +94,7 @@ test("update sets and then clears the start date", async () => {
 
 - [ ] **Step 2: Run to verify they fail**
 
-Run: `pnpm --filter @labs/api test -- labs.test`
+Run: `pnpm --filter @roster/api test -- labs.test`
 Expected: FAIL — `startAt` unknown on the row type / values are stripped by zod (row stays null where a date was expected) / 409 tests get 200.
 
 - [ ] **Step 3: Add the column**
@@ -110,7 +110,7 @@ In `packages/db/src/app-schema.ts`, directly after the `deadline` line:
 
 - [ ] **Step 4: Generate and review the migration**
 
-Run: `pnpm --filter @labs/db db:generate --name=lab_start_at`
+Run: `pnpm --filter @roster/db db:generate --name=lab_start_at`
 Then READ the generated `packages/db/migrations/0015_lab_start_at.sql`. Expected content: a single `ALTER TABLE \`labs\` ADD \`start_at\` integer;` — a plain nullable add needs no rebuild and no backfill. If drizzle-kit emitted a table rebuild instead, stop and fix per AGENTS.md rule 9.
 
 - [ ] **Step 5: Wire input + validation + persistence**
@@ -147,12 +147,12 @@ In `updateLab`, add the identical guard after its `title_taken` check, and add t
 
 - [ ] **Step 6: Run tests to verify they pass**
 
-Run: `pnpm --filter @labs/api test -- labs.test`
+Run: `pnpm --filter @roster/api test -- labs.test`
 Expected: PASS (all, including the pre-existing ones).
 
 - [ ] **Step 7: Typecheck + biome + commit**
 
-Run: `pnpm --filter @labs/api typecheck && pnpm biome`
+Run: `pnpm --filter @roster/api typecheck && pnpm biome`
 
 ```bash
 git add packages/db/src/app-schema.ts packages/db/migrations apps/api/src/handlers/labs.ts apps/api/test/labs.test.ts
@@ -224,7 +224,7 @@ test("orders a class's labs by effective start (startAt, else createdAt), newest
 
 - [ ] **Step 2: Run to verify it fails**
 
-Run: `pnpm --filter @labs/api test -- classes-list`
+Run: `pnpm --filter @roster/api test -- classes-list`
 Expected: FAIL — order comes back `["lab-old", "lab-scheduled", "lab-new"]` (deadline order).
 
 - [ ] **Step 3: Change both orderBy sites**
@@ -240,12 +240,12 @@ In `apps/api/src/handlers/classes.ts`, add `sql` to the existing `drizzle-orm` i
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `pnpm --filter @labs/api test -- classes-list`
+Run: `pnpm --filter @roster/api test -- classes-list`
 Expected: PASS.
 
 - [ ] **Step 5: Typecheck + biome + commit**
 
-Run: `pnpm --filter @labs/api typecheck && pnpm biome`
+Run: `pnpm --filter @roster/api typecheck && pnpm biome`
 
 ```bash
 git add apps/api/src/handlers/classes.ts apps/api/test/classes-list.test.ts
@@ -342,7 +342,7 @@ test("a past start behaves exactly like no start", async () => {
 
 - [ ] **Step 2: Run to verify they fail**
 
-Run: `pnpm --filter @labs/api test -- lab-groups`
+Run: `pnpm --filter @roster/api test -- lab-groups`
 Expected: FAIL — the `not_started` tests get 200 (or the repo test gets the idempotent repo back).
 
 - [ ] **Step 3: Implement**
@@ -390,12 +390,12 @@ In `acceptIndividualLab`, after the `group_lab` mode check:
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `pnpm --filter @labs/api test -- lab-groups`
+Run: `pnpm --filter @roster/api test -- lab-groups`
 Expected: PASS (all, including pre-existing).
 
 - [ ] **Step 5: Typecheck + biome + commit**
 
-Run: `pnpm --filter @labs/api typecheck && pnpm biome`
+Run: `pnpm --filter @roster/api typecheck && pnpm biome`
 
 ```bash
 git add apps/api/src/lib/groups.ts apps/api/src/handlers/lab-groups.ts apps/api/test/lab-groups.test.ts
@@ -444,7 +444,7 @@ test("leave is refused before the lab starts", async () => {
 
 - [ ] **Step 2: Run to verify they fail**
 
-Run: `pnpm --filter @labs/api test -- groups.test`
+Run: `pnpm --filter @roster/api test -- groups.test`
 Expected: FAIL — both get 200.
 
 - [ ] **Step 3: Implement**
@@ -472,12 +472,12 @@ In `leaveGroup`, after its group 404, add the identical fetch + gate block (leav
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `pnpm --filter @labs/api test -- groups.test`
+Run: `pnpm --filter @roster/api test -- groups.test`
 Expected: PASS (all).
 
 - [ ] **Step 5: Typecheck + biome + commit**
 
-Run: `pnpm --filter @labs/api typecheck && pnpm biome`
+Run: `pnpm --filter @roster/api typecheck && pnpm biome`
 
 ```bash
 git add apps/api/src/handlers/groups.ts apps/api/test/groups.test.ts
@@ -525,7 +525,7 @@ test("a student's list is head-only before the start; the teacher's is full", as
 
 - [ ] **Step 2: Run to verify it fails**
 
-Run: `pnpm --filter @labs/api test -- lab-groups`
+Run: `pnpm --filter @roster/api test -- lab-groups`
 Expected: FAIL — the student response carries the seeded group.
 
 - [ ] **Step 3: Implement**
@@ -543,12 +543,12 @@ In `listLabGroups`, directly after the existing `membershipState === "pending"` 
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `pnpm --filter @labs/api test -- lab-groups`
+Run: `pnpm --filter @roster/api test -- lab-groups`
 Expected: PASS.
 
 - [ ] **Step 5: Typecheck + biome + commit**
 
-Run: `pnpm --filter @labs/api typecheck && pnpm biome`
+Run: `pnpm --filter @roster/api typecheck && pnpm biome`
 
 ```bash
 git add apps/api/src/handlers/lab-groups.ts apps/api/test/lab-groups.test.ts
@@ -638,7 +638,7 @@ describe("LabRow", () => {
 
 - [ ] **Step 2: Run to verify they fail**
 
-Run: `pnpm --filter @labs/www test -- lab-row`
+Run: `pnpm --filter @roster/www test -- lab-row`
 Expected: FAIL — the pre-start student test finds a link and the badge.
 
 - [ ] **Step 3: Implement the helpers**
@@ -726,12 +726,12 @@ And before the existing `const row = (<Link …>)`, the locked branch:
 
 - [ ] **Step 5: Run tests to verify they pass**
 
-Run: `pnpm --filter @labs/www test -- lab-row`
-Expected: PASS. Then `pnpm --filter @labs/www test` — the full suite must stay green (hub-card fixtures without `startAt` read as started via `!lab.startAt`).
+Run: `pnpm --filter @roster/www test -- lab-row`
+Expected: PASS. Then `pnpm --filter @roster/www test` — the full suite must stay green (hub-card fixtures without `startAt` read as started via `!lab.startAt`).
 
 - [ ] **Step 6: Typecheck + biome + commit**
 
-Run: `pnpm --filter @labs/www typecheck && pnpm biome`
+Run: `pnpm --filter @roster/www typecheck && pnpm biome`
 
 ```bash
 git add apps/www/app/lib/format.ts apps/www/app/components/custom/classes/labs/deadline-text.tsx apps/www/app/components/custom/classes/labs/lab-row.tsx apps/www/test/lab-row.test.tsx
@@ -808,7 +808,7 @@ Append inside the `describe("LabDialog")` block:
 
 - [ ] **Step 2: Run to verify they fail**
 
-Run: `pnpm --filter @labs/www test -- lab-dialog`
+Run: `pnpm --filter @roster/www test -- lab-dialog`
 Expected: FAIL — no "Start (optional)" field exists.
 
 - [ ] **Step 3: Implement**
@@ -889,12 +889,12 @@ The create-mode `DialogDescription` becomes:
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `pnpm --filter @labs/www test -- lab-dialog`
+Run: `pnpm --filter @roster/www test -- lab-dialog`
 Expected: PASS (all, including pre-existing).
 
 - [ ] **Step 5: Typecheck + biome + commit**
 
-Run: `pnpm --filter @labs/www typecheck && pnpm biome`
+Run: `pnpm --filter @roster/www typecheck && pnpm biome`
 
 ```bash
 git add apps/www/app/components/custom/classes/labs/lab-dialog.tsx apps/www/test/lab-dialog.test.tsx
@@ -938,7 +938,7 @@ Append to the `"StudentLabPage — edges"` describe block:
 
 - [ ] **Step 2: Run to verify it fails**
 
-Run: `pnpm --filter @labs/www test -- student-lab-page`
+Run: `pnpm --filter @roster/www test -- student-lab-page`
 Expected: FAIL — the page renders the group browse UI instead.
 
 - [ ] **Step 3: Implement**
@@ -973,12 +973,12 @@ In `use-lab-groups.ts`, add to `CONFLICT_MESSAGE` (after `name_taken`):
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `pnpm --filter @labs/www test -- student-lab-page`
+Run: `pnpm --filter @roster/www test -- student-lab-page`
 Expected: PASS (all).
 
 - [ ] **Step 5: Typecheck + biome + commit**
 
-Run: `pnpm --filter @labs/www typecheck && pnpm biome`
+Run: `pnpm --filter @roster/www typecheck && pnpm biome`
 
 ```bash
 git add apps/www/app/pages/student-lab-page.tsx apps/www/app/components/custom/classes/groups/shared/use-lab-groups.ts apps/www/test/student-lab-page.test.tsx
@@ -1035,7 +1035,7 @@ Append to `apps/www/test/teacher-lab-page.test.tsx`:
 
 - [ ] **Step 2: Run to verify they fail**
 
-Run: `pnpm --filter @labs/www test -- teacher-lab-page`
+Run: `pnpm --filter @roster/www test -- teacher-lab-page`
 Expected: FAIL — no note, no warning sentence.
 
 - [ ] **Step 3: Implement**
@@ -1084,7 +1084,7 @@ Per-row confirm (`GroupRow`), description becomes:
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `pnpm --filter @labs/www test -- teacher-lab-page`
+Run: `pnpm --filter @roster/www test -- teacher-lab-page`
 Expected: PASS (all).
 
 - [ ] **Step 5: Full verification**
@@ -1094,8 +1094,8 @@ Run, all must pass:
 ```bash
 pnpm biome
 pnpm typecheck
-pnpm --filter @labs/api test
-pnpm --filter @labs/www test
+pnpm --filter @roster/api test
+pnpm --filter @roster/www test
 ```
 
 Expected: biome clean (only the pre-existing schema-version info), both suites fully green.

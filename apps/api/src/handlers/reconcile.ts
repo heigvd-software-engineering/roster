@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
-import { classes, getDb } from "@labs/db";
+import { classes, getDb } from "@roster/db";
 import { eq } from "drizzle-orm";
 import type { Context } from "hono";
 import { z } from "zod";

@@ -1,4 +1,4 @@
-import { type Class, classes, getDb } from "@labs/db";
+import { type Class, classes, getDb } from "@roster/db";
 import { eq } from "drizzle-orm";
 import { authedFactory } from "../factory";
 import { githubAccessToken } from "../lib/auth/github-token";

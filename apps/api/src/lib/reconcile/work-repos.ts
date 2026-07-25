@@ -9,7 +9,7 @@
 //               -> only the old GET-path delete produced these. With that gone
 //                  and deleteGroup's has_repo guard holding, they can no longer
 //                  be created. Nothing in apps/api ever deletes a GitHub repo.
-import { groups, type Lab, labs } from "@labs/db";
+import { groups, type Lab, labs } from "@roster/db";
 import { eq, inArray } from "drizzle-orm";
 import { getOrgRepo, grantTeamRepo } from "../github/repo";
 import { isSameRepo } from "../groups";

@@ -1,15 +1,15 @@
-# labs
+# roster
 
 HEIG-VD's in-house replacement for GitHub Classroom.
 
 ## About
 
-A **class is a GitHub organization** — labs manages it and stores only what
+A **class is a GitHub organization** — roster manages it and stores only what
 GitHub can't express. The mapping:
 
-| labs | GitHub |
+| roster | GitHub |
 |---|---|
-| Class | Organization (connected via the labs GitHub App) |
+| Class | Organization (connected via the roster GitHub App) |
 | Teacher | Organization **Owner** |
 | Student | Organization **Member** (self-enrolls via the class join link) |
 | Group | Team (per lab — holds the roster and the work-repo grant) |
@@ -17,12 +17,12 @@ GitHub can't express. The mapping:
 
 Identity: users sign in with **SWITCH edu-ID** and must **link their GitHub
 account** — the edu-ID identity is THE identity inside the app; GitHub is the
-execution surface. On connect, labs sets the org's base repository permission
+execution surface. On connect, roster sets the org's base repository permission
 to **No access** so students only see repos they're granted.
 
 Because GitHub is the authority, each class has a **reconcile** page: it audits
 the class against GitHub and repairs any drift — a moved App installation, a
-renamed org, roster or team changes made outside labs, an unset base
+renamed org, roster or team changes made outside roster, an unset base
 permission — applying only the fixes the teacher accepts (the audit reads,
 never writes). The page's *“What does reconcile cover?”* link lists every drift
 the subsystem recognises.
@@ -51,11 +51,11 @@ Prereqs: Node ≥ 22.22, pnpm 11 (auto-downloaded via `devEngines`), and
 pnpm install
 
 # one-time / after schema changes: apply migrations to the local D1
-pnpm --filter @labs/api exec wrangler d1 migrations apply labs --local --env dev
+pnpm --filter @roster/api exec wrangler d1 migrations apply roster-db --local
 
 # run the app (two terminals)
-pnpm --filter @labs/api dev        # Worker (API) on :8788
-pnpm --filter @labs/www dev        # SPA with HMR → https://localhost:3000
+pnpm --filter @roster/api dev        # Worker (API) on :8788
+pnpm --filter @roster/www dev        # SPA with HMR → https://localhost:3000
 ```
 
 `https://localhost:3000` is the ONLY origin where sign-in works (SWITCH
@@ -67,8 +67,8 @@ accept the browser warning once.
 To exercise the prod setup (Worker serving the built SPA, no proxy):
 
 ```bash
-pnpm --filter @labs/www build
-pnpm --filter @labs/api preview    # → https://localhost:3000
+pnpm --filter @roster/www build
+pnpm --filter @roster/api preview    # → https://localhost:3000
 ```
 
 > Windows gotcha: a running `preview` Worker locks `apps/www/build/client` —
@@ -86,17 +86,15 @@ pnpm build            # SPA build + Worker dry-run
 ### Database
 
 ```bash
-pnpm --filter @labs/db db:generate                                              # new migration from schema
-pnpm --filter @labs/api exec wrangler d1 migrations apply labs --local --env dev    # apply locally
-pnpm --filter @labs/api exec wrangler d1 migrations apply labs --remote --env demo  # apply to the demo D1
-pnpm --filter @labs/api run auth:schema                                         # regenerate Better Auth schema
+pnpm --filter @roster/db db:generate                                          # new migration from schema
+pnpm --filter @roster/api exec wrangler d1 migrations apply roster-db --local   # apply to the local D1
+pnpm --filter @roster/api exec wrangler d1 migrations apply roster-db --remote  # apply to the deployed D1
+pnpm --filter @roster/api run auth:schema                                      # regenerate Better Auth schema
 ```
 
-Any `wrangler` command that touches the database or deploys needs `--env` — the
-D1 binding and its `migrations_dir` live per environment (`dev` / `demo` /
-`prod`), not at the top level, so without it wrangler looks for
-`apps/api/migrations` and errors. (`build` is the exception: a `--dry-run`
-bundle check needs no bindings.) See [`DEPLOY.md`](DEPLOY.md).
+The D1 binding lives at the top level of `apps/api/wrangler.jsonc` (there is one
+environment), so no `--env` is needed. `--local` targets the miniflare SQLite;
+`--remote` targets the deployed `roster-db`. See [`DEPLOY.md`](DEPLOY.md).
 
 The local D1 is a plain SQLite file under
 `apps/api/.wrangler/state/v3/d1/miniflare-D1DatabaseObject/` — point DBeaver
@@ -104,39 +102,32 @@ The local D1 is a plain SQLite file under
 
 ## Deploy
 
-One Cloudflare Worker serves the API and the built SPA, so a deploy is
-build-then-ship — two commands (PowerShell 5.1 has no `&&`):
+One Cloudflare Worker (`roster-app`) serves the API and the built SPA on a
+single origin, so a deploy is build-then-ship — two commands (PowerShell 5.1
+has no `&&`):
 
 ```bash
-pnpm --filter @labs/www build
-pnpm --filter @labs/api run deploy:demo    # or deploy:prod
+pnpm --filter @roster/www build
+pnpm --filter @roster/api run deploy
 ```
 
-Each **environment** owns its origin, its D1, its GitHub App, and its secrets —
-they are declared side by side in `apps/api/wrangler.jsonc`:
+There is one environment. It is the top-level config in
+`apps/api/wrangler.jsonc`:
 
-| Env | Worker | Origin |
+| Worker | Database | Origin |
 |---|---|---|
-| `dev` | `labs-dev` | local only (`wrangler dev`) — never deployed |
-| `demo` | `labs` | [`labs.stefan-teofanov.workers.dev`](https://labs.stefan-teofanov.workers.dev) |
-| `prod` | `labs-heigvd` | not yet provisioned — see [`DEPLOY.md`](DEPLOY.md) |
+| `roster-app` | `roster-db` | [`roster.y-software.ch`](https://roster.y-software.ch) |
 
-The bare `deploy` script exists only to stop you — it exits with a pointer to
-`deploy:demo` / `deploy:prod`. An environment-less deploy would ship a Worker
-with no vars and no database (neither is inherited by environments), and
-wrangler only *warns* about that before deploying anyway — so it would break at
-runtime rather than at deploy.
-
-If migrations were added since the last deploy, apply them to that
-environment's D1 first:
+If migrations were added since the last deploy, apply them to the deployed D1
+first:
 
 ```bash
-pnpm --filter @labs/api exec wrangler d1 migrations apply labs --remote --env demo
+pnpm --filter @roster/api exec wrangler d1 migrations apply roster-db --remote
 ```
 
-Secrets and D1 survive deploys — only code and `vars` ship. First-time setup of
-a new environment from scratch (create its D1, its own GitHub App, the SWITCH
-redirect URI, its secrets) is a one-time sequence — follow
+Secrets and D1 survive deploys — only code and `vars` ship. First-time setup
+from scratch (create the D1, the GitHub App, the SWITCH redirect URI, the
+secrets, the custom domain) is a one-time sequence — follow
 [`DEPLOY.md`](DEPLOY.md) end to end.
 
 ## Documentation

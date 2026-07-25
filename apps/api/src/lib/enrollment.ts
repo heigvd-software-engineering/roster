@@ -1,4 +1,4 @@
-import { classMembers, type getDb } from "@labs/db";
+import { classMembers, type getDb } from "@roster/db";
 import { and, eq, sql } from "drizzle-orm";
 
 type Db = ReturnType<typeof getDb>;

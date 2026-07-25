@@ -163,7 +163,7 @@ export function JoinPage() {
     return (
       <Shell title="This class needs attention">
         <Text variant="subtitle" className="max-w-md">
-          Your link is fine, but labs can't reach this class on GitHub right
+          Your link is fine, but roster can't reach this class on GitHub right
           now. Ask your teacher to open the class and reconcile it — then try
           again.
         </Text>

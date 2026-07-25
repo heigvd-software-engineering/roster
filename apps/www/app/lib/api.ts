@@ -1,4 +1,4 @@
-import type { AppType } from "@labs/api";
+import type { AppType } from "@roster/api";
 import { type ClientResponse, hc, type InferResponseType } from "hono/client";
 import { useState } from "react";
 import useSWR, { type SWRConfiguration } from "swr";

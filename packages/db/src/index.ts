@@ -1,4 +1,4 @@
-// @labs/db = the SCHEMA layer, nothing more: Drizzle table models, inferred
+// @roster/db = the SCHEMA layer, nothing more: Drizzle table models, inferred
 // entity types, and `getDb`. There is deliberately NO query-helper layer —
 // endpoints write their Drizzle queries inline (decided 2026-07-03: the db
 // itself is the abstraction). See README.md.

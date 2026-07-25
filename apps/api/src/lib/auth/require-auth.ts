@@ -1,4 +1,4 @@
-import type { User } from "@labs/db";
+import type { User } from "@roster/db";
 import { createMiddleware } from "hono/factory";
 import type { AuthEnv } from "./config";
 import { createAuth } from "./config";

@@ -7,7 +7,7 @@ import { Text } from "~/components/custom/typography/text";
 import { Button } from "~/components/ui/button";
 import { api, useApi } from "~/lib/api";
 
-/** /classes/:id/confirm — locks the org to labs' policy: base repo
+/** /classes/:id/confirm — locks the org to roster's policy: base repo
  *  permission No access + no member repository creation. */
 export function ClassConfirmPage() {
   const { id = "" } = useParams();
@@ -57,7 +57,7 @@ export function ClassConfirmPage() {
         <Stack gap="lg" align="start" justify="center" className="flex-1">
           <BrandHeader title={`Connect ${orgName}`} />
           <Text variant="subtitle" className="max-w-md">
-            labs will apply two settings to this organization: the base
+            roster will apply two settings to this organization: the base
             repository permission becomes <strong>No access</strong>, so
             students only see repos they're granted — their own lab repos, never
             other students' work or the organization's private repos — and{" "}

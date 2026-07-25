@@ -19,7 +19,7 @@ export async function orgInfo(
   };
 }
 
-/** The two org settings labs enforces — its "org policy". */
+/** The two org settings roster enforces — its "org policy". */
 export type OrgPolicy = {
   /** Base repository permission (labs wants "none"). */
   basePermission: string;
@@ -43,7 +43,7 @@ export async function orgPolicy(
   };
 }
 
-/** Lock the org to labs' policy, in one PATCH: base repository permission
+/** Lock the org to roster's policy, in one PATCH: base repository permission
  *  "none" (membership grants nothing on its own — students only see repos
  *  they're explicitly granted) AND no member repository creation (work
  *  repos are born through labs; a repo a student creates directly on
@@ -190,7 +190,7 @@ export type OrgInvitation = OrgPerson & { role: InvitedRole };
 /**
  * The class's people, read live. Teachers = org Owners (role admin),
  * students = non-owner Members, pending = open invitations (no avatar; login
- * falls back to the invite email — labs only creates username invites, but
+ * falls back to the invite email — roster only creates username invites, but
  * org owners can invite by email on GitHub). Paginated so orgs beyond one
  * page stay correct.
  */

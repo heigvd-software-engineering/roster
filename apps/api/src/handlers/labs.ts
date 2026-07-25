@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
-import { labs } from "@labs/db";
+import { labs } from "@roster/db";
 import { and, eq, ne } from "drizzle-orm";
 import { z } from "zod";
 import { authedFactory } from "../factory";

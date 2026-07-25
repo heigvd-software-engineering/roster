@@ -1,4 +1,4 @@
-import { type Group, type getDb, groupMembers } from "@labs/db";
+import { type Group, type getDb, groupMembers } from "@roster/db";
 import { eq, inArray } from "drizzle-orm";
 import type { AuthEnv } from "./auth/config";
 import type { OrgPerson } from "./github/org";

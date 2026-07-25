@@ -7,7 +7,8 @@ import { ClassesPage } from "~/pages/classes-page";
 
 vi.mock("~/contexts/auth-context", () => ({
   useAuth: () => ({
-    githubAppInstallUrl: "https://github.com/apps/heigvdlabs/installations/new",
+    githubAppInstallUrl:
+      "https://github.com/apps/heigvdroster/installations/new",
   }),
 }));
 

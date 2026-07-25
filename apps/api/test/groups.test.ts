@@ -7,7 +7,7 @@ import {
   groups,
   labs,
   user,
-} from "@labs/db";
+} from "@roster/db";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { beforeEach, expect, test, vi } from "vitest";

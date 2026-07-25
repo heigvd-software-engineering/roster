@@ -1,5 +1,5 @@
 import { env } from "cloudflare:test";
-import { classes, getDb, groupMembers, groups, labs, user } from "@labs/db";
+import { classes, getDb, groupMembers, groups, labs, user } from "@roster/db";
 import { eq } from "drizzle-orm";
 import { beforeEach, expect, test, vi } from "vitest";
 import type { AuthEnv } from "../src/lib/auth/config";

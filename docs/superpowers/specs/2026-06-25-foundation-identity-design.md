@@ -194,16 +194,16 @@ labs/
                 #   Better Auth at /api/auth/*; Drizzle+D1; Octokit (GitHub App);
                 #   exports `AppType`
   packages/
-    db/         # @labs/db — Drizzle schema (auth + app tables), drizzle config,
+    db/         # @roster/db — Drizzle schema (auth + app tables), drizzle config,
                 #   migrations, query helpers, inferred entity types
-    types/      # @labs/types — zod request-validation schemas + shared enums
+    types/      # @roster/types — zod request-validation schemas + shared enums
                 #   (response types come from Hono RPC inference)
   docs/superpowers/specs/
   package.json, pnpm-workspace.yaml, biome.json, tsconfig.base.json,
   lefthook.yml, .github/workflows/ci.yml
 ```
 
-- Package scope: **`@labs/*`**.
+- Package scope: **`@roster/*`**.
 - Tooling: pnpm workspaces, Biome (double quotes, semicolons, 2-space, 80 cols),
   Vitest, lefthook, Wrangler.
 - The frontend app is **`apps/www`**, `ssr:false`, `~` alias to `app/`.

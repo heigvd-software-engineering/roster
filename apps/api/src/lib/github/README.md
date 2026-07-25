@@ -1,4 +1,4 @@
-# github/ — every GitHub operation labs performs
+# github/ — every GitHub operation roster performs
 
 This folder is the **complete inventory** of the app's GitHub surface.
 Routes never import octokit or `clients.ts` directly — they compose the
@@ -29,7 +29,7 @@ named operations below.
 ## App-permission audit map
 
 The GitHub App's granted permissions map onto operations — when a permission
-review asks "why does labs need X?", the answer is a function in this folder:
+review asks "why does roster need X?", the answer is a function in this folder:
 
 - **Organization Administration: write** → `enforceOrgPolicy` — one PATCH asserting base repository permission "none" AND member repository creation off (+ `orgPolicy` read)
 - **Repository Administration + Contents: write** (F8 — must be granted on the App AND re-approved on installations) → `createOrgRepo`, `generateFromTemplate`, `grantTeamRepo` (+ `orgTemplateRepos` read)
@@ -37,7 +37,7 @@ review asks "why does labs need X?", the answer is a function in this folder:
 - **Organization Members: write — Owner-granting** → `promoteToOrgAdmin`
   (`PUT /orgs/{org}/memberships/{username}`, `role: "admin"`) and
   `inviteOrgAdmin` (`POST /orgs/{org}/invitations`, `role: "admin"`). These are
-  the most privileged calls labs makes: they make someone an **org Owner**,
+  the most privileged calls roster makes: they make someone an **org Owner**,
   i.e. a teacher. Listed separately because a permission review that only reads
   the line above would under-report the App's actual authority.
 - **User OAuth (`read:org` + profile)** → `user.ts` (identity + installation ownership only)

@@ -1,101 +1,54 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
 
-  // ─── Shared base ────────────────────────────────────────────────────────
-  // Only INHERITABLE keys live here. Every environment below inherits them.
-  // There are no top-level `vars` or `d1_databases` on purpose: those keys are
-  // NOT inherited by environments, so a value here would be silently dropped
-  // from every `--env` deploy. Wrangler warns about exactly this. Commands that
-  // touch D1 or deploy must therefore pass `--env` (the package scripts do);
-  // `build`'s dry-run bundles without bindings and needs none.
-  "name": "labs",
+  // ONE Worker serves BOTH the SPA (static assets) and /api/* on a single
+  // origin — https://roster.y-software.ch — so Better Auth cookies stay
+  // first-party. There is ONE environment: production is this top-level
+  // config. `wrangler dev` runs the same config locally and reads
+  // apps/api/.dev.vars for the secrets AND the two dev-only var overrides
+  // (BETTER_AUTH_URL, GITHUB_APP_SLUG) — values in .dev.vars win over the
+  // `vars` below during `wrangler dev`. See apps/api/.dev.vars.example.
+  "name": "roster-app",
   "main": "src/index.ts",
   "compatibility_date": "2026-06-30",
   "compatibility_flags": ["nodejs_compat"],
+
+  // The custom domain. Requires the y-software.ch zone on the deploying
+  // account. `wrangler dev` ignores routes and serves on localhost.
+  "routes": [{ "pattern": "roster.y-software.ch", "custom_domain": true }],
+
   "assets": {
     "directory": "../www/build/client",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    // API routes must hit the Worker first. Without this, browser *navigations*
-    // (Sec-Fetch-Mode: navigate) to /api/* are short-circuited by the SPA
-    // not_found_handling and never reach Hono/Better Auth (breaks OAuth callback).
+    // Browser *navigations* to /api/* (Sec-Fetch-Mode: navigate) must reach
+    // the Worker first, not the SPA fallback — otherwise the OAuth callback
+    // never hits Hono/Better Auth.
     "run_worker_first": ["/api/*"]
   },
 
-  // ─── Environments ───────────────────────────────────────────────────────
-  // One GitHub App, one D1, one origin PER ENVIRONMENT — see DEPLOY.md. Each
-  // block therefore restates `vars` and `d1_databases` IN FULL; they are not
-  // inherited. `name` IS inherited, so each block pins it explicitly: without
-  // that, wrangler deploys to `<name>-<env>` (e.g. `labs-demo`), which would
-  // move the origin and break BETTER_AUTH_URL, both GitHub App URLs, and the
-  // SWITCH redirect URI in one shot.
-  //
-  // Secrets are per-environment and never live here:
-  //   wrangler secret put <KEY> --env <demo|prod>     (DEPLOY.md phase 5)
-  "env": {
-    // Local development only — never deployed. `wrangler dev` runs this env
-    // (see the `dev`/`preview` scripts) and reads apps/api/.dev.vars for the
-    // secrets. The name only exists so an accidental `deploy --env dev` lands
-    // on a throwaway Worker instead of the demo.
-    "dev": {
-      "name": "labs-dev",
-      "vars": {
-        "BETTER_AUTH_URL": "https://localhost:3000",
-        "EDUID_ISSUER": "https://login.eduid.ch",
-        "GITHUB_APP_SLUG": "heigvdlabs"
-      },
-      "d1_databases": [
-        {
-          "binding": "DB",
-          "database_name": "labs",
-          // Ignored locally — miniflare keeps its own sqlite under .wrangler/.
-          "database_id": "00000000-0000-0000-0000-000000000000",
-          "migrations_dir": "../../packages/db/migrations"
-        }
-      ]
-    },
+  // Public, non-secret config. Secrets are set once per deploy with
+  //   wrangler secret put <KEY>            (see DEPLOY.md)
+  // and, for local dev, in apps/api/.dev.vars (which also overrides
+  // BETTER_AUTH_URL + GITHUB_APP_SLUG with their localhost/dev values).
+  "vars": {
+    "BETTER_AUTH_URL": "https://roster.y-software.ch",
+    "EDUID_ISSUER": "https://login.eduid.ch",
+    // The GitHub App's public slug (install URL path segment) — delivered to
+    // the SPA via /api/me. Fill in after creating the App (GITHUB_APP_SETUP.md).
+    "GITHUB_APP_SLUG": "<app-slug>"
+  },
 
-    // The demo on the personal Cloudflare account. `name: "labs"` keeps the
-    // existing origin, labs.stefan-teofanov.workers.dev.
-    "demo": {
-      "name": "labs",
-      "vars": {
-        "BETTER_AUTH_URL": "https://labs.stefan-teofanov.workers.dev",
-        "EDUID_ISSUER": "https://login.eduid.ch",
-        // The demo GitHub App's public slug (install URL path segment) — public
-        // config, not a secret. Delivered to the SPA via /api/me.
-        "GITHUB_APP_SLUG": "heigvdlabsdemo"
-      },
-      "d1_databases": [
-        {
-          "binding": "DB",
-          "database_name": "labs",
-          "database_id": "1dd57ff0-73c3-439a-8878-df578944cfe1",
-          "migrations_dir": "../../packages/db/migrations"
-        }
-      ]
-    },
-
-    // HEIG-VD's environment — NOT YET PROVISIONED. Fill these in by following
-    // DEPLOY.md end to end on the owning account: create the D1 (phase 1), this
-    // environment's own GitHub App (phase 3), and its secrets (phase 5). The
-    // placeholders below are deliberately invalid so a premature deploy fails
-    // loudly instead of shipping a half-configured Worker.
-    "prod": {
-      "name": "labs-heigvd",
-      "vars": {
-        "BETTER_AUTH_URL": "https://labs-heigvd.<subdomain>.workers.dev",
-        "EDUID_ISSUER": "https://login.eduid.ch",
-        "GITHUB_APP_SLUG": "<app-slug>"
-      },
-      "d1_databases": [
-        {
-          "binding": "DB",
-          "database_name": "labs",
-          "database_id": "00000000-0000-0000-0000-000000000000",
-          "migrations_dir": "../../packages/db/migrations"
-        }
-      ]
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "roster-db",
+      // Create it once with `wrangler d1 create roster-db` and paste the id
+      // here. All-zeros is a deliberately invalid placeholder so a premature
+      // remote deploy fails loudly. Ignored for local dev, where miniflare
+      // keeps its own sqlite under .wrangler/.
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "../../packages/db/migrations"
     }
-  }
+  ]
 }

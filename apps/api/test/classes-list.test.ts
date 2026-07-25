@@ -1,5 +1,5 @@
 import { env } from "cloudflare:test";
-import { account, classes, classMembers, getDb, labs, user } from "@labs/db";
+import { account, classes, classMembers, getDb, labs, user } from "@roster/db";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { beforeEach, expect, test, vi } from "vitest";
@@ -184,7 +184,7 @@ beforeEach(async () => {
   await db.delete(classes);
   await db.delete(account);
   await db.delete(user);
-  // The caller: labs user u1 whose linked GitHub id is 111 (the org owner).
+  // The caller: roster user u1 whose linked GitHub id is 111 (the org owner).
   await db.insert(user).values([
     {
       id: "u1",
@@ -243,7 +243,7 @@ test("lists classes with people + linked users, from live installation data", as
     pending: state.people.pending,
     labs: [],
   });
-  // Only the teacher's GitHub account (111) is linked to a labs user here.
+  // Only the teacher's GitHub account (111) is linked to a roster user here.
   expect(body.classes[0]?.users).toHaveLength(1);
   // EXACT shape: the private email (and everything else) must not ride along.
   expect(body.classes[0]?.users[0]).toEqual({
@@ -649,7 +649,7 @@ test("an enrolled class's teachers carry affiliations, never the private email",
     updatedAt: new Date(500),
   });
   // The caller (u1/111) is enrolled; a teacher (500) runs the class. The
-  // teacher signed in to labs (SWITCH-linked GitHub account) — the caller,
+  // teacher signed in to roster (SWITCH-linked GitHub account) — the caller,
   // a STUDENT, must see their name + professional emails, nothing more.
   await db.insert(classMembers).values([
     {

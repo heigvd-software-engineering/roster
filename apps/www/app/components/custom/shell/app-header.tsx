@@ -5,7 +5,7 @@ import { MainSwitchIdentity } from "~/components/custom/shell/main-switch-identi
 import { useAuth } from "~/contexts/auth-context";
 
 /**
- * The app's top bar: the `labs` wordmark on the left, the account menu pinned
+ * The app's top bar: the `roster` wordmark on the left, the account menu pinned
  * top-right, a brand-red hairline underneath. Full-bleed border; inner content
  * aligns to the page Container. Renders nothing until there's a signed-in user
  * (so the login screen stays chrome-free).
@@ -21,7 +21,7 @@ export function AppHeader() {
       <Container className="py-3">
         <Row justify="between">
           <Link to="/classes" className="font-bold tracking-tight">
-            labs
+            roster
           </Link>
           <MainSwitchIdentity />
         </Row>

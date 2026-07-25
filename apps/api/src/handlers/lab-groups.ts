@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
-import { classMembers, type Group, groups, type Lab, labs } from "@labs/db";
+import { classMembers, type Group, groups, type Lab, labs } from "@roster/db";
 import { and, desc, eq, inArray, isNull, ne } from "drizzle-orm";
 import type { Context } from "hono";
 import { z } from "zod";

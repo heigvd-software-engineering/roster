@@ -20,7 +20,7 @@ type LinkedUser = ClassItem["users"][number]["user"];
 type PeopleChipProps = {
   /** e.g. "3 students · 1 pending" */
   label: string;
-  /** Org members, each correlated (by the caller) with their labs user. */
+  /** Org members, each correlated (by the caller) with their roster user. */
   people: Array<Member & { user: LinkedUser | null; pending?: boolean }>;
   emptyText: string;
   /** Tooltip explaining what the popover will show. */
@@ -30,7 +30,7 @@ type PeopleChipProps = {
    * pending groups do not describe the same situation. A pending student came
    * through the join link, so they are already signed in with GitHub linked
    * and only owe GitHub an acceptance. A pending teacher may never have opened
-   * labs at all, and owes two separate steps.
+   * roster at all, and owes two separate steps.
    */
   pendingHint?: ReactNode;
 };

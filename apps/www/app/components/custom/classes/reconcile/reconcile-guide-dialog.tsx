@@ -40,7 +40,7 @@ const GUIDE: {
   },
   {
     section: "Roster",
-    note: "labs keeps its own list of a class's members — a cache of GitHub's org membership, used to show who's in the class without calling GitHub every time. Access is always live from GitHub, so reconciling this list never grants or revokes anything; it just keeps the list honest.",
+    note: "roster keeps its own list of a class's members — a cache of GitHub's org membership, used to show who's in the class without calling GitHub every time. Access is always live from GitHub, so reconciling this list never grants or revokes anything; it just keeps the list honest.",
     items: [
       {
         what: "Someone joined the organization but isn't on the class list",
@@ -78,7 +78,7 @@ const GUIDE: {
       {
         what: "A work repository exists but was never linked to its group",
         handled:
-          "If accepting a lab is interrupted after GitHub makes the repo but before labs records it. Re-accepting the lab already self-heals; reconcile is the backstop — it links the repo and re-grants the team its push access.",
+          "If accepting a lab is interrupted after GitHub makes the repo but before roster records it. Re-accepting the lab already self-heals; reconcile is the backstop — it links the repo and re-grants the team its push access.",
       },
     ],
   },
@@ -93,7 +93,7 @@ const GUIDE: {
       {
         what: "Members can create repositories in the organization",
         handled:
-          "Students could then create repos directly on GitHub, outside the labs workflow. Reconcile turns member repository creation back off — student repositories are born through labs only.",
+          "Students could then create repos directly on GitHub, outside the roster workflow. Reconcile turns member repository creation back off — student repositories are born through roster only.",
       },
     ],
   },

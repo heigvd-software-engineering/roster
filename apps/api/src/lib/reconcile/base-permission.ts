@@ -1,4 +1,4 @@
-// The org policy labs depends on — TWO settings on the class organization:
+// The org policy roster depends on — TWO settings on the class organization:
 //
 //   - the BASE repository permission: what every member gets on every repo in
 //     the org, before any team grant. Must be "none", or every student
@@ -45,7 +45,7 @@ export const basePermissionReconciler: Reconciler = {
         severity: "broken" as const,
         title: "Students can create repositories in the organization",
         detail:
-          "The organization allows Members to create repositories. Work repositories are created through labs; a repo a student creates directly on GitHub sits outside the labs workflow entirely.",
+          "The organization allows Members to create repositories. Work repositories are created through roster; a repo a student creates directly on GitHub sits outside the roster workflow entirely.",
         fix: "Turn off member repository creation",
         change: {
           from: "Member repository creation: allowed",

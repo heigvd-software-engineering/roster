@@ -13,17 +13,17 @@ import {
 } from "~/components/ui/dialog";
 import { useAuth } from "~/contexts/auth-context";
 
-/** How labs maps onto GitHub — a term→meaning table, shown before connecting so
+/** How roster maps onto GitHub — a term→meaning table, shown before connecting so
  *  a teacher knows exactly what "creating a class" does to their organization. */
 const MAPPING = [
   { term: "Class", detail: "The organization you connect." },
   {
     term: "Teachers",
-    // Must match InviteTeacherDialog: labs sends the Owner invitation itself
+    // Must match InviteTeacherDialog: roster sends the Owner invitation itself
     // (or promotes an enrolled student on the spot) — the teacher never touches
     // GitHub's own invite UI.
     detail:
-      "Its Owners. Invite them by GitHub username from the class page — labs sends the Owner invitation.",
+      "Its Owners. Invite them by GitHub username from the class page — roster sends the Owner invitation.",
   },
   {
     term: "Students",
@@ -37,7 +37,7 @@ const MAPPING = [
 ];
 
 /**
- * The "Create a new class" entry point: explains the labs-on-GitHub model
+ * The "Create a new class" entry point: explains the roster-on-GitHub model
  * (and the security change we make) BEFORE sending the teacher into the
  * GitHub App install flow — connecting an org otherwise reads as an obscure
  * technical step rather than "create a class".
@@ -106,7 +106,7 @@ export function NewClassDialog({
 
           {/* The safety-critical part: everything about who can see and do
               what, folded into one paragraph and boxed so it can't be skimmed
-              past. labs locks the org on connect: base permission No access +
+              past. roster locks the org on connect: base permission No access +
               no member repo creation; access is per-repo grant only, which is
               what makes student work private. */}
           <Stack gap="sm" className="rounded-lg border bg-muted/40 p-4">
@@ -115,7 +115,7 @@ export function NewClassDialog({
               On connect, labs sets the organization's base permission to{" "}
               <strong>No access</strong> — membership grants nothing on its own.
               Each student reaches only their own lab repo, never another
-              student's, and never your private repositories. labs also turns
+              student's, and never your private repositories. roster also turns
               off <strong>member repository creation</strong>, so students can't
               create repos in the organization themselves — every student
               repository is born through labs. Only <strong>public</strong>{" "}
@@ -133,7 +133,7 @@ export function NewClassDialog({
             approval.
           </Text>
           <Button
-            title="Opens GitHub to pick the organization and install the labs App"
+            title="Opens GitHub to pick the organization and install the roster App"
             render={<a href={githubAppInstallUrl} />}
           >
             Connect an organization

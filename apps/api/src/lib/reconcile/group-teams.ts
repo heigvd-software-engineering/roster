@@ -14,8 +14,8 @@
 // find-or-create path (or the `work-repos` reconciler) links it straight back.
 //
 // Teams that exist on GitHub but have no group row are NOT our business. We
-// cannot know which lab they belong to, and an org has teams labs never made.
-import { groups } from "@labs/db";
+// cannot know which lab they belong to, and an org has teams roster never made.
+import { groups } from "@roster/db";
 import { eq } from "drizzle-orm";
 import { teamMembers } from "../github/team";
 import type {

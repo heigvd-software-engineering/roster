@@ -21,7 +21,7 @@ export function OnboardingGitHubPage() {
     <Stack gap="lg" align="start" justify="center" className="flex-1">
       <BrandHeader title="Connect GitHub" />
       <Text variant="subtitle" className="max-w-md">
-        labs runs your classes and labs on your own GitHub account. Link it to
+        roster runs your classes and labs on your own GitHub account. Link it to
         continue.
       </Text>
       {failed ? (
@@ -32,7 +32,7 @@ export function OnboardingGitHubPage() {
       ) : null}
       <Button
         size="lg"
-        title="Link your GitHub account to labs"
+        title="Link your GitHub account to roster"
         onClick={() => linkGithub(returnTo)}
       >
         {failed ? "Try connecting again" : "Connect GitHub"}

@@ -9,7 +9,7 @@ export function LoginPage() {
   const { signIn } = useAuth();
   return (
     <Stack gap="lg" align="start" justify="center" className="flex-1">
-      <BrandHeader title="labs" size="hero" />
+      <BrandHeader title="roster" size="hero" />
       <Text variant="subtitle" className="max-w-md">
         Course labs, on your own GitHub.
       </Text>

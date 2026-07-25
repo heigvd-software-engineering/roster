@@ -1,4 +1,4 @@
-import { account, classes, classMembers, getDb } from "@labs/db";
+import { account, classes, classMembers, getDb } from "@roster/db";
 import { and, eq, inArray } from "drizzle-orm";
 import { forgetMember, observeMember } from "../enrollment";
 import type { AuthEnv } from "./config";

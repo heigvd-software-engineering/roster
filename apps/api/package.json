@@ -1,5 +1,5 @@
 {
-  "name": "@labs/api",
+  "name": "@roster/api",
   "private": true,
   "type": "module",
   "exports": {
@@ -7,12 +7,10 @@
   },
   "types": "./src/index.ts",
   "scripts": {
-    "dev": "wrangler dev --env dev --port 8788",
-    "preview": "wrangler dev --env dev --local-protocol https --port 3000",
-    "deploy": "echo 'Pick an environment: pnpm run deploy:demo | deploy:prod (see DEPLOY.md)' && exit 1",
-    "deploy:demo": "wrangler deploy --minify --env demo",
-    "deploy:prod": "wrangler deploy --minify --env prod",
-    "cf-typegen": "wrangler types --env-interface CloudflareBindings --env dev",
+    "dev": "wrangler dev --port 8788",
+    "preview": "wrangler dev --local-protocol https --port 3000",
+    "deploy": "wrangler deploy --minify",
+    "cf-typegen": "wrangler types --env-interface CloudflareBindings",
     "auth:schema": "better-auth generate --config better-auth.config.ts --output ../../packages/db/src/auth-schema.ts --yes",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
@@ -20,7 +18,7 @@
   },
   "dependencies": {
     "@hono/zod-validator": "^0.8.0",
-    "@labs/db": "workspace:*",
+    "@roster/db": "workspace:*",
     "better-auth": "^1.6.23",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.12.27",

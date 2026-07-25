@@ -42,7 +42,7 @@ const CONFLICT_MESSAGE: Record<string, string> = {
   template_error:
     "The lab's starter-code template can't be used — it's likely empty or unavailable. Ask your teacher to add a file to it (or remove the template).",
   app_permissions:
-    "labs can't create repositories yet — the GitHub App needs updated permissions (an administrator must approve them).",
+    "roster can't create repositories yet — the GitHub App needs updated permissions (an administrator must approve them).",
   // Read by BOTH roles (a teacher's stale delete lands here too) — stay
   // role-neutral.
   has_repo:

@@ -1,5 +1,5 @@
 {
-  "name": "labs",
+  "name": "roster",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -10,7 +10,7 @@
     "biome": "biome check .",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
-    "build": "pnpm --filter @labs/www build && pnpm --filter @labs/api build"
+    "build": "pnpm --filter @roster/www build && pnpm --filter @roster/api build"
   },
   "devEngines": {
     "packageManager": {

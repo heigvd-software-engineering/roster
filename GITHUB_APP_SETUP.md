@@ -1,34 +1,28 @@
-# GitHub App setup (`HeigVdLabs`)
+# GitHub App setup (`HeigVdRoster`)
 
-labs uses **one GitHub App per environment** for two distinct jobs. This
-document explains what the App is for and how to create/configure one from
-scratch (or reconfigure an existing one).
+roster uses **one GitHub App** for two distinct jobs. This document explains
+what the App is for and how to create/configure it from scratch (or reconfigure
+an existing one).
 
-> **Current dev instance:** name `HeigVdLabs`, slug `heigvdlabs`, App ID
-> `4194411`, owner `@Ovich`. The steps below are what produced it — follow them
-> to recreate the App in another account/org or to stand up a production one.
+## ⚠ The single-valued Setup URL and local dev
 
-## ⚠ One App per ENVIRONMENT — not optional
+The App accepts up to 10 **Callback URLs**, so OAuth *linking* works from both
+production and `https://localhost:3000` on one App. But the **Setup URL is
+single-valued**, and the whole "connect a class" flow hangs on it: after an org
+installs or reconfigures the App, GitHub redirects the browser to that ONE URL,
+which is where the class row is born. Point it at production
+(`https://roster.y-software.ch/api/github/setup`).
 
-Each running environment (localhost, the workers.dev demo, a future prod)
-needs its **own** App. The App accepts up to 10 **Callback URLs**, so OAuth
-linking could share one — but the **Setup URL is single-valued**, and the
-whole "connect a class" flow hangs on it: after an org installs or
-reconfigures the App, GitHub redirects the browser to that ONE URL, which is
-where the class row is born. Whichever environment does not own the Setup
-URL gets its install redirects hijacked to the other one. Sharing was tried
-(dev + demo); it only works one environment at a time.
-
-Corollary: every URL in this guide is per-environment. Dev uses
-`https://localhost:3000`; substitute the environment's origin (e.g.
-`https://labs.stefan-teofanov.workers.dev`) everywhere when creating that
-environment's App.
+To exercise the install/connect flow **locally**, either temporarily repoint
+the Setup URL at `https://localhost:3000/api/github/setup`, or create a
+separate dev App and put its slug + OAuth pair in `apps/api/.dev.vars`.
+Everyday local work (sign-in, GitHub linking) needs neither.
 
 ## Why a GitHub App (not an OAuth App)?
 
-A GitHub **App** can act in two modes, which is exactly what labs needs:
+A GitHub **App** can act in two modes, which is exactly what roster needs:
 
-| Mode | Token | Used for | In labs |
+| Mode | Token | Used for | In roster |
 |---|---|---|---|
 | **User-to-server** (OAuth) | short-lived **user** token (~8 h, refreshable) | identify a person, read what *they* can access | Linking a student/teacher's GitHub identity to their edu-ID account (onboarding). |
 | **Server-to-server** (installation) | short-lived **installation** token | act on an org the App is *installed* on, with least privilege | Connecting a class: reading org members, setting the org base permission, later creating repos/teams. |
@@ -61,7 +55,7 @@ each org owner explicitly consents by installing the App.
 > org's owners and bounces you back WITHOUT installing, so no class is
 > created and no confirm page appears. Check your role under
 > `github.com/orgs/<org>/people`; only Install completes the connect flow.
-> (The same rule holds in the product: labs' teacher check is a live
+> (The same rule holds in the product: roster's teacher check is a live
 > is-org-admin call, so a class on an org you don't own would never be
 > yours anyway.)
 
@@ -74,15 +68,15 @@ org-owned App: `https://github.com/organizations/<org>/settings/apps`).
 
 | Field | Value |
 |---|---|
-| **GitHub App name** | `HeigVdLabs` (any unique name; the lowercased, hyphenated name becomes the **slug** used in the install URL) |
-| **Homepage URL** | your project/repo URL, e.g. `https://github.com/heigvd-software-engineering/labs` |
-| **Description** | e.g. "Connecting your GitHub organisation with Labs" |
+| **GitHub App name** | `HeigVdRoster` (any unique name; the lowercased, hyphenated name becomes the **slug** used in the install URL) |
+| **Homepage URL** | your project/repo URL, e.g. `https://github.com/heigvd-software-engineering/roster` |
+| **Description** | e.g. "Connecting your GitHub organisation with Roster" |
 
 ### 2. Identifying and authorizing users (OAuth — for user login/linking)
 
 | Field | Value |
 |---|---|
-| **Callback URL** | `https://localhost:3000/api/auth/callback/github` (dev). Production: `https://<your-domain>/api/auth/callback/github` |
+| **Callback URL** | `https://roster.y-software.ch/api/auth/callback/github` (add `https://localhost:3000/api/auth/callback/github` for local linking) |
 | **Request user authorization (OAuth) during installation** | **unchecked** — we attribute an install to the signed-in user via our own first-party session cookie, not an install-time OAuth |
 | **Enable Device Flow** | unchecked |
 
@@ -90,7 +84,7 @@ org-owned App: `https://github.com/organizations/<org>/settings/apps`).
 
 | Field | Value |
 |---|---|
-| **Setup URL** | `https://localhost:3000/api/github/setup` (dev). Production: `https://<your-domain>/api/github/setup` |
+| **Setup URL** | `https://roster.y-software.ch/api/github/setup` (repoint to `https://localhost:3000/api/github/setup` to test the connect flow locally) |
 | **Redirect on update** | **checked** |
 
 After a user installs (or updates) the App on an org, GitHub redirects here with
@@ -103,7 +97,7 @@ After a user installs (or updates) the App on an org, GitHub redirects here with
 
 ### 4. Webhook
 
-**Not required for F3.** Uncheck **Active** (or leave the URL empty). labs
+**Not required for F3.** Uncheck **Active** (or leave the URL empty). roster
 currently reconciles installation state on read (via `GET /user/installations`)
 rather than consuming the `installation` webhook. If real-time
 uninstall/reinstall handling is added later, set the Webhook URL + secret then.
@@ -130,7 +124,7 @@ Add more only when a feature needs it.
 > Changing permissions on an **already-installed** App requires each installation
 > to approve the new permissions (org Settings → GitHub Apps → review request;
 > until approved, repo creation answers `403 Resource not accessible by
-> integration` — labs surfaces it as an "App needs updated permissions"
+> integration` — roster surfaces it as an "App needs updated permissions"
 > message). For a fresh install it's included.
 
 ### 6. Where can this App be installed?
@@ -194,7 +188,7 @@ GITHUB_APP_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY--
 ```
 Turn a PEM into that single line: `awk 'NF{printf "%s\\n",$0}' app-key-pkcs8.pem`.
 
-**Deployed environments** — set them as Worker secrets instead of `.dev.vars`
+**Deployed** — set them as Worker secrets instead of `.dev.vars`
 (full deployment flow: `DEPLOY.md`):
 
 ```bash
@@ -217,7 +211,7 @@ override for dev), delivered to the SPA via `/api/me`:
 ## How "connect a class" works end to end
 
 1. Signed-in teacher clicks **Connect a GitHub organization** → browser goes to
-   `https://github.com/apps/heigvdlabs/installations/new`.
+   `https://github.com/apps/heigvdroster/installations/new`.
 2. Teacher installs the App on an org they own (only org owners can install —
    self-gating; no teacher role stored).
 3. GitHub redirects to the **Setup URL** (`/api/github/setup`) with the
@@ -233,7 +227,7 @@ override for dev), delivered to the SPA via `/api/me`:
 ## Notes / gotchas
 
 - **User tokens expire (~8 h).** GitHub App user-to-server tokens are short-lived
-  (with a 6-month refresh token). labs treats an unusable GitHub link by routing
+  (with a 6-month refresh token). roster treats an unusable GitHub link by routing
   the user back through onboarding to re-link.
 - **The class keys on the org id, not the installation id.** Reinstalling the App
   changes the `installationId` (reconciled on read); the `orgId` is stable.

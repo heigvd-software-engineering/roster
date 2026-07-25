@@ -1,4 +1,4 @@
-import type { Auth } from "@labs/api";
+import type { Auth } from "@roster/api";
 import {
   customSessionClient,
   genericOAuthClient,

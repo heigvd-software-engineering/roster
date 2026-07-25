@@ -1,5 +1,5 @@
 import { env } from "cloudflare:test";
-import { account, getDb, user } from "@labs/db";
+import { account, getDb, user } from "@roster/db";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { AuthEnv } from "../src/lib/auth/config";
 import { githubAccessToken } from "../src/lib/auth/github-token";
@@ -20,7 +20,7 @@ const authEnv = {
   GITHUB_CLIENT_SECRET: "gh-secret",
   GITHUB_APP_ID: "1",
   GITHUB_APP_PRIVATE_KEY: "unused",
-  GITHUB_APP_SLUG: "labs",
+  GITHUB_APP_SLUG: "roster",
 } as AuthEnv;
 
 const db = getDb(env.DB);

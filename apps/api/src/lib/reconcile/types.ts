@@ -2,7 +2,7 @@
 // GitHub-authoritative concern (installation, identity, roster, group-teams,
 // work-repos, base-permission) and never talks to GitHub directly: it reads
 // through `ClassContext` (context.ts) and reports/fixes drift as `Finding`s.
-import type { Class, classMembers, Group, getDb } from "@labs/db";
+import type { Class, classMembers, Group, getDb } from "@roster/db";
 import type { AuthEnv } from "../auth/config";
 import type { OrgInvitation, OrgPerson, OrgPolicy } from "../github/org";
 

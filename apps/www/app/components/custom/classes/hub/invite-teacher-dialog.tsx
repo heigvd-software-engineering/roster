@@ -191,7 +191,7 @@ export function InviteTeacherDialog({
               <DialogDescription>
                 Teachers are the organization's owners on GitHub. An owner has
                 full control of the organization — repositories, members,
-                settings — well beyond what labs itself manages.
+                settings — well beyond what roster itself manages.
               </DialogDescription>
             </DialogHeader>
             <Stack gap="md">

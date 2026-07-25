@@ -1,5 +1,5 @@
 import { env } from "cloudflare:test";
-import { account, getDb, user } from "@labs/db";
+import { account, getDb, user } from "@roster/db";
 import { Hono } from "hono";
 import { beforeEach, expect, test, vi } from "vitest";
 

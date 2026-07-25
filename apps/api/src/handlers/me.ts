@@ -1,4 +1,4 @@
-import { getDb } from "@labs/db";
+import { getDb } from "@roster/db";
 import { factory } from "../factory";
 import { createAuth } from "../lib/auth/config";
 import { githubAccessToken } from "../lib/auth/github-token";

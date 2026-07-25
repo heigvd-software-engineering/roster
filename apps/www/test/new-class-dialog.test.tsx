@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { NewClassDialog } from "~/components/custom/classes/hub/new-class-dialog";
 
-const installUrl = "https://github.com/apps/heigvdlabs/installations/new";
+const installUrl = "https://github.com/apps/heigvdroster/installations/new";
 vi.mock("~/contexts/auth-context", () => ({
   useAuth: () => ({ githubAppInstallUrl: installUrl }),
 }));
@@ -17,14 +17,14 @@ describe("NewClassDialog", () => {
     expect(screen.getByText("Teachers")).toBeInTheDocument();
     expect(screen.getByText("Students")).toBeInTheDocument();
     expect(screen.getByText("Student work")).toBeInTheDocument();
-    // Teachers are invited from within labs (InviteTeacherDialog) — the dialog
+    // Teachers are invited from within roster (InviteTeacherDialog) — the dialog
     // must point there, not at GitHub's own invite UI.
     expect(
-      screen.getByText(/labs sends the Owner invitation/),
+      screen.getByText(/roster sends the Owner invitation/),
     ).toBeInTheDocument();
     // The privacy section: base permission is dropped to No access and member
     // repo creation turned off, keeping student work private and repo
-    // creation inside labs — the safety-critical claims must survive.
+    // creation inside roster — the safety-critical claims must survive.
     expect(screen.getByText("Who can see and do what")).toBeInTheDocument();
     expect(screen.getByText(/member repository creation/)).toBeInTheDocument();
     expect(

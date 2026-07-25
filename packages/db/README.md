@@ -1,4 +1,4 @@
-# @labs/db
+# @roster/db
 
 The **schema layer** — and deliberately nothing more.
 
@@ -6,11 +6,11 @@ The **schema layer** — and deliberately nothing more.
 
 | File | Ownership | Contents |
 |---|---|---|
-| `src/auth-schema.ts` | **CLI-generated** — never edit | Better Auth tables (`user`, `session`, `account`, `verification`). Regenerate: `pnpm --filter @labs/api run auth:schema` |
+| `src/auth-schema.ts` | **CLI-generated** — never edit | Better Auth tables (`user`, `session`, `account`, `verification`). Regenerate: `pnpm --filter @roster/api run auth:schema` |
 | `src/app-schema.ts` | hand-owned | App-domain tables (`classes`, `labs`, `groups`, `group_members`, `class_members`) |
 | `src/schema.ts` | hand-owned | Barrel combining both (what `getDb` registers and drizzle-kit reads) |
 | `src/index.ts` | hand-owned | `getDb(d1)` + inferred entity types (`User`, `Account`, `Class`, `Lab`, `Group`) |
-| `migrations/` | drizzle-kit generated (hand-adjusted when SQLite limits require it) | Applied via `wrangler d1 migrations apply labs --local --env dev` (or `--remote --env demo`) |
+| `migrations/` | drizzle-kit generated (hand-adjusted when SQLite limits require it) | Applied via `wrangler d1 migrations apply roster-db --local` (or `--remote`) |
 
 ## What deliberately does NOT live here
 
@@ -35,7 +35,7 @@ against a real local D1 (Workers pool).
 ## Workflow
 
 - New app table/column → edit `app-schema.ts` →
-  `pnpm --filter @labs/db db:generate --name <what_it_does>` (ALWAYS pass
+  `pnpm --filter @roster/db db:generate --name <what_it_does>` (ALWAYS pass
   `--name` — never ship drizzle-kit's random `flaky_cerebro` names) → apply
   migrations.
 - Auth config change (e.g. `user.additionalFields`) → regenerate `auth-schema.ts` via the CLI → `db:generate` → apply.

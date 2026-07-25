@@ -1,7 +1,7 @@
-# @labs/www
+# @roster/www
 
-The labs front end: a React Router 8 **SPA** (`ssr: false`), Tailwind 4, and
-shadcn/ui on Base UI. It talks to `@labs/api` over `/api/*` and renders
+The roster front end: a React Router 8 **SPA** (`ssr: false`), Tailwind 4, and
+shadcn/ui on Base UI. It talks to `@roster/api` over `/api/*` and renders
 entirely in the browser.
 
 There is no server here. `app/entry.server.tsx` runs **once at build time** to
@@ -18,12 +18,12 @@ Prereqs: Node ≥ 22.22, pnpm 11 (auto-downloaded via `devEngines`), and
 From the repo root:
 
 ```bash
-pnpm install                    # pnpm, not npm — `@labs/api: workspace:*`
+pnpm install                    # pnpm, not npm — `@roster/api: workspace:*`
                                 # is a protocol npm cannot resolve
 
 # two terminals — the SPA is useless without the API
-pnpm --filter @labs/api dev     # Worker (API) on http://localhost:8788
-pnpm --filter @labs/www dev     # SPA on https://localhost:3000
+pnpm --filter @roster/api dev     # Worker (API) on http://localhost:8788
+pnpm --filter @roster/www dev     # SPA on https://localhost:3000
 ```
 
 Open **`https://localhost:3000`**.
@@ -41,15 +41,15 @@ Open **`https://localhost:3000`**.
 ## Checks
 
 ```bash
-pnpm --filter @labs/www test        # vitest + jsdom + testing-library (test/)
-pnpm --filter @labs/www typecheck   # react-router typegen && tsc
+pnpm --filter @roster/www test        # vitest + jsdom + testing-library (test/)
+pnpm --filter @roster/www typecheck   # react-router typegen && tsc
 pnpm run biome                      # lint + format check, from the root
 ```
 
 ## Building & deploying
 
 ```bash
-pnpm --filter @labs/www build       # → build/client (ships), build/server (see below)
+pnpm --filter @roster/www build       # → build/client (ships), build/server (see below)
 ```
 
 `build/server/` is a build-time artifact, not a deployable server: SPA mode
@@ -60,8 +60,8 @@ still emits a server entry to prerender the shell. Only `build/client/` ships.
 ships whatever this build last produced:
 
 ```bash
-pnpm --filter @labs/www build
-pnpm --filter @labs/api run deploy:demo    # or deploy:prod
+pnpm --filter @roster/www build
+pnpm --filter @roster/api run deploy
 ```
 
 Always rebuild before deploying — the Worker ships the contents of

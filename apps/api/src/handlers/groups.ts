@@ -1,4 +1,4 @@
-import { type Group, type getDb, groups, labs } from "@labs/db";
+import { type Group, type getDb, groups, labs } from "@roster/db";
 import { eq } from "drizzle-orm";
 import { authedFactory } from "../factory";
 import { findGroupInClass, resolveClassAsMember } from "../lib/class-scope";
