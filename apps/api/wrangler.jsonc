@@ -47,7 +47,7 @@
       // here. All-zeros is a deliberately invalid placeholder so a premature
       // remote deploy fails loudly. Ignored for local dev, where miniflare
       // keeps its own sqlite under .wrangler/.
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "fb047068-cb6e-48b1-b7ef-7903e2043f6f",
       "migrations_dir": "../../packages/db/migrations"
     }
   ]
