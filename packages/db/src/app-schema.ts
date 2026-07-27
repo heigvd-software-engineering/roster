@@ -218,3 +218,17 @@ export const classMembers = sqliteTable(
     index("class_members_github_id_idx").on(t.githubId),
   ],
 );
+
+/**
+ * CLASS-CREATION capability — row presence IS the grant (no boolean to
+ * drift). Granted/revoked by a super admin (config-listed emails, never
+ * stored here — see the API's lib/auth/super-admin.ts). Gates ONLY the
+ * setup callback's CREATE path: existing classes and per-class roles are
+ * untouched by grant or revoke.
+ */
+export const classCreators = sqliteTable("class_creators", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => user.id),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+});
