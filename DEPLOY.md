@@ -96,9 +96,48 @@ ships as a literal string), so the config file is the only place these live:
 "vars": {
   "BETTER_AUTH_URL": "https://roster.y-software.ch",
   "EDUID_ISSUER": "https://login.eduid.ch",
-  "GITHUB_APP_SLUG": "<the App slug, from phase 3>"
+  "GITHUB_APP_SLUG": "<the App slug, from phase 3>",
+  // Comma-separated edu-ID emails. EMPTY = nobody can create classes
+  // (fail closed) — see "Super admins" below.
+  "SUPER_ADMIN_EMAILS": "<admin1@…>,<admin2@…>"
 }
 ```
+
+### Super admins — bootstrap and exact scope
+
+Class creation is a **granted capability**, not open to every signed-in
+user. The bootstrap chain, from nothing to the first class:
+
+1. Put the admins' **edu-ID emails** in `SUPER_ADMIN_EMAILS` (comma-
+   separated; matched case-insensitively against the account's PRIMARY
+   edu-ID email — the one the app's account menu shows, often a personal
+   address, NOT necessarily the institutional one). Deploy.
+2. The admin signs in once (their user row must exist), opens the account
+   menu → **Super admin** → `/admin`.
+3. There they flip **"Can create classes"** for whoever should create
+   classes — *including themselves*: being an admin grants nothing
+   implicitly; the toggle is the one condition the setup callback checks.
+
+Exact scope of the role, as of 2026-07-27 — a super admin can:
+
+- open `/admin` (everyone else: menu item absent, page bounces, API 403);
+- see the list of all signed-in users (name, primary email, admin badge,
+  grant state) and grant/revoke **"Can create classes"** per user.
+
+And deliberately can NOT:
+
+- create classes without flipping their own toggle (one condition for
+  everyone);
+- make anyone a super admin — the role lives ONLY in this config var, is
+  never stored in the database, and no UI grants it;
+- see or touch anyone's classes, labs, groups, or repos — class-scoped
+  teacher rights come from GitHub org ownership, exactly as before;
+- retroactively affect anything: revoking stops FUTURE class creation
+  only; existing classes, and the repair path of an already-connected
+  org (reinstall/reconfigure), keep working for their owners.
+
+Empty or unset `SUPER_ADMIN_EMAILS` fails **closed**: no admin zone for
+anyone, and — with no grants ever made — no class creation at all.
 
 Local dev overrides `BETTER_AUTH_URL` and `GITHUB_APP_SLUG` in
 `apps/api/.dev.vars` (git-ignored) — a value there wins over `vars` during
@@ -186,6 +225,9 @@ pnpm --filter @roster/api run deploy
 
 Migrations added later: `wrangler d1 migrations apply roster-db --remote`
 before the deploy. Secrets and D1 survive deploys — only code and `vars` ship.
+
+Adding/removing a super admin is a `vars` edit (`SUPER_ADMIN_EMAILS` in
+`wrangler.jsonc`) + redeploy — no migration, nothing stored in the DB.
 
 A deploy always ships whatever is in `apps/www/build/client` — rebuild from an
 up-to-date tree before deploying, and verify the served `index.html` references
