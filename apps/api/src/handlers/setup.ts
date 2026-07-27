@@ -4,6 +4,7 @@ import { factory } from "../factory";
 import type { AuthEnv } from "../lib/auth/config";
 import { createAuth } from "../lib/auth/config";
 import { githubAccessToken } from "../lib/auth/github-token";
+import { userCanCreateClasses } from "../lib/auth/super-admin";
 import { isInvited, observeMember } from "../lib/enrollment";
 import { installationAccount } from "../lib/github/app";
 import { orgInfo, orgPeople } from "../lib/github/org";
@@ -141,6 +142,12 @@ export const githubSetupCallback = factory.createHandlers(async (c) => {
   }
 
   if (!session) return c.redirect("/");
+  // Class creation is GRANTED, not open: without the capability no class
+  // row is born. Everything the user already has is untouched — the
+  // REPAIR path above never reaches this line.
+  if (!(await userCanCreateClasses(c.env, db, session.user))) {
+    return c.redirect("/?error=not_class_creator");
+  }
   const token = await githubAccessToken(c.env, session.user.id);
   if (!token) return c.redirect("/?error=github_not_linked");
   if (!(await userHasInstallation(token, installationId))) {
