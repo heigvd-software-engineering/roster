@@ -46,9 +46,11 @@ which also solves first-admin bootstrap (add an email, redeploy).
   whitespace. Empty/unset var = **no super admins**: nobody can grant, and
   if `class_creators` is also empty, nobody can create classes at all —
   deployments must set the var (deliberate: fail closed, not open).
-- Derived capability: `canCreateClasses(env, user) = isSuperAdmin ||
-  class_creators row exists`. Super admins implicitly create classes —
-  they never need to grant themselves.
+- The create capability is the `class_creators` row, **one condition for
+  everyone** — super admins hold no implicit grant and flip their own
+  toggle in the zone like anyone else. Super admin = access to the zone
+  and managing grants, nothing more; it is config-only, never grantable
+  from the app.
 
 ### 3. API
 
@@ -59,11 +61,10 @@ which also solves first-admin bootstrap (add an email, redeploy).
   `/api/admin`, entirely behind a `requireSuperAdmin` guard (403 for
   non-admins, 401 for no session):
   - `GET /api/admin/users` — every `user` row (id, name, email,
-    createdAt) with the SAME derived `canCreateClasses` the gate uses
-    (super admin OR `class_creators` row — one condition everywhere)
-    plus `isSuperAdmin`, so the UI can lock admin rows (their grant is
-    config, not a toggle). School-scale data: no pagination; keyword
-    filtering is client-side.
+    createdAt) with `canCreateClasses` (the grant row — exactly what
+    the gate checks) and `isSuperAdmin` (config status, shown as a
+    display-only badge; the toggle stays live for admins too).
+    School-scale data: no pagination; keyword filtering is client-side.
   - `PUT /api/admin/users/:id/class-creator` body `{ enabled: boolean }`
     — idempotent insert/delete; 404 for an unknown user id. PUT because
     the request states the desired end state.

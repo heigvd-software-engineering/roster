@@ -142,10 +142,11 @@ export const githubSetupCallback = factory.createHandlers(async (c) => {
   }
 
   if (!session) return c.redirect("/");
-  // Class creation is GRANTED, not open: without the capability no class
-  // row is born. Everything the user already has is untouched — the
-  // REPAIR path above never reaches this line.
-  if (!(await userCanCreateClasses(c.env, db, session.user))) {
+  // Class creation is GRANTED, not open: without a `class_creators` row no
+  // class is born — one condition for everyone, super admins included.
+  // Everything the user already has is untouched — the REPAIR path above
+  // never reaches this line.
+  if (!(await userCanCreateClasses(db, session.user))) {
     return c.redirect("/?error=not_class_creator");
   }
   const token = await githubAccessToken(c.env, session.user.id);

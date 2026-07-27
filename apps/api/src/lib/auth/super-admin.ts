@@ -23,14 +23,13 @@ export function isSuperAdmin(
     .includes(email.toLowerCase());
 }
 
-/** Class creation = super admin OR a `class_creators` row. Admins are
- *  implicitly creators — they never grant themselves. */
+/** Class creation = a `class_creators` row, ONE condition for everyone.
+ *  Super admins hold no implicit grant — they flip their own toggle in
+ *  the zone like anyone else (admin = managing grants, not creating). */
 export async function userCanCreateClasses(
-  env: AuthEnv,
   db: ReturnType<typeof getDb>,
-  user: Pick<User, "id" | "email">,
+  user: Pick<User, "id">,
 ): Promise<boolean> {
-  if (isSuperAdmin(env, user.email)) return true;
   const row = await db.query.classCreators.findFirst({
     where: (t, { eq }) => eq(t.userId, user.id),
     columns: { userId: true },

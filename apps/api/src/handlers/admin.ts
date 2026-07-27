@@ -7,11 +7,11 @@ import { isSuperAdmin } from "../lib/auth/super-admin";
 
 /**
  * The super-admin zone's data: every SWITCH user in the app (the `user`
- * table IS the SWITCH users), with the ONE derived capability the rest of
- * the app uses — `canCreateClasses` = super admin OR granted row — so the
- * zone never disagrees with the gate. `isSuperAdmin` rides along so the
- * UI can lock those rows (their grant is config, not a toggle).
- * School-scale: no pagination, keyword filtering is client-side.
+ * table IS the SWITCH users). `canCreateClasses` is the grant row — THE
+ * one condition the gate checks, identical for everyone; super admins
+ * hold no implicit grant and toggle themselves like anyone. Their
+ * `isSuperAdmin` (config, never grantable from the app) rides along for
+ * display only. School-scale: no pagination, filtering is client-side.
  */
 export const listUsers = authedFactory.createHandlers(async (c) => {
   const db = getDb(c.env.DB);
@@ -27,14 +27,11 @@ export const listUsers = authedFactory.createHandlers(async (c) => {
     .leftJoin(classCreators, eq(classCreators.userId, user.id))
     .orderBy(user.name);
   return c.json({
-    users: rows.map(({ grant, ...u }) => {
-      const admin = isSuperAdmin(c.env, u.email);
-      return {
-        ...u,
-        isSuperAdmin: admin,
-        canCreateClasses: admin || grant !== null,
-      };
-    }),
+    users: rows.map(({ grant, ...u }) => ({
+      ...u,
+      isSuperAdmin: isSuperAdmin(c.env, u.email),
+      canCreateClasses: grant !== null,
+    })),
   });
 });
 

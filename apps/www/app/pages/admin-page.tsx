@@ -6,6 +6,7 @@ import { Row } from "~/components/custom/layout/row";
 import { Stack } from "~/components/custom/layout/stack";
 import { Loading } from "~/components/custom/loading";
 import { Text } from "~/components/custom/typography/text";
+import { Badge } from "~/components/ui/badge";
 import { Input } from "~/components/ui/input";
 import { Switch } from "~/components/ui/switch";
 import { useAuth } from "~/contexts/auth-context";
@@ -52,23 +53,23 @@ export function AdminPage() {
           <Stack gap="sm" className="w-full">
             {users.map((u) => (
               <Row key={u.id} justify="between" className="w-full">
-                <UserIdentity name={u.name} subtitle={u.email} />
                 <Row gap="sm">
-                  <Text variant="caption">
-                    {u.isSuperAdmin ? "Super admin" : "Can create classes"}
-                  </Text>
-                  {/* One condition everywhere: a super admin's grant comes
-                      from config, so their switch is on and locked —
-                      toggling it off couldn't take the capability away. */}
+                  <UserIdentity name={u.name} subtitle={u.email} />
+                  {/* Config status, display only — super admin is NEVER
+                      granted from the app (SUPER_ADMIN_EMAILS). */}
+                  {u.isSuperAdmin ? (
+                    <Badge variant="outline">Super admin</Badge>
+                  ) : null}
+                </Row>
+                <Row gap="sm">
+                  <Text variant="caption">Can create classes</Text>
+                  {/* The toggle IS the grant row — the one condition the
+                      gate checks, identical for everyone; admins flip
+                      their own like anyone else's. */}
                   <Switch
                     checked={u.canCreateClasses}
-                    disabled={busy || u.isSuperAdmin}
+                    disabled={busy}
                     aria-label={`${u.name} can create classes`}
-                    title={
-                      u.isSuperAdmin
-                        ? "Super admins always can — configured in SUPER_ADMIN_EMAILS"
-                        : undefined
-                    }
                     onCheckedChange={(enabled) =>
                       act(() =>
                         api.api.admin.users[":id"]["class-creator"].$put({

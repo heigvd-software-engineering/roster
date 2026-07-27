@@ -73,12 +73,12 @@ export const getMe = factory.createHandlers(async (c) => {
     ? readAffiliationEmails(switchAccount.idToken)
     : [];
 
-  // The two class-creation capabilities ride the boot fetch: `isSuperAdmin`
-  // shows the admin zone, `canCreateClasses` shows "New class". Display
-  // only — the setup callback and /api/admin re-check server-side.
+  // The two capabilities ride the boot fetch: `isSuperAdmin` (config) shows
+  // the admin zone, `canCreateClasses` (the grant row — ONE condition, even
+  // for admins) shows "New class". Display only — the setup callback and
+  // /api/admin re-check server-side.
   const superAdmin = isSuperAdmin(c.env, user?.email);
-  const canCreateClasses =
-    superAdmin || (user ? await userCanCreateClasses(c.env, db, user) : false);
+  const canCreateClasses = user ? await userCanCreateClasses(db, user) : false;
 
   return c.json({
     user: user ?? null,
