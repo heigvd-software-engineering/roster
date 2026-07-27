@@ -157,11 +157,15 @@ export const inviteTeacher = authedFactory.createHandlers(
 
 type Db = ReturnType<typeof getDb>;
 
-/** The TEACHING side of the hub: the caller's classes as a live org Owner,
- *  each with live identity, cached people, linked roster users, and labs.
- *  Also returns `orgIds` (the caller's reachable installations) because the
+/** WHICH classes can the caller see as a teacher? Live reach ∩ ownership,
+ *  nothing else — returns the visible classes with their live org identity,
+ *  plus `orgIds` (the caller's reachable installations) because the
  *  `hasOlder` probe asks about the same reach. */
-async function teachingClasses(db: Db, token: string, from: Date | null) {
+async function visibleTeachingClasses(
+  db: Db,
+  token: string,
+  from: Date | null,
+) {
   // The caller's LIVE reach in TWO bulk GitHub calls — a fixed cost however
   // many classes there are (fan-out spec 2026-07-08). Independent questions,
   // so they run in parallel:
@@ -189,7 +193,9 @@ async function teachingClasses(db: Db, token: string, from: Date | null) {
   const membershipByLogin = orgRoles.byLogin;
   const orgIds = [...byOrgId.keys()];
 
-  const rows =
+  // Candidates: class rows in orgs the App still reaches for this caller —
+  // reach alone, the ownership half of the check comes next.
+  const candidateClasses =
     orgIds.length === 0
       ? []
       : await db
@@ -201,24 +207,48 @@ async function teachingClasses(db: Db, token: string, from: Date | null) {
               ...(from ? [gte(classes.createdAt, from)] : []),
             ),
           )
-          // Newest class first — the response keeps this order (the loop
-          // below pushes in row order).
+          // Newest class first — the response keeps this order (the map
+          // below emits in row order).
           .orderBy(desc(classes.createdAt));
 
-  // One query for every candidate class's labs; emitted per class below
-  // (labs of classes the caller can't see are never pushed).
+  // F5a: only live org Owners see the class — `class_members` may never
+  // authorize, and a cached `teacher` row is a display fact, not a role. The
+  // check is the intersection of the two bulk maps: the App still reaches the
+  // org AND the caller is an active admin in it. An org that answered neither
+  // call (rate-limited, revoked, vanished) is simply absent — skipped, never
+  // shown. No `orgPeople` (three paginated calls) and no `orgInfo`: the chips
+  // come from the cache, `login`/`avatarUrl` ride on the /user/installations
+  // payload, and `name` waits for a reconcile.
+  const visible = candidateClasses.flatMap((cls) => {
+    const live = byOrgId.get(cls.orgId);
+    if (!live) return []; // App uninstalled from this org — skip.
+    const membership = membershipByLogin.get(live.login.toLowerCase());
+    // An invited-but-pending Owner is not an Owner yet.
+    if (membership?.role !== "admin" || membership.state !== "active")
+      return [];
+    return [{ cls, live }];
+  });
+  return { visible, orgIds };
+}
+
+/** DRESS each visible class for the hub: its labs, cached people, and
+ *  linked SWITCH users. Presentation assembly only — visibility is decided
+ *  BEFORE this is called, so every cache read here is scoped to classes the
+ *  caller may see, by construction. */
+async function classCards(
+  db: Db,
+  visible: Awaited<ReturnType<typeof visibleTeachingClasses>>["visible"],
+) {
+  const visibleIds = visible.map((v) => v.cls.id);
+
+  // One query for every visible class's labs; emitted per class below.
   const labRows =
-    rows.length === 0
+    visibleIds.length === 0
       ? []
       : await db
           .select()
           .from(labs)
-          .where(
-            inArray(
-              labs.classId,
-              rows.map((r) => r.id),
-            ),
-          )
+          .where(inArray(labs.classId, visibleIds))
           // Course order: effective start (startAt, else createdAt) ASC —
           // the first lab worked on comes first, same order the timeline
           // draws. Deadline breaks same-instant ties. The per-class filter
@@ -229,57 +259,27 @@ async function teachingClasses(db: Db, token: string, from: Date | null) {
           );
 
   // The people, from the enrollment DISPLAY cache — one query for every
-  // candidate class. Reconcile is what keeps it true; the caller's OWN row may
-  // be healed below (the one write this read allows), never anyone else's.
+  // visible class. Reconcile is what keeps it true; a teacher's own accepted
+  // invitation is resolved when the SESSION is read (see
+  // `lib/auth/accepted-invitation-heal`), never here — this is a read that
+  // writes nothing.
   const memberRows =
-    rows.length === 0
+    visibleIds.length === 0
       ? []
       : await db
           .select()
           .from(classMembers)
-          .where(
-            inArray(
-              classMembers.classId,
-              rows.map((r) => r.id),
-            ),
-          );
+          .where(inArray(classMembers.classId, visibleIds));
 
-  // F5a: only live org Owners see the class — `class_members` may never
-  // authorize, and a cached `teacher` row is a display fact, not a role. The
-  // check is the intersection of the two bulk maps: the App still reaches the
-  // org AND the caller is an active admin in it. An org that answered neither
-  // call (rate-limited, revoked, vanished) is simply absent — skipped, never
-  // shown. No `orgPeople` (three paginated calls) and no `orgInfo`: the chips
-  // come from the cache, `login`/`avatarUrl` ride on the /user/installations
-  // payload, and `name` waits for a reconcile.
-  const visible = rows.flatMap((cls) => {
-    const live = byOrgId.get(cls.orgId);
-    if (!live) return []; // App uninstalled from this org — skip.
-    const membership = membershipByLogin.get(live.login.toLowerCase());
-    // An invited-but-pending Owner is not an Owner yet.
-    if (membership?.role !== "admin" || membership.state !== "active")
-      return [];
-    return [{ cls, live }];
-  });
-
-  // NOTE: a teacher's own accepted invitation is resolved when the SESSION is
-  // read, by `customSession` (see `lib/auth/accepted-invitation-heal`) — not here.
-  // This handler is a read: it reports what the cache and GitHub currently say
-  // and writes nothing, which is why the class row below is never repaired
-  // either. Everything else stays reconcile's job, behind a teacher's consent.
-
-  // SWITCH users linked to the visible members' GitHub accounts — ONE query
-  // for all classes; raw rows, the client correlates by github id. `githubId`
-  // now means exactly one thing, so matching it against `account.accountId` is
-  // always sound — no id-space guard needed, only the state filter the display
+  // SWITCH users linked to the members' GitHub accounts — ONE query for all
+  // classes; raw rows, the client correlates by github id. `githubId` means
+  // exactly one thing, so matching it against `account.accountId` is always
+  // sound — no id-space guard needed, only the state filter the display
   // already wants.
-  const visibleIds = new Set(visible.map((v) => v.cls.id));
-  const activeMembers = memberRows.filter(
-    (m) => visibleIds.has(m.classId) && !isInvited(m.state),
-  );
+  const activeMembers = memberRows.filter((m) => !isInvited(m.state));
   const allLinked = await profilesByGithubId(db, memberUserIds(activeMembers));
 
-  const teaching = visible.map(({ cls, live }) => {
+  return visible.map(({ cls, live }) => {
     const members = memberRows.filter((m) => m.classId === cls.id);
     const memberIds = new Set(
       members.filter((m) => !isInvited(m.state)).map((m) => m.githubId),
@@ -307,7 +307,6 @@ async function teachingClasses(db: Db, token: string, from: Date | null) {
       labs: labRows.filter((l) => l.classId === cls.id),
     };
   });
-  return { teaching, orgIds };
 }
 
 /** The ENROLLED side of the hub — the caller's own enrollments. Pure DB
@@ -459,9 +458,10 @@ async function hasOlderThan(
  *  windows the list by class creation date BEFORE any live GitHub work —
  *  the hub loads only the current semester and pages older ones on demand;
  *  `hasOlder` (pure DB) tells the client whether "Load more" has anything
- *  left to fetch. The three sections are `teachingClasses`,
- *  `enrolledClasses`, and `hasOlderThan` above; this handler only parses,
- *  resolves identity, and composes. */
+ *  left to fetch. The sections are `visibleTeachingClasses` (who may see
+ *  what), `classCards` (dress the visible), `enrolledClasses`, and
+ *  `hasOlderThan` above; this handler only parses, resolves identity, and
+ *  composes. */
 export const listClasses = authedFactory.createHandlers(async (c) => {
   const db = getDb(c.env.DB);
   const callerUser = c.get("user");
@@ -480,7 +480,8 @@ export const listClasses = authedFactory.createHandlers(async (c) => {
     return c.json({ classes: [], enrolled: [], hasOlder: false });
   }
 
-  const { teaching, orgIds } = await teachingClasses(db, token, from);
+  const { visible, orgIds } = await visibleTeachingClasses(db, token, from);
+  const teaching = await classCards(db, visible);
   const enrolled = await enrolledClasses(
     db,
     caller.githubId,
