@@ -29,7 +29,10 @@
     "BETTER_AUTH_URL": "https://roster.stefan-teofanov.workers.dev",
     "EDUID_ISSUER": "https://login.eduid.ch",
     // The demo GitHub App's public slug — a separate App from production's.
-    "GITHUB_APP_SLUG": "heigvdlabsdemo"
+    "GITHUB_APP_SLUG": "heigvdlabsdemo",
+    // Super admins: comma-separated edu-ID emails. Empty = NOBODY can
+    // create classes (fail closed).
+    "SUPER_ADMIN_EMAILS": "stefan.teofanov@hes-so.ch"
   },
 
   "d1_databases": [

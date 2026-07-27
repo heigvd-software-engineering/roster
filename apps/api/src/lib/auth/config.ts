@@ -38,6 +38,10 @@ export type AuthEnv = {
   GITHUB_APP_PRIVATE_KEY: string;
   /** Public App slug (install URL) — delivered to the SPA via /api/me. */
   GITHUB_APP_SLUG: string;
+  /** Comma-separated super-admin emails (edu-ID). Optional on purpose:
+   *  empty/unset = no admins — class creation fails closed. Public
+   *  config, like the slug. */
+  SUPER_ADMIN_EMAILS?: string;
 };
 
 /** The Hono env for our Worker: `new Hono<Env>()` → `c.env` is AuthEnv. */

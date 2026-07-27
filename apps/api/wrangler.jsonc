@@ -36,7 +36,10 @@
     "EDUID_ISSUER": "https://login.eduid.ch",
     // The GitHub App's public slug (install URL path segment) — delivered to
     // the SPA via /api/me. Fill in after creating the App (GITHUB_APP_SETUP.md).
-    "GITHUB_APP_SLUG": "heigvdroster"
+    "GITHUB_APP_SLUG": "heigvdroster",
+    // Super admins: comma-separated edu-ID emails. Empty = NOBODY can
+    // create classes (fail closed) — set before real use (DEPLOY.md).
+    "SUPER_ADMIN_EMAILS": ""
   },
 
   "d1_databases": [
