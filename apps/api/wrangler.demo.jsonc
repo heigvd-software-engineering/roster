@@ -1,0 +1,45 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+
+  // DEMO deployment on the personal Cloudflare account — deployed with
+  //   pnpm --filter @roster/api run deploy:demo
+  // (wrangler deploy --config wrangler.demo.jsonc). The production deploy
+  // reads wrangler.jsonc and never sees this file. Same Worker shape as prod:
+  // one Worker serves the SPA and /api/* on a single workers.dev origin so
+  // Better Auth cookies stay first-party.
+  "name": "roster",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-06-30",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // No custom domain — the origin is the workers.dev URL derived from `name`:
+  // https://roster.stefan-teofanov.workers.dev
+  "workers_dev": true,
+
+  "assets": {
+    "directory": "../www/build/client",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+
+  // Secrets are set once per Worker with
+  //   wrangler secret put <KEY> --config wrangler.demo.jsonc
+  "vars": {
+    "BETTER_AUTH_URL": "https://roster.stefan-teofanov.workers.dev",
+    "EDUID_ISSUER": "https://login.eduid.ch",
+    // The demo GitHub App's public slug — a separate App from production's.
+    "GITHUB_APP_SLUG": "heigvdlabsdemo"
+  },
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      // The pre-rename demo database — kept so existing demo data survives
+      // the labs → roaster Worker move.
+      "database_name": "labs",
+      "database_id": "1dd57ff0-73c3-439a-8878-df578944cfe1",
+      "migrations_dir": "../../packages/db/migrations"
+    }
+  ]
+}
