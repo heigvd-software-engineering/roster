@@ -37,9 +37,9 @@
     // The GitHub App's public slug (install URL path segment) — delivered to
     // the SPA via /api/me. Fill in after creating the App (GITHUB_APP_SETUP.md).
     "GITHUB_APP_SLUG": "heigvdroster",
-    // Super admins: comma-separated edu-ID emails. Empty = NOBODY can
-    // create classes (fail closed) — set before real use (DEPLOY.md).
-    "SUPER_ADMIN_EMAILS": ""
+    // Super admins: comma-separated edu-ID emails (public config, not
+    // secrets). Empty = NOBODY can create classes (fail closed).
+    "SUPER_ADMIN_EMAILS": "stefan.teofanov@hes-so.ch,bertil.chapuis@heig-vd.ch"
   },
 
   "d1_databases": [

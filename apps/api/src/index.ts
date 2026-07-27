@@ -4,6 +4,7 @@ import { apiOnError } from "./on-error";
 
 export type { Auth } from "./lib/auth/config";
 
+import { adminRoutes } from "./routes/admin";
 import { authRoutes } from "./routes/auth";
 import { classesRoutes } from "./routes/classes";
 import { groupsRoutes } from "./routes/groups";
@@ -22,6 +23,7 @@ const app = new Hono<Env>()
   .route("/api/auth", authRoutes)
   .route("/api", healthRoutes)
   .route("/api", meRoutes)
+  .route("/api", adminRoutes)
   .route("/api", setupRoutes)
   .route("/api", classesRoutes)
   .route("/api", groupsRoutes)

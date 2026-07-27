@@ -32,7 +32,7 @@
     "GITHUB_APP_SLUG": "heigvdlabsdemo",
     // Super admins: comma-separated edu-ID emails. Empty = NOBODY can
     // create classes (fail closed).
-    "SUPER_ADMIN_EMAILS": "stefan.teofanov@hes-so.ch"
+    "SUPER_ADMIN_EMAILS": "stefan.teofanov@hes-so.ch,bertil.chapuis@heig-vd.ch"
   },
 
   "d1_databases": [
