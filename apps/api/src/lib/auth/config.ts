@@ -79,6 +79,11 @@ export function createAuth(env: AuthEnv) {
       github: {
         clientId: env.GITHUB_CLIENT_ID,
         clientSecret: env.GITHUB_CLIENT_SECRET,
+        // Sign-in is edu-ID ONLY — GitHub is a linked account, never an
+        // identity. Without this, a direct GitHub sign-in could mint a user
+        // whose email GitHub attests instead of SWITCH — and email now
+        // carries privilege (SUPER_ADMIN_EMAILS).
+        disableSignUp: true,
       },
     },
     account: {
