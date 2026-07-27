@@ -2,6 +2,7 @@ import { getDb } from "@roster/db";
 import { factory } from "../factory";
 import { createAuth } from "../lib/auth/config";
 import { githubAccessToken } from "../lib/auth/github-token";
+import { isSuperAdmin, userCanCreateClasses } from "../lib/auth/super-admin";
 import { readAffiliationEmails } from "../lib/auth/switch-claims";
 import {
   fetchGithubProfile,
@@ -33,6 +34,8 @@ export const getMe = factory.createHandlers(async (c) => {
       githubState: "unlinked" as GithubState,
       affiliations: [] as string[],
       githubAppInstallUrl,
+      isSuperAdmin: false,
+      canCreateClasses: false,
     });
   }
 
@@ -70,11 +73,20 @@ export const getMe = factory.createHandlers(async (c) => {
     ? readAffiliationEmails(switchAccount.idToken)
     : [];
 
+  // The two class-creation capabilities ride the boot fetch: `isSuperAdmin`
+  // shows the admin zone, `canCreateClasses` shows "New class". Display
+  // only — the setup callback and /api/admin re-check server-side.
+  const superAdmin = isSuperAdmin(c.env, user?.email);
+  const canCreateClasses =
+    superAdmin || (user ? await userCanCreateClasses(c.env, db, user) : false);
+
   return c.json({
     user: user ?? null,
     github,
     githubState,
     affiliations,
     githubAppInstallUrl,
+    isSuperAdmin: superAdmin,
+    canCreateClasses,
   });
 });
