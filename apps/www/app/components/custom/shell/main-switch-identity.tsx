@@ -2,11 +2,13 @@ import {
   LogOut,
   Monitor,
   Moon,
+  ShieldCheck,
   SquareTerminal,
   Sun,
   Unlink,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router";
 import { UserIdentity } from "~/components/custom/identity/user-identity";
 import { Stack } from "~/components/custom/layout/stack";
 import { Text } from "~/components/custom/typography/text";
@@ -37,8 +39,10 @@ import type { Theme } from "~/lib/theme";
  * click/keyboard/Escape working.
  */
 export function MainSwitchIdentity() {
-  const { user, affiliations, github, signOut, unlinkGithub } = useAuth();
+  const { user, affiliations, github, isSuperAdmin, signOut, unlinkGithub } =
+    useAuth();
   const { theme, setTheme } = useTheme();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -148,6 +152,16 @@ export function MainSwitchIdentity() {
             System
           </DropdownMenuRadioItem>
         </DropdownMenuRadioGroup>
+        {/* The link is convenience — /api/admin's guard is the security. */}
+        {isSuperAdmin && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => navigate("/admin")}>
+              <ShieldCheck />
+              Super admin
+            </DropdownMenuItem>
+          </>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => signOut()}>
           <LogOut />

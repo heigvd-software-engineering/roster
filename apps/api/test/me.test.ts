@@ -1,5 +1,5 @@
 import { env } from "cloudflare:test";
-import { account, getDb, user } from "@roster/db";
+import { account, classCreators, getDb, user } from "@roster/db";
 import { Hono } from "hono";
 import { beforeEach, expect, test, vi } from "vitest";
 
@@ -67,17 +67,20 @@ beforeEach(async () => {
   state.githubDown = false;
 
   await db.delete(account);
+  await db.delete(classCreators);
   await db.delete(user);
   await db.insert(user).values({ id: "u1", name: "U1", email: "u1@x.ch" });
 });
 
-async function me() {
-  const res = await app.request("/api/me", {}, env);
+async function me(envOverride: Record<string, unknown> = {}) {
+  const res = await app.request("/api/me", {}, { ...env, ...envOverride });
   expect(res.status).toBe(200);
   return (await res.json()) as {
     user: { id: string } | null;
     github: { login: string } | null;
     githubState: string;
+    isSuperAdmin: boolean;
+    canCreateClasses: boolean;
   };
 }
 
@@ -115,4 +118,29 @@ test("signed out stays 'unlinked' with no user", async () => {
   const body = await me();
   expect(body.user).toBeNull();
   expect(body.githubState).toBe("unlinked");
+  expect(body.isSuperAdmin).toBe(false);
+  expect(body.canCreateClasses).toBe(false);
+});
+
+test("capabilities default to false — no config match, no grant row", async () => {
+  const body = await me();
+  expect(body.isSuperAdmin).toBe(false);
+  expect(body.canCreateClasses).toBe(false);
+});
+
+test("a class_creators row grants canCreateClasses, not admin", async () => {
+  await db
+    .insert(classCreators)
+    .values({ userId: "u1", createdAt: new Date(0) });
+  const body = await me();
+  expect(body.isSuperAdmin).toBe(false);
+  expect(body.canCreateClasses).toBe(true);
+});
+
+test("a config-listed email is admin but does NOT create without the row", async () => {
+  // Case-insensitive, whitespace-tolerant match — and ONE condition for
+  // creation: even an admin needs the explicit grant.
+  const body = await me({ SUPER_ADMIN_EMAILS: " Other@y.ch , U1@X.CH " });
+  expect(body.isSuperAdmin).toBe(true);
+  expect(body.canCreateClasses).toBe(false);
 });

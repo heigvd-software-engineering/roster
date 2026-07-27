@@ -1,14 +1,19 @@
 import { render as rtlRender, screen } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { MemoryRouter } from "react-router";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useApi } from "~/lib/api";
 import { ClassesPage } from "~/pages/classes-page";
+
+// "New class" is a granted capability — most tests run WITH it (the
+// pre-gating behavior); the gating tests below flip it off.
+const authState = vi.hoisted(() => ({ canCreateClasses: true }));
 
 vi.mock("~/contexts/auth-context", () => ({
   useAuth: () => ({
     githubAppInstallUrl:
       "https://github.com/apps/heigvdroster/installations/new",
+    canCreateClasses: authState.canCreateClasses,
   }),
 }));
 
@@ -26,6 +31,24 @@ const render = (ui: ReactElement) =>
   rtlRender(<MemoryRouter>{ui}</MemoryRouter>);
 
 describe("ClassesPage", () => {
+  beforeEach(() => {
+    authState.canCreateClasses = true;
+  });
+
+  it("hides the connect action without the class-creator grant", () => {
+    authState.canCreateClasses = false;
+    vi.mocked(useApi).mockReturnValue({
+      data: { classes: [], enrolled: [], hasOlder: false },
+    } as unknown as ReturnType<typeof useApi>);
+
+    render(<ClassesPage />);
+
+    // No button — and the empty-hub copy must not point at one either.
+    expect(screen.queryByText("New class")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Use "New class" above/)).not.toBeInTheDocument();
+    expect(screen.getByText(/open the class link/)).toBeInTheDocument();
+  });
+
   it("shows the connect action and lists classes under their semester", () => {
     vi.mocked(useApi).mockReturnValue({
       data: {

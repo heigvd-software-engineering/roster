@@ -1,5 +1,5 @@
 import { env } from "cloudflare:test";
-import { account, classes, getDb, user } from "@roster/db";
+import { account, classCreators, classes, getDb, user } from "@roster/db";
 import { Hono } from "hono";
 import { beforeEach, expect, test, vi } from "vitest";
 
@@ -55,9 +55,15 @@ beforeEach(async () => {
   state.account = { id: 42, login: "acme", type: "Organization" };
   state.installations = [{ id: 100 }];
   await db.delete(classes);
+  await db.delete(classCreators);
   await db.delete(account);
   await db.delete(user);
   await db.insert(user).values({ id: "u1", name: "U1", email: "u1@x.ch" });
+  // Class creation is a granted capability — the happy paths assume the
+  // caller holds it; the not_class_creator tests below delete it.
+  await db
+    .insert(classCreators)
+    .values({ userId: "u1", createdAt: new Date(0) });
   await db.insert(account).values({
     id: "a1",
     userId: "u1",
@@ -154,4 +160,34 @@ test("installation not owned by the caller redirects with an error and writes no
   );
   expect(res.headers.get("location")).toBe("/?error=not_your_installation");
   expect(await db.select().from(classes)).toHaveLength(0);
+});
+
+test("without the class-creator grant, refuses and writes nothing", async () => {
+  await db.delete(classCreators);
+  const res = await app.request(
+    "/api/github/setup?installation_id=100",
+    undefined,
+    env,
+  );
+  expect(res.headers.get("location")).toBe("/?error=not_class_creator");
+  expect(await db.select().from(classes)).toHaveLength(0);
+});
+
+test("repair of an EXISTING class needs no grant — revocation is never retroactive", async () => {
+  await app.request("/api/github/setup?installation_id=100", undefined, env);
+  const [first] = await db.select().from(classes);
+
+  await db.delete(classCreators);
+  state.installations = [{ id: 200 }];
+  const res = await app.request(
+    "/api/github/setup?installation_id=200",
+    undefined,
+    env,
+  );
+  expect(res.status).toBe(302);
+  expect(res.headers.get("location")).toBe(`/classes/${first?.id}/confirm`);
+
+  const rows = await db.select().from(classes);
+  expect(rows).toHaveLength(1);
+  expect(rows[0]).toMatchObject({ id: first?.id, installationId: 200 });
 });

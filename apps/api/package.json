@@ -10,6 +10,7 @@
     "dev": "wrangler dev --port 8788",
     "preview": "wrangler dev --local-protocol https --port 3000",
     "deploy": "wrangler deploy --minify",
+    "deploy:demo": "wrangler deploy --minify --config wrangler.demo.jsonc",
     "cf-typegen": "wrangler types --env-interface CloudflareBindings",
     "auth:schema": "better-auth generate --config better-auth.config.ts --output ../../packages/db/src/auth-schema.ts --yes",
     "typecheck": "tsc --noEmit",

@@ -13,6 +13,7 @@ export type Account = typeof schema.account.$inferSelect;
 export type Class = typeof schema.classes.$inferSelect;
 export type Lab = typeof schema.labs.$inferSelect;
 export type Group = typeof schema.groups.$inferSelect;
+export type ClassCreator = typeof schema.classCreators.$inferSelect;
 
 export function getDb(d1: D1Database) {
   return drizzle(d1, { schema });

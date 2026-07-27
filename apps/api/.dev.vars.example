@@ -15,6 +15,9 @@
 BETTER_AUTH_URL=https://localhost:3000
 # The GitHub App whose callback/setup URLs point at localhost (GITHUB_APP_SETUP.md).
 GITHUB_APP_SLUG=
+# Your own edu-ID email, so your local account is a super admin (empty =
+# nobody can create classes — the gate fails closed).
+SUPER_ADMIN_EMAILS=
 
 # --- Secrets ---
 # Better Auth — fresh random, never shared:

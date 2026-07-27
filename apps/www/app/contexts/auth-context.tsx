@@ -32,6 +32,10 @@ type AuthValue = Pick<
   githubState: Me["githubState"];
   /** GitHub is PROVEN usable right now (`githubState === "linked"`). */
   githubLinked: boolean;
+  /** Config-listed super admin — shows the admin zone. */
+  isSuperAdmin: boolean;
+  /** May create classes (admin, or granted) — shows "New class". */
+  canCreateClasses: boolean;
   /** Start edu-ID (SWITCH) sign-in. Failures surface on the message strip —
    *  never a button that silently does nothing. */
   signIn: () => Promise<void>;
@@ -76,6 +80,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       githubAppInstallUrl: data?.githubAppInstallUrl ?? "",
       githubState,
       githubLinked: githubState === "linked",
+      isSuperAdmin: data?.isSuperAdmin ?? false,
+      canCreateClasses: data?.canCreateClasses ?? false,
       signIn: async () => {
         // Return to the page the user was on — the login renders in place
         // (Auth guard), so deep links (e.g. a class join link, which carries

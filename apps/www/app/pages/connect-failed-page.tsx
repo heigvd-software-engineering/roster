@@ -43,6 +43,12 @@ const CAUSES: { key: string; title: string; detail: string }[] = [
     detail:
       "The install flow ended without an installation id — usually a cancelled or interrupted install. Run it again from start to finish.",
   },
+  {
+    key: "not_class_creator",
+    title: "Your account isn't allowed to create classes",
+    detail:
+      "Class creation is restricted to designated accounts. Ask an administrator to allow your account to create classes, then connect the organization again.",
+  },
 ];
 
 /**

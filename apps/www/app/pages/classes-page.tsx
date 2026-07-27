@@ -8,6 +8,7 @@ import { Stack } from "~/components/custom/layout/stack";
 import { Loading } from "~/components/custom/loading";
 import { Text } from "~/components/custom/typography/text";
 import { Button } from "~/components/ui/button";
+import { useAuth } from "~/contexts/auth-context";
 import { api, type ClassItem, type EnrolledClassItem, useApi } from "~/lib/api";
 import { formatDay } from "~/lib/format";
 import {
@@ -70,6 +71,7 @@ function groupBySemester(entries: Entry[]) {
  * is a term too — most users' summers are empty).
  */
 export function ClassesPage() {
+  const { canCreateClasses } = useAuth();
   const [oldest, setOldest] = useState<Semester>(() => currentSemester());
   const { data, isLoading, error, mutate } = useApi(
     api.api.classes,
@@ -111,7 +113,10 @@ export function ClassesPage() {
     <Page>
       <Row justify="between" className="w-full">
         <Text variant="heading">Classes</Text>
-        <NewClassDialog />
+        {/* Creation is a GRANTED capability (super-admin zone) — without it
+            there is no button to explain, so it's hidden, not disabled. The
+            setup callback re-checks server-side either way. */}
+        {canCreateClasses ? <NewClassDialog /> : null}
       </Row>
       <Loading loading={isLoading && !data} label="Loading classes…">
         <Stack gap="lg" className="w-full">
@@ -129,10 +134,9 @@ export function ClassesPage() {
                 <Stack gap="sm" className="w-full max-w-xl">
                   <Text variant="body2">No classes yet.</Text>
                   <Text variant="caption">
-                    Teaching? Use "New class" above — it walks you through how a
-                    class maps onto GitHub. A student? There's nothing to
-                    create: open the class link your teacher shared and your
-                    class appears here.
+                    {canCreateClasses
+                      ? 'Teaching? Use "New class" above — it walks you through how a class maps onto GitHub. A student? There\'s nothing to create: open the class link your teacher shared and your class appears here.'
+                      : "A student? There's nothing to create: open the class link your teacher shared and your class appears here."}
                   </Text>
                 </Stack>
               ) : null}
