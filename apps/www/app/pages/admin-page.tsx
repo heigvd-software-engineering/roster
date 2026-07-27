@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
+import { useSWRConfig } from "swr";
 import { UserIdentity } from "~/components/custom/identity/user-identity";
 import { Page } from "~/components/custom/layout/page";
 import { Row } from "~/components/custom/layout/row";
@@ -26,7 +27,13 @@ export function AdminPage() {
   }, [authLoading, isSuperAdmin, navigate]);
 
   const { data, isLoading, mutate } = useApi(api.api.admin.users);
-  const { busy, act } = useAction(mutate);
+  // A toggle can change the CALLER's own capability, and `canCreateClasses`
+  // rides the /api/me boot fetch — revalidate that cache too, so "New
+  // class" appears/disappears without a manual reload.
+  const { mutate: mutateByKey } = useSWRConfig();
+  const { busy, act } = useAction(async () => {
+    await Promise.all([mutate(), mutateByKey("/api/me")]);
+  });
   const [query, setQuery] = useState("");
 
   const q = query.trim().toLowerCase();
