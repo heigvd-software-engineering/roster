@@ -54,11 +54,21 @@ export function AdminPage() {
               <Row key={u.id} justify="between" className="w-full">
                 <UserIdentity name={u.name} subtitle={u.email} />
                 <Row gap="sm">
-                  <Text variant="caption">Can create classes</Text>
+                  <Text variant="caption">
+                    {u.isSuperAdmin ? "Super admin" : "Can create classes"}
+                  </Text>
+                  {/* One condition everywhere: a super admin's grant comes
+                      from config, so their switch is on and locked —
+                      toggling it off couldn't take the capability away. */}
                   <Switch
                     checked={u.canCreateClasses}
-                    disabled={busy}
+                    disabled={busy || u.isSuperAdmin}
                     aria-label={`${u.name} can create classes`}
+                    title={
+                      u.isSuperAdmin
+                        ? "Super admins always can — configured in SUPER_ADMIN_EMAILS"
+                        : undefined
+                    }
                     onCheckedChange={(enabled) =>
                       act(() =>
                         api.api.admin.users[":id"]["class-creator"].$put({

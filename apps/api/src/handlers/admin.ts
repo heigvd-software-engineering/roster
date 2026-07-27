@@ -3,13 +3,15 @@ import { classCreators, getDb, user } from "@roster/db";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { authedFactory } from "../factory";
+import { isSuperAdmin } from "../lib/auth/super-admin";
 
 /**
  * The super-admin zone's data: every SWITCH user in the app (the `user`
- * table IS the SWITCH users), with whether they hold the class-creator
- * grant. `canCreateClasses` reflects the ROW only — the toggle's state —
- * not a super admin's implicit power. School-scale: no pagination,
- * keyword filtering is client-side.
+ * table IS the SWITCH users), with the ONE derived capability the rest of
+ * the app uses — `canCreateClasses` = super admin OR granted row — so the
+ * zone never disagrees with the gate. `isSuperAdmin` rides along so the
+ * UI can lock those rows (their grant is config, not a toggle).
+ * School-scale: no pagination, keyword filtering is client-side.
  */
 export const listUsers = authedFactory.createHandlers(async (c) => {
   const db = getDb(c.env.DB);
@@ -25,10 +27,14 @@ export const listUsers = authedFactory.createHandlers(async (c) => {
     .leftJoin(classCreators, eq(classCreators.userId, user.id))
     .orderBy(user.name);
   return c.json({
-    users: rows.map(({ grant, ...u }) => ({
-      ...u,
-      canCreateClasses: grant !== null,
-    })),
+    users: rows.map(({ grant, ...u }) => {
+      const admin = isSuperAdmin(c.env, u.email);
+      return {
+        ...u,
+        isSuperAdmin: admin,
+        canCreateClasses: admin || grant !== null,
+      };
+    }),
   });
 });
 

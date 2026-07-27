@@ -59,8 +59,10 @@ which also solves first-admin bootstrap (add an email, redeploy).
   `/api/admin`, entirely behind a `requireSuperAdmin` guard (403 for
   non-admins, 401 for no session):
   - `GET /api/admin/users` — every `user` row (id, name, email,
-    createdAt) with `canCreateClasses` from a left join on
-    `class_creators`. School-scale data: no pagination; keyword
+    createdAt) with the SAME derived `canCreateClasses` the gate uses
+    (super admin OR `class_creators` row — one condition everywhere)
+    plus `isSuperAdmin`, so the UI can lock admin rows (their grant is
+    config, not a toggle). School-scale data: no pagination; keyword
     filtering is client-side.
   - `PUT /api/admin/users/:id/class-creator` body `{ enabled: boolean }`
     — idempotent insert/delete; 404 for an unknown user id. PUT because
