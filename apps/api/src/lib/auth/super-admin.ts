@@ -34,7 +34,9 @@ export async function userCanCreateClasses(
     where: (t, { eq }) => eq(t.userId, user.id),
     columns: { userId: true },
   });
-  return row !== undefined;
+  // `!= null` not `!== undefined`: if the ORM's "no row" answer ever became
+  // `null`, strict-undefined would fail OPEN — everyone a class creator.
+  return row != null;
 }
 
 /** Gate for /api/admin/*: 401 without a session, 403 without admin. The
