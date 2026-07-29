@@ -1,4 +1,5 @@
 import {
+  BookOpen,
   LogOut,
   Monitor,
   Moon,
@@ -152,6 +153,12 @@ export function MainSwitchIdentity() {
             System
           </DropdownMenuRadioItem>
         </DropdownMenuRadioGroup>
+        <DropdownMenuSeparator />
+        {/* The laws of lab orchestration — one page, students and teachers. */}
+        <DropdownMenuItem onClick={() => navigate("/rules")}>
+          <BookOpen />
+          How roster works
+        </DropdownMenuItem>
         {/* The link is convenience — /api/admin's guard is the security. */}
         {isSuperAdmin && (
           <>
