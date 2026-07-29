@@ -16,7 +16,21 @@ export function OnboardingGitHubPage() {
     raw.startsWith("/") && !raw.startsWith("//") && !raw.includes("\\")
       ? raw
       : "/";
-  const failed = params.get("error") !== null;
+  // Two `error` params arrive on failure: our own `link_failed` marker (from
+  // errorCallbackURL) plus the real cause Better Auth appends (invalid_code,
+  // unable_to_get_user_info, …).
+  const errors = params.getAll("error");
+  const failed = errors.length > 0;
+  const cause = errors.find((e) => e !== "link_failed");
+  // These two USUALLY mean GitHub withheld the profile (user-fixable), but
+  // unable_to_get_user_info is ambiguous: GitHub's token endpoint answers
+  // HTTP 200 with an error body on bad client credentials, so Better Auth
+  // only notices at the profile fetch and emits the same code. Anything else
+  // (invalid_code, state_mismatch, …) is squarely on our side.
+  const profileWithheld =
+    cause === undefined ||
+    cause === "unable_to_get_user_info" ||
+    cause === "email_not_found";
   return (
     <Stack gap="lg" align="start" justify="center" className="flex-1">
       <BrandHeader title="Connect GitHub" />
@@ -26,8 +40,22 @@ export function OnboardingGitHubPage() {
       </Text>
       {failed ? (
         <Text variant="error" className="max-w-md">
-          GitHub didn't share your profile. If the account is brand new, verify
-          its email address on GitHub first — then try again.
+          {cause === "access_denied" ? (
+            <>You declined the authorization on GitHub — link it to continue.</>
+          ) : profileWithheld ? (
+            <>
+              GitHub didn't share your profile
+              {cause ? <> ({cause})</> : null}. If the account is brand new,
+              verify its email address on GitHub first — then try again. If it
+              keeps happening, report it — the problem may be on our side.
+            </>
+          ) : (
+            <>
+              Linking failed with an internal error ({cause}). Your GitHub
+              account is fine — try again, and report this if it keeps
+              happening.
+            </>
+          )}
         </Text>
       ) : null}
       <Button
