@@ -1,9 +1,13 @@
+import type { ComponentProps, ReactNode } from "react";
 import {
-  GROUPS_GRID,
-  GroupTile,
-  MissingMembersNote,
-} from "~/components/custom/classes/groups/shared/group-tile";
+  GROUP_WALL,
+  GroupCard,
+} from "~/components/custom/classes/groups/shared/group-card";
 import { NewGroupDialog } from "~/components/custom/classes/groups/shared/new-group-dialog";
+import {
+  SeatButton,
+  SeatSlot,
+} from "~/components/custom/classes/groups/shared/seats";
 import { UnassignedPool } from "~/components/custom/classes/groups/shared/unassigned-pool";
 import { useLabGroups } from "~/components/custom/classes/groups/shared/use-lab-groups";
 import { StartLabCard } from "~/components/custom/classes/groups/student/start-lab-card";
@@ -13,18 +17,23 @@ import { Text } from "~/components/custom/typography/text";
 import { Button } from "~/components/ui/button";
 import { useAuth } from "~/contexts/auth-context";
 import type { LabItem } from "~/lib/api";
+import { cn } from "~/lib/utils";
 
 /**
  * The STUDENT's lab surface, BOTH modes — one structure, mode-specific copy:
  *
- * INDIVIDUAL — your solo tile (1/3, a ghost until accepted) beside the
+ * INDIVIDUAL — your solo card (1/3, a ghost until accepted) beside the
  * start-lab card (2/3), whose accept state creates group + repo in one click.
  *
- * GROUP, BROWSE (not in a group yet) — this lab's groups, each joinable if
- * it has room, plus "new group" (a fresh group for THIS lab; you auto-join).
+ * GROUP, BROWSE (not in a group yet) — the same GROUP WALL the teacher sees,
+ * without the management verbs: every group's full roster, and an OPEN SEAT
+ * is the join affordance — taking a seat is what joining is. Amber seats mark
+ * groups still short of the minimum. Plus "new group" (a fresh group for
+ * THIS lab; you auto-join).
  *
- * GROUP, YOURS — the others disappear; your group tile (1/3) sits beside
- * the same start-lab card (2/3) that owns the work repo.
+ * GROUP, YOURS — the others disappear; your group card (1/3) sits beside
+ * the same start-lab card (2/3) that owns the work repo. Your open seats are
+ * placeholders, not verbs: classmates seat themselves.
  */
 export function StudentLabGroups({
   classId,
@@ -53,8 +62,8 @@ export function StudentLabGroups({
   if (lab.groupMode === "individual") {
     // The server models an individual acceptance as a SOLO GROUP named after
     // the student — render exactly that, in the group flow's own skeleton.
-    // Before accepting, the tile is a GHOST of the same shape (dimmed you),
-    // so accepting changes state, never layout.
+    // Before accepting, the card is a GHOST of the same shape (dimmed you),
+    // so accepting changes state, never layout. min = max = 1: no seats.
     const solo = mine ?? {
       id: "ghost",
       name: me ?? "you",
@@ -72,21 +81,17 @@ export function StudentLabGroups({
       <Stack gap="md" className="w-full">
         <Text variant="overline">Your lab</Text>
         <div className="grid w-full grid-cols-1 gap-4 lg:grid-cols-3">
-          <GroupTile
+          <GroupCard
             group={solo}
             users={g.users}
+            min={1}
+            max={1}
             highlight={mine !== undefined}
             memberClassName={mine ? undefined : "opacity-55"}
             notes={
-              <span
-                className={
-                  mine
-                    ? "font-mono text-role-enrolled text-xs"
-                    : "font-mono text-muted-foreground text-xs"
-                }
-              >
+              <MineNote active={mine !== undefined}>
                 {mine ? "your solo lab" : "your solo lab — not accepted yet"}
-              </span>
+              </MineNote>
             }
           />
           <div className="lg:col-span-2">
@@ -108,7 +113,7 @@ export function StudentLabGroups({
   if (mine) {
     // Once the work repo exists the group is LOCKED — the server refuses
     // join/leave (409 has_repo); the disabled state just says so up front
-    // (same pattern as the teacher's Delete button).
+    // (same pattern as the teacher's Delete item).
     const locked = mine.repoFullName !== null;
     return (
       <>
@@ -117,18 +122,13 @@ export function StudentLabGroups({
         <Stack gap="md" className="w-full">
           <Text variant="overline">Your group</Text>
           <div className="grid w-full grid-cols-1 gap-4 lg:grid-cols-3">
-            <GroupTile
+            <GroupCard
               group={mine}
               users={g.users}
+              min={g.min}
+              max={g.max}
               highlight
-              notes={
-                <>
-                  <span className="font-mono text-role-enrolled text-xs">
-                    your group
-                  </span>
-                  <MissingMembersNote group={mine} min={g.min} />
-                </>
-              }
+              notes={<MineNote>your group</MineNote>}
               actions={
                 <DisabledReason
                   reason={
@@ -148,6 +148,13 @@ export function StudentLabGroups({
                     Leave
                   </Button>
                 </DisabledReason>
+              }
+              renderOpenSeat={(required) =>
+                locked ? (
+                  <LockedSeat required={required} />
+                ) : (
+                  <VacantSeat required={required} />
+                )
               }
             />
             {/* The lab starts here once the group reaches the minimum size —
@@ -180,40 +187,32 @@ export function StudentLabGroups({
             No groups in this lab yet — start one below.
           </Text>
         ) : null}
-        <div className={GROUPS_GRID}>
+        <div className={GROUP_WALL}>
           {g.groups.map((group) => {
             // Same lock as the "mine" branch above: repo exists ⇒ only the
-            // teacher changes membership.
+            // teacher changes membership. A FULL group simply has no open
+            // seat — the join affordance disappears with the room.
             const locked = group.repoFullName !== null;
             return (
-              <GroupTile
+              <GroupCard
                 key={group.id}
                 group={group}
                 users={g.users}
-                notes={<MissingMembersNote group={group} min={g.min} />}
-                actions={
-                  group.members.length < g.max ? (
-                    <DisabledReason
-                      reason={
-                        locked
-                          ? "This group's repository exists — only your teacher can add members."
-                          : null
-                      }
-                    >
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        type="button"
-                        disabled={g.busy || locked}
-                        title={
-                          locked ? undefined : "Join this group for the lab"
-                        }
-                        onClick={() => g.join(group.id)}
-                      >
-                        Join
-                      </Button>
-                    </DisabledReason>
-                  ) : null
+                min={g.min}
+                max={g.max}
+                renderOpenSeat={(required) =>
+                  // The seat survives the lock — hiding it would make a 2/3
+                  // locked group read as full. It just changes nature: the
+                  // teacher is the path onto a locked team.
+                  locked ? (
+                    <LockedSeat required={required} />
+                  ) : (
+                    <JoinSeat
+                      required={required}
+                      disabled={g.busy}
+                      onClick={() => g.join(group.id)}
+                    />
+                  )
                 }
               />
             );
@@ -228,5 +227,74 @@ export function StudentLabGroups({
         </div>
       </Stack>
     </>
+  );
+}
+
+/** The "this one is yours" line under the card's name — enrolled color
+ *  while it's really yours, muted for the not-yet-accepted ghost. */
+function MineNote({
+  active = true,
+  children,
+}: {
+  active?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <Text
+      variant="caption"
+      as="span"
+      className={cn("font-mono", active && "text-role-enrolled")}
+    >
+      {children}
+    </Text>
+  );
+}
+
+/** The student's seat NATURE: taking it IS joining — enrolled accent (the
+ *  required variant keeps the base's warning tint). */
+function JoinSeat({
+  required = false,
+  className,
+  ...props
+}: ComponentProps<typeof SeatButton>) {
+  return (
+    <SeatButton
+      required={required}
+      title="Join this group for the lab"
+      className={cn(
+        !required &&
+          "hover:border-role-enrolled hover:bg-role-enrolled/5 hover:text-foreground",
+        className,
+      )}
+      {...props}
+    >
+      {required ? "Join — needed to form" : "Join this group"}
+    </SeatButton>
+  );
+}
+
+/** Your own group's open spot: someone ELSE seats themselves here — no
+ *  verb on this card. */
+function VacantSeat({ required = false }: { required?: boolean }) {
+  return (
+    <SeatSlot
+      required={required}
+      title="Classmates join from their own lab page — tell them your group's name"
+    >
+      {required ? "Needs a member to form" : "Open seat"}
+    </SeatSlot>
+  );
+}
+
+/** A seat behind the repo lock: capacity remains, but only the teacher
+ *  moves people once the work repository exists. */
+function LockedSeat({ required = false }: { required?: boolean }) {
+  return (
+    <SeatSlot
+      required={required}
+      title="This group's repository exists — only your teacher can add members"
+    >
+      Locked seat — ask your professor
+    </SeatSlot>
   );
 }

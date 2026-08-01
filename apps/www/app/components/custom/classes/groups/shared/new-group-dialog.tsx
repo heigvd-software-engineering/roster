@@ -1,6 +1,6 @@
 import { ChevronDown } from "lucide-react";
 import { useState } from "react";
-import { GroupMembers } from "~/components/custom/classes/groups/shared/group-tile";
+import { GroupMembers } from "~/components/custom/classes/groups/shared/group-card";
 import { DisclosureToggle } from "~/components/custom/disclosure-toggle";
 import { UserAvatar } from "~/components/custom/identity/user-avatar";
 import { GhostTile } from "~/components/custom/layout/ghost-tile";

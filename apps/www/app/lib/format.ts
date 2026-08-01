@@ -67,10 +67,20 @@ export function switchDisplayName(user: {
     : user.name;
 }
 
+/** Cache for `usersByGithubId`, keyed on the response array itself: SWR
+ *  keeps the reference stable between renders, so every call site on a page
+ *  (the wall builds the map once per card) shares one Map per fetch. */
+const usersMapCache = new WeakMap<object, Map<string, unknown>>();
+
 /** The linked-users rows (riding on class/groups responses) as a lookup by
  *  GitHub id — the one way member rosters correlate to SWITCH identities. */
 export function usersByGithubId<U>(
   users?: { githubId: string; user: U }[],
 ): Map<string, U> {
-  return new Map(users?.map((u) => [u.githubId, u.user]));
+  if (!users) return new Map();
+  const cached = usersMapCache.get(users);
+  if (cached) return cached as Map<string, U>;
+  const map = new Map(users.map((u) => [u.githubId, u.user]));
+  usersMapCache.set(users, map);
+  return map;
 }

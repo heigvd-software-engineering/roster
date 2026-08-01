@@ -1,13 +1,9 @@
 import type { ReactNode } from "react";
 import type { GroupLabStatus } from "~/components/custom/classes/groups/shared/use-lab-groups";
-import { UserAvatar } from "~/components/custom/identity/user-avatar";
-import { AvatarGroup } from "~/components/ui/avatar";
-import type { ClassItem, GroupItem } from "~/lib/api";
-import { formatDeadline, usersByGithubId } from "~/lib/format";
-import { personIdentity } from "~/lib/identity";
+import { formatDeadline } from "~/lib/format";
 import { cn } from "~/lib/utils";
 
-/** The row's left spine — the same state as the chip, scannable as a color
+/** The card's left spine — the same state as the chip, scannable as a color
  *  column without reading (the class cards' role-spine trick). */
 export const STATUS_SPINE: Record<GroupLabStatus, string> = {
   on_track: "border-l-role-enrolled",
@@ -27,7 +23,7 @@ const TONE = {
 } as const;
 type PillTone = keyof typeof TONE;
 
-/** Dot + mono label pill — the roster's status vocabulary, reused wherever
+/** Dot + mono label pill — the wall's status vocabulary, reused wherever
  *  a group needs a verdict at a glance (chips, the attach menu). */
 function Pill({ tone, children }: { tone: PillTone; children: ReactNode }) {
   return (
@@ -68,7 +64,7 @@ function coarse(ms: number): string {
   return `${Math.round(hours / 24)}d`;
 }
 
-/** The roster's activity cell: the last push (as a moment) with its
+/** The card footer's activity line: the last push (as a moment) with its
  *  relation to the deadline — the context that makes "late" concrete. */
 export function LastPush({
   pushedAt,
@@ -100,32 +96,5 @@ export function LastPush({
           : `${coarse(-diff)} after deadline`}
       </span>
     </span>
-  );
-}
-
-/** The roster cell's compact face: overlapping member avatars. The full
- *  identities live one click away in the row's drawer — so a member must look
- *  the same in both: initials once they've linked their edu-ID, their GitHub
- *  photo while they haven't. */
-export function AvatarCluster({
-  members,
-  users,
-}: {
-  members: GroupItem["members"];
-  users?: ClassItem["users"] | undefined;
-}) {
-  const userByGithubId = usersByGithubId(users);
-  return (
-    <AvatarGroup>
-      {members.map((member) => {
-        const { name, avatarUrl } = personIdentity(
-          member,
-          userByGithubId.get(String(member.id)),
-        );
-        return (
-          <UserAvatar key={member.id} name={name} src={avatarUrl} size="sm" />
-        );
-      })}
-    </AvatarGroup>
   );
 }
