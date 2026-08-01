@@ -136,12 +136,17 @@ export function GroupCard({
           {actions}
         </Row>
         <Stack gap="sm" className="w-full">
-          <GroupMembers
-            members={group.members}
-            users={users}
-            memberAction={memberAction}
-            memberClassName={cn(SEAT_ROW_HEIGHT, memberClassName)}
-          />
+          {/* No "empty" fallback here — an empty group IS its open seats.
+              (GroupMembers keeps the caption for the reuse dialog, where an
+              expanded roster showing nothing would read as broken.) */}
+          {group.members.length > 0 ? (
+            <GroupMembers
+              members={group.members}
+              users={users}
+              memberAction={memberAction}
+              memberClassName={cn(SEAT_ROW_HEIGHT, memberClassName)}
+            />
+          ) : null}
           {seats.map((required, i) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: a seat has no identity BUT its position — the list is positional and only grows/shrinks at the tail
             <Fragment key={i}>{renderOpenSeat?.(required)}</Fragment>
