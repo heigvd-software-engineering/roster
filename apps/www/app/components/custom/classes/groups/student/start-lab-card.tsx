@@ -1,7 +1,7 @@
 import {
   MissingRepoBadge,
   RepoLink,
-} from "~/components/custom/classes/groups/shared/group-tile";
+} from "~/components/custom/classes/groups/shared/work-repo";
 import { CommandBlock } from "~/components/custom/command-block";
 import { ConfirmDialog } from "~/components/custom/confirm-dialog";
 import { Row } from "~/components/custom/layout/row";

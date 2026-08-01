@@ -16,6 +16,7 @@ export const ALIGN = {
   start: "items-start",
   center: "items-center",
   end: "items-end",
+  baseline: "items-baseline",
 } as const;
 export type Align = keyof typeof ALIGN;
 
