@@ -25,7 +25,7 @@ const SEAT = {
     // light theme's white card.
     "flex w-full items-center gap-2.5 rounded-md border border-foreground/40 border-dashed px-2 text-left text-muted-foreground text-xs transition-colors",
   ),
-  rowRequired: "border-warning/55 bg-warning/5 text-warning",
+  rowRequired: "border-warning/80 bg-warning/8 text-warning",
   // border-current: the circle wears the seat's own text color, so a nature
   // that recolors the row (amber required, the student's red locked seat)
   // recolors the circle for free.

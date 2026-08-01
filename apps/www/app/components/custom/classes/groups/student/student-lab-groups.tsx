@@ -292,7 +292,7 @@ function VacantSeat({ required = false }: { required?: boolean }) {
 function LockedSeat() {
   return (
     <SeatSlot
-      className="border-brand/55 bg-brand/5 text-brand"
+      className="border-brand/80 bg-brand/8 text-brand"
       title="This group's repository exists — only your teacher can add members"
     >
       Locked seat — ask your professor
