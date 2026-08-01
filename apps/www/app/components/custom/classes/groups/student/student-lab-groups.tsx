@@ -150,11 +150,7 @@ export function StudentLabGroups({
                 </DisabledReason>
               }
               renderOpenSeat={(required) =>
-                locked ? (
-                  <LockedSeat />
-                ) : (
-                  <VacantSeat required={required} />
-                )
+                locked ? <LockedSeat /> : <VacantSeat required={required} />
               }
             />
             {/* The lab starts here once the group reaches the minimum size —
