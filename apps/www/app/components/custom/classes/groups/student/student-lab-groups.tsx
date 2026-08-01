@@ -151,7 +151,7 @@ export function StudentLabGroups({
               }
               renderOpenSeat={(required) =>
                 locked ? (
-                  <LockedSeat required={required} />
+                  <LockedSeat />
                 ) : (
                   <VacantSeat required={required} />
                 )
@@ -205,7 +205,7 @@ export function StudentLabGroups({
                   // locked group read as full. It just changes nature: the
                   // teacher is the path onto a locked team.
                   locked ? (
-                    <LockedSeat required={required} />
+                    <LockedSeat />
                   ) : (
                     <JoinSeat
                       required={required}
@@ -287,11 +287,12 @@ function VacantSeat({ required = false }: { required?: boolean }) {
 }
 
 /** A seat behind the repo lock: capacity remains, but only the teacher
- *  moves people once the work repository exists. */
-function LockedSeat({ required = false }: { required?: boolean }) {
+ *  moves people once the work repository exists. Brand red — the lock is
+ *  the seat's dominant fact, whatever the group's size. */
+function LockedSeat() {
   return (
     <SeatSlot
-      required={required}
+      className="border-brand/55 bg-brand/5 text-brand"
       title="This group's repository exists — only your teacher can add members"
     >
       Locked seat — ask your professor
