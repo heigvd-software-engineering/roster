@@ -418,16 +418,7 @@ function TeacherGroupCard({
             ) : null}
           </Row>
         }
-        actions={
-          <>
-            <StatusChip status={status} />
-            <CardMenu
-              name={group.name}
-              locked={repo !== null}
-              onDelete={() => setDeleteOpen(true)}
-            />
-          </>
-        }
+        actions={<StatusChip status={status} />}
         memberAction={(member) => (
           <Row gap="xs">
             {userByGithubId.has(String(member.id)) ? null : (
@@ -477,15 +468,26 @@ function TeacherGroupCard({
           />
         )}
         footer={
-          <CardFooter
-            g={g}
-            group={group}
-            repo={repo}
-            pushedAt={pushedAt}
-            status={status}
-            deadline={deadline}
-            started={started}
-          />
+          // The kebab lives DOWN here, not in the header — the header's
+          // width belongs to the group's name.
+          <Row gap="sm" align="end" justify="between" className="w-full">
+            <div className="min-w-0 flex-1">
+              <CardFooter
+                g={g}
+                group={group}
+                repo={repo}
+                pushedAt={pushedAt}
+                status={status}
+                deadline={deadline}
+                started={started}
+              />
+            </div>
+            <CardMenu
+              name={group.name}
+              locked={repo !== null}
+              onDelete={() => setDeleteOpen(true)}
+            />
+          </Row>
         }
       />
       <ConfirmDialog

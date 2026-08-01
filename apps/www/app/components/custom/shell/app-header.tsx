@@ -10,7 +10,7 @@ import { useAuth } from "~/contexts/auth-context";
  * aligns to the page Container. Renders nothing until there's a signed-in user
  * (so the login screen stays chrome-free).
  */
-export function AppHeader() {
+export function AppHeader({ wide = false }: { wide?: boolean }) {
   const { user } = useAuth();
   if (!user) {
     return null;
@@ -18,7 +18,7 @@ export function AppHeader() {
 
   return (
     <header className="w-full border-b border-border bg-background">
-      <Container className="py-3">
+      <Container wide={wide} className="py-3">
         <Row justify="between">
           <Link to="/classes" className="font-bold tracking-tight">
             roster

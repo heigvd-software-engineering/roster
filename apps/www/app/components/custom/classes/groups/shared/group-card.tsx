@@ -12,10 +12,13 @@ import { usersByGithubId } from "~/lib/format";
 import { personIdentity } from "~/lib/identity";
 import { cn } from "~/lib/utils";
 
-/** The wall grid: rows stretch (no align-items), so every card in a row is
- *  the same height — the card pins its footer to the bottom to absorb it. */
+/** The wall grid: as many columns as fit a readable card (auto-fill), so a
+ *  wide screen lays ~12 groups in 2 rows instead of 3 — no breakpoint
+ *  ladder to maintain. Rows stretch (no align-items): every card in a row
+ *  is the same height, and the card pins its footer to the bottom to
+ *  absorb it. */
 export const GROUP_WALL =
-  "grid w-full grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
+  "grid w-full grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3";
 
 /**
  * Which open seats a group's card shows, as required-to-form flags. A capped
@@ -69,8 +72,9 @@ function SizeCount({
  * roster inline (the wall's whole point: no expanding to see who's where),
  * open seats after the members, and a bottom-pinned `footer` for the repo
  * facts. Everything role-specific arrives through the slots: the teacher
- * composes chip + kebab into `actions` and the add-picker into
- * `renderOpenSeat`; the student composes join/leave. Seat natures build on
+ * composes the status chip into `actions`, the add-picker into
+ * `renderOpenSeat`, and its kebab into `footer` (the header's width belongs
+ * to the name); the student composes join/leave. Seat natures build on
  * seats.tsx's bases, next to their role file.
  */
 export function GroupCard({
@@ -126,7 +130,14 @@ export function GroupCard({
         <Row gap="xs" align="start" className="w-full">
           <Stack gap="none" className="min-w-0 flex-1">
             <Row gap="sm" align="baseline" className="min-w-0">
-              <Text variant="label" as="span" className="truncate font-medium">
+              {/* The tooltip carries the full name — truncation is the
+                  narrow card's escape valve, not information loss. */}
+              <Text
+                variant="label"
+                as="span"
+                className="truncate font-medium"
+                title={group.name}
+              >
                 {group.name}
               </Text>
               <SizeCount size={group.members.length} min={min} max={max} />

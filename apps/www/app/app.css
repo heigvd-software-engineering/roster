@@ -95,8 +95,11 @@
      brand red stays reserved for urgency. */
   --role-teaching: oklch(0.51 0.19 276);
   --role-enrolled: oklch(0.6 0.12 185);
-  /* Message-variant amber (global messages: warning). */
-  --warning: oklch(0.67 0.15 60);
+  /* Message-variant amber (global messages: warning). Lightness 0.56, not
+     the usual ~0.67 amber: as TEXT on the white card (seat labels, pool
+     overline, hints) 0.67 lands near 2.5:1 contrast — unreadable. The dark
+     themes keep their brighter ambers. */
+  --warning: oklch(0.56 0.14 60);
   /* Message-variant blue (info) — hue 240 to stay clear of the violet
      role-teaching (276). */
   --info: oklch(0.58 0.14 240);
