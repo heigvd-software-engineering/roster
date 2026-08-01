@@ -21,14 +21,16 @@ export const SEAT_ROW_HEIGHT = "min-h-9";
 const SEAT = {
   row: cn(
     SEAT_ROW_HEIGHT,
-    "flex w-full items-center gap-2.5 rounded-md border border-foreground/25 border-dashed px-2 text-left text-muted-foreground text-xs transition-colors",
+    // foreground/40, not less — a lighter dash all but disappears on the
+    // light theme's white card.
+    "flex w-full items-center gap-2.5 rounded-md border border-foreground/40 border-dashed px-2 text-left text-muted-foreground text-xs transition-colors",
   ),
   rowRequired: "border-warning/55 bg-warning/5 text-warning",
   // border-current: the circle wears the seat's own text color, so a nature
   // that recolors the row (amber required, the student's red locked seat)
   // recolors the circle for free.
   circle:
-    "flex size-6 flex-none items-center justify-center rounded-full border border-current border-dashed opacity-80",
+    "flex size-6 flex-none items-center justify-center rounded-full border border-current border-dashed",
 };
 
 type SeatButtonProps = ComponentProps<"button"> & { required?: boolean };
