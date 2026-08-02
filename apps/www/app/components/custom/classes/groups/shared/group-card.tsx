@@ -12,13 +12,12 @@ import { usersByGithubId } from "~/lib/format";
 import { personIdentity } from "~/lib/identity";
 import { cn } from "~/lib/utils";
 
-/** The wall grid: as many columns as fit a readable card (auto-fill), so a
- *  wide screen lays ~12 groups in 2 rows instead of 3 — no breakpoint
- *  ladder to maintain. Rows stretch (no align-items): every card in a row
- *  is the same height, and the card pins its footer to the bottom to
- *  absorb it. */
+/** The wall grid: as many columns as fit a readable card (auto-fill, 4 in
+ *  the full page column) — no breakpoint ladder to maintain. Rows stretch
+ *  (no align-items): every card in a row is the same height, and the card
+ *  pins its footer to the bottom to absorb it. */
 export const GROUP_WALL =
-  "grid w-full grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3";
+  "grid w-full grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3";
 
 /**
  * Which open seats a group's card shows, as required-to-form flags. A capped
