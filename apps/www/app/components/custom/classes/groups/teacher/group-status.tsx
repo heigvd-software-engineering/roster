@@ -1,7 +1,9 @@
-import type { ReactNode } from "react";
+import {
+  Pill,
+  type PillTone,
+} from "~/components/custom/classes/groups/shared/pill";
 import type { GroupLabStatus } from "~/components/custom/classes/groups/shared/use-lab-groups";
 import { formatDeadline } from "~/lib/format";
-import { cn } from "~/lib/utils";
 
 /** The card's left spine — the same state as the chip, scannable as a color
  *  column without reading (the class cards' role-spine trick). */
@@ -14,30 +16,6 @@ export const STATUS_SPINE: Record<GroupLabStatus, string> = {
   no_repo: "border-l-warning",
   under_min: "border-l-muted-foreground/40",
 };
-
-const TONE = {
-  good: "bg-role-enrolled/10 text-role-enrolled",
-  warn: "bg-warning/12 text-warning",
-  bad: "bg-brand/10 text-brand",
-  muted: "bg-foreground/6 text-muted-foreground",
-} as const;
-type PillTone = keyof typeof TONE;
-
-/** Dot + mono label pill — the wall's status vocabulary, reused wherever
- *  a group needs a verdict at a glance (chips, the attach menu). */
-function Pill({ tone, children }: { tone: PillTone; children: ReactNode }) {
-  return (
-    <span
-      className={cn(
-        "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-wider",
-        TONE[tone],
-      )}
-    >
-      <span className="size-1.5 rounded-full bg-current" />
-      {children}
-    </span>
-  );
-}
 
 const CHIP: Record<GroupLabStatus, { label: string; tone: PillTone }> = {
   on_track: { label: "on track", tone: "good" },

@@ -44,6 +44,15 @@ export function formatDeadline(deadline: Date): string {
   return format.format(deadline);
 }
 
+/** "3 groups" / "1 group" — the one spelling of a pluralized count. */
+export function count(
+  n: number,
+  singular: string,
+  plural = `${singular}s`,
+): string {
+  return `${n} ${n === 1 ? singular : plural}`;
+}
+
 /** One spelling of a lab's mode: "individual" or "group 2–3". */
 export function labModeLabel(lab: {
   groupMode: "individual" | "group";

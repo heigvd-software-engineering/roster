@@ -18,11 +18,12 @@ import {
   PopoverTrigger,
 } from "~/components/ui/popover";
 import type { ClassItem } from "~/lib/api";
+import { count } from "~/lib/format";
 import { semesterOf, timelineSpan } from "~/lib/semester";
 import { cn } from "~/lib/utils";
 
-function peopleLabel(count: number, noun: string, pendingCount: number) {
-  const base = `${count} ${noun}${count === 1 ? "" : "s"}`;
+function peopleLabel(n: number, noun: string, pendingCount: number) {
+  const base = count(n, noun);
   return pendingCount > 0 ? `${base} · ${pendingCount} pending` : base;
 }
 
