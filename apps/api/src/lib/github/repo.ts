@@ -121,6 +121,29 @@ export type RepoLastCommit = {
   commitCount: number;
 };
 
+/** What ONE repo alias in the `reposLastCommit` query resolves to — the
+ *  mirror of its selection set, hand-declared because a GraphQL response is
+ *  shaped by our query text, not by an endpoint the lib could type. Null
+ *  when the alias didn't resolve (repo gone); `defaultBranchRef` null on an
+ *  empty repo; `user` null when the git identity has no GitHub account. */
+type LastCommitAlias = {
+  defaultBranchRef: {
+    target: {
+      history: {
+        totalCount: number;
+        nodes: Array<{
+          messageHeadline: string;
+          committedDate: string;
+          author: {
+            name: string | null;
+            user: { login: string; avatarUrl: string } | null;
+          } | null;
+        }>;
+      };
+    } | null;
+  } | null;
+} | null;
+
 /**
  * The last commit on each repo's DEFAULT branch (author identity, headline,
  * date) plus that branch's total commit count — ONE GraphQL request, one
@@ -149,31 +172,14 @@ export async function reposLastCommit(
       }`;
     })
     .join("\n");
-  type Alias = {
-    defaultBranchRef: {
-      target: {
-        history: {
-          totalCount: number;
-          nodes: Array<{
-            messageHeadline: string;
-            committedDate: string;
-            author: {
-              name: string | null;
-              user: { login: string; avatarUrl: string } | null;
-            } | null;
-          }>;
-        };
-      } | null;
-    } | null;
-  } | null;
   // A dead alias (repo deleted between the listing and this query) makes
   // octokit THROW a GraphqlResponseError that still carries every alias
   // that DID resolve — recover the partial data instead of losing the batch.
-  let data: Record<string, Alias>;
+  let data: Record<string, LastCommitAlias>;
   try {
-    data = await gh.graphql<Record<string, Alias>>(`query { ${fields} }`);
+    data = await gh.graphql<Record<string, LastCommitAlias>>(`query { ${fields} }`);
   } catch (e) {
-    const partial = (e as { data?: Record<string, Alias> }).data;
+    const partial = (e as { data?: Record<string, LastCommitAlias> }).data;
     if (!partial) throw e;
     data = partial;
   }
