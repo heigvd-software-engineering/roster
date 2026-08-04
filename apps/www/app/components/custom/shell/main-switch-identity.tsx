@@ -28,7 +28,7 @@ import type { Theme } from "~/lib/theme";
 
 /**
  * THE account control, top-right: the app's one edu-ID (SWITCH) identity, and
- * the menu hanging off it — the professional email, the linked GitHub account (with
+ * the menu hanging off it — the linked GitHub account (with
  * unlink), theme, sign out. All data and actions come from the auth context.
  *
  * It is chrome, not an identity component: `UserIdentity` is what it renders.
@@ -76,7 +76,7 @@ export function MainSwitchIdentity() {
     <DropdownMenu open={open} onOpenChange={setOpen} modal={false}>
       <DropdownMenuTrigger
         aria-label="Account menu"
-        title="Account menu — email, GitHub link, theme, sign out"
+        title="Account menu — GitHub link, theme, sign out"
         className="rounded-md px-2 py-1 text-left outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
         onMouseEnter={openNow}
         onMouseLeave={closeSoon}
@@ -90,11 +90,6 @@ export function MainSwitchIdentity() {
         onMouseEnter={openNow}
         onMouseLeave={closeSoon}
       >
-        <Stack gap="sm" className="px-1.5 py-1.5">
-          <Text variant="overline">Email</Text>
-          <Text variant="body2">{user.email}</Text>
-        </Stack>
-        <DropdownMenuSeparator />
         <Stack gap="sm" className="px-1.5 py-1.5">
           <Text variant="overline">Linked GitHub</Text>
           {/* Named by GitHub → it keeps its photo, unlike the edu-ID above. */}
