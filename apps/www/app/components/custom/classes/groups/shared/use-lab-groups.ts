@@ -1,3 +1,4 @@
+import { useMessages } from "~/contexts/message-context";
 import {
   api,
   type GroupItem,
@@ -35,17 +36,22 @@ export type GroupLabStatus =
 /** The lab page's action failures, by the server's 409 `error` code — every
  *  create/join/leave verb on this page routes its conflict through this one
  *  table, so a code can't drift to two different messages across the file. */
+// Named because the batch repo-create reuses them for its skip warnings —
+// one wording, whether the create was clicked alone or as "create all".
+const GROUP_INCOMPLETE_MESSAGE =
+  "This group needs more members before it can get its repository — check the lab's minimum size.";
+const REPO_NAME_TAKEN_MESSAGE =
+  "A repository with that name already exists in the organization — rename the group and try again.";
+
 const CONFLICT_MESSAGE: Record<string, string> = {
   member_already_participating:
     "You're already in another group for this lab — leave it first.",
-  group_incomplete:
-    "This group needs more members before it can get its repository — check the lab's minimum size.",
+  group_incomplete: GROUP_INCOMPLETE_MESSAGE,
   // Repo creation is CREATE-only (never adopts an existing repo, even one
   // labs could read back — see lib/groups.ts createWorkRepo): a name
   // collision always refuses. A genuine interrupted create is recovered by
   // the teacher on the reconciler audit page, never automatically.
-  repo_name_taken:
-    "A repository with that name already exists in the organization — rename the group and try again.",
+  repo_name_taken: REPO_NAME_TAKEN_MESSAGE,
   template_error:
     "The lab's starter-code template can't be used — it's likely empty or unavailable. Ask your teacher to add a file to it (or remove the template).",
   app_permissions:
@@ -85,6 +91,30 @@ const CONFLICT_MESSAGE: Record<string, string> = {
 const DEFAULT_CONFLICT_MESSAGE =
   "That didn't go through — refresh and try again.";
 
+/** Why the batch skipped a group, in the batch's voice. `group_incomplete`
+ *  and `repo_name_taken` reuse the single-create wording; `group_gone` has
+ *  no single-create sibling (there the roster read failing 503s instead). */
+const REPO_SKIP_MESSAGE: Record<string, string> = {
+  repo_name_taken: REPO_NAME_TAKEN_MESSAGE,
+  group_incomplete: GROUP_INCOMPLETE_MESSAGE,
+  group_gone:
+    "its GitHub team no longer exists — repair the class from its GitHub sync.",
+};
+
+/** One warning per group the batch repo-create SKIPPED — the 200 response
+ *  carries them (`{created, skipped}`) and silence here is how a teacher
+ *  ships a lab believing every repo exists. Named by group (the id alone
+ *  helps nobody), reason-worded like the single-create conflicts. */
+export function repoSkipMessages(
+  skipped: Array<{ groupId: string; reason: string }>,
+  groups: Array<{ id: string; name: string }>,
+): string[] {
+  return skipped.map((s) => {
+    const name = groups.find((g) => g.id === s.groupId)?.name ?? "A group";
+    return `${name} was skipped: ${REPO_SKIP_MESSAGE[s.reason] ?? DEFAULT_CONFLICT_MESSAGE}`;
+  });
+}
+
 /** The codes whose ADVICE splits by role — an override layer over the shared
  *  table, not a second copy of it (a code absent here falls through).
  *
@@ -112,6 +142,7 @@ export function useLabGroups(classId: string, labId: string) {
   const lab = data?.lab;
   const role = data?.role;
 
+  const { push } = useMessages();
   const { busy, act } = useAction(mutate, (body) => {
     const code = body.error ?? "";
     return (
@@ -222,12 +253,23 @@ export function useLabGroups(classId: string, labId: string) {
     /** The explicit accept-completion step: create the group's repo. */
     createRepo: (groupId: string) =>
       act(() => labGroupsApi[":groupId"].repo.$post(labGroupParam(groupId))),
-    /** Teacher toolbar: every missing repo in ONE request (one refetch). */
+    /** Teacher toolbar: every missing repo in ONE request (one refetch).
+     *  A 200 can still SKIP groups (name taken, under min, team gone) —
+     *  surface each one, or the teacher reads silence as "all created". */
     createMissingRepos: () =>
-      act(() =>
-        api.api.classes[":id"].labs[":labId"].repos.$post({
-          param: { id: classId, labId },
-        }),
+      act(
+        () =>
+          api.api.classes[":id"].labs[":labId"].repos.$post({
+            param: { id: classId, labId },
+          }),
+        async (res) => {
+          const { skipped } = (await res.json()) as {
+            skipped: Array<{ groupId: string; reason: string }>;
+          };
+          for (const message of repoSkipMessages(skipped, groups)) {
+            push(message, { variant: "warning" });
+          }
+        },
       ),
     acceptIndividual: () =>
       act(() =>

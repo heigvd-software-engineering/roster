@@ -81,7 +81,13 @@ export function useAction(
 ) {
   const { push } = useMessages();
   const [busy, setBusy] = useState(false);
-  async function act(run: () => Promise<Response>) {
+  /** `onOk` reads the SUCCESS response — for endpoints whose 200 still
+   *  carries partial-failure detail (the batch repo create's `skipped`).
+   *  Runs after the revalidate so its messages describe the fresh state. */
+  async function act(
+    run: () => Promise<Response>,
+    onOk?: (res: Response) => void | Promise<void>,
+  ) {
     setBusy(true);
     try {
       const res = await run();
@@ -106,6 +112,7 @@ export function useAction(
         return;
       }
       await revalidate();
+      if (onOk) await onOk(res);
     } catch {
       push("Something went wrong — check your connection.", {
         variant: "error",
