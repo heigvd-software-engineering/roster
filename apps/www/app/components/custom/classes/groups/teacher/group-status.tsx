@@ -46,16 +46,41 @@ function coarse(ms: number): string {
   return `${Math.round(hours / 24)}d`;
 }
 
+/** Who wrote the repo's last default-branch commit, and what it said —
+ *  deliberately labeled by the commit, not the push: a teammate can push
+ *  someone else's commit, and main can trail a feature branch. */
+export type LastCommitInfo = {
+  login: string | null;
+  name: string | null;
+  message: string;
+};
+
+function CommitByline({ commit }: { commit: LastCommitInfo }) {
+  const who = commit.login ? `@${commit.login}` : commit.name;
+  if (!who) return null;
+  return (
+    <span
+      className="block max-w-48 truncate text-[11px] text-muted-foreground"
+      title={`Last commit on the default branch — ${who}: ${commit.message}`}
+    >
+      {who} · {commit.message}
+    </span>
+  );
+}
+
 /** The card footer's activity line: the last push (as a moment) with its
- *  relation to the deadline — the context that makes "late" concrete. */
+ *  relation to the deadline — the context that makes "late" concrete — and
+ *  the last commit's author + headline when GitHub gave us one. */
 export function LastPush({
   pushedAt,
   status,
   deadline,
+  lastCommit,
 }: {
   pushedAt: string | null;
   status: GroupLabStatus;
   deadline: string;
+  lastCommit?: LastCommitInfo | null;
 }) {
   if (status === "no_pushes") {
     // The verdict is a heuristic — a push inside the creation grace window
@@ -87,6 +112,7 @@ export function LastPush({
           ? `${coarse(diff)} before deadline`
           : `${coarse(-diff)} after deadline`}
       </span>
+      {lastCommit ? <CommitByline commit={lastCommit} /> : null}
     </span>
   );
 }

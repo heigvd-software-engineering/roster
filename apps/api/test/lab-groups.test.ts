@@ -32,6 +32,21 @@ const state = vi.hoisted(() => ({
   // Make the org-repos LISTING itself fail (rate limit, outage) — distinct
   // from a repo simply being absent from it.
   activityFails: false,
+  // repo fullName → last default-branch commit (the byline). Absent = GraphQL
+  // couldn't resolve the repo (deleted, empty).
+  lastCommits: {} as Record<
+    string,
+    {
+      login: string | null;
+      avatarUrl: string | null;
+      name: string | null;
+      message: string;
+      committedAt: string;
+      commitCount: number;
+    }
+  >,
+  // Make the byline batch itself fail — must degrade, never break the wall.
+  lastCommitsFails: false,
   // Repo names ALREADY in the org — creating them 422s. `visible` says whether
   // the App installation can then read the repo back (adoption) or not.
   orgRepos: {} as Record<string, { visible: boolean }>,
@@ -148,6 +163,20 @@ vi.mock("../src/lib/github/repo", async (importOriginal) => {
         throw Object.assign(new Error("rate limited"), { status: 403 });
       }
       return new Map(Object.entries(state.activity));
+    },
+    reposLastCommit: async (
+      _env: unknown,
+      _inst: number,
+      repoFullNames: string[],
+    ) => {
+      if (state.lastCommitsFails) {
+        throw Object.assign(new Error("rate limited"), { status: 403 });
+      }
+      return new Map(
+        repoFullNames
+          .filter((full) => state.lastCommits[full])
+          .map((full) => [full, state.lastCommits[full]]),
+      );
     },
   };
 });
@@ -316,6 +345,8 @@ beforeEach(async () => {
   state.rosters = {};
   state.activity = {};
   state.activityFails = false;
+  state.lastCommits = {};
+  state.lastCommitsFails = false;
   state.orgRepos = {};
   state.templateGone = false;
   state.grants = [];
@@ -618,6 +649,14 @@ test("lists only THIS lab's groups, with roster + repo + activity", async () => 
     pushedAt: "2099-02-01T00:00:00Z",
     createdAt: "2099-01-15T00:00:00Z",
   };
+  state.lastCommits["acme/g1"] = {
+    login: "alice",
+    avatarUrl: "http://a",
+    name: "Alice",
+    message: "solve exercise 3",
+    committedAt: "2099-02-01T00:00:00Z",
+    commitCount: 4,
+  };
 
   const res = await app.request("/api/classes/c1/labs/l1/groups", {}, env);
   const body = (await res.json()) as {
@@ -627,6 +666,7 @@ test("lists only THIS lab's groups, with roster + repo + activity", async () => 
       repoFullName: string | null;
       pushedAt: string | null;
       repoCreatedAt: string | null;
+      lastCommit: { login: string | null; message: string } | null;
       members: unknown[];
     }>;
   };
@@ -636,8 +676,29 @@ test("lists only THIS lab's groups, with roster + repo + activity", async () => 
     repoFullName: "acme/g1",
     pushedAt: "2099-02-01T00:00:00Z",
     repoCreatedAt: "2099-01-15T00:00:00Z",
+    lastCommit: { login: "alice", message: "solve exercise 3" },
   });
   expect(body.groups[0]?.members).toEqual([alice, bob]);
+});
+
+test("a failing byline batch degrades to lastCommit: null — the wall survives", async () => {
+  await seedLab({ id: "l1" });
+  await seedGroup({ id: "g1", labId: "l1", name: "A", repo: true });
+  state.activity["acme/g1"] = {
+    pushedAt: "2099-02-01T00:00:00Z",
+    createdAt: "2099-01-15T00:00:00Z",
+  };
+  state.lastCommitsFails = true;
+
+  const res = await app.request("/api/classes/c1/labs/l1/groups", {}, env);
+  expect(res.status).toBe(200);
+  const body = (await res.json()) as {
+    groups: Array<{ pushedAt: string | null; lastCommit: unknown }>;
+  };
+  expect(body.groups[0]).toMatchObject({
+    pushedAt: "2099-02-01T00:00:00Z",
+    lastCommit: null,
+  });
 });
 
 test("a repo absent from the org listing AND a confirmed 404 is reported missing", async () => {
