@@ -63,8 +63,8 @@ export function RulesPage() {
               people before the lab starts.
             </RuleItem>
             <RuleItem who="teacher">
-              The teacher can even create the repositories ahead of the start.
-              A group that begins with its repository is frozen from day one —
+              The teacher can even create the repositories ahead of the start. A
+              group that begins with its repository is frozen from day one —
               this is how a lab with teacher-chosen groups is run: students
               arrive, everything is already set.
             </RuleItem>
@@ -115,13 +115,13 @@ export function RulesPage() {
               leaving, no deleting.
             </RuleItem>
             <RuleItem who="teacher">
-              The teacher can still reshape any group at any time — add,
-              remove, or move people — and can create a group's repository, or
-              every missing one at once.
+              The teacher can still reshape any group at any time — add, remove,
+              or move people — and can create a group's repository, or every
+              missing one at once.
             </RuleItem>
             <RuleItem who="everyone">
-              A group with a repository is never deleted, by anyone. The work
-              is preserved; the roster can be emptied and moved instead.
+              A group with a repository is never deleted, by anyone. The work is
+              preserved; the roster can be emptied and moved instead.
             </RuleItem>
             <RuleItem who="teacher">
               If the repository was deleted on GitHub itself, the teacher can
