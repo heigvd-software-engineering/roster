@@ -326,7 +326,7 @@ describe("TeacherLabPage", () => {
     expect(screen.getByText("teacher")).toBeInTheDocument();
   });
 
-  it("reveals a member's affiliation emails from the drawer roster", () => {
+  it("reveals a member's professional email from the drawer roster", () => {
     mockApi({
       ...groupsData,
       groups: [grp({ members: [alice] })],
@@ -337,7 +337,7 @@ describe("TeacherLabPage", () => {
             firstName: "Alice",
             lastName: "Ok",
             name: "alice",
-            affiliations: ["alice@heig-vd.ch"],
+            email: "alice@heig-vd.ch",
           },
         },
       ],

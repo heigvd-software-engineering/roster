@@ -75,14 +75,14 @@ export function PeopleChip({
         ) : (
           <Stack gap="xs">
             {people.map((p) => {
-              const { emails, ...identity } = personIdentity(
+              const { email, ...identity } = personIdentity(
                 { login: p.login, avatarUrl: p.avatarUrl },
                 p.user ?? undefined,
               );
               return (
                 <Row key={p.login} gap="sm" className="px-1 py-0.5">
                   <UserIdentity {...identity} className="min-w-0 flex-1" />
-                  <EmailsMenu name={identity.name} emails={emails} />
+                  <EmailsMenu name={identity.name} email={email} />
                   {p.pending ? (
                     <Hint text="pending" title="Waiting on GitHub">
                       {pendingHint}

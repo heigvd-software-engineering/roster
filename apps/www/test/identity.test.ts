@@ -5,14 +5,12 @@ const gh = { login: "alice", avatarUrl: "https://gh/alice.png" };
 const edu = { firstName: "Alice", lastName: "Dupont", name: "alice-gh" };
 
 describe("personIdentity — three states", () => {
-  it("① fully linked: SWITCH name, initials, @login, affiliations", () => {
-    expect(
-      personIdentity(gh, { ...edu, affiliations: ["a@heig-vd.ch"] }),
-    ).toEqual({
+  it("① fully linked: SWITCH name, initials, @login, email", () => {
+    expect(personIdentity(gh, { ...edu, email: "a@heig-vd.ch" })).toEqual({
       name: "Alice Dupont",
       handle: "alice",
       avatarUrl: null,
-      emails: ["a@heig-vd.ch"],
+      email: "a@heig-vd.ch",
     });
   });
 
@@ -23,7 +21,7 @@ describe("personIdentity — three states", () => {
       nameIsLogin: true,
       subtitle: "not linked to edu-ID",
       avatarUrl: "https://gh/alice.png",
-      emails: [],
+      email: null,
     });
     // The login is the name; there's no @handle line to double it.
     expect(p).not.toHaveProperty("handle");
@@ -35,7 +33,7 @@ describe("personIdentity — three states", () => {
       name: "Alice Dupont",
       subtitle: "GitHub not linked yet",
       avatarUrl: null,
-      emails: [],
+      email: null,
     });
     // The old bug: a literal "@unknown" handle. Must be gone.
     expect(p).not.toHaveProperty("handle");
@@ -47,9 +45,9 @@ describe("personIdentity — three states", () => {
     ).toMatchObject({ name: "A. D.", handle: "alice", avatarUrl: null });
   });
 
-  it("carries the linked user's affiliation emails", () => {
-    expect(
-      personIdentity(gh, { ...edu, affiliations: ["a@x.ch", "a@y.ch"] }).emails,
-    ).toEqual(["a@x.ch", "a@y.ch"]);
+  it("carries the linked user's professional email", () => {
+    expect(personIdentity(gh, { ...edu, email: "a@x.ch" }).email).toBe(
+      "a@x.ch",
+    );
   });
 });

@@ -208,7 +208,7 @@ export function GroupMembers({
   return (
     <Stack gap="sm">
       {members.map((member) => {
-        const { emails, ...identity } = personIdentity(
+        const { email, ...identity } = personIdentity(
           member,
           userByGithubId.get(String(member.id)),
         );
@@ -223,7 +223,7 @@ export function GroupMembers({
             className={memberClassName}
           >
             <UserIdentity {...identity} className="min-w-0 flex-1" />
-            <EmailsMenu name={identity.name} emails={emails} />
+            <EmailsMenu name={identity.name} email={email} />
             {memberAction?.(member)}
           </Row>
         );

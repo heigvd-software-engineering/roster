@@ -743,7 +743,7 @@ function PoolPicker({
           filtered.map((s) => {
             // Inside a <button>: display only — no emails menu here
             // (nested interactive elements are invalid HTML).
-            const { emails: _emails, ...identity } = identityFor(s);
+            const { email: _email, ...identity } = identityFor(s);
             return (
               <button
                 key={s.githubId}

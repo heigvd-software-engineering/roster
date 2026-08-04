@@ -58,7 +58,7 @@ function asMembership(value: unknown): Membership | null {
 export function JoinPage() {
   const { token = "" } = useParams();
   const navigate = useNavigate();
-  const { github, affiliations } = useAuth();
+  const { github, user } = useAuth();
   const [state, setState] = useState<JoinState>({ kind: "loading" });
   const [submitting, setSubmitting] = useState(false);
 
@@ -223,7 +223,7 @@ export function JoinPage() {
             />
             <EmailsMenu
               name={github.name ?? github.login}
-              emails={affiliations}
+              email={user?.email ?? null}
             />
             <ArrowRightIcon
               aria-label="joins"

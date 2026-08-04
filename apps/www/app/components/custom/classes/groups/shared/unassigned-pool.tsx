@@ -71,7 +71,7 @@ export function UnassignedPool({
           // width, so the identities line up into scannable columns.
           className="grid w-full grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] gap-2"
         >
-          {sorted.map(({ githubId, emails, ...identity }) => (
+          {sorted.map(({ githubId, email, ...identity }) => (
             // The very row the group roster uses — a student reads the same
             // whether they're in a group or waiting for one. The emails
             // menu sits NEXT to the identity, like everywhere else.
@@ -82,7 +82,7 @@ export function UnassignedPool({
               className="min-w-0 rounded-md bg-card px-3 py-2 ring-1 ring-foreground/10"
             >
               <UserIdentity {...identity} className="min-w-0 flex-1" />
-              <EmailsMenu name={identity.name} emails={emails} />
+              <EmailsMenu name={identity.name} email={email} />
             </Row>
           ))}
         </div>
