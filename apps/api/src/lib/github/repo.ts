@@ -177,7 +177,9 @@ export async function reposLastCommit(
   // that DID resolve — recover the partial data instead of losing the batch.
   let data: Record<string, LastCommitAlias>;
   try {
-    data = await gh.graphql<Record<string, LastCommitAlias>>(`query { ${fields} }`);
+    data = await gh.graphql<Record<string, LastCommitAlias>>(
+      `query { ${fields} }`,
+    );
   } catch (e) {
     const partial = (e as { data?: Record<string, LastCommitAlias> }).data;
     if (!partial) throw e;
