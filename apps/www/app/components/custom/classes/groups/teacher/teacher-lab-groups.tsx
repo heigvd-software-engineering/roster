@@ -606,7 +606,12 @@ function CardFooter({
             />
           ) : null}
         </Row>
-        <LastPush pushedAt={pushedAt} status={status} deadline={deadline} />
+        <LastPush
+          pushedAt={pushedAt}
+          status={status}
+          deadline={deadline}
+          lastCommit={group.lastCommit}
+        />
       </Stack>
     );
   }

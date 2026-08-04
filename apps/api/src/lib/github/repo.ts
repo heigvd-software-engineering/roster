@@ -109,6 +109,91 @@ export async function orgRepoActivity(
   );
 }
 
+/** What the wall's byline shows about a repo's most recent default-branch
+ *  commit. `login`/`avatarUrl` are null when the git author has no linked
+ *  GitHub account; `name` is the raw git identity as the fallback. */
+export type RepoLastCommit = {
+  login: string | null;
+  avatarUrl: string | null;
+  name: string | null;
+  message: string;
+  committedAt: string;
+  commitCount: number;
+};
+
+/**
+ * The last commit on each repo's DEFAULT branch (author identity, headline,
+ * date) plus that branch's total commit count — ONE GraphQL request, one
+ * alias per repo, covers all of a lab's work repos instead of a commits GET
+ * per repo. Repos GraphQL can't resolve (deleted, renamed, still empty) are
+ * simply absent from the map. NOTE: default branch only — `pushed_at`
+ * (any-branch) stays the activity signal; this is the byline.
+ */
+export async function reposLastCommit(
+  env: AuthEnv,
+  installationId: number,
+  repoFullNames: string[],
+): Promise<Map<string, RepoLastCommit>> {
+  if (repoFullNames.length === 0) return new Map();
+  const gh = await installationOctokit(env, installationId);
+  const fields = repoFullNames
+    .map((full, i) => {
+      const [owner, name] = full.split("/");
+      return `r${i}: repository(owner: ${JSON.stringify(owner ?? "")}, name: ${JSON.stringify(name ?? "")}) {
+        defaultBranchRef { target { ... on Commit {
+          history(first: 1) { totalCount nodes {
+            messageHeadline committedDate
+            author { name user { login avatarUrl } }
+          } }
+        } } }
+      }`;
+    })
+    .join("\n");
+  type Alias = {
+    defaultBranchRef: {
+      target: {
+        history: {
+          totalCount: number;
+          nodes: Array<{
+            messageHeadline: string;
+            committedDate: string;
+            author: {
+              name: string | null;
+              user: { login: string; avatarUrl: string } | null;
+            } | null;
+          }>;
+        };
+      } | null;
+    } | null;
+  } | null;
+  // A dead alias (repo deleted between the listing and this query) makes
+  // octokit THROW a GraphqlResponseError that still carries every alias
+  // that DID resolve — recover the partial data instead of losing the batch.
+  let data: Record<string, Alias>;
+  try {
+    data = await gh.graphql<Record<string, Alias>>(`query { ${fields} }`);
+  } catch (e) {
+    const partial = (e as { data?: Record<string, Alias> }).data;
+    if (!partial) throw e;
+    data = partial;
+  }
+  const out = new Map<string, RepoLastCommit>();
+  repoFullNames.forEach((full, i) => {
+    const history = data[`r${i}`]?.defaultBranchRef?.target?.history;
+    const node = history?.nodes[0];
+    if (!history || !node) return;
+    out.set(full, {
+      login: node.author?.user?.login ?? null,
+      avatarUrl: node.author?.user?.avatarUrl ?? null,
+      name: node.author?.name ?? null,
+      message: node.messageHeadline,
+      committedAt: node.committedDate,
+      commitCount: history.totalCount,
+    });
+  });
+  return out;
+}
+
 /** The org's TEMPLATE repos — the lab dialog's starter-code choices. */
 export async function orgTemplateRepos(
   env: AuthEnv,

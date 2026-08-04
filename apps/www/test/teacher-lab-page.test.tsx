@@ -68,6 +68,7 @@ const grp = (over: Record<string, unknown>) => ({
   repoFullName: null,
   pushedAt: null,
   repoCreatedAt: null,
+  lastCommit: null,
   ...over,
 });
 
@@ -163,6 +164,31 @@ describe("TeacherLabPage", () => {
     expect(
       screen.getByText(/immediately sees everything the group has pushed/),
     ).toBeInTheDocument();
+  });
+
+  it("shows the last commit's author and headline under the push date", () => {
+    mockApi({
+      ...groupsData,
+      groups: [
+        grp({
+          members: [alice, bob],
+          repoFullName: "acme/lab1-team-alpha",
+          repoCreatedAt: "2026-03-11T10:00:00.000Z",
+          pushedAt: "2026-03-12T10:00:00.000Z",
+          lastCommit: {
+            login: "alice",
+            avatarUrl: "http://a",
+            name: "Alice",
+            message: "solve exercise 3",
+            committedAt: "2026-03-12T10:00:00.000Z",
+            commitCount: 4,
+          },
+        }),
+      ],
+    });
+    render(<TeacherLabPage />);
+
+    expect(screen.getByText("@alice · solve exercise 3")).toBeInTheDocument();
   });
 
   it("shows the missing-repo badge and offers Unlink when the repo was deleted on GitHub", () => {

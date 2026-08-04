@@ -11,7 +11,12 @@ import {
   resolveClassAsMember,
 } from "../lib/class-scope";
 import { memberUserIds } from "../lib/enrollment";
-import { orgRepoActivity, type RepoFailure } from "../lib/github/repo";
+import {
+  orgRepoActivity,
+  type RepoFailure,
+  type RepoLastCommit,
+  reposLastCommit,
+} from "../lib/github/repo";
 import {
   cachedRoster,
   cachedRosters,
@@ -158,6 +163,26 @@ export const listLabGroups = authedFactory.createHandlers(async (c) => {
   const repoStatuses = activityFetched
     ? await resolveRepoStatuses(c.env, access, rows, new Set(activity.keys()))
     : new Map<string, { status: "ok" | "missing"; repoFullName: string }>();
+  // The byline ("last commit by @login — message"): ONE GraphQL batch over
+  // the lab's linked repos, post-rename resolution. Same degradation deal
+  // as the activity listing — a failure only loses the byline.
+  const linkedRepos = out
+    .map((g) =>
+      g.repoFullName
+        ? (repoStatuses.get(g.id)?.repoFullName ?? g.repoFullName)
+        : null,
+    )
+    .filter((name): name is string => name !== null);
+  let lastCommits = new Map<string, RepoLastCommit>();
+  if (activityFetched && linkedRepos.length > 0) {
+    try {
+      lastCommits = await reposLastCommit(
+        c.env,
+        access.cls.installationId,
+        linkedRepos,
+      );
+    } catch {}
+  }
   const groupsOut = out.map((g) => {
     const resolved = g.repoFullName ? repoStatuses.get(g.id) : undefined;
     const repoFullName = resolved?.repoFullName ?? g.repoFullName;
@@ -171,6 +196,7 @@ export const listLabGroups = authedFactory.createHandlers(async (c) => {
       repoCreatedAt: repoFullName
         ? (activity.get(repoFullName)?.createdAt ?? null)
         : null,
+      lastCommit: repoFullName ? (lastCommits.get(repoFullName) ?? null) : null,
     };
   });
 
