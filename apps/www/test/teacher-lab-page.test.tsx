@@ -165,6 +165,32 @@ describe("TeacherLabPage", () => {
     ).toBeInTheDocument();
   });
 
+  it("explains the creation grace window on the no-pushes verdict", () => {
+    mockApi({
+      ...groupsData,
+      groups: [
+        grp({
+          members: [alice, bob],
+          repoFullName: "acme/lab1-team-alpha",
+          // Pushed 60s after creation — inside the grace window, so the
+          // push reads as the starter commit and the verdict must both
+          // say "no pushes yet" AND carry the hint that explains it.
+          repoCreatedAt: "2026-03-11T10:00:00.000Z",
+          pushedAt: "2026-03-11T10:01:00.000Z",
+        }),
+      ],
+    });
+    render(<TeacherLabPage />);
+
+    expect(screen.getByText("no pushes yet")).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "How pushes are counted" }),
+    );
+    expect(
+      screen.getByText(/pushes made more than 2 minutes after/),
+    ).toBeInTheDocument();
+  });
+
   it("shows the missing-repo badge and offers Unlink when the repo was deleted on GitHub", () => {
     mockApi({
       ...groupsData,
