@@ -8,7 +8,7 @@ const profUser = {
   name: "Bob Prof",
   firstName: "Bob",
   lastName: "Prof",
-  affiliations: ["b.prof@heig-vd.ch"],
+  email: "b.prof@heig-vd.ch",
 };
 
 const lab = {

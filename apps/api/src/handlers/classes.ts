@@ -24,11 +24,7 @@ import {
   userInstallationsByOrgId,
   userOrgMemberships,
 } from "../lib/github/user";
-import {
-  affiliationsByUserId,
-  githubIdsForUser,
-  profilesByGithubId,
-} from "../lib/identity";
+import { githubIdsForUser, profilesByGithubId } from "../lib/identity";
 
 /** A cached member as the client already expects to see them. `class_members` is
  *  a DISPLAY cache — it may never authorize, and it does not here: the teacher
@@ -369,9 +365,9 @@ async function enrolledClasses(
           );
   // The classes' teachers from the same cache (+ linked SWITCH identity),
   // for the card's people popover. LEFT join: a teacher who never signed
-  // in to labs still shows with their GitHub identity. Same safe shape as
-  // profilesByGithubId — name fields + affiliations, never the private email:
-  // this payload goes to STUDENTS.
+  // in to labs still shows with their GitHub identity. Same shape as
+  // profilesByGithubId — name fields + the professional email (`user.email`,
+  // HES-SO audience): this payload goes to STUDENTS.
   const enrolledTeacherRows =
     enrolledIds.length === 0
       ? []
@@ -385,6 +381,7 @@ async function enrolledClasses(
             firstName: user.firstName,
             lastName: user.lastName,
             userName: user.name,
+            userEmail: user.email,
           })
           .from(classMembers)
           .leftJoin(
@@ -401,22 +398,18 @@ async function enrolledClasses(
               eq(classMembers.state, "teacher"),
             ),
           );
-  const teacherAffiliations = await affiliationsByUserId(
-    db,
-    enrolledTeacherRows
-      .map((t) => t.userId)
-      .filter((id): id is string => id !== null),
-  );
   const enrolledTeachers = enrolledTeacherRows.map(
-    ({ userId, firstName, lastName, userName, ...member }) => ({
+    ({ userId, firstName, lastName, userName, userEmail, ...member }) => ({
       ...member,
+      // The email guard is for the TYPE only — `user.email` is NOT NULL, so a
+      // joined user row always carries one; the null arm is the left join's.
       user:
-        userId !== null && userName !== null
+        userId !== null && userName !== null && userEmail !== null
           ? {
               firstName,
               lastName,
               name: userName,
-              affiliations: teacherAffiliations.get(userId) ?? [],
+              email: userEmail,
             }
           : null,
     }),

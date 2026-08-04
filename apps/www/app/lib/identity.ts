@@ -20,9 +20,10 @@ export type PersonIdentity = {
   nameIsLogin?: boolean;
   /** The photo, or null when the avatar should fall back to initials. */
   avatarUrl: string | null;
-  /** Affiliation (professional) emails — the ONLY emails the app ever shows
-   *  for another person. From edu-ID, so states ① and ③ can carry them. */
-  emails: string[];
+  /** The professional email (`user.email`, HES-SO audience) — the ONLY
+   *  email the app ever shows for another person. From edu-ID, so states
+   *  ① and ③ can carry it. */
+  email: string | null;
 } & (
   | { handle: string; subtitle?: never }
   | { subtitle: string; handle?: never }
@@ -42,17 +43,17 @@ export function personIdentity(
     firstName: string | null;
     lastName: string | null;
     name: string;
-    affiliations?: string[];
+    email?: string | null;
   },
 ): PersonIdentity {
-  const emails = linked?.affiliations ?? [];
+  const email = linked?.email ?? null;
   if (linked) {
     const name = switchDisplayName(linked);
     // ① edu-ID + GitHub → name + @login. ③ edu-ID only → name + a note
     // (never "@unknown" — there's simply no handle to show).
     return person.login
-      ? { name, handle: person.login, avatarUrl: null, emails }
-      : { name, subtitle: "GitHub not linked yet", avatarUrl: null, emails };
+      ? { name, handle: person.login, avatarUrl: null, email }
+      : { name, subtitle: "GitHub not linked yet", avatarUrl: null, email };
   }
   // ② GitHub only → the login IS the identity (shown once, with its photo),
   // and the note spells out why there's no real name.
@@ -61,6 +62,6 @@ export function personIdentity(
     nameIsLogin: person.login != null,
     subtitle: "not linked to edu-ID",
     avatarUrl: person.avatarUrl,
-    emails,
+    email,
   };
 }

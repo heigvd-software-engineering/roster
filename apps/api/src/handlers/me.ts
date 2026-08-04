@@ -3,7 +3,6 @@ import { factory } from "../factory";
 import { createAuth } from "../lib/auth/config";
 import { githubAccessToken } from "../lib/auth/github-token";
 import { isSuperAdmin, userCanCreateClasses } from "../lib/auth/super-admin";
-import { readAffiliationEmails } from "../lib/auth/switch-claims";
 import {
   fetchGithubProfile,
   type GithubProfile,
@@ -16,8 +15,9 @@ import {
 type GithubState = "linked" | "unlinked" | "unknown";
 
 /**
- * Current user (Drizzle-inferred `User`) + their linked GitHub profile + edu-ID
- * affiliation emails, flowing to the frontend via hc<AppType> (no hand shape).
+ * Current user (Drizzle-inferred `User`) + their linked GitHub profile + the
+ * professional email (HES-SO audience: the identity email), flowing to the
+ * frontend via hc<AppType> (no hand shape).
  */
 export const getMe = factory.createHandlers(async (c) => {
   // Client config rides on the boot fetch — the SPA has no env of its own
@@ -32,7 +32,6 @@ export const getMe = factory.createHandlers(async (c) => {
       user: null,
       github: null,
       githubState: "unlinked" as GithubState,
-      affiliations: [] as string[],
       githubAppInstallUrl,
       isSuperAdmin: false,
       canCreateClasses: false,
@@ -42,11 +41,6 @@ export const getMe = factory.createHandlers(async (c) => {
   const db = getDb(c.env.DB);
   const user = await db.query.user.findFirst({
     where: (u, { eq }) => eq(u.id, session.user.id),
-  });
-  const switchAccount = await db.query.account.findFirst({
-    where: (a, { and, eq }) =>
-      and(eq(a.userId, session.user.id), eq(a.providerId, "switch")),
-    columns: { idToken: true },
   });
 
   // GitHub App user tokens expire after 8h — githubAccessToken refreshes an
@@ -69,10 +63,6 @@ export const getMe = factory.createHandlers(async (c) => {
       githubState = "unknown";
     }
   }
-  const affiliations = switchAccount?.idToken
-    ? readAffiliationEmails(switchAccount.idToken)
-    : [];
-
   // The two capabilities ride the boot fetch: `isSuperAdmin` (config) shows
   // the admin zone, `canCreateClasses` (the grant row — ONE condition, even
   // for admins) shows "New class". Display only — the setup callback and
@@ -84,7 +74,6 @@ export const getMe = factory.createHandlers(async (c) => {
     user: user ?? null,
     github,
     githubState,
-    affiliations,
     githubAppInstallUrl,
     isSuperAdmin: superAdmin,
     canCreateClasses,

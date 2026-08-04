@@ -38,7 +38,6 @@ vi.mock("~/lib/api", () => ({
 vi.mock("~/contexts/auth-context", () => ({
   useAuth: () => ({
     github: { login: "ovich", id: 1, name: "Ovich", avatarUrl: "http://g" },
-    affiliations: ["ovich@heig-vd.ch"],
   }),
 }));
 

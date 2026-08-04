@@ -6,7 +6,7 @@ const aliceUser = {
   name: "A. Student",
   firstName: "Alice",
   lastName: "Student",
-  affiliations: ["alice@heig-vd.ch"],
+  email: "alice@heig-vd.ch",
 };
 
 describe("PeopleChip", () => {
@@ -35,7 +35,7 @@ describe("PeopleChip", () => {
     expect(screen.queryByText("Switch identity")).not.toBeInTheDocument();
   });
 
-  it("never shows a private email; affiliations expand on demand", async () => {
+  it("reveals the professional email on demand", async () => {
     render(
       <PeopleChip
         label="1 student"

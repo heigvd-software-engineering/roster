@@ -109,9 +109,8 @@ const db = getDb(env.DB);
 
 const now = new Date(0);
 
-/** A fake SWITCH id_token: only the payload matters (decodeJwtPayload). */
-const idTokenWith = (emails: string[]) =>
-  `h.${btoa(JSON.stringify({ swissEduIDLinkedAffiliationMail: emails }))}.s`;
+// HES-SO audience: affiliations come from `user.email` (the identity email
+// IS the professional address) — no id_token decoding anywhere anymore.
 
 async function seedClass(args?: {
   id?: string;
@@ -214,7 +213,6 @@ test("lists classes with people + linked users, from live installation data", as
     userId: "u1",
     providerId: "switch",
     accountId: "edu-1",
-    idToken: idTokenWith(["b.prof@heig-vd.ch", "b.prof@unil.ch"]),
     createdAt: now,
     updatedAt: now,
   });
@@ -245,14 +243,15 @@ test("lists classes with people + linked users, from live installation data", as
   });
   // Only the teacher's GitHub account (111) is linked to a roster user here.
   expect(body.classes[0]?.users).toHaveLength(1);
-  // EXACT shape: the private email (and everything else) must not ride along.
+  // EXACT shape: names + the professional email (`user.email`, HES-SO
+  // audience) — nothing else rides along.
   expect(body.classes[0]?.users[0]).toEqual({
     githubId: "111",
     user: {
       firstName: "Bob",
       lastName: "Prof",
       name: "Prof Switch",
-      affiliations: ["b.prof@heig-vd.ch", "b.prof@unil.ch"],
+      email: "prof@heig-vd.ch",
     },
   });
 
@@ -263,7 +262,7 @@ test("lists classes with people + linked users, from live installation data", as
   expect(row?.installationId).toBe(100);
 });
 
-test("linked users without a SWITCH id_token get empty affiliations", async () => {
+test("linked users carry the identity email without any switch account row", async () => {
   await seedClass({ name: "Acme" });
   await seedMembers();
   const res = await app.request("/api/classes", {}, env);
@@ -274,7 +273,7 @@ test("linked users without a SWITCH id_token get empty affiliations", async () =
     firstName: "Bob",
     lastName: "Prof",
     name: "Prof Switch",
-    affiliations: [],
+    email: "prof@heig-vd.ch",
   });
 });
 
@@ -634,7 +633,7 @@ test("a pending STUDENT is still enrolled — they joined, they are just waiting
   expect(body.enrolled).toMatchObject([{ id: "c2", state: "pending" }]);
 });
 
-test("an enrolled class's teachers carry affiliations, never the private email", async () => {
+test("an enrolled class's teachers carry their professional identity email", async () => {
   await db.insert(classes).values({
     id: "c2",
     orgId: 43,
@@ -650,7 +649,8 @@ test("an enrolled class's teachers carry affiliations, never the private email",
   });
   // The caller (u1/111) is enrolled; a teacher (500) runs the class. The
   // teacher signed in to roster (SWITCH-linked GitHub account) — the caller,
-  // a STUDENT, must see their name + professional emails, nothing more.
+  // a STUDENT, sees their name + professional email (user.email, HES-SO
+  // audience), nothing more.
   await db.insert(classMembers).values([
     {
       id: "m1",
@@ -676,7 +676,7 @@ test("an enrolled class's teachers carry affiliations, never the private email",
     name: "T. Prof",
     firstName: "Tina",
     lastName: "Prof",
-    email: "tina.private@gmail.com",
+    email: "t.prof@heig-vd.ch",
   });
   await db.insert(account).values([
     {
@@ -692,7 +692,6 @@ test("an enrolled class's teachers carry affiliations, never the private email",
       userId: "u-teach",
       providerId: "switch",
       accountId: "edu-t",
-      idToken: idTokenWith(["t.prof@heig-vd.ch"]),
       createdAt: now,
       updatedAt: now,
     },
@@ -712,7 +711,7 @@ test("an enrolled class's teachers carry affiliations, never the private email",
         firstName: "Tina",
         lastName: "Prof",
         name: "T. Prof",
-        affiliations: ["t.prof@heig-vd.ch"],
+        email: "t.prof@heig-vd.ch",
       },
     },
   ]);

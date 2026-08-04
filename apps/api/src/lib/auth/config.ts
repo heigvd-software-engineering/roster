@@ -6,20 +6,16 @@ import { customSession } from "better-auth/plugins";
 import { genericOAuth } from "better-auth/plugins/generic-oauth";
 import { buildSessionPayload } from "./session-payload";
 
-// SWITCH edu-ID claims to request so the affiliation emails are released
-// (parity with the opendidac NextAuth provider). Requested for both `userinfo`
+// SWITCH edu-ID claims to request — identity only. The client's registry
+// audience is HES-SO (academic login): the `email` claim IS the professional
+// address, so the swissEduID* affiliation claims are gone from the
+// registration and must not be requested. Requested for both `userinfo`
 // (Better Auth reads the userinfo endpoint) and `id_token`.
 const SWITCH_CLAIMS = {
   name: { essential: true },
   given_name: { essential: true },
   family_name: { essential: true },
   email: { essential: true },
-  swissEduIDLinkedAffiliation: { essential: true },
-  swissEduIDAssociatedMail: { essential: true },
-  swissEduIDLinkedAffiliationMail: { essential: true },
-  swissEduID: { essential: true },
-  eduPersonEntitlement: { essential: true },
-  eduPersonAffiliation: { essential: true },
 } as const;
 
 // Exactly what Better Auth needs — the D1 binding + config/secrets (secrets come
@@ -105,18 +101,19 @@ export function createAuth(env: AuthEnv) {
             discoveryUrl: `${env.EDUID_ISSUER}/.well-known/openid-configuration`,
             clientId: env.EDUID_CLIENT_ID,
             clientSecret: env.EDUID_CLIENT_SECRET,
-            // SWITCH edu-ID needs its own authz scope to release the profile
-            // (per the working opendidac config), on top of the standard three.
+            // The registry's current contract: clients request `openid` +
+            // SWITCH's userinfo scope. `profile`/`email` stay for the
+            // standard claims; the old `<issuer>/authz/User.Read` scope is
+            // DEPRECATED by SWITCH and gone with the affiliation claims.
             scopes: [
               "openid",
               "profile",
               "email",
-              `${env.EDUID_ISSUER}/authz/User.Read`,
+              "https://eduid.ch/scope/userinfo.read",
             ],
             // SWITCH edu-ID advertises code_challenge_methods_supported: ["S256"].
             pkce: true,
-            // Ask SWITCH to release the affiliation claims into the id_token
-            // (opendidac parity) — /api/me decodes them from the stored token.
+            // Ask SWITCH to release the identity claims into the id_token too.
             authorizationUrlParams: {
               claims: JSON.stringify({
                 userinfo: SWITCH_CLAIMS,
