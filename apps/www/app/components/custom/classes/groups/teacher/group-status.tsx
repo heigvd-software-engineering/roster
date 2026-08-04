@@ -2,7 +2,11 @@ import {
   Pill,
   type PillTone,
 } from "~/components/custom/classes/groups/shared/pill";
-import type { GroupLabStatus } from "~/components/custom/classes/groups/shared/use-lab-groups";
+import {
+  CREATION_PUSH_GRACE_MS,
+  type GroupLabStatus,
+} from "~/components/custom/classes/groups/shared/use-lab-groups";
+import { Hint } from "~/components/custom/hint";
 import { formatDeadline } from "~/lib/format";
 
 /** The card's left spine — the same state as the chip, scannable as a color
@@ -54,9 +58,19 @@ export function LastPush({
   deadline: string;
 }) {
   if (status === "no_pushes") {
+    // The verdict is a heuristic — a push inside the creation grace window
+    // reads as the starter commit — so it must carry its own caveat, and
+    // visibly: a Hint, not a hover tooltip nobody finds.
+    const graceMin = Math.round(CREATION_PUSH_GRACE_MS / 60_000);
     return (
-      <span className="font-mono text-muted-foreground text-xs">
+      <span className="inline-flex items-center gap-0.5 font-mono text-muted-foreground text-xs">
         no pushes yet
+        <Hint label="How pushes are counted" title="How pushes are counted">
+          The starter commit bumps the repo's push clock too, so only pushes
+          made more than {graceMin} minutes after the repo's creation count. A
+          real push inside that window stays invisible until the group pushes
+          again.
+        </Hint>
       </span>
     );
   }

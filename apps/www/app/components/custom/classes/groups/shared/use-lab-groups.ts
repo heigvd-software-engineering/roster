@@ -14,6 +14,13 @@ import {
  * no_pushes (repo untouched). "ready" = repo exists but activity unknown
  * (the org listing failed) — chips degrade, the roster never does.
  */
+
+/** Pushes within this window of the repo's creation read as the creation
+ *  commit (auto-init / template generation bumps `pushed_at` too), not as
+ *  group activity. A real push inside the window stays invisible until the
+ *  group pushes again — the "no pushes yet" tooltip owns explaining this. */
+export const CREATION_PUSH_GRACE_MS = 2 * 60_000;
+
 export type GroupLabStatus =
   /** The GitHub team is gone: the roster is unknowable and the students have
    *  lost push on the work repo, because the grant lived on that team. */
@@ -134,11 +141,9 @@ export function useLabGroups(classId: string, labId: string) {
     const createdAt = group.repoCreatedAt
       ? Date.parse(group.repoCreatedAt)
       : null;
-    // The creation commit (auto-init / template) bumps pushed_at too —
-    // count only pushes meaningfully after the repo came to be.
     const hasPushes =
       pushedAt !== null &&
-      (createdAt === null || pushedAt - createdAt > 2 * 60_000);
+      (createdAt === null || pushedAt - createdAt > CREATION_PUSH_GRACE_MS);
     if (!hasPushes) return "no_pushes";
     const deadline = Date.parse(lab.deadline);
     if ((pushedAt as number) > deadline) return "late";
