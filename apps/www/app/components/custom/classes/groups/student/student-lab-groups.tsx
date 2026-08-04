@@ -75,6 +75,7 @@ export function StudentLabGroups({
       repoStatus: "ok" as const,
       pushedAt: null,
       repoCreatedAt: null,
+      lastCommit: null,
     };
     const repo = mine ? g.repoFor(mine.id) : null;
     return (

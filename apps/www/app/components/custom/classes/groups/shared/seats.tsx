@@ -23,8 +23,14 @@ const SEAT = {
     SEAT_ROW_HEIGHT,
     // foreground/40, not less — a lighter dash all but disappears on the
     // light theme's white card.
-    "flex w-full items-center gap-2.5 rounded-md border border-foreground/40 border-dashed px-2 text-left text-muted-foreground text-xs transition-colors",
+    "flex w-full items-center gap-2.5 rounded-md border border-foreground/40 border-dashed px-2 text-left text-muted-foreground text-xs transition",
   ),
+  // Every open seat recedes to 70% so it reads as background next to the
+  // filled members; an ACTING seat returns to full strength under the
+  // pointer. Composed per base below, so each declares its whole opacity
+  // story in one place (SeatButton stacks acts + its disabled:opacity-50).
+  recedes: "opacity-70",
+  acts: "hover:opacity-100",
   rowRequired: "border-warning/55 bg-warning/5 text-warning",
   // border-current: the circle wears the seat's own text color, so a nature
   // that recolors the row (amber required, the student's red locked seat)
@@ -49,6 +55,8 @@ export function SeatButton({
       type="button"
       className={cn(
         SEAT.row,
+        SEAT.recedes,
+        SEAT.acts,
         "disabled:pointer-events-none disabled:opacity-50",
         required &&
           cn(
@@ -80,7 +88,12 @@ export function SeatSlot({
 }: SeatSlotProps) {
   return (
     <div
-      className={cn(SEAT.row, required && SEAT.rowRequired, className)}
+      className={cn(
+        SEAT.row,
+        SEAT.recedes,
+        required && SEAT.rowRequired,
+        className,
+      )}
       {...props}
     >
       <span className={SEAT.circle} />

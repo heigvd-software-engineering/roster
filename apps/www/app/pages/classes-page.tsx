@@ -10,7 +10,7 @@ import { Text } from "~/components/custom/typography/text";
 import { Button } from "~/components/ui/button";
 import { useAuth } from "~/contexts/auth-context";
 import { api, type ClassItem, type EnrolledClassItem, useApi } from "~/lib/api";
-import { formatDay } from "~/lib/format";
+import { count, formatDay } from "~/lib/format";
 import {
   currentSemester,
   previousSemester,
@@ -20,10 +20,6 @@ import {
   semesterOf,
   semesterStart,
 } from "~/lib/semester";
-
-function count(n: number, singular: string, plural: string) {
-  return `${n} ${n === 1 ? singular : plural}`;
-}
 
 /** The heading's exact dates — the semester's own window ("1 Feb → 30 Jun",
  *  end shown INCLUSIVE), so the season word above the cards means concrete

@@ -1,11 +1,6 @@
-import { useMatches } from "react-router";
 import { Container } from "~/components/custom/layout/container";
 import { AppHeader } from "~/components/custom/shell/app-header";
 import { MessageViewport } from "~/contexts/message-context";
-
-/** A route opts into the wide content column by exporting
- *  `handle = { wide: true }` (see routes/lab-manage.tsx). */
-type RouteHandle = { wide?: boolean } | undefined;
 
 /**
  * AppLayout — the frame shared by every page. Fills the viewport height and
@@ -20,20 +15,13 @@ type AppLayoutProps = {
 };
 
 export function AppLayout({ children }: AppLayoutProps) {
-  // Header and content share the width decision, or the top bar's edges
-  // would misalign with a wide page's content column.
-  const wide = useMatches().some(
-    (match) => (match.handle as RouteHandle)?.wide === true,
-  );
   return (
     <div className="flex min-h-screen flex-col">
-      <AppHeader wide={wide} />
+      <AppHeader />
       <div className="relative flex flex-1 flex-col">
         <MessageViewport />
         <main className="flex flex-1 flex-col">
-          <Container wide={wide} className="flex flex-1 flex-col">
-            {children}
-          </Container>
+          <Container className="flex flex-1 flex-col">{children}</Container>
         </main>
       </div>
     </div>

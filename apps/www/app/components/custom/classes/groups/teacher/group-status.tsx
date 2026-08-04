@@ -1,7 +1,13 @@
-import type { ReactNode } from "react";
-import type { GroupLabStatus } from "~/components/custom/classes/groups/shared/use-lab-groups";
+import {
+  Pill,
+  type PillTone,
+} from "~/components/custom/classes/groups/shared/pill";
+import {
+  CREATION_PUSH_GRACE_MS,
+  type GroupLabStatus,
+} from "~/components/custom/classes/groups/shared/use-lab-groups";
+import { Hint } from "~/components/custom/hint";
 import { formatDeadline } from "~/lib/format";
-import { cn } from "~/lib/utils";
 
 /** The card's left spine — the same state as the chip, scannable as a color
  *  column without reading (the class cards' role-spine trick). */
@@ -14,30 +20,6 @@ export const STATUS_SPINE: Record<GroupLabStatus, string> = {
   no_repo: "border-l-warning",
   under_min: "border-l-muted-foreground/40",
 };
-
-const TONE = {
-  good: "bg-role-enrolled/10 text-role-enrolled",
-  warn: "bg-warning/12 text-warning",
-  bad: "bg-brand/10 text-brand",
-  muted: "bg-foreground/6 text-muted-foreground",
-} as const;
-type PillTone = keyof typeof TONE;
-
-/** Dot + mono label pill — the wall's status vocabulary, reused wherever
- *  a group needs a verdict at a glance (chips, the attach menu). */
-function Pill({ tone, children }: { tone: PillTone; children: ReactNode }) {
-  return (
-    <span
-      className={cn(
-        "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-wider",
-        TONE[tone],
-      )}
-    >
-      <span className="size-1.5 rounded-full bg-current" />
-      {children}
-    </span>
-  );
-}
 
 const CHIP: Record<GroupLabStatus, { label: string; tone: PillTone }> = {
   on_track: { label: "on track", tone: "good" },
@@ -64,21 +46,56 @@ function coarse(ms: number): string {
   return `${Math.round(hours / 24)}d`;
 }
 
+/** Who wrote the repo's last default-branch commit, and what it said —
+ *  deliberately labeled by the commit, not the push: a teammate can push
+ *  someone else's commit, and main can trail a feature branch. */
+export type LastCommitInfo = {
+  login: string | null;
+  name: string | null;
+  message: string;
+};
+
+function CommitByline({ commit }: { commit: LastCommitInfo }) {
+  const who = commit.login ? `@${commit.login}` : commit.name;
+  if (!who) return null;
+  return (
+    <span
+      className="block max-w-48 truncate text-[11px] text-muted-foreground"
+      title={`Last commit on the default branch — ${who}: ${commit.message}`}
+    >
+      {who} · {commit.message}
+    </span>
+  );
+}
+
 /** The card footer's activity line: the last push (as a moment) with its
- *  relation to the deadline — the context that makes "late" concrete. */
+ *  relation to the deadline — the context that makes "late" concrete — and
+ *  the last commit's author + headline when GitHub gave us one. */
 export function LastPush({
   pushedAt,
   status,
   deadline,
+  lastCommit,
 }: {
   pushedAt: string | null;
   status: GroupLabStatus;
   deadline: string;
+  lastCommit?: LastCommitInfo | null;
 }) {
   if (status === "no_pushes") {
+    // The verdict is a heuristic — a push inside the creation grace window
+    // reads as the starter commit — so it must carry its own caveat, and
+    // visibly: a Hint, not a hover tooltip nobody finds.
+    const graceMin = Math.round(CREATION_PUSH_GRACE_MS / 60_000);
     return (
-      <span className="font-mono text-muted-foreground text-xs">
+      <span className="inline-flex items-center gap-0.5 font-mono text-muted-foreground text-xs">
         no pushes yet
+        <Hint label="How pushes are counted" title="How pushes are counted">
+          The starter commit bumps the repo's push clock too, so only pushes
+          made more than {graceMin} minutes after the repo's creation count. A
+          real push inside that window stays invisible until the group pushes
+          again.
+        </Hint>
       </span>
     );
   }
@@ -95,6 +112,7 @@ export function LastPush({
           ? `${coarse(diff)} before deadline`
           : `${coarse(-diff)} after deadline`}
       </span>
+      {lastCommit ? <CommitByline commit={lastCommit} /> : null}
     </span>
   );
 }

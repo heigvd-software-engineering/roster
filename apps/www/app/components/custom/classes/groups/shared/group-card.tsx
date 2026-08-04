@@ -12,13 +12,16 @@ import { usersByGithubId } from "~/lib/format";
 import { personIdentity } from "~/lib/identity";
 import { cn } from "~/lib/utils";
 
-/** The wall grid: as many columns as fit a readable card (auto-fill), so a
- *  wide screen lays ~12 groups in 2 rows instead of 3 — no breakpoint
- *  ladder to maintain. Rows stretch (no align-items): every card in a row
- *  is the same height, and the card pins its footer to the bottom to
- *  absorb it. */
+/** The wall grid: as many columns as fit a readable card, capped at 3 — the
+ *  column min is at least a third of the row minus its two gaps, so a
+ *  fourth never fits; auto-fill still collapses to 2/1 below 220px each,
+ *  no breakpoint ladder to maintain. The gap is named ONCE (--wall-gap)
+ *  and consumed by both the cap's calc and the gap utility, so editing it
+ *  can't silently readmit a fourth column. Rows stretch (no align-items):
+ *  every card in a row is the same height, and the card pins its footer to
+ *  the bottom to absorb it. */
 export const GROUP_WALL =
-  "grid w-full grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3";
+  "grid w-full [--wall-gap:0.75rem] gap-(--wall-gap) grid-cols-[repeat(auto-fill,minmax(max(220px,calc((100%_-_2*var(--wall-gap))/3)),1fr))]";
 
 /**
  * Which open seats a group's card shows, as required-to-form flags. A capped
