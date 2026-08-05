@@ -6,9 +6,15 @@
 //   UNRECORDED  group row exists, ghRepoFullName NULL, repo exists on GitHub
 //               -> a partial createWorkRepo. This reconciler adopts it.
 //   ORPHANED    no group row at all, repo exists
-//               -> only the old GET-path delete produced these. With that gone
-//                  and deleteGroup's has_repo guard holding, nothing creates
-//                  them. Nothing in apps/api ever deletes a GitHub repo.
+//               -> deleting a group, or the lab above it, leaves one behind:
+//                  the row and the team go, the repo never does. Nothing in
+//                  apps/api ever deletes a GitHub repo. This reconciler cannot
+//                  see them (it audits group rows, and there is none), so an
+//                  orphan waits: recreate a group under the same lab title and
+//                  group name and it becomes UNRECORDED above, which the next
+//                  audit offers to adopt. Note the teacher must come THROUGH
+//                  here — clicking "create repository" on that group instead
+//                  fails `name_taken`, since `createWorkRepo` never adopts.
 import { groups, type Lab, labs } from "@roster/db";
 import { eq, inArray } from "drizzle-orm";
 import { getOrgRepo, grantTeamRepo } from "../github/repo";
@@ -65,7 +71,11 @@ export const workRepos: Reconciler = {
         reconciler: "work-repos",
         severity: "broken",
         title: `"${group.name}" has a repository that is not linked`,
-        detail: `${fullName} exists in the organization but was never recorded on the group — its creation was interrupted.`,
+        // Two causes now, and the teacher arrives here from either: a create
+        // that died before the row write, or a group recreated over work its
+        // deleted predecessor left behind. Naming both means the page answers
+        // the question that sent them ("where did my repository go?").
+        detail: `${fullName} exists in the organization but is not linked to the group — either its creation was interrupted, or the group was recreated over work left by an earlier one.`,
         fix: "Link it to the group and re-grant the team",
         change: { from: "No repository linked", to: fullName },
       });

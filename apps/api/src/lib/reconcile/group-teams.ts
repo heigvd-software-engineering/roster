@@ -9,9 +9,10 @@
 //
 // The work repo stays. Nothing in this codebase ever deletes a GitHub
 // repository, because student work outlives the group that made it. The repo
-// becomes an orphan, and orphans re-attach by name: a group recreated with the
-// same lab title and group name computes the same slug, and `createWorkRepo`'s
-// find-or-create path (or the `work-repos` reconciler) links it straight back.
+// becomes an orphan, and the way back is the `work-repos` reconciler, not the
+// create path: a group recreated with the same lab title and group name
+// computes the same slug, and the next audit offers to adopt the repo waiting
+// under it. `createWorkRepo` would answer `name_taken` — it never adopts.
 //
 // Teams that exist on GitHub with no group row are not our business. We cannot
 // know which lab they belong to, and an org has teams roster never made.

@@ -33,7 +33,9 @@ See [identity.md](./identity.md).
 
 The shape is a chain: a class has labs, a lab has groups, a group has cached
 members. A group reaches its class through `lab.classId` and stores no `classId`
-of its own, so there is nothing to keep in sync. `class_creators` says who may
+of its own, so there is nothing to keep in sync. Only the last link cascades:
+`groups.labId` carries no `ON DELETE` clause, so `deleteLab` deletes the groups
+itself, in order, after deleting their GitHub Teams. `class_creators` says who may
 create a class, never who may grant that; super admins are config, not a table.
 `index.ts` exports `getDb(d1)` and the row types `User`, `Account`, `Class`,
 `Lab`, `Group`, `ClassCreator`.

@@ -5,9 +5,13 @@ import { useApi } from "~/lib/api";
 import { TeacherLabPage } from "~/pages/teacher-lab-page";
 
 const params = vi.hoisted(() => ({ classId: "c1", labId: "l1" }));
+const navigate = vi.hoisted(() => vi.fn());
 
 vi.mock("react-router", () => ({
   useParams: () => params,
+  // The header's delete leaves for /classes on success; nothing here asserts
+  // where it lands, only that the page renders around it.
+  useNavigate: () => navigate,
   Link: ({ to, children, ...props }: PropsWithChildren<{ to: string }>) => (
     <a href={to} {...props}>
       {children}
@@ -140,7 +144,7 @@ describe("TeacherLabPage", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("links the repo and disables delete once the work repo exists", () => {
+  it("links the repo and still offers delete once the work repo exists", () => {
     mockApi({
       ...groupsData,
       groups: [
@@ -149,12 +153,15 @@ describe("TeacherLabPage", () => {
     });
     render(<TeacherLabPage />);
 
-    // The repo exists → the row links it and the drawer refuses delete.
+    // The repo exists → the row links it, and delete stays offered: no
+    // deletion in this app is refused, the typed name is the whole gate.
     expect(
       screen.getByRole("link", { name: /acme\/lab1-team-alpha/ }),
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Manage Team Alpha" }));
-    expect(screen.getByRole("button", { name: "Delete group" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Delete group" }),
+    ).not.toBeDisabled();
     // Roster edits stay allowed; a warning hint explains the consequences.
     fireEvent.click(
       screen.getByRole("button", {
@@ -554,6 +561,82 @@ describe("TeacherLabPage", () => {
     expect(screen.getByText("in progress")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Create repository" }));
     expect(screen.queryByText(/before the start time/)).not.toBeInTheDocument();
+  });
+
+  it("asks for the lab's title even when nothing has formed in it", () => {
+    // One rule, no branches: the empty lab is the cheap case to delete, not a
+    // cheaper gate. Copying the title out of the dialog is the whole cost.
+    mockApi({ ...groupsData, groups: [] });
+    render(<TeacherLabPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete this lab" }));
+    expect(screen.getByText('Delete "Lab 1 — Sockets"?')).toBeInTheDocument();
+    expect(screen.getByText(/No groups have formed/)).toBeInTheDocument();
+
+    const confirm = screen.getByRole("button", { name: "Delete lab" });
+    expect(confirm).toBeDisabled();
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "Lab 1 — Sockets" },
+    });
+    expect(confirm).not.toBeDisabled();
+  });
+
+  it("names what a lab deletion takes and what survives it", () => {
+    mockApi({
+      ...groupsData,
+      groups: [
+        grp({ members: [alice, bob], repoFullName: "acme/lab1-team-alpha" }),
+      ],
+    });
+    render(<TeacherLabPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete this lab" }));
+    expect(screen.getByText(/1 group and their GitHub teams/)).toBeVisible();
+    expect(screen.getByText(/2 students lose this lab/)).toBeVisible();
+    // The one thing that doesn't go.
+    expect(screen.getByText(/1 work repository stay/)).toBeVisible();
+
+    const confirm = screen.getByRole("button", { name: "Delete lab" });
+    expect(confirm).toBeDisabled();
+    const phrase = screen.getByRole("textbox");
+    fireEvent.change(phrase, { target: { value: "Lab 1" } });
+    expect(confirm).toBeDisabled();
+    fireEvent.change(phrase, { target: { value: "Lab 1 — Sockets" } });
+    expect(confirm).not.toBeDisabled();
+  });
+
+  it("gates a group deletion on its name, repository or not", () => {
+    mockApi({
+      ...groupsData,
+      groups: [
+        grp({ members: [alice, bob], repoFullName: "acme/lab1-team-alpha" }),
+      ],
+    });
+    render(<TeacherLabPage />);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Actions for Team Alpha" }),
+    );
+    fireEvent.click(screen.getByRole("menuitem", { name: "Delete group" }));
+    expect(screen.getByText('Delete "Team Alpha"?')).toBeInTheDocument();
+    // The repo survives, and the way back to it is spelled out.
+    expect(
+      screen.getByText(/acme\/lab1-team-alpha stays in the organisation/),
+    ).toBeVisible();
+    // The route back is the GitHub sync, not the create button: createWorkRepo
+    // never adopts an existing repo.
+    expect(
+      screen.getByText(/GitHub sync offers to link that repository back/),
+    ).toBeVisible();
+
+    // Same gate as the lab's: type the name. (The menu item that opened this
+    // is a menuitem, so the only button by this name is the confirm.)
+    const confirm = screen.getByRole("button", { name: "Delete group" });
+    expect(confirm).toBeDisabled();
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "Team Alpha" },
+    });
+    expect(confirm).not.toBeDisabled();
   });
 
   it("shows a not-found message for an unknown lab", () => {

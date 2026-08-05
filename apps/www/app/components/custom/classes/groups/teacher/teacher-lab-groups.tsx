@@ -23,6 +23,7 @@ import {
 } from "~/components/custom/classes/groups/teacher/group-status";
 import { LabStats } from "~/components/custom/classes/groups/teacher/lab-stats";
 import { ConfirmDialog } from "~/components/custom/confirm-dialog";
+import { DeleteDialog, STAKES } from "~/components/custom/delete-dialog";
 import { Hint } from "~/components/custom/hint";
 import { UserIdentity } from "~/components/custom/identity/user-identity";
 import { Row } from "~/components/custom/layout/row";
@@ -482,21 +483,17 @@ function TeacherGroupCard({
                 started={started}
               />
             </div>
-            <CardMenu
-              name={group.name}
-              locked={repo !== null}
-              onDelete={() => setDeleteOpen(true)}
-            />
+            <CardMenu name={group.name} onDelete={() => setDeleteOpen(true)} />
           </Row>
         }
       />
-      <ConfirmDialog
+      <DeleteDialog
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
-        title={`Delete ${group.name}?`}
-        description="The group and its GitHub team are removed. Students can form a new group for this lab afterwards."
-        confirmLabel="Delete group"
-        onConfirm={() => g.deleteGroup(group.id)}
+        what="group"
+        name={group.name}
+        stakes={groupStakes(group.members.length, repo)}
+        onDelete={() => g.deleteGroup(group.id)}
       />
     </>
   );
@@ -525,19 +522,25 @@ function AddMemberSeat({
   );
 }
 
+/** What deleting a group takes and leaves. The repo line matters most: it is
+ *  the difference between "the work is gone" (it isn't) and "the students
+ *  can't reach it" (they can't, until the group comes back). */
+function groupStakes(members: number, repo: string | null): string[] {
+  return [
+    STAKES.team,
+    ...(members > 0
+      ? [STAKES.students(members, "their place in this lab")]
+      : []),
+    ...(repo !== null
+      ? [STAKES.reposSurvive(repo), STAKES.reposReturn]
+      : ["Students can form a new group for this lab afterwards."]),
+  ];
+}
+
 /** The card's kebab, holding the one rare verb (groups are per-lab, so delete
- *  IS "remove from this lab"). Locked once the repo exists: the item stays
- *  visible but disabled, with the reason spelled out under it. The server
- *  refuses anyway, as orphan protection, with 409 has_repo. */
-function CardMenu({
-  name,
-  locked,
-  onDelete,
-}: {
-  name: string;
-  locked: boolean;
-  onDelete: () => void;
-}) {
+ *  IS "remove from this lab"). Never disabled: deletion is refused nowhere in
+ *  this app, and `DeleteDialog` is the whole gate. */
+function CardMenu({ name, onDelete }: { name: string; onDelete: () => void }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -554,21 +557,9 @@ function CardMenu({
         <MoreHorizontal className="size-3.5 text-muted-foreground" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuItem
-          variant="destructive"
-          disabled={locked}
-          onClick={onDelete}
-        >
+        <DropdownMenuItem variant="destructive" onClick={onDelete}>
           Delete group
         </DropdownMenuItem>
-        {locked ? (
-          // Plain text, not a menu part: Base UI's GroupLabel demands a
-          // surrounding Menu.Group, and this is a caption for the disabled
-          // item above, not a section heading.
-          <Text variant="caption" className="px-1.5 py-1">
-            The group's work repository exists — it can't be deleted.
-          </Text>
-        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   );

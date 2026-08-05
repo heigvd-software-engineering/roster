@@ -113,8 +113,7 @@ export function StudentLabGroups({
 
   if (mine) {
     // Once the work repo exists the group is LOCKED: the server refuses
-    // join/leave (409 has_repo), and the disabled state says so up front,
-    // the same pattern as the teacher's Delete item.
+    // join/leave (409 has_repo), and the disabled state says so up front.
     const locked = mine.repoFullName !== null;
     return (
       <>

@@ -1,11 +1,23 @@
 import { env } from "cloudflare:test";
-import { account, classes, getDb, labs, user } from "@roster/db";
+import {
+  account,
+  classes,
+  getDb,
+  groupMembers,
+  groups,
+  labs,
+  user,
+} from "@roster/db";
 import { Hono } from "hono";
 import { beforeEach, expect, test, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
   session: { user: { id: "u1" } } as { user: { id: string } } | null,
   admins: [{ id: 111 }] as Array<{ id: number }>,
+  deletedTeams: [] as string[],
+  // What GitHub answers a team delete with: 404 (already gone) and a 500
+  // (unreachable) are the two the delete path has to tell apart.
+  teamDeleteStatus: null as number | null,
 }));
 
 vi.mock("../src/lib/auth/config", () => ({
@@ -25,6 +37,22 @@ vi.mock("../src/lib/github/org", () => ({
     _org: string,
     githubUserId: number,
   ) => state.admins.some((a) => a.id === githubUserId),
+}));
+
+vi.mock("../src/lib/github/team", () => ({
+  deleteTeam: async (
+    _env: unknown,
+    _installationId: number,
+    _org: string,
+    teamSlug: string,
+  ) => {
+    if (state.teamDeleteStatus !== null) {
+      throw Object.assign(new Error("github said no"), {
+        status: state.teamDeleteStatus,
+      });
+    }
+    state.deletedTeams.push(teamSlug);
+  },
 }));
 
 const { labsRoutes } = await import("../src/routes/labs");
@@ -54,6 +82,10 @@ const validLab = {
 beforeEach(async () => {
   state.session = { user: { id: "u1" } };
   state.admins = [{ id: 111 }];
+  state.deletedTeams = [];
+  state.teamDeleteStatus = null;
+  await db.delete(groupMembers);
+  await db.delete(groups);
   await db.delete(labs);
   await db.delete(classes);
   await db.delete(account);
@@ -200,4 +232,122 @@ test("update sets and then clears the start date", async () => {
   expect(cleared.status).toBe(200);
   [row] = await db.select().from(labs);
   expect(row?.startAt).toBeNull();
+});
+
+// --- delete ---
+
+function del(labId: string, classId = "c1") {
+  return app.request(
+    `/api/classes/${classId}/labs/${labId}`,
+    { method: "DELETE" },
+    env,
+  );
+}
+
+/** A lab with one group, that group's cached roster, and (optionally) a work
+ *  repo already linked to it: the state every delete case starts from. */
+async function seedLab({ withRepo = false } = {}) {
+  await db.insert(labs).values({
+    id: "l1",
+    classId: "c1",
+    title: "Lab 1",
+    deadline: new Date("2026-08-01T23:59:00.000Z"),
+    groupMode: "individual",
+    createdByUserId: "u1",
+    createdAt: now,
+    updatedAt: now,
+  });
+  await db.insert(groups).values({
+    id: "g1",
+    labId: "l1",
+    ghTeamId: 900,
+    ghTeamSlug: "lab-1-team-alpha",
+    slug: "lab-1-team-alpha",
+    name: "Team Alpha",
+    ghRepoId: withRepo ? 555 : null,
+    ghRepoFullName: withRepo ? "acme/lab-1-team-alpha" : null,
+    creatorUserId: "u1",
+    createdAt: now,
+    updatedAt: now,
+  });
+  await db.insert(groupMembers).values({
+    id: "gm1",
+    groupId: "g1",
+    githubId: "222",
+    login: "student",
+    createdAt: now,
+    updatedAt: now,
+  });
+}
+
+test("deletes a lab that has no groups", async () => {
+  await post(validLab);
+  const [created] = await db.select().from(labs);
+  const res = await del(created?.id ?? "");
+  expect(res.status).toBe(200);
+  expect(await db.select().from(labs)).toHaveLength(0);
+  expect(state.deletedTeams).toEqual([]);
+});
+
+test("delete takes the lab's groups, their teams and cached rosters", async () => {
+  await seedLab();
+  const res = await del("l1");
+  expect(res.status).toBe(200);
+  expect(state.deletedTeams).toEqual(["lab-1-team-alpha"]);
+  expect(await db.select().from(labs)).toHaveLength(0);
+  expect(await db.select().from(groups)).toHaveLength(0);
+  // FK ON DELETE cascade, not a delete of our own.
+  expect(await db.select().from(groupMembers)).toHaveLength(0);
+});
+
+test("delete goes through even once a group has its work repo", async () => {
+  // No `has_repo` guard here, unlike deleteGroup: the confirm dialog is the
+  // gate. The repo itself survives in the org, orphaned.
+  await seedLab({ withRepo: true });
+  const res = await del("l1");
+  expect(res.status).toBe(200);
+  expect(await db.select().from(labs)).toHaveLength(0);
+  expect(await db.select().from(groups)).toHaveLength(0);
+});
+
+test("a team already gone on GitHub still drops the rows", async () => {
+  await seedLab();
+  state.teamDeleteStatus = 404;
+  const res = await del("l1");
+  expect(res.status).toBe(200);
+  expect(await db.select().from(labs)).toHaveLength(0);
+  expect(await db.select().from(groups)).toHaveLength(0);
+});
+
+test("a team delete GitHub refuses leaves every row in place", async () => {
+  await seedLab();
+  state.teamDeleteStatus = 500;
+  const res = await del("l1");
+  expect(res.status).toBe(500);
+  expect(await db.select().from(labs)).toHaveLength(1);
+  expect(await db.select().from(groups)).toHaveLength(1);
+});
+
+test("delete of an unknown lab, or one in another class, returns 404", async () => {
+  await seedLab();
+  expect((await del("nope")).status).toBe(404);
+  expect((await del("l1", "c2")).status).toBe(404);
+  expect(await db.select().from(labs)).toHaveLength(1);
+});
+
+test("non-admin cannot delete", async () => {
+  await seedLab();
+  state.admins = [{ id: 999 }];
+  const res = await del("l1");
+  expect(res.status).toBe(404);
+  expect(await db.select().from(labs)).toHaveLength(1);
+  expect(state.deletedTeams).toEqual([]);
+});
+
+test("unauthenticated cannot delete", async () => {
+  await seedLab();
+  state.session = null;
+  const res = await del("l1");
+  expect(res.status).toBe(401);
+  expect(await db.select().from(labs)).toHaveLength(1);
 });

@@ -6,6 +6,7 @@ import { cachedRoster } from "../lib/group-members";
 import {
   alreadyInLabGroup,
   checkRepoExists,
+  deleteGroupsWithTeams,
   labMax,
   labStarted,
 } from "../lib/groups";
@@ -13,8 +14,10 @@ import {
 type Db = ReturnType<typeof getDb>;
 
 /** The repo lock: once the work repo exists the group is a deliverable, and
- *  membership and existence only change through the teacher. Join, leave and
- *  delete all refuse with the same vocabulary (409 has_repo). */
+ *  its roster only changes through the teacher. Join and leave refuse with the
+ *  same vocabulary (409 has_repo). Deletion is NOT gated on it: no delete in
+ *  this app is refused, they are all gated on typing the name instead (see
+ *  `deleteGroup`). */
 const isLocked = (group: Pick<Group, "ghRepoId">) => group.ghRepoId !== null;
 
 /** Fresh read of the lock. The handler's first check can be seconds stale by
@@ -163,26 +166,26 @@ export const removeGroupMember = authedFactory.createHandlers(async (c) => {
   return c.json({ ok: true });
 });
 
-/** Teacher-only: delete the group (team + row). A team already gone on GitHub
- *  still drops the row; a group whose work repo exists is a deliverable, so
- *  refuse rather than orphan it. */
+/**
+ * Teacher-only: delete the group (team + row, via `deleteGroupsWithTeams`).
+ *
+ * Refuses nothing, including a group whose work repo exists — the app has one
+ * deletion rule and it is the typed name in the client's dialog (see
+ * `docs/classes-and-labs.md`). A repo-bearing group was refused here once,
+ * which read as a guarantee it never was: deleting the lab above it took the
+ * same group anyway.
+ *
+ * Losing the group costs the students push, not their work: the repo stays in
+ * the org, and the teacher's GitHub sync offers to link it to a group recreated
+ * under the same name (`lib/reconcile/work-repos.ts`).
+ */
 export const deleteGroup = authedFactory.createHandlers(async (c) => {
   const access = await resolveClassAsMember(c, c.req.param("id"));
   if (!access?.isTeacher) return c.json({ error: "not_found" }, 404);
   const group = await findGroupInClass(access, c.req.param("groupId"));
   if (!group) return c.json({ error: "not_found" }, 404);
 
-  if (isLocked(group)) {
-    return c.json({ error: "has_repo" }, 409);
-  }
-
-  try {
-    await access.team.delete(group.ghTeamSlug);
-  } catch (err) {
-    if ((err as { status?: number }).status !== 404) throw err;
-  }
-  // group_members rows go with it (FK ON DELETE CASCADE).
-  await access.db.delete(groups).where(eq(groups.id, group.id));
+  await deleteGroupsWithTeams(access, [group]);
   return c.json({ ok: true });
 });
 

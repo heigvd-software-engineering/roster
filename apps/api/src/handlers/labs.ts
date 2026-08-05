@@ -1,10 +1,11 @@
 import { zValidator } from "@hono/zod-validator";
-import { labs } from "@roster/db";
+import { groups, labs } from "@roster/db";
 import { and, eq, ne } from "drizzle-orm";
 import { z } from "zod";
 import { authedFactory } from "../factory";
 import { findLabInClass, resolveClassAsTeacher } from "../lib/class-scope";
 import { orgTemplateRepos } from "../lib/github/repo";
+import { deleteGroupsWithTeams } from "../lib/groups";
 
 /**
  * Lab input, shared by create and update. `deadline` arrives as an ISO string
@@ -151,6 +152,36 @@ export const updateLab = authedFactory.createHandlers(
     return c.json({ lab });
   },
 );
+
+/**
+ * Teacher-only: delete the lab, every group in it, and their GitHub Teams.
+ *
+ * Refuses nothing, like `deleteGroup`: the app has one deletion rule and it is
+ * the typed name in the client's dialog (see `docs/classes-and-labs.md`). A lab
+ * a teacher wants gone is usually one they mistyped minutes ago, and a rule
+ * that refused forever once a student clicked "start" would leave the mistake
+ * on the class page all semester.
+ *
+ * `groups.labId` carries no cascade of its own, so the groups go through
+ * `deleteGroupsWithTeams` (which owns the teams-before-rows ordering) and the
+ * lab row goes last.
+ */
+export const deleteLab = authedFactory.createHandlers(async (c) => {
+  const access = await resolveClassAsTeacher(c, c.req.param("id"));
+  if (!access) return c.json({ error: "not_found" }, 404);
+
+  const lab = await findLabInClass(access, c.req.param("labId"));
+  if (!lab) return c.json({ error: "not_found" }, 404);
+
+  const rows = await access.db
+    .select({ id: groups.id, ghTeamSlug: groups.ghTeamSlug })
+    .from(groups)
+    .where(eq(groups.labId, lab.id));
+
+  await deleteGroupsWithTeams(access, rows);
+  await access.db.delete(labs).where(eq(labs.id, lab.id));
+  return c.json({ ok: true });
+});
 
 /** Teacher-only: the org's template repos, the lab dialog's starter-code
  *  choices (only repos flagged `is_template` on GitHub can /generate). */

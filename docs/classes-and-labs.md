@@ -86,6 +86,31 @@ would share a repo namespace: a group's work repo is named
 `slugify(lab.title)-slugify(group.name)`. A `startAt` at or after the `deadline` is
 `409 start_after_deadline`, the only date rule; lab ranges overlap freely.
 
+`DELETE /api/classes/:id/labs/:labId` (`deleteLab`) removes the lab, every group in it,
+their GitHub Teams and the cached rosters that cascade off them. Both it and
+`deleteGroup` hand the groups to `deleteGroupsWithTeams` (`apps/api/src/lib/groups.ts`),
+the counterpart of `createGroupInLab` and the one place that knows the order: teams
+before rows, so a GitHub failure leaves rows the `group-teams` reconciler already knows
+how to clear rather than teams nothing can name again. The work repositories survive in
+the org, orphaned; nothing in this codebase deletes a GitHub repository.
+
+Neither handler refuses anything: **the app has one deletion rule, and it lives in the
+client.** `DeleteDialog` (`apps/www/app/components/custom/delete-dialog.tsx`) names what
+goes, names what survives, and asks for the thing's own name to be typed out; its
+`STAKES` sentences are the single wording every call site composes. There is no gentler
+variant and no second gate behind it, because "did you mean it" is a fact about a person
+that no handler can check. `deleteGroup` used to answer `409 has_repo` on a group whose
+work repo existed, which read as a guarantee it never was, since deleting the lab above
+it took that same group anyway; the block is gone and only join and leave still speak
+`has_repo`.
+
+The ceremony is affordable because the loss is bounded, but the way back is the
+reconciler, NOT the create path. The orphaned repo waits under its old name; recreate a
+group with the same lab title and group name and the row becomes the `work-repos`
+reconciler's UNRECORDED case, which the teacher adopts from the class's GitHub sync.
+Clicking "create repository" on that group instead answers `repo_name_taken` —
+`createWorkRepo` is create-only and never adopts (see its doc).
+
 `startAt` is the start gate. `labStarted` (`apps/api/src/lib/groups.ts`) is `startAt
 === null || startAt <= now`, derived per request, so a lab opens on time, with no
 draft state. Before the start every student action answers `409 not_started`: creating
@@ -130,8 +155,10 @@ and `group_incomplete` when repo creation finds the group under the lab's min
 evicts nobody.
 
 The lock is the group's freeze moment: once `groups.ghRepoId` is set the group is a
-deliverable, join, leave and delete answer `has_repo`, and `addGroupMember` and
-`removeGroupMember` are the teacher's escape hatch. The check reads roster's own
+deliverable, join and leave answer `has_repo`, and `addGroupMember` and
+`removeGroupMember` are the teacher's escape hatch. Deletion is NOT gated on it (see
+above): the lock decides who may move in and out of a group, never whether the group
+may exist. The check reads roster's own
 column, so cache drift cannot weaken it, and since repo creation writes `ghRepoId`
 only after a chain of GitHub calls, join and leave re-read the lock after the team
 write and roll back before answering 409.

@@ -599,7 +599,11 @@ test("a teacher deletes the group: team + row", async () => {
   expect(await db.select().from(groups)).toHaveLength(0);
 });
 
-test("a group whose work repo exists can't be deleted (deliverable)", async () => {
+test("a group whose work repo exists is deleted like any other", async () => {
+  // The repo lock binds join and leave, never deletion: one deletion rule for
+  // the app, and it is the typed name in the dialog, not a 409 here. The repo
+  // itself survives in the org, and re-attaches by name if the group comes
+  // back.
   state.membership = { state: "active", role: "admin" };
   await seedLab("l1");
   await seedGroup({ id: "g1", labId: "l1", repo: true });
@@ -608,9 +612,8 @@ test("a group whose work repo exists can't be deleted (deliverable)", async () =
     { method: "DELETE" },
     env,
   );
-  expect(res.status).toBe(409);
-  expect(await res.json()).toEqual({ error: "has_repo" });
-  expect(await db.select().from(groups)).toHaveLength(1);
+  expect(res.status).toBe(200);
+  expect(await db.select().from(groups)).toHaveLength(0);
 });
 
 test("deleting a group whose team is already gone still drops the row", async () => {

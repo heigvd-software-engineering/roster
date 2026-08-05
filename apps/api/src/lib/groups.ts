@@ -5,7 +5,7 @@ import {
   groups,
   type Lab,
 } from "@roster/db";
-import { and, eq, ne } from "drizzle-orm";
+import { and, eq, inArray, ne } from "drizzle-orm";
 import type { AuthEnv } from "./auth/config";
 import type { ClassScope } from "./class-scope";
 import {
@@ -166,6 +166,46 @@ export async function createGroupInLab(
     group,
   );
   return group;
+}
+
+/**
+ * Take groups down: each GitHub Team first, then every row in one statement.
+ * The counterpart of `createGroupInLab`, and the ONE place that knows the
+ * order, because both callers (`deleteGroup`, `deleteLab`) get it wrong the
+ * same way if either drifts.
+ *
+ * Teams before rows, never the reverse. A team delete that throws leaves rows
+ * pointing at a team that is already gone, exactly the drift the `group-teams`
+ * reconciler exists to clear, and re-running the delete tolerates the teams it
+ * already removed. Rows first would leak teams in the org that nothing in the
+ * app can name again.
+ *
+ * Sequential like every other mutating GitHub loop here (see
+ * `createMissingLabRepos`): bursts of writes on one installation are what trip
+ * GitHub's secondary rate limit, and `WorkersOctokit` carries no retry plugin.
+ *
+ * `group_members` rows go with their group (FK ON DELETE cascade). The work
+ * repos do NOT: nothing in this codebase deletes a GitHub repository.
+ */
+export async function deleteGroupsWithTeams(
+  scope: Pick<ClassScope, "db" | "team">,
+  rows: Pick<Group, "id" | "ghTeamSlug">[],
+): Promise<void> {
+  if (rows.length === 0) return;
+  for (const group of rows) {
+    try {
+      await scope.team.delete(group.ghTeamSlug);
+    } catch (err) {
+      // Already gone on GitHub is the state we wanted.
+      if ((err as { status?: number }).status !== 404) throw err;
+    }
+  }
+  await scope.db.delete(groups).where(
+    inArray(
+      groups.id,
+      rows.map((g) => g.id),
+    ),
+  );
 }
 
 /**

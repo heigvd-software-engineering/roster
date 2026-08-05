@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { DeadlineText } from "~/components/custom/classes/labs/deadline-text";
 import { LabStatusHover } from "~/components/custom/classes/labs/lab-status";
@@ -17,11 +18,16 @@ export function LabHeader({
   className,
   lab,
   kind,
+  action,
 }: {
   /** The class's display name for the breadcrumb. */
   className: string;
   lab: LabItem;
   kind: Role;
+  /** Whole-lab controls, alongside the role chip. The teacher page's delete
+   *  lives here: the page under it is the one surface that shows what the
+   *  deletion would take. */
+  action?: ReactNode;
 }) {
   return (
     <Stack gap="sm" className="w-full">
@@ -43,7 +49,10 @@ export function LabHeader({
           </Text>
           <LabStatusHover lab={lab} />
         </Row>
-        <RoleChip kind={kind} />
+        <Row gap="sm" align="center">
+          <RoleChip kind={kind} />
+          {action}
+        </Row>
       </Row>
     </Stack>
   );

@@ -38,8 +38,6 @@ export type GroupLabStatus =
 // wording, whether the create was clicked alone or as "create all".
 const GROUP_INCOMPLETE_MESSAGE =
   "This group needs more members before it can get its repository — check the lab's minimum size.";
-const REPO_NAME_TAKEN_MESSAGE =
-  "A repository with that name already exists in the organization — rename the group and try again.";
 
 const CONFLICT_MESSAGE: Record<string, string> = {
   member_already_participating:
@@ -47,17 +45,24 @@ const CONFLICT_MESSAGE: Record<string, string> = {
   group_incomplete: GROUP_INCOMPLETE_MESSAGE,
   // Repo creation is CREATE-only, never adopting an existing repo even one
   // labs could read back (see lib/groups.ts createWorkRepo), so a name
-  // collision always refuses. A genuine interrupted create is recovered by
-  // the teacher on the reconciler audit page, never automatically.
-  repo_name_taken: REPO_NAME_TAKEN_MESSAGE,
+  // collision always refuses. The collision is USUALLY the group's own work,
+  // waiting under its old name after the group (or its lab) was deleted, or
+  // after an interrupted create — so name that first. Retrying can't help and
+  // renaming abandons the work, but the GitHub sync links it back, which is
+  // why the create path can stay create-only: the teacher sees the repository
+  // there and approves it, where an automatic adoption would be blind.
+  // A student can't open that page, so this base wording sends them to
+  // someone who can (teachers get their own below).
+  repo_name_taken:
+    "A repository already exists under this group's name — usually this group's own work from before. Ask your teacher to link it back from the class's GitHub sync.",
   template_error:
     "The lab's starter-code template can't be used — it's likely empty or unavailable. Ask your teacher to add a file to it (or remove the template).",
   app_permissions:
     "roster can't create repositories yet — the GitHub App needs updated permissions (an administrator must approve them).",
-  // Read by BOTH roles, since a teacher's stale delete lands here too, so
-  // stay role-neutral.
+  // Join and leave only: deletion is refused nowhere, so a locked group is
+  // one you can't move in or out of, not one that's permanent.
   has_repo:
-    "This group already has its work repository — membership and deletion are locked.",
+    "This group already has its work repository — only the teacher changes its roster now.",
   group_full: "That group is already full — pick another or start your own.",
   name_taken: "A group with that name already exists in this lab.",
   // Students only: teachers bypass the start gate entirely.
@@ -89,11 +94,14 @@ const CONFLICT_MESSAGE: Record<string, string> = {
 const DEFAULT_CONFLICT_MESSAGE =
   "That didn't go through — refresh and try again.";
 
-/** Why the batch skipped a group, in the batch's voice. `group_incomplete`
- *  and `repo_name_taken` reuse the single-create wording; `group_gone` has
- *  no single-create sibling (there the roster read failing 503s instead). */
+/** Why the batch skipped a group, in the batch's voice ("<name> was skipped:
+ *  …"), so these read as clauses. `group_incomplete` reuses the single-create
+ *  wording; `repo_name_taken` says the same thing as the teacher's version
+ *  above, shortened to the frame; `group_gone` has no single-create sibling
+ *  (there the roster read failing 503s instead). */
 const REPO_SKIP_MESSAGE: Record<string, string> = {
-  repo_name_taken: REPO_NAME_TAKEN_MESSAGE,
+  repo_name_taken:
+    "a repository already exists under its name, usually its own work from before — link it back from the class's GitHub sync, or rename the group if that repository belongs to someone else.",
   group_incomplete: GROUP_INCOMPLETE_MESSAGE,
   group_gone:
     "its GitHub team no longer exists — repair the class from its GitHub sync.",
@@ -118,10 +126,17 @@ export function repoSkipMessages(
  *
  *  `group_full` reaches a teacher at all only because the size cap now binds
  *  addGroupMember too, and the student's remedy ("pick another") is not one a
- *  teacher has: the lab's maximum is theirs, so name the lever they own. */
+ *  teacher has: the lab's maximum is theirs, so name the lever they own.
+ *
+ *  `repo_name_taken` splits for the same reason: the GitHub sync that links
+ *  the waiting repository back is a teacher-only page, so only they can be
+ *  sent to it. They also get the escape hatch the student has no use for —
+ *  renaming, for the case where the repository really is someone else's. */
 const TEACHER_CONFLICT_MESSAGE: Record<string, string> = {
   group_full:
     "That group is already at the lab's maximum size — raise the lab's maximum in the lab settings to add more members.",
+  repo_name_taken:
+    "A repository already exists under this group's name — usually this group's own work, left behind when a group or lab was deleted. Open the class's GitHub sync to see which repository it is and link it back. Rename the group only if that repository belongs to someone else.",
 };
 
 /**

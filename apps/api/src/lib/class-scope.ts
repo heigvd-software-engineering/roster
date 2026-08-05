@@ -227,13 +227,16 @@ export async function resolveClassAsMember(
  * a teacher whose GitHub link has expired can still run the class and loses
  * only the routes that act as them.
  *
- * Returns the narrow scope those routes need (`db`, `cls`, `org`); `null` means
- * "not a teacher of this class", answered as 404 like above.
+ * Returns the narrow scope those routes need (`db`, `cls`, `org`) plus the same
+ * pre-bound `team` API the member scope carries, so a teacher-only route that
+ * touches GitHub Teams calls `access.team.delete(slug)` rather than threading
+ * the installation and org back through by hand. `null` means "not a teacher of
+ * this class", answered as 404 like above.
  */
 export async function resolveClassAsTeacher(
   c: Context<AuthedEnv>,
   classId: string | undefined,
-): Promise<{ db: Db; cls: Class; org: string } | null> {
+): Promise<{ db: Db; cls: Class; org: string; team: ClassTeam } | null> {
   if (!classId) return null;
   const db = getDb(c.env.DB);
   const [cls] = await db.select().from(classes).where(eq(classes.id, classId));
@@ -259,7 +262,12 @@ export async function resolveClassAsTeacher(
       admin = await isOrgAdmin(c.env, cls.installationId, org, caller.ghId);
     }
     if (!admin) return null;
-    return { db, cls, org };
+    return {
+      db,
+      cls,
+      org,
+      team: classTeam(db, c.env, cls.installationId, org),
+    };
   } catch {
     return null;
   }

@@ -11,8 +11,13 @@ import { Text } from "~/components/custom/typography/text";
  * students and teachers: students learn their boundaries, teachers see
  * their powers spelled out next to them. Axioms first (the overview), then
  * the phases of a lab's life as a timeline. The server enforces every rule
- * here (the named 409s in the group handlers); this page documents, it
- * doesn't decide.
+ * here that can be refused (the named 409s in the group handlers); this page
+ * documents, it doesn't decide.
+ *
+ * The one exception is A4, and it has to be: "did you mean it" is a statement
+ * about a person, not about data, so no handler can check it. The deletion
+ * gate lives in the dialog (`DeleteDialog`) and the server carries out what it
+ * confirms. Say that plainly rather than let A5 overclaim.
  */
 export function RulesPage() {
   return (
@@ -29,7 +34,8 @@ export function RulesPage() {
         <Axioms>
           <Axiom marker="A1" name="The repository is the point of no return">
             A group without one is a plan; the moment it exists, the group is a
-            deliverable — and the rules change.
+            deliverable — and it freezes for students. The work itself is safe
+            either way: roster never deletes a repository.
           </Axiom>
           <Axiom marker="A2" name="Time binds students, never the teacher">
             Before the start and once a repository exists, students are
@@ -40,10 +46,16 @@ export function RulesPage() {
             Need a bigger group? The lab's limit changes — for every group,
             visibly. No group quietly becomes special.
           </Axiom>
-          <Axiom marker="A4" name="The rules are enforced, not suggested">
-            Every rule on this page is checked by the server. A missing or
-            disabled button is a rule at work — going around the interface
-            doesn't change the answer.
+          <Axiom marker="A4" name="Deleting is confirmed, never refused">
+            One rule for every deletion: read what it takes, type the thing's
+            name, and it's done. Nothing is protected by a locked button
+            instead.
+          </Axiom>
+          <Axiom marker="A5" name="The rules are enforced, not suggested">
+            Every rule here that can be refused is checked by the server, so a
+            missing or disabled button is a rule at work — going around the
+            interface doesn't change the answer. A4 is the exception, and it has
+            to be: no server can check whether you meant it.
           </Axiom>
         </Axioms>
 
@@ -90,7 +102,8 @@ export function RulesPage() {
               once.
             </RuleItem>
             <RuleItem who="teacher">
-              The teacher can delete a group — as long as it has no repository.
+              The teacher can delete a group, or the whole lab, by typing its
+              name to confirm.
             </RuleItem>
             <RuleItem who="students">
               In an individual lab there is nothing to form: accepting it
@@ -120,8 +133,14 @@ export function RulesPage() {
               missing one at once.
             </RuleItem>
             <RuleItem who="everyone">
-              A group with a repository is never deleted, by anyone. The work is
-              preserved; the roster can be emptied and moved instead.
+              A repository is never deleted, by anyone, ever. Not when the group
+              goes, not when the lab goes — the work stays in the organization.
+            </RuleItem>
+            <RuleItem who="teacher">
+              The teacher can still delete the group, or its lab, and the
+              confirmation says what that costs: the students lose their access
+              along with the team. Recreate a group under the same name and the
+              class's GitHub sync offers to link its repository back.
             </RuleItem>
             <RuleItem who="teacher">
               If the repository was deleted on GitHub itself, the teacher can

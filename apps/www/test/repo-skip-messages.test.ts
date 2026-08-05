@@ -22,7 +22,11 @@ describe("repoSkipMessages", () => {
     );
     expect(messages).toHaveLength(2);
     expect(messages[0]).toMatch(/^Team Alpha was skipped: /);
-    expect(messages[0]).toMatch(/repository with that name already exists/);
+    // The name collision is usually the group's own work waiting under its old
+    // name, so the remedy named first is the sync that links it back, never a
+    // rename (which would abandon it).
+    expect(messages[0]).toMatch(/a repository already exists under its name/);
+    expect(messages[0]).toMatch(/link it back from the class's GitHub sync/);
     expect(messages[1]).toMatch(/^Team Beta was skipped: /);
     expect(messages[1]).toMatch(/needs more members/);
   });
