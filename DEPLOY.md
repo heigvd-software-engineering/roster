@@ -112,6 +112,13 @@ user. The bootstrap chain, from nothing to the first class:
    separated; matched case-insensitively against the account's PRIMARY
    edu-ID email — the one the app's account menu shows, often a personal
    address, NOT necessarily the institutional one). Deploy.
+
+   > **Use institutional addresses.** This var is the top of the privilege
+   > chain, and it is matched on a STRING: whoever can receive mail at a
+   > listed address can register an edu-ID under it and become a super
+   > admin. A personal mailbox (hotmail, gmail) puts that entirely outside
+   > the school's control — and unlike everything else here, there is no
+   > second check behind it.
 2. The admin signs in once (their user row must exist), opens the account
    menu → **Super admin** → `/admin`.
 3. There they flip **"Can create classes"** for whoever should create
@@ -289,9 +296,40 @@ app's *designed* response to a GitHub outage — `wrangler tail` will show
 the secrets, check <https://www.githubstatus.com>. `/api/health` only proves
 the Worker runs; it says nothing about the GitHub leg.
 
+## What the deploy hardens on its own
+
+Three things ship with the Worker and need no setup — listed because they
+are invisible until one of them refuses something.
+
+- **Rate limits.** Two `ratelimits` bindings in `wrangler.jsonc`:
+  `AUTH_LIMITER` (60/min per IP, on `/api/auth/*` and `/api/join/*`) and
+  `SETUP_LIMITER` (10/min, on the unauthenticated `/api/github/setup`,
+  which spends several GitHub calls per request). Which routes carry one is
+  declared in the route module itself (`src/routes/auth.ts`, `join.ts`,
+  `setup.ts`), not in a list somewhere central. Over the limit is a
+  `429 {"error":"rate_limited"}`. `namespace_id` is just a counter name —
+  nothing is provisioned in the dashboard, and the binding is optional in
+  code, so `wrangler dev` runs fine without it. Better Auth's own limiter is
+  switched off on purpose (`src/lib/auth/config.ts`): its counters live in
+  per-isolate memory, which on Workers is no ceiling at all.
+- **Response headers.** The SPA's come from `apps/www/build/client/_headers`,
+  GENERATED at build time by `apps/www/scripts/security-headers.mjs`
+  (the CSP hashes the built page's inline scripts, so it cannot be
+  hand-written). The API's are set by the Worker
+  (`src/lib/http/security-headers.ts`). Both surfaces sit on one origin and
+  neither covers the other; a change to one is not a change to the other.
+- **Same-origin writes.** `POST`/`PUT`/`PATCH`/`DELETE` under `/api` are
+  refused with `403 {"error":"cross_origin"}` when the browser reports a
+  different origin. If a future deploy serves the SPA from a SECOND origin,
+  that check (`src/lib/http/same-origin.ts`, keyed on `BETTER_AUTH_URL`) is
+  what will refuse it.
+
 ## Not in scope (revisit for real use)
 
 - CI deploys (GitHub Actions with a Cloudflare API token).
 - D1 backups / time travel beyond the built-in 30 days.
-- Rate-limit headroom: shares the GitHub App installation quota
+- GitHub API headroom: shares the GitHub App installation quota
   (5000/hr/org) — a class of 30 doesn't approach it.
+- OAuth tokens (`account.access_token` / `refresh_token`) are stored in D1
+  in the clear. Better Auth can encrypt them (`account.encryptOAuthTokens`),
+  which needs a decision about the rows already there.

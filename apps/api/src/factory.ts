@@ -1,5 +1,5 @@
 import { createFactory } from "hono/factory";
-import type { Env } from "./lib/auth/config";
+import type { Env } from "./env";
 import type { AuthedEnv } from "./lib/auth/require-auth";
 
 /**

@@ -1,0 +1,42 @@
+import { expect, test } from "vitest";
+import { requireEduIdSignIn } from "../src/lib/auth/sign-in-guard";
+
+// The identity model in one test file: edu-ID is the only way to a session,
+// and GitHub may be LINKED but never signed in with. Better Auth's own
+// `disableSignUp` does not carry this — it only refuses to create a user, while
+// an already-linked account still signs in through /sign-in/social.
+
+/** The middleware only reads `path`; a literal is the whole ctx. */
+const run = (path: string) =>
+  (requireEduIdSignIn as unknown as (ctx: unknown) => Promise<unknown>)({
+    path,
+  });
+
+test("refuses a GitHub sign-in, with a 403 carrying its own code", async () => {
+  await expect(run("/sign-in/social")).rejects.toMatchObject({
+    status: "FORBIDDEN",
+    body: { code: "EDU_ID_IS_THE_ONLY_SIGN_IN" },
+    message: expect.stringContaining("GitHub can only be linked"),
+  });
+});
+
+test("refuses sign-in routes we don't ship today — the allowlist's whole point", async () => {
+  // Enabling a Better Auth plugin must not silently open a second door.
+  await expect(run("/sign-in/email")).rejects.toThrow();
+  await expect(run("/sign-in/magic-link")).rejects.toThrow();
+  await expect(run("/sign-in/username")).rejects.toThrow();
+});
+
+test("lets the edu-ID sign-in through", async () => {
+  await expect(run("/sign-in/oauth2")).resolves.toBeUndefined();
+});
+
+test("lets LINKING through — that is the supported path", async () => {
+  await expect(run("/link-social")).resolves.toBeUndefined();
+});
+
+test("leaves every other Better Auth route alone", async () => {
+  await expect(run("/get-session")).resolves.toBeUndefined();
+  await expect(run("/sign-out")).resolves.toBeUndefined();
+  await expect(run("/callback/github")).resolves.toBeUndefined();
+});

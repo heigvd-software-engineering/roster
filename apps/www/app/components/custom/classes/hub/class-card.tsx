@@ -1,4 +1,4 @@
-import { Check, Link2, RefreshCw } from "lucide-react";
+import { Check, Link2, RefreshCw, RotateCcw } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { InviteTeacherDialog } from "~/components/custom/classes/hub/invite-teacher-dialog";
@@ -6,6 +6,7 @@ import { PeopleChip } from "~/components/custom/classes/hub/people-chip";
 import { LabDialog } from "~/components/custom/classes/labs/lab-dialog";
 import { LabsTimeline } from "~/components/custom/classes/labs/labs-timeline";
 import { RoleChip, roleSpine } from "~/components/custom/classes/role-marker";
+import { ConfirmDialog } from "~/components/custom/confirm-dialog";
 import { OrgIdentity } from "~/components/custom/identity/org-identity";
 import { Row } from "~/components/custom/layout/row";
 import { Stack } from "~/components/custom/layout/stack";
@@ -17,7 +18,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "~/components/ui/popover";
-import type { ClassItem } from "~/lib/api";
+import { api, type ClassItem, useAction } from "~/lib/api";
 import { count } from "~/lib/format";
 import { semesterOf, timelineSpan } from "~/lib/semester";
 import { cn } from "~/lib/utils";
@@ -127,7 +128,11 @@ export function ClassCard({
       <Row gap="sm" wrap className="border-border border-t px-3 py-1">
         <LabDialog classId={id} onSaved={onChanged} />
         <ToolbarDivider />
-        <JoinLinkAction joinToken={joinToken} />
+        <JoinLinkAction
+          classId={id}
+          joinToken={joinToken}
+          onChanged={onChanged}
+        />
         <ToolbarDivider />
         <InviteTeacherDialog classId={id} orgLogin={login} onDone={onChanged} />
         <ToolbarDivider />
@@ -169,10 +174,21 @@ function ToolbarDivider() {
  * They don't — one link enrolls a student into the whole CLASS, and every lab
  * follows from that membership. The popover is where we say so, before the copy.
  */
-function JoinLinkAction({ joinToken }: { joinToken: string }) {
+function JoinLinkAction({
+  classId,
+  joinToken,
+  onChanged,
+}: {
+  classId: string;
+  joinToken: string;
+  onChanged: () => unknown;
+}) {
   const [copied, setCopied] = useState(false);
   const copyResetTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(copyResetTimer.current), []);
+  const { busy, act } = useAction(async () => {
+    await onChanged();
+  });
 
   async function copyJoinLink() {
     await navigator.clipboard.writeText(
@@ -229,6 +245,30 @@ function JoinLinkAction({ joinToken }: { joinToken: string }) {
               </>
             )}
           </Button>
+          <ConfirmDialog
+            trigger={
+              <Button
+                variant="ghost"
+                size="sm"
+                type="button"
+                disabled={busy}
+                title="Retire this link and issue a new one"
+              >
+                <RotateCcw className="size-4" />
+                Reset link
+              </Button>
+            }
+            title="Reset the invitation link?"
+            description="The current link stops working immediately and a new one takes its place — share it with the class again. Students who already joined keep their access; the link only ever controlled getting in."
+            confirmLabel="Reset link"
+            onConfirm={() =>
+              act(() =>
+                api.api.classes[":id"]["join-token"].$post({
+                  param: { id: classId },
+                }),
+              )
+            }
+          />
         </Stack>
       </PopoverContent>
     </Popover>

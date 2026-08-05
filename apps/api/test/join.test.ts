@@ -69,7 +69,7 @@ vi.mock("../src/lib/github/org", () => ({
 const { joinRoutes } = await import("../src/routes/join");
 const { apiOnError } = await import("../src/on-error");
 
-const app = new Hono<import("../src/lib/auth/config").Env>()
+const app = new Hono<import("../src/env").Env>()
   .route("/api", joinRoutes)
   .onError(apiOnError);
 const db = getDb(env.DB);

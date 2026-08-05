@@ -50,7 +50,7 @@ vi.mock("../src/lib/github/user", async (importOriginal) => {
 const { meRoutes } = await import("../src/routes/me");
 const { apiOnError } = await import("../src/on-error");
 
-const app = new Hono<import("../src/lib/auth/config").Env>()
+const app = new Hono<import("../src/env").Env>()
   .route("/api", meRoutes)
   .onError(apiOnError);
 const db = getDb(env.DB);

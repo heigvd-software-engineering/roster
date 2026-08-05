@@ -1,6 +1,6 @@
 import type { ErrorHandler } from "hono";
 import { HTTPException } from "hono/http-exception";
-import type { Env } from "./lib/auth/config";
+import type { Env } from "./env";
 import { GithubUnavailableError } from "./lib/github/user";
 
 /**

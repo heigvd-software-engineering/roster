@@ -35,6 +35,20 @@
     "SUPER_ADMIN_EMAILS": "stefan.teofanovic@heig-vd.ch,bertil.chapuis@heig-vd.ch"
   },
 
+  // Same per-IP ceilings as production (src/lib/http/rate-limit.ts).
+  "ratelimits": [
+    {
+      "name": "AUTH_LIMITER",
+      "namespace_id": "1001",
+      "simple": { "limit": 60, "period": 60 }
+    },
+    {
+      "name": "SETUP_LIMITER",
+      "namespace_id": "1002",
+      "simple": { "limit": 10, "period": 60 }
+    }
+  ],
+
   "d1_databases": [
     {
       "binding": "DB",

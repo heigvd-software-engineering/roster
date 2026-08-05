@@ -1,0 +1,36 @@
+import { createMiddleware } from "hono/factory";
+import type { Env, RateLimitBindings } from "../../env";
+
+/**
+ * Per-IP rate limit on ONE of the Cloudflare rate-limiter bindings (declared in
+ * `src/env.ts`, configured under `ratelimits` in wrangler.jsonc). The binding
+ * is optional, and an absent one means NO limit — `wrangler dev` and the test
+ * pool both run without it, and a limiter that only exists in production must
+ * not be the difference between booting and crashing.
+ *
+ * Applied per route module, beside the path it protects, not from a list in
+ * `index.ts` — so renaming a route carries its ceiling along. Which routes get
+ * one is a judgement about COST, not about authentication: `/api/github/setup`
+ * resolves an installation, reads the org and seeds its whole roster (three
+ * paginated GitHub calls plus a write per member) for any installation id, and
+ * installation ids are small integers. Left open, one client can drain the
+ * GitHub App's shared quota and take every class down with it — `orgMembership`
+ * is what authorizes almost everything, so a spent quota is a 503 for all.
+ * `/api/auth/*` gets one for the ordinary reason (credentials and OAuth state);
+ * `/api/join/*`, though authenticated, because it invites people into a GitHub
+ * org.
+ *
+ * The limiter answers per key per period; nothing is stored by us.
+ */
+export const rateLimit = (binding: keyof RateLimitBindings) =>
+  createMiddleware<Env>(async (c, next) => {
+    const limiter = c.env[binding];
+    if (!limiter) return next();
+    // `CF-Connecting-IP` is set by Cloudflare itself and cannot be spoofed from
+    // outside; the fallback keeps a local run (no edge) on one shared bucket
+    // rather than silently unlimited.
+    const key = c.req.header("CF-Connecting-IP") ?? "local";
+    const { success } = await limiter.limit({ key });
+    if (!success) return c.json({ error: "rate_limited" }, 429);
+    return next();
+  });

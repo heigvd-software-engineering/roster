@@ -5,6 +5,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { customSession } from "better-auth/plugins";
 import { genericOAuth } from "better-auth/plugins/generic-oauth";
 import { buildSessionPayload } from "./session-payload";
+import { requireEduIdSignIn } from "./sign-in-guard";
 
 // SWITCH edu-ID claims to request — identity only. The client's registry
 // audience is HES-SO (academic login): the `email` claim IS the professional
@@ -40,9 +41,6 @@ export type AuthEnv = {
   SUPER_ADMIN_EMAILS?: string;
 };
 
-/** The Hono env for our Worker: `new Hono<Env>()` → `c.env` is AuthEnv. */
-export type Env = { Bindings: AuthEnv };
-
 /** The Better Auth instance type — used by the web client to infer the session
  * shape (incl. the `customSession` `githubLinked` field). */
 export type Auth = ReturnType<typeof createAuth>;
@@ -70,15 +68,20 @@ export function createAuth(env: AuthEnv) {
         lastName: { type: "string", required: false },
       },
     },
+    // Sign-in is edu-ID ONLY — GitHub is a linked account, never an identity.
+    // THREE things enforce that, and all three are needed:
+    //   1. `disableSignUp` — a GitHub sign-in may not MINT a user whose email
+    //      GitHub attests instead of SWITCH (email carries privilege via
+    //      SUPER_ADMIN_EMAILS).
+    //   2. `hooks.before` (requireEduIdSignIn) — but disableSignUp stops only
+    //      the create; an EXISTING linked account still signs in through
+    //      /sign-in/social. The hook is what actually closes that door.
+    //   3. `disableImplicitLinking` below — the third way in.
     // GitHub is linked to an existing (edu-ID) user via `authClient.linkSocial`.
     socialProviders: {
       github: {
         clientId: env.GITHUB_CLIENT_ID,
         clientSecret: env.GITHUB_CLIENT_SECRET,
-        // Sign-in is edu-ID ONLY — GitHub is a linked account, never an
-        // identity. Without this, a direct GitHub sign-in could mint a user
-        // whose email GitHub attests instead of SWITCH — and email now
-        // carries privilege (SUPER_ADMIN_EMAILS).
         disableSignUp: true,
       },
     },
@@ -91,8 +94,27 @@ export function createAuth(env: AuthEnv) {
         // Better Auth refuses to link accounts from providers not listed here
         // ("untrusted provider"). GitHub is user-initiated via linkSocial.
         trustedProviders: ["github"],
+        // IMPLICIT linking is Better Auth matching an incoming OAuth profile to
+        // an existing user BY EMAIL and linking it unasked. With `github`
+        // trusted, the only thing standing in its way is the local user's
+        // `emailVerified` — which SWITCH sets — so a GitHub account holding a
+        // verified address equal to someone's edu-ID email would be linked to
+        // THEIR user and signed in as them. Nothing here wants that: every link
+        // in this app is an explicit `linkSocial` from an existing session, and
+        // that path is unaffected (Better Auth's callback returns from its
+        // `link` branch before any of this runs).
+        disableImplicitLinking: true,
       },
     },
+    // The one place a request is refused before Better Auth routes it.
+    hooks: { before: requireEduIdSignIn },
+    // Better Auth's own limiter defaults to ON in production, storing counters
+    // in MEMORY — per-isolate, so on Workers it neither holds a real ceiling
+    // nor agrees with itself between isolates. The Cloudflare rate-limiter
+    // binding does the job properly (routes/auth.ts); turning this off keeps
+    // ONE answer to "what limits /api/auth", instead of two that refuse with
+    // different bodies.
+    rateLimit: { enabled: false },
     plugins: [
       genericOAuth({
         config: [

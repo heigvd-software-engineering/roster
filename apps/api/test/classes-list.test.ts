@@ -102,7 +102,7 @@ const { classesRoutes } = await import("../src/routes/classes");
 const { apiOnError } = await import("../src/on-error");
 const { GithubUnavailableError } = await import("../src/lib/github/user");
 
-const app = new Hono<import("../src/lib/auth/config").Env>()
+const app = new Hono<import("../src/env").Env>()
   .route("/api", classesRoutes)
   .onError(apiOnError);
 const db = getDb(env.DB);

@@ -25,6 +25,7 @@ import {
   userOrgMemberships,
 } from "../lib/github/user";
 import { githubIdsForUser, profilesByGithubId } from "../lib/identity";
+import { mintJoinToken } from "../lib/join-token";
 
 /** A cached member as the client already expects to see them. `class_members` is
  *  a DISPLAY cache — it may never authorize, and it does not here: the teacher
@@ -57,6 +58,32 @@ export const confirmClass = authedFactory.createHandlers(async (c) => {
     ok: verified.basePermission === "none" && !verified.membersCanCreateRepos,
     org: { login: access.org },
   });
+});
+
+/**
+ * Teacher-only: mint a NEW join link for the class, retiring the old one.
+ *
+ * The join token IS the enrollment gate — possession of the link is the whole
+ * check (see handlers/join.ts) — so a link that leaks outside the cohort is
+ * standing permission for any signed-in roster user to be invited into the
+ * GitHub org. Rotating is the only answer to that, and until this existed
+ * there wasn't one: the token was minted once, at connect, and never again.
+ *
+ * Nothing else moves. Students already enrolled hold ORG membership, which is
+ * what every later check reads; the token only ever gated getting in. So this
+ * is safe to click on suspicion alone — the cost is reissuing the link to the
+ * cohort, never anyone's access.
+ */
+export const rotateJoinToken = authedFactory.createHandlers(async (c) => {
+  const access = await resolveClassAsTeacher(c, c.req.param("id"));
+  if (!access) return c.json({ error: "not_found" }, 404);
+
+  const joinToken = mintJoinToken();
+  await access.db
+    .update(classes)
+    .set({ joinToken, updatedAt: new Date() })
+    .where(eq(classes.id, access.cls.id));
+  return c.json({ joinToken });
 });
 
 /** GitHub usernames: 1–39 chars, alphanumeric or single hyphens. The API

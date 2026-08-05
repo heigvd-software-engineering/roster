@@ -4,6 +4,13 @@ import { describe, expect, it, vi } from "vitest";
 import { ClassCard } from "~/components/custom/classes/hub/class-card";
 import { formatDay } from "~/lib/format";
 
+// The card's actions report failures on the global message strip (useAction).
+// Stubbed rather than provided, as every other page test does — this file
+// asserts nothing about messages.
+vi.mock("~/contexts/message-context", () => ({
+  useMessages: () => ({ push: vi.fn() }),
+}));
+
 const profUser = {
   name: "Bob Prof",
   firstName: "Bob",

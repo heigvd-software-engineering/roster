@@ -1,9 +1,9 @@
 import type { User } from "@roster/db";
 import { createMiddleware } from "hono/factory";
-import type { AuthEnv } from "./config";
+import type { AppBindings } from "../../env";
 import { createAuth } from "./config";
 
-export type AuthedEnv = { Bindings: AuthEnv; Variables: { user: User } };
+export type AuthedEnv = { Bindings: AppBindings; Variables: { user: User } };
 
 /** Loads the Better Auth session; 401 if absent, else sets a non-null user. */
 export const requireAuth = createMiddleware<AuthedEnv>(async (c, next) => {

@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "react-router build",
+    "build": "react-router build && node scripts/security-headers.mjs",
     "dev": "react-router dev",
     "test": "vitest run",
     "typecheck": "react-router typegen && tsc"
