@@ -12,7 +12,7 @@ beforeEach(() => {
   });
 });
 
-/** The snippet the teacher pastes — one <pre> in the dialog. */
+/** The snippet the teacher pastes: the one <pre> in the dialog. */
 const commands = () => document.querySelector("pre")?.textContent;
 
 const noop = () => {};

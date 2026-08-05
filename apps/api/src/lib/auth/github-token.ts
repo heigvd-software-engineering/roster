@@ -1,14 +1,13 @@
 import { type AuthEnv, createAuth } from "./config";
 
 /**
- * A currently-usable GitHub access token for the user, or null.
+ * A usable GitHub access token for the user, or null.
  *
  * GitHub App user tokens expire after 8 hours; Better Auth's getAccessToken
- * transparently refreshes an expired token with the stored refresh token and
- * persists the new pair. Null means there is nothing usable: no linked
- * github account, or the refresh was rejected (revoked grant, expired
- * refresh token) — callers treat that as "not linked" and route the user
- * to (re)link.
+ * refreshes an expired one with the stored refresh token and persists the new
+ * pair. Null means nothing usable: no linked github account, or the refresh was
+ * rejected (revoked grant, expired refresh token). Callers read that as "not
+ * linked" and route the user to (re)link.
  */
 export async function githubAccessToken(
   env: AuthEnv,

@@ -1,9 +1,9 @@
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 
 /**
- * First+last initials, e.g. "Stefan Teofanovic" → "ST". Falls back to "?" when
- * the name has no visible characters (e.g. whitespace-only) — exported as a
- * pure helper so it's unit-testable without rendering.
+ * First+last initials, e.g. "Stefan Teofanovic" → "ST". A name with no visible
+ * characters falls back to "?". Exported as a pure helper so tests can call it
+ * without rendering.
  */
 export function initials(name: string): string {
   const trimmed = name.trim();
@@ -19,8 +19,8 @@ type UserAvatarProps = {
   name: string;
   src?: string | null | undefined;
   size?: "sm" | "default" | "lg";
-  /** People are circles; organizations are rounded squares (GitHub's own
-   *  convention, and the class-card mockup's). */
+  /** People are circles, organizations rounded squares: GitHub's own
+   *  convention, and the class-card mockup's. */
   shape?: "circle" | "square";
 };
 

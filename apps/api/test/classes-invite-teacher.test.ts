@@ -3,9 +3,9 @@ import { account, classes, classMembers, getDb, user } from "@roster/db";
 import { Hono } from "hono";
 import { beforeEach, expect, test, vi } from "vitest";
 
-// What POST /classes/:id/teachers WRITES. The endpoint's own response is a bare
+// What POST /classes/:id/teachers writes. The endpoint's own response is a bare
 // {state}, so the interesting outcome is the `class_members` row: which of the
-// two id spaces it lands in, and whether an invited TEACHER can be told apart
+// two id spaces it lands in, and whether an invited teacher can be told apart
 // from an invited student.
 
 const state = vi.hoisted(() => ({
@@ -16,7 +16,7 @@ const state = vi.hoisted(() => ({
     login: string;
     avatarUrl: string | null;
   } | null,
-  /** The invitee's LIVE org membership — null means "not in the org". */
+  /** The invitee's live org membership; null means "not in the org". */
   membership: null as { state: "active" | "pending"; role: string } | null,
   /** The invitation id GitHub hands back. */
   invitationId: 900,
@@ -119,18 +119,18 @@ test("inviting a NON-member records both ids and marks them an invited teacher",
   const rows = await db.select().from(classMembers);
   expect(rows).toHaveLength(1);
   expect(rows[0]).toMatchObject({
-    // The invitation id: how the LIVE roster reports this person, so the
+    // The invitation id: how the live roster reports this person, so the
     // reconciler sees no drift.
     invitationId: "900",
-    // The user id: we chose the invitee, so we know it — and this is what lets
-    // them find their own row by id when they accept.
+    // The user id: we chose the invitee, so we know it, and it lets them find
+    // their own row when they accept.
     githubId: "222",
     // Not plain `pending`: that would list them among the students.
     state: "pending_teacher",
     login: "newprof",
-    // Kept from the lookup we already did. GitHub's invitations API has no
-    // avatar, but we picked this invitee — so they get a face while pending,
-    // and the heal has something to carry forward instead of a null.
+    // Kept from the lookup we already did. GitHub's invitations API carries no
+    // avatar, but we picked this invitee, so they get a face while pending and
+    // the heal carries it forward instead of a null.
     avatarUrl: "http://n",
   });
 });
@@ -155,8 +155,8 @@ test("inviting an ACTIVE member promotes in place — no invitation is created",
 });
 
 test("a stale row under the invitee's user id is replaced, not duplicated", async () => {
-  // They are NOT in the org, so any row still keyed by their user id is stale —
-  // and would collide with the unique (classId, githubId) on insert.
+  // They are not in the org, so any row still keyed by their user id is stale,
+  // and it would collide with the unique (classId, githubId) on insert.
   await db.insert(classMembers).values({
     id: "cm-stale",
     classId: "c1",

@@ -31,8 +31,8 @@ function peopleLabel(n: number, noun: string, pendingCount: number) {
 /**
  * One connected class (GitHub org) as a single flat surface: identity + people
  * stats in the masthead (information only), then a toolbar with every class
- * action side by side — New lab, invite link (F4), GitHub sync — then the labs
- * table (F6), each sectioned off by a hairline — no nested boxes.
+ * action side by side (New lab, invite link (F4), GitHub sync), then the labs
+ * table (F6), each sectioned off by a hairline. No nested boxes.
  */
 export function ClassCard({
   id,
@@ -49,11 +49,11 @@ export function ClassCard({
   labs,
   onChanged,
 }: ClassItem & {
-  /** The hub's own revalidate — lab edits refresh the data they came from. */
+  /** The hub's own revalidate: lab edits refresh the data they came from. */
   onChanged: () => unknown;
 }) {
-  // Correlate GitHub org members with their roster users (raw query rows from
-  // the API — the client does the joining, endpoints return results as-is).
+  // Correlate GitHub org members with their roster users. The API returns raw
+  // query rows as-is, so the client does the joining.
   const userByGithubId = new Map(users.map((u) => [u.githubId, u.user]));
   const withUser = (p: ClassItem["students"][number], pendingRow = false) => ({
     ...p,
@@ -102,7 +102,7 @@ export function ClassCard({
             emptyText="No teachers found."
             people={[
               ...teachers.map((p) => withUser(p)),
-              // Invited as an Owner — waiting beside the teachers they are
+              // Invited as an Owner, so they wait beside the teachers they are
               // joining, not among the students.
               ...pendingTeachers.map((p) => withUser(p, true)),
             ]}
@@ -122,9 +122,9 @@ export function ClassCard({
         </Row>
       </Row>
 
-      {/* The class toolbar: every action side by side — create, invite, sync —
-          so one row answers "what can I do to this class". The masthead above
-          carries information only. */}
+      {/* The class toolbar: create, invite and sync side by side, so one row
+          answers "what can I do to this class". The masthead above carries
+          information only. */}
       <Row gap="sm" wrap className="border-border border-t px-3 py-1">
         <LabDialog classId={id} onSaved={onChanged} />
         <ToolbarDivider />
@@ -139,7 +139,7 @@ export function ClassCard({
         <ReconcileAction classId={id} />
       </Row>
 
-      {/* The labs timeline — sectioned off by a hairline, not a nested box. */}
+      {/* Sectioned off by a hairline, not a nested box. */}
       <div className="w-full overflow-x-auto border-border border-t">
         <div className="min-w-[760px]">
           {labs.length === 0 ? (
@@ -162,8 +162,8 @@ export function ClassCard({
   );
 }
 
-/** Hairline between toolbar actions — makes the row read as one toolbar,
- *  not three stray buttons. */
+/** Hairline between toolbar actions, so the row reads as one toolbar rather
+ *  than three stray buttons. */
 function ToolbarDivider() {
   return <span aria-hidden className="h-4 w-px bg-border" />;
 }
@@ -171,8 +171,8 @@ function ToolbarDivider() {
 /**
  * The class join link, behind a popover rather than a bare copy button: the one
  * thing a teacher gets wrong here is thinking they invite students to a LAB.
- * They don't — one link enrolls a student into the whole CLASS, and every lab
- * follows from that membership. The popover is where we say so, before the copy.
+ * They don't: one link enrolls a student into the whole CLASS, and every lab
+ * follows from that membership. The popover says so, before the copy.
  */
 function JoinLinkAction({
   classId,
@@ -276,7 +276,7 @@ function JoinLinkAction({
 }
 
 /**
- * Reconciliation's entry point, labeled "GitHub sync" — the word in a teacher's
+ * Reconciliation's entry point, labeled "GitHub sync": the word in a teacher's
  * head when the class has drifted ("audit"/"reconcile" is system vocabulary),
  * and the label a new user can read without hovering.
  *

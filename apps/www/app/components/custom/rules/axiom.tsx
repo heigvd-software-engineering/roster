@@ -3,8 +3,8 @@ import { Stack } from "~/components/custom/layout/stack";
 import { Text } from "~/components/custom/typography/text";
 import { Card } from "~/components/ui/card";
 
-/** The principles band — the overview the phases below spell out in detail.
- *  A plain card (the graph-paper ground is app-wide on <body>). */
+/** The principles band, the overview the phases below spell out in detail.
+ *  A plain card, since the graph-paper ground is app-wide on <body>. */
 export function Axioms({ children }: { children: ReactNode }) {
   return (
     <Card className="w-full gap-0 px-6">
@@ -17,7 +17,7 @@ export function Axioms({ children }: { children: ReactNode }) {
 }
 
 type AxiomProps = {
-  /** "A1" … — the mono marker, in brand red like the mockup. */
+  /** "A1" …, the mono marker, in brand red like the mockup. */
   marker: string;
   name: string;
   children: ReactNode;

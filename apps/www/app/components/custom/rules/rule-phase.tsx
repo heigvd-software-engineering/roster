@@ -13,7 +13,7 @@ import { cn } from "~/lib/utils";
 
 type RulePhaseProps = {
   icon: LucideIcon;
-  /** Timeline index — "01" … "04", or "∞" for the timeless card. */
+  /** Timeline index: "01" … "04", or "∞" for the timeless card. */
   step: string;
   /** The point of no return gets the page's ONE red accent. */
   pivotal?: boolean;

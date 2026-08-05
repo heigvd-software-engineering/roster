@@ -17,21 +17,17 @@ import { labsRoutes } from "./routes/labs";
 import { meRoutes } from "./routes/me";
 import { setupRoutes } from "./routes/setup";
 
-// The Worker only handles /api/* (wrangler.jsonc `run_worker_first`). The SPA
-// and static assets are served by Cloudflare's Assets layer, so the Worker
-// needs no ASSETS binding or catch-all fallback. Each resource is its own
-// route module under ./routes; `.route()` composes them AND their RPC types.
+// The Worker only handles /api/* (wrangler.jsonc `run_worker_first`); the
+// Assets layer serves the SPA, so no ASSETS binding or catch-all fallback is
+// needed. `.route()` composes each resource module and its RPC types.
 const app = new Hono<Env>()
-  // The two guards that apply to EVERY API response, wrapping the route
-  // modules and therefore the 404 and the 500 too: how a response may be
-  // rendered (security-headers), and whether a browser says the request came
-  // from another site (same-origin). Per-path ceilings are NOT here — a rate
-  // limit belongs beside the path it protects, so each route module declares
-  // its own (`lib/http/rate-limit.ts`).
+  // These two guards wrap every API response, the 404 and the 500 included.
+  // Rate limits are not here: a limit belongs beside the path it protects, so
+  // each route module declares its own (`lib/http/rate-limit.ts`).
   //
-  // The SPA's own headers are a DIFFERENT surface — generated into
-  // build/client/_headers and served by the Assets layer, which this Worker
-  // never sees (apps/www/scripts/security-headers.mjs).
+  // The SPA's headers are a separate surface, generated into
+  // build/client/_headers for the Assets layer
+  // (apps/www/scripts/security-headers.mjs).
   .use("/api/*", apiSecurityHeaders, requireSameOrigin)
   .route("/api/auth", authRoutes)
   .route("/api", healthRoutes)
@@ -43,11 +39,10 @@ const app = new Hono<Env>()
   .route("/api", labGroupsRoutes)
   .route("/api", labsRoutes)
   .route("/api", joinRoutes)
-  // Unknown API routes return JSON 404s (registered last, so it only catches
-  // paths no module above matched).
+  // Registered last, so it catches only paths no module above matched.
   .all("/api/*", (c) => c.json({ error: "Not found" }, 404))
-  // One translator for thrown errors (GitHub unavailable → 503). Tests that
-  // mount a route module directly attach this too — same contract everywhere.
+  // One translator for thrown errors. Tests that mount a route module
+  // directly attach it too, so the contract holds everywhere.
   .onError(apiOnError);
 
 export type AppType = typeof app;

@@ -57,13 +57,13 @@
 
 :root {
   /* Native controls (select popups, scrollbars, date pickers) are painted
-     by the OS and follow color-scheme, not our tokens — declare it so they
-     match the theme. The .dark block flips it. */
+     by the OS and follow color-scheme, not our tokens, so declare it and
+     they match the theme. The .dark block flips it. */
   color-scheme: light;
-  /* Grayed down from shadcn's pure-white default — soft gray paper instead of
-     a glowing screen. Cards sit just ABOVE the paper (lighter, not white),
+  /* Grayed down from shadcn's pure-white default: soft gray paper instead of
+     a glowing screen. Cards sit just above the paper (lighter, not white),
      mirroring the dark palette's card note below; fills (secondary/muted/
-     accent) step DOWN from the paper so chips and hovers stay visible on
+     accent) step down from the paper so chips and hovers stay visible on
      background and card alike. */
   --background: oklch(0.965 0 0);
   --foreground: oklch(0.145 0 0);
@@ -88,19 +88,19 @@
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  /* Lowered from shadcn's 0.625rem default — sharper corners, Swiss look. */
+  /* Lowered from shadcn's 0.625rem default: sharper corners, Swiss look. */
   --radius: 0.375rem;
   --brand: oklch(0.55 0.22 27);
-  /* Role identity hues (class cards: spine + chip). Deliberately NOT red —
+  /* Role identity hues (class cards: spine + chip). Never red, because
      brand red stays reserved for urgency. */
   --role-teaching: oklch(0.51 0.19 276);
   --role-enrolled: oklch(0.6 0.12 185);
   /* Message-variant amber (global messages: warning). Lightness 0.56, not
-     the usual ~0.67 amber: as TEXT on the white card (seat labels, pool
-     overline, hints) 0.67 lands near 2.5:1 contrast — unreadable. The dark
+     the usual ~0.67 amber: as text on the white card (seat labels, pool
+     overline, hints) 0.67 lands near 2.5:1 contrast, unreadable. The dark
      themes keep their brighter ambers. */
   --warning: oklch(0.56 0.14 60);
-  /* Message-variant blue (info) — hue 240 to stay clear of the violet
+  /* Message-variant blue (info): hue 240 stays clear of the violet
      role-teaching (276). */
   --info: oklch(0.58 0.14 240);
   --sidebar: oklch(0.985 0 0);
@@ -113,15 +113,15 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
-/* Dark palette — applied by the inline script in root.tsx, which toggles
-   `.dark` on <html> from the OS `prefers-color-scheme`. No in-app toggle;
-   keep this block in sync with `:root` whenever tokens change. */
+/* Dark palette, applied by the inline script in root.tsx and then by
+   ThemeProvider, which toggle `.dark` on <html>. Keep this block in sync
+   with `:root` whenever tokens change. */
 .dark {
   color-scheme: dark;
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
-  /* Closer to the background than shadcn's 0.205 default — flat cards sit
-     just above the paper, they don't glow. */
+  /* Closer to the background than shadcn's 0.205 default: flat cards sit
+     just above the paper instead of glowing. */
   --card: oklch(0.17 0 0);
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
@@ -135,7 +135,7 @@
   --accent: oklch(0.269 0 0);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
-  /* Brand red lifted for dark grounds — the :root value muddies on near-black. */
+  /* Brand red lifted for dark grounds: the :root value muddies on near-black. */
   --brand: oklch(0.62 0.2 27);
   /* Role hues lifted for dark grounds too. */
   --role-teaching: oklch(0.67 0.18 277);
@@ -161,15 +161,15 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
-/* Terminal palette (the "hacker" theme) — applied as `class="dark terminal"`
-   ON TOP of .dark: the Tailwind `dark:` variant keys off .dark, so every
-   dark-mode override keeps working; this block only re-skins the tokens.
+/* Terminal palette (the "hacker" theme), applied as `class="dark terminal"`
+   on top of .dark: the Tailwind `dark:` variant keys off .dark, so every
+   dark-mode override keeps working and this block only re-skins the tokens.
    Phosphor green: every neutral carries a slight green cast (hue 150) so the
-   app reads as one tube, not gray-with-green-text. Semantic hues are SHIFTED,
-   not replaced — destructive/brand stay red, warning amber, info cyan, the
-   role hues magenta/cyan — so no status loses its meaning. `--radius: 0`
-   cascades sharp corners through the radius chain; rounded-full elements
-   (avatars, pills) intentionally stay round. */
+   app reads as one tube, not gray-with-green-text. Semantic hues shift but
+   keep their meaning (destructive and brand stay red, warning amber, info
+   cyan, the role hues magenta and cyan). `--radius: 0` cascades sharp corners
+   through the radius chain; rounded-full elements (avatars, pills) stay round
+   on purpose. */
 .terminal {
   color-scheme: dark;
   /* Everything in the terminal's voice: mono type. Fonts live in
@@ -243,8 +243,8 @@
 }
 
 /* Signature: faint engineering graph-paper grid (Swiss grid + lab notebook).
-   The line color is the border token faded toward transparent — tune the
-   percentage to make the grid lighter (lower = fainter). */
+   The line color is the border token faded toward transparent; lower the
+   percentage for a fainter grid. */
 .graph-paper {
   --grid-line: color-mix(in oklch, var(--border) 55%, transparent);
   background-image:

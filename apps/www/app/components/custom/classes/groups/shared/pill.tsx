@@ -9,9 +9,9 @@ const TONE = {
 } as const;
 export type PillTone = keyof typeof TONE;
 
-/** Dot + mono label pill — the group wall's verdict vocabulary, reused
- *  wherever a group needs a state at a glance (status chips, the attach
- *  menu, the reuse card's availability). */
+/** Dot + mono label pill, the group wall's verdict vocabulary, reused
+ *  wherever a group needs a state at a glance (status chips, the attach menu,
+ *  the reuse card's availability). */
 export function Pill({
   tone,
   children,

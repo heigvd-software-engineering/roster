@@ -1,13 +1,13 @@
 // The live GitHub Team roster vs the `group_members` display cache.
 //
-// The team owns the roster — it is what grants push on the work repo. Every app
-// mutation re-derives the cache from GitHub right after the change, so drift only
-// appears when someone edits a team OUTSIDE the app (or when the cache is new and
-// still empty, which is why this reconciler is also the backfill).
+// The team owns the roster: it grants push on the work repo. Every app mutation
+// re-derives the cache from GitHub right after the change, so drift appears only
+// when someone edits a team outside the app, or when the cache is new and still
+// empty, which is why this reconciler doubles as the backfill.
 //
-// A team GitHub 404s is NOT reported here. That is `group-teams`' finding, and it
-// alone decides a vanished team's fate — a missing roster means "unknowable", and
-// a diff against nothing would propose emptying a group whose team we merely
+// A team GitHub 404s is not reported here. That is `group-teams`' finding, and
+// it alone decides a vanished team's fate. A missing roster means "unknowable",
+// and a diff against nothing would propose emptying a group whose team we merely
 // failed to read.
 import { labs } from "@roster/db";
 import { inArray } from "drizzle-orm";
@@ -28,9 +28,9 @@ const logins = (people: OrgPerson[]) => new Set(people.map((p) => p.login));
 const list = (names: Iterable<string>) =>
   [...names].map((l) => `@${l}`).join(", ");
 
-/** Lab titles, so a finding can NAME the group unambiguously. A group's `name`
- *  is unique only within its lab — and in an INDIVIDUAL lab it is the student's
- *  own login, so `"Ovich" has a different roster` reads as nonsense on its own. */
+/** Lab titles, so a finding can name the group unambiguously. A group's `name`
+ *  is unique only within its lab, and in an individual lab it is the student's
+ *  own login, so `"Ovich" has a different roster` reads as nonsense alone. */
 async function labTitles(
   ctx: Parameters<Reconciler["audit"]>[0],
   labIds: string[],
@@ -46,14 +46,14 @@ async function labTitles(
 /**
  * How the two differ, and what to call it.
  *
- * An audit compares two SNAPSHOTS. It never witnessed a change, so it may not
+ * An audit compares two snapshots. It never witnessed a change, so it may not
  * name one: "@x joined on GitHub" asserts an event, an actor, and a direction we
- * did not observe — the row could equally have been dropped on our side. Every
- * string below states what IS, and lets the teacher infer why.
+ * did not observe, when the row could equally have been dropped on our side.
+ * Every string below states what is, and lets the teacher infer why.
  *
  * Two genuinely different situations:
  *
- *   FIRST SYNC  we hold no roster at all — a group made before this cache
+ *   FIRST SYNC  we hold no roster at all: a group made before this cache
  *               existed, or one whose rows were lost. Nothing drifted.
  *   DRIFT       we hold a roster, and GitHub's team disagrees with it.
  */
@@ -72,8 +72,8 @@ function diff(
   const removed = [...was].filter((l) => !now.has(l));
   if (added.length === 0 && removed.length === 0) return null;
 
-  // The from/to chips are the two rosters themselves — an empty side reads
-  // as words, never as a blank chip.
+  // The from/to chips are the two rosters themselves. An empty side reads as
+  // words, never as a blank chip.
   const change = {
     from: cached.length === 0 ? "No roster recorded" : list(was),
     to: now.size === 0 ? "No members" : list(now),
@@ -151,8 +151,8 @@ export const groupMembersReconciler: Reconciler = {
       const group = byId.get(subjectOf(key));
       try {
         if (!group) throw new Error("group no longer exists");
-        // Re-reads GitHub rather than trusting the proposal: the audit only chose
-        // WHICH group to refresh. Idempotent — a second apply writes the same rows.
+        // Re-read GitHub rather than trust the proposal: the audit only chose
+        // which group to refresh. A second apply writes the same rows.
         const live = await syncGroupMembers(
           ctx.db,
           ctx.env,

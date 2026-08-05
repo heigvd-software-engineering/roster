@@ -4,10 +4,10 @@ import basicSsl from "@vitejs/plugin-basic-ssl";
 import { defineConfig } from "vite";
 
 export default defineConfig(({ command, isPreview }) => ({
-  // basicSsl is DEV-ONLY (https://localhost:3000, the origin SWITCH knows).
+  // basicSsl is dev-only (https://localhost:3000, the origin SWITCH knows).
   // `react-router build` prerenders the shell through an internal vite
-  // PREVIEW server (resolved with command "serve" too) that must stay
-  // http: — hence the isPreview guard, not just the command.
+  // preview server (also resolved with command "serve") that must stay
+  // http:, hence the isPreview guard rather than the command alone.
   plugins: [
     tailwindcss(),
     reactRouter(),
@@ -19,7 +19,7 @@ export default defineConfig(({ command, isPreview }) => ({
   // Dev only: Vite owns https://localhost:3000 (the origin SWITCH redirect
   // URIs and cookies are registered for) so the SPA gets HMR, and /api is
   // proxied to the Worker on :8788. In production the Worker serves both
-  // from one origin — no proxy involved.
+  // from one origin, with no proxy involved.
   server: {
     port: 3000,
     strictPort: true,

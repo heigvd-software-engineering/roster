@@ -1,6 +1,6 @@
-// User-token operations — act as the caller's own GitHub account (OAuth
-// token stored at link time). Only ever used for the caller's own identity
-// and access; org writes go through the installation token (org.ts).
+// User-token operations: act as the caller's own GitHub account (OAuth token
+// stored at link time). Used only for the caller's own identity and access;
+// org writes go through the installation token (org.ts).
 import { WorkersOctokit } from "./clients";
 
 export type GithubProfile = {
@@ -11,10 +11,10 @@ export type GithubProfile = {
 };
 
 /**
- * GitHub could not answer AT ALL — a 5xx, a rate limit, a network fault, a
- * malformed body. Deliberately distinct from a dead token (null profile):
- * the app's one translator (`apiOnError`) turns this into a 503
- * "github_unavailable", and it must NEVER read as "not linked" (re-link
+ * GitHub could not answer at all: a 5xx, a rate limit, a network fault, a
+ * malformed body. Deliberately distinct from a dead token (null profile). The
+ * app's one translator (`apiOnError`) turns this into a 503
+ * "github_unavailable", and it must never read as "not linked" (re-link
  * onboarding), "invalid link" (join), or "not found" (class access).
  */
 export class GithubUnavailableError extends Error {
@@ -24,9 +24,9 @@ export class GithubUnavailableError extends Error {
   }
 }
 
-/** Rethrow an octokit failure as `GithubUnavailableError` when GitHub itself
- *  is the problem (network = no status, 5xx, 429); anything else keeps its
- *  meaning for the caller. */
+/** Rethrow an octokit failure as `GithubUnavailableError` when GitHub itself is
+ *  the problem (no status means network, plus 5xx and 429); anything else keeps
+ *  its meaning for the caller. */
 function rethrowUnavailable(err: unknown, op: string): never {
   const status = (err as { status?: number }).status;
   if (status === undefined || status >= 500 || status === 429) {
@@ -38,11 +38,11 @@ function rethrowUnavailable(err: unknown, op: string): never {
 }
 
 /**
- * The linked user's live GitHub profile, or `null` — which means exactly ONE
- * thing: GitHub answered 401, the token is dead/revoked, and (re)linking is
- * the correct next step. Every other failure throws `GithubUnavailableError`
- * instead: an outage is ambiguous, and ambiguity must never send a healthy
- * link back through onboarding.
+ * The linked user's live GitHub profile, or `null`, which means exactly one
+ * thing: GitHub answered 401, the token is dead or revoked, and (re)linking is
+ * the next step. Every other failure throws `GithubUnavailableError` instead,
+ * because an outage is ambiguous and ambiguity must never send a healthy link
+ * back through onboarding.
  */
 export async function fetchGithubProfile(
   token: string,
@@ -94,12 +94,13 @@ type UserInstallation = {
 /**
  * The App installations accessible to the user, keyed by org account id.
  * GitHub includes an org's installation for every org Owner (and, later,
- * members with repo access) — callers layer their own role checks on top.
+ * members with repo access), so callers layer their own role checks on top.
  *
- * The payload already carries each org's `login` and `avatar_url`, so the teacher
- * hub renders those without paying for a per-class `orgInfo` call. `name` is
- * OPTIONAL on this endpoint (`string | null | undefined`) and therefore not
- * trustworthy — it comes from the cached class row until a reconcile refreshes it.
+ * The payload already carries each org's `login` and `avatar_url`, so the
+ * teacher hub renders those without paying for a per-class `orgInfo` call.
+ * `name` is optional on this endpoint (`string | null | undefined`) and so not
+ * trustworthy; it comes from the cached class row until a reconcile refreshes
+ * it.
  */
 export async function userInstallationsByOrgId(
   token: string,
@@ -122,21 +123,20 @@ export async function userInstallationsByOrgId(
 }
 
 /**
- * Every org the caller belongs to — role + state, keyed by org login,
- * LOWERCASED (GitHub logins are case-insensitive, cf. `isSameRepo`). ONE
- * bulk call answers the hub's per-class Owner question for all classes at
- * once (spec 2026-07-08): a class is the caller's iff its org is in the
- * installations map AND this map says `role: "admin", state: "active"`.
- * Authorization stays LIVE — this swaps one live shape for another; it
- * introduces no cache. Empirically verified reachable with a user-to-server
- * token (2026-07-09; the spec records the check).
+ * Every org the caller belongs to, role and state, keyed by lowercased org
+ * login (GitHub logins are case-insensitive, cf. `isSameRepo`). One bulk call
+ * answers the hub's per-class Owner question for all classes at once (spec
+ * 2026-07-08): a class is the caller's iff its org is in the installations map
+ * and this map says `role: "admin", state: "active"`. Authorization stays live;
+ * this swaps one live shape for another and adds no cache. Verified reachable
+ * with a user-to-server token (2026-07-09; the spec records the check).
  */
 export async function userOrgMemberships(token: string): Promise<{
   byLogin: Map<string, { role: string; state: string }>;
-  /** The caller's own GitHub login — every membership names them, so it rides
-   *  along for free (no extra /user call). Null only if the caller belongs to
-   *  no org. Lets a caller heal their OWN stale pending row, which is keyed by
-   *  the invitation id (not their user id) and so is only findable by login. */
+  /** The caller's own GitHub login. Every membership names them, so it rides
+   *  along free (no extra /user call). Null only if the caller belongs to no
+   *  org. Lets a caller heal their own stale pending row, which is keyed by the
+   *  invitation id, not their user id, and so is findable only by login. */
   login: string | null;
 }> {
   const gh = new WorkersOctokit({ auth: token });

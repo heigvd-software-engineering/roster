@@ -3,8 +3,8 @@ import { cn } from "~/lib/utils";
 /**
  * The hub's role marker: every class card carries a colored left SPINE
  * (scannable at any scroll speed) + a mono chip naming the caller's role.
- * Role hues are identity, not state — urgency stays brand red. Classes with
- * static literals only (Tailwind generates what it sees).
+ * Role hues are identity, not state: urgency stays brand red. Static class
+ * literals only, since Tailwind generates what it sees.
  */
 const ROLE = {
   teaching: {
@@ -23,14 +23,14 @@ const ROLE = {
 
 export type Role = keyof typeof ROLE;
 
-/** Card className fragment: the colored left spine (needs the card's
- *  overflow-hidden to clip to the rounded corners). */
+/** Card className fragment: the colored left spine. Needs the card's
+ *  overflow-hidden to clip to the rounded corners. */
 export function roleSpine(role: Role) {
   return ROLE[role].spine;
 }
 
-/** The mono role chip for the card header. (Prop is `kind`, not `role` —
- *  a `role` prop trips a11y linting as an ARIA role attribute.) */
+/** The mono role chip for the card header. The prop is `kind`, not `role`,
+ *  because a `role` prop trips a11y linting as an ARIA role attribute. */
 export function RoleChip({ kind }: { kind: Role }) {
   return (
     <span

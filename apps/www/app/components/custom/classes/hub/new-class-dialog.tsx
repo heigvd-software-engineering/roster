@@ -13,15 +13,15 @@ import {
 } from "~/components/ui/dialog";
 import { useAuth } from "~/contexts/auth-context";
 
-/** How roster maps onto GitHub — a term→meaning table, shown before connecting so
- *  a teacher knows exactly what "creating a class" does to their organization. */
+/** How roster maps onto GitHub: a term→meaning table, shown before connecting
+ *  so a teacher knows what "creating a class" does to their organization. */
 const MAPPING = [
   { term: "Class", detail: "The organization you connect." },
   {
     term: "Teachers",
     // Must match InviteTeacherDialog: roster sends the Owner invitation itself
-    // (or promotes an enrolled student on the spot) — the teacher never touches
-    // GitHub's own invite UI.
+    // (or promotes an enrolled student on the spot), so the teacher never
+    // touches GitHub's own invite UI.
     detail:
       "Its Owners. Invite them by GitHub username from the class page — roster sends the Owner invitation.",
   },
@@ -39,11 +39,11 @@ const MAPPING = [
 /**
  * The "Create a new class" entry point: explains the roster-on-GitHub model
  * (and the security change we make) BEFORE sending the teacher into the
- * GitHub App install flow — connecting an org otherwise reads as an obscure
+ * GitHub App install flow. Connecting an org otherwise reads as an obscure
  * technical step rather than "create a class".
  *
  * Two trigger surfaces: the page-header button (default) and a dashed ghost
- * card that sits under the class list — and IS the empty state when there are
+ * card that sits under the class list and IS the empty state when there are
  * no classes yet.
  */
 export function NewClassDialog({
@@ -104,11 +104,11 @@ export function NewClassDialog({
             </dl>
           </Stack>
 
-          {/* The safety-critical part: everything about who can see and do
-              what, folded into one paragraph and boxed so it can't be skimmed
-              past. roster locks the org on connect: base permission No access +
-              no member repo creation; access is per-repo grant only, which is
-              what makes student work private. */}
+          {/* Everything about who can see and do what, folded into one
+              paragraph and boxed so it can't be skimmed past. roster locks the
+              org on connect: base permission No access, no member repo
+              creation, access by per-repo grant only, which is what makes
+              student work private. */}
           <Stack gap="sm" className="rounded-lg border bg-muted/40 p-4">
             <Text variant="overline">Who can see and do what</Text>
             <Text variant="body2">
@@ -126,7 +126,7 @@ export function NewClassDialog({
         </Stack>
         <DialogFooter className="flex-col items-stretch gap-2 sm:flex-col sm:items-stretch">
           {/* The one thing to get right in GitHub's picker, kept next to the
-              button that sends them there rather than buried in the list above. */}
+              button that sends them there, not buried in the list above. */}
           <Text variant="caption">
             In GitHub's picker, choose an org showing <strong>Install</strong> —
             that creates the class. <em>Request</em> only asks its owners for

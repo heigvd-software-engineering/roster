@@ -1,16 +1,16 @@
 import { App, Octokit } from "octokit";
 import type { AuthEnv } from "../auth/config";
 
-// FOLDER-INTERNAL: only the operation modules in github/ import these
+// Folder-internal: only the operation modules in github/ import these
 // factories. Routes compose the named operations instead (see README.md).
 
 /**
- * Workers-safe Octokit. The `octokit` package bundles the retry + throttling
- * plugins, whose bottleneck timers resolve promises ACROSS request contexts —
- * the Workers runtime cancels those ("code had hung and would never generate
- * a response"), so the first request works and every later GitHub call hangs.
- * Disable both; we keep pagination (pure) and already contain failures
- * per-operation instead of retrying.
+ * Workers-safe Octokit. The `octokit` package bundles the retry and throttling
+ * plugins, whose bottleneck timers resolve promises across request contexts.
+ * The Workers runtime cancels those ("code had hung and would never generate a
+ * response"), so the first request works and every later GitHub call hangs.
+ * Disable both; pagination stays (it is pure) and failures are already
+ * contained per operation instead of retried.
  */
 export const WorkersOctokit = Octokit.defaults({
   throttle: { enabled: false },
@@ -18,11 +18,11 @@ export const WorkersOctokit = Octokit.defaults({
 });
 
 /**
- * The GitHub App (server-to-server). Workers-compatible: the App JWT is signed
- * with Web Crypto — which requires the key in **PKCS#8** (`BEGIN PRIVATE
- * KEY`), NOT GitHub's default PKCS#1 (`BEGIN RSA PRIVATE KEY`). Convert once when
- * setting the secret (see GITHUB_APP_SETUP.md). The secret is stored single-line
- * with `\n`, so normalize to real newlines here.
+ * The GitHub App (server-to-server). Web Crypto signs the App JWT and needs the
+ * key in **PKCS#8** (`BEGIN PRIVATE KEY`), not GitHub's default PKCS#1 (`BEGIN
+ * RSA PRIVATE KEY`). Convert once when setting the secret (see
+ * GITHUB_APP_SETUP.md). The secret is stored single-line with `\n`, so
+ * normalize to real newlines here.
  */
 function createAppClient(env: AuthEnv): App {
   return new App({
@@ -32,24 +32,24 @@ function createAppClient(env: AuthEnv): App {
   });
 }
 
-/** App-JWT client — for App-level reads like GET /app/installations/{id}. */
+/** App-JWT client, for App-level reads like GET /app/installations/{id}. */
 export function appJwtOctokit(env: AuthEnv) {
   return createAppClient(env).octokit;
 }
 
 /**
- * Installation tokens cached per isolate (they live 1h; we renew 5 min
- * early). Without this, EVERY operation minted its own token — one extra
- * GitHub round-trip per call. Only the token STRING is cached, never a
- * client or an in-flight promise: Workers forbids sharing I/O (pending
- * fetches) across request contexts, while a string is inert.
+ * Installation tokens cached per isolate (they live 1h; we renew 5 min early).
+ * Without this, every operation minted its own token, one extra GitHub
+ * round-trip per call. Only the token string is cached, never a client or an
+ * in-flight promise: Workers forbids sharing I/O (pending fetches) across
+ * request contexts, while a string is inert.
  */
 const installationTokens = new Map<
   number,
   { token: string; expiresAt: number }
 >();
 
-/** Installation-scoped client — for org reads/writes with least privilege. */
+/** Installation-scoped client, for org reads and writes at least privilege. */
 export async function installationOctokit(
   env: AuthEnv,
   installationId: number,

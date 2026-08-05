@@ -5,8 +5,8 @@ import { ClassCard } from "~/components/custom/classes/hub/class-card";
 import { formatDay } from "~/lib/format";
 
 // The card's actions report failures on the global message strip (useAction).
-// Stubbed rather than provided, as every other page test does — this file
-// asserts nothing about messages.
+// Stubbed rather than provided, as every other page test does, because this
+// file asserts nothing about messages.
 vi.mock("~/contexts/message-context", () => ({
   useMessages: () => ({ push: vi.fn() }),
 }));
@@ -61,7 +61,7 @@ describe("ClassCard people chips", () => {
   it("shows live counts with the pending suffix", () => {
     renderCard();
     expect(screen.getByText("1 student · 1 pending")).toBeInTheDocument();
-    // An invited teacher counts against the TEACHERS chip — being invited as
+    // An invited teacher counts against the teachers chip: being invited as
     // an Owner is not the same as being an invited student.
     expect(screen.getByText("1 teacher · 1 pending")).toBeInTheDocument();
   });
@@ -147,7 +147,7 @@ describe("ClassCard GitHub sync (reconcile)", () => {
   it("says the sync starts read-only before offering the link", () => {
     renderCard();
     fireEvent.click(screen.getByRole("button", { name: "GitHub sync" }));
-    // "Sync" reads as "repair now" — the copy has to say it doesn't.
+    // "Sync" reads as "repair now", so the copy has to say it doesn't.
     expect(screen.getByText(/read-only comparison/)).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "Review differences" }),

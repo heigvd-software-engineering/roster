@@ -7,11 +7,11 @@ import { findLabInClass, resolveClassAsTeacher } from "../lib/class-scope";
 import { orgTemplateRepos } from "../lib/github/repo";
 
 /**
- * Lab input (create AND update share it). `deadline` arrives as an ISO
- * string (JSON) and is coerced to a Date; group labs must carry a sane
- * min/max, individual labs must carry none (individual = a group of one,
- * min=max=1 implicitly). The optional template (starter code) comes as the
- * id+fullName pair from the templates endpoint — both or neither.
+ * Lab input, shared by create and update. `deadline` arrives as an ISO string
+ * (JSON) and is coerced to a Date. Group labs must carry a sane min/max;
+ * individual labs carry none (individual means a group of one, min=max=1).
+ * The optional template (starter code) comes as the id+fullName pair from the
+ * templates endpoint, both or neither.
  */
 const labInput = z
   .object({
@@ -52,17 +52,18 @@ export const createLab = authedFactory.createHandlers(
     const { db, cls } = access;
 
     const input = c.req.valid("json");
-    // The group slug — and so the WORK REPO NAME — is
-    // slugify(lab.title)-slugify(group.name), so two labs sharing a title share a
-    // repo namespace. The unique index is the backstop; this is the clean answer.
+    // The group slug, and so the work repo name, is
+    // slugify(lab.title)-slugify(group.name), so two labs sharing a title
+    // share a repo namespace. The unique index is the backstop; this is the
+    // clean answer.
     const [clash] = await db
       .select({ id: labs.id })
       .from(labs)
       .where(and(eq(labs.classId, cls.id), eq(labs.title, input.title)));
     if (clash) return c.json({ error: "title_taken" }, 409);
 
-    // The one date rule: a set start must precede the deadline. Ranges of
-    // DIFFERENT labs may overlap freely — lab 2 can open while lab 1 runs.
+    // The one date rule: a set start must precede the deadline. Different labs
+    // may overlap freely; lab 2 can open while lab 1 runs.
     if (input.startAt && input.startAt >= input.deadline) {
       return c.json({ error: "start_after_deadline" }, 409);
     }
@@ -93,9 +94,9 @@ export const createLab = authedFactory.createHandlers(
   },
 );
 
-/** Teacher-only: update a lab (same input shape as create — the edit dialog
- *  IS the create dialog). Attached groups are untouched; a size change that
- *  strands one shows as "needs N more" on the lab page. */
+/** Teacher-only: update a lab (same input shape as create, since the edit
+ *  dialog is the create dialog). Attached groups are untouched; a size change
+ *  that strands one shows as "needs N more" on the lab page. */
 export const updateLab = authedFactory.createHandlers(
   zValidator("json", labInput),
   async (c) => {
@@ -109,8 +110,8 @@ export const updateLab = authedFactory.createHandlers(
     }
 
     const input = c.req.valid("json");
-    // Same guard as createLab, excluding the lab being edited: keeping your own
-    // title must not read as a clash with yourself.
+    // Same guard as createLab, excluding the lab being edited: keeping your
+    // own title must not read as a clash with yourself.
     const [clash] = await db
       .select({ id: labs.id })
       .from(labs)
@@ -132,8 +133,8 @@ export const updateLab = authedFactory.createHandlers(
       .set({
         title: input.title,
         deadline: input.deadline,
-        // Absent means NULL on update too — the dialog always submits the
-        // complete form, so an emptied Start genuinely means "starts now".
+        // Absent means NULL on update too: the dialog always submits the
+        // complete form, so an emptied Start means "starts now".
         startAt: input.startAt ?? null,
         groupMode: input.groupMode,
         minMembers: input.minMembers ?? null,
@@ -151,7 +152,7 @@ export const updateLab = authedFactory.createHandlers(
   },
 );
 
-/** Teacher-only: the org's TEMPLATE repos — the lab dialog's starter-code
+/** Teacher-only: the org's template repos, the lab dialog's starter-code
  *  choices (only repos flagged `is_template` on GitHub can /generate). */
 export const listTemplateRepos = authedFactory.createHandlers(async (c) => {
   const access = await resolveClassAsTeacher(c, c.req.param("id"));

@@ -37,7 +37,8 @@ async function seedGroup(id: string, slug: string) {
   await db.insert(groups).values({
     id,
     labId: "l1",
-    // groups.ghTeamId is globally UNIQUE — a counter, not a hash of `id`.
+    // groups.ghTeamId is globally unique, so this counts up instead of hashing
+    // `id`.
     ghTeamId: nextTeamId++,
     ghTeamSlug: slug,
     slug,
@@ -126,7 +127,7 @@ test("sync of an EMPTY team empties the cache", async () => {
 });
 
 test("a team GitHub 404s LEAVES THE ROWS ALONE — unknowable, not empty", async () => {
-  // THE safety property of this cache. A team we merely failed to read must
+  // The safety property of this cache. A team we merely failed to read must
   // never be mistaken for a team nobody is in: that would destroy the only
   // record of who was in the group. `group-teams` decides a vanished team's
   // fate, and only after the teacher consents.
@@ -162,7 +163,7 @@ test("sync is idempotent on replay", async () => {
 });
 
 test("deleting the group takes its roster with it (FK cascade)", async () => {
-  // `deleteGroup` never touches group_members — it relies on this.
+  // `deleteGroup` never touches group_members; it relies on this cascade.
   await seedGroup("g1", "g1-slug");
   await seedRows("g1", [alice, bob]);
 
@@ -178,8 +179,8 @@ test("cachedRosters: one query, every asked-for group, empty ones included", asy
 
   const out = await cachedRosters(db, ["g1", "g2"]);
 
-  // A group nobody has joined is legitimately empty — it must not be absent,
-  // or a caller reading `.get(id)` cannot tell it from a group it never asked for.
+  // A group nobody has joined is empty, not absent: a caller reading `.get(id)`
+  // must be able to tell it from a group it never asked for.
   expect(out.get("g1")).toEqual([alice]);
   expect(out.get("g2")).toEqual([]);
 });

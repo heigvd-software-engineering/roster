@@ -3,7 +3,7 @@ import { Text } from "~/components/custom/typography/text";
 import { cn } from "~/lib/utils";
 
 type LoadingProps = {
-  /** While true, the children are replaced by the loading animation. */
+  /** While true, the loading animation replaces the children. */
   loading: boolean;
   /** Optional caption under the animation (e.g. "Loading classes…"). */
   label?: string;
@@ -11,7 +11,7 @@ type LoadingProps = {
   children?: React.ReactNode;
 };
 
-/** Three staggered black bars — a Swiss equalizer pulse. */
+/** Three staggered black bars, a Swiss equalizer pulse. */
 function Bars() {
   return (
     <output aria-label="Loading" className="flex h-6 items-end gap-1">
@@ -27,8 +27,8 @@ function Bars() {
 }
 
 /**
- * Wrap data-consuming components: renders a centered loading animation instead
- * of the children while their data is in flight.
+ * Wrap data-consuming components: shows a centered loading animation instead of
+ * the children while their data is in flight.
  *
  *   <Loading loading={isLoading} label="Loading classes…">
  *     <ClassList … />

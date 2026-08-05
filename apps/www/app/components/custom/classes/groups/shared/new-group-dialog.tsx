@@ -41,17 +41,17 @@ import { cn } from "~/lib/utils";
 
 /**
  * The New-group dialog (per-lab model): create a group IN this lab, started
- * from scratch OR **reused** from a group in another lab (copy-forward —
- * same members, a fresh GitHub team for this lab). The fork is two
- * first-class cards ("An empty group" / "Reuse a group" with an availability
- * chip); picking reuse reveals the source list below — still a selection,
- * not a mode switch: Create stays the single verb, disabled until a source
- * is picked. Reuse is ALL-OR-NOTHING — the server annotates each source with
- * why it can't be copied (`blocker`), those rows render disabled with the
- * reason, and the create endpoint enforces the same rule as the backstop.
- * The reuse sources come from the API by role: a student sees their own
- * groups, a teacher sees every group in the class (scoped by a lab select).
- * A creating student auto-joins.
+ * from scratch OR **reused** from a group in another lab (copy-forward: same
+ * members, a fresh GitHub team for this lab). The fork is two first-class
+ * cards ("An empty group" / "Reuse a group" with an availability chip), and
+ * picking reuse reveals the source list below. That stays a selection, not a
+ * mode switch: Create is the single verb, disabled until a source is picked.
+ * Reuse is ALL-OR-NOTHING. The server annotates each source with why it can't
+ * be copied (`blocker`), those rows render disabled with the reason, and the
+ * create endpoint enforces the same rule as the backstop. The reuse sources
+ * come from the API by role: a student sees their own groups, a teacher sees
+ * every group in the class (scoped by a lab select). A creating student
+ * auto-joins.
  */
 export function NewGroupDialog({
   classId,
@@ -68,7 +68,7 @@ export function NewGroupDialog({
   triggerLabel?: string;
   /** Replaces the default ghost tile (e.g. a toolbar button). */
   trigger?: React.ReactElement;
-  /** Follow-up after creation — revalidates the lab's group list. */
+  /** Follow-up after creation: revalidates the lab's group list. */
   onCreated: () => unknown;
 }) {
   const [open, setOpen] = useState(false);
@@ -102,7 +102,7 @@ type Blocker = NonNullable<ReusableGroup["blocker"]>;
 
 const handles = (logins: string[]) => logins.map((l) => `@${l}`).join(", ");
 
-/** The row's reason line — why this source can't be copied. */
+/** The row's reason line: why this source can't be copied. */
 function blockerReason(blocker: Blocker, memberCount: number): string {
   switch (blocker.reason) {
     case "source_empty":
@@ -120,7 +120,7 @@ function blockerReason(blocker: Blocker, memberCount: number): string {
   }
 }
 
-/** The dialog's inline 409 copy — mirrors the server's reuse vocabulary. */
+/** The dialog's inline 409 copy, mirroring the server's reuse vocabulary. */
 function conflictMessage(code: string | undefined): string {
   switch (code) {
     case "name_taken":
@@ -139,7 +139,7 @@ function conflictMessage(code: string | undefined): string {
 }
 
 /** The fork's ONE state: scratch, or reuse with the picked source id (null =
- *  reuse chosen, nothing picked yet). "Scratch with a source" is simply
+ *  reuse chosen, nothing picked yet). "Scratch with a source" is
  *  unrepresentable, so no handler has to keep two fields consistent. */
 type StartFrom =
   | { kind: "scratch" }
@@ -171,8 +171,8 @@ function NewGroupForm({
 
   const isLoaded = data !== undefined;
   const nothingToReuse = isLoaded && reusable.length === 0;
-  // The reuse card's advertisement: copyable sources across ALL labs (the
-  // picker's lab select scopes the list, not this count).
+  // The reuse card's advertisement: copyable sources across ALL labs. The
+  // picker's lab select scopes the list, not this count.
   const copyable = reusable.filter((r) => r.blocker === null);
   // Derived fresh each render so a revalidation re-checks the pick against
   // the server's verdicts: a source that got blocked under us deselects
@@ -184,7 +184,7 @@ function NewGroupForm({
         ) ?? null)
       : null;
 
-  /** Selecting a source prefills the name — but never over the user's own. */
+  /** Selecting a source prefills the name, but never over the user's own. */
   function pick(next: ReusableGroup | null) {
     const untouched = name.trim() === "" || name === source?.name;
     setStartFrom(
@@ -210,8 +210,8 @@ function NewGroupForm({
         };
         setError(conflictMessage(body.error));
         if (body.error !== "name_taken") {
-          // The verdicts changed under us (e.g. someone joined a group here
-          // since the dialog opened) — drop the stale pick, refetch the list.
+          // The verdicts changed under us, say someone joined a group here
+          // since the dialog opened: drop the stale pick, refetch the list.
           setStartFrom((prev) =>
             prev.kind === "reuse" ? { kind: "reuse", sourceId: null } : prev,
           );
@@ -245,7 +245,7 @@ function NewGroupForm({
         <Stack gap="sm">
           <Label id="start-from-label">Start from</Label>
           {/* The fork, promoted to two first-class cards: scratch-vs-reuse is
-              the dialog's core decision, so it looks like one — reuse used to
+              the dialog's core decision, so it looks like one. Reuse used to
               hide behind a caps label inside the scroll box. Still a
               selection, not a mode switch. */}
           <fieldset
@@ -261,8 +261,8 @@ function NewGroupForm({
             <StartFromCard
               selected={startFrom.kind === "reuse"}
               // Disabled while the list loads (no dead-end if it comes back
-              // empty) and disabled-but-VISIBLE when there's nothing to copy
-              // — the card still teaches that reuse exists.
+              // empty) and disabled-but-VISIBLE when there's nothing to copy,
+              // because the card still teaches that reuse exists.
               disabled={!isLoaded || nothingToReuse}
               label="Reuse a group"
               description={
@@ -284,8 +284,8 @@ function NewGroupForm({
             </StartFromCard>
           </fieldset>
         </Stack>
-        {/* The source picker only exists once reuse is chosen — the scratch
-            path stays a two-click flow, and the picker gets room to breathe. */}
+        {/* The source picker only exists once reuse is chosen, so the scratch
+            path stays a two-click flow and the picker gets room to breathe. */}
         {startFrom.kind === "reuse" && reusable.length > 0 ? (
           <ReuseSourcePicker
             groups={reusable}
@@ -312,7 +312,7 @@ function NewGroupForm({
         </Stack>
       </Stack>
       <DialogFooter className="items-stretch gap-3 sm:items-center">
-        {/* The outcome, readable at the moment of commitment — next to the
+        {/* The outcome, readable at the moment of commitment, next to the
             button that triggers it. */}
         <Text variant="caption" className="min-w-0 flex-1">
           {source
@@ -344,7 +344,7 @@ function NewGroupForm({
   );
 }
 
-/** The visual radio: the whole row is the button, this is its affordance —
+/** The visual radio: the whole row is the button, this is its affordance, so
  *  an option looks like an option before anything is clicked. */
 function RadioMark({ selected }: { selected: boolean }) {
   return (
@@ -365,9 +365,9 @@ function RadioMark({ selected }: { selected: boolean }) {
  *  card's description and meta lines. */
 const RADIO_GUTTER = "pl-6";
 
-/** One side of the fork: a big selectable card — radio + label + one-line
- *  description, `children` for meta like the reuse card's availability
- *  chip. (`label`, not `title`: title stays the tooltip, as everywhere.) */
+/** One side of the fork: a big selectable card with radio + label + one-line
+ *  description, plus `children` for meta like the reuse card's availability
+ *  chip. `label`, not `title`, because title stays the tooltip everywhere. */
 function StartFromCard({
   selected,
   disabled = false,
@@ -424,8 +424,8 @@ function AvailabilityChip({ copyable }: { copyable: number }) {
  * list to ONE lab, defaulting to the most recent (the list is createdAt-desc,
  * so the first title is the likeliest team to carry forward). A student's
  * list is already small (one group per lab), so it stays flat with the lab
- * named inline. Owns the view-only state (lab scope, roster expansion) —
- * the selection belongs to the form.
+ * named inline. Owns the view-only state (lab scope, roster expansion); the
+ * selection belongs to the form.
  */
 function ReuseSourcePicker({
   groups,
@@ -583,9 +583,9 @@ function BlockedSources({
 
 /**
  * One reuse source: a dense one-line row (name · avatars · count) with a
- * chevron that expands the full roster in place — UserIdentity rows, same as
- * the group tiles — without changing the selection. Blocked rows are dimmed
- * and spend a second line on WHY (the server's `blocker`), with the blocking
+ * chevron that expands the full roster in place, as UserIdentity rows like
+ * the group tiles, without changing the selection. Blocked rows dim and
+ * spend a second line on WHY (the server's `blocker`), with the blocking
  * member tagged inside the expanded roster.
  */
 function SourceRow({
@@ -687,8 +687,8 @@ function SourceRow({
   );
 }
 
-/** Up to three overlapping avatars + a "+N" chip — the roster at a glance;
- *  the chevron's expansion is where full identities live. */
+/** Up to three overlapping avatars + a "+N" chip, the roster at a glance.
+ *  Full identities live in the chevron's expansion. */
 function AvatarStack({
   members,
   users,

@@ -1,15 +1,15 @@
-// The org policy roster depends on — TWO settings on the class organization:
+// Two settings on the class organization that roster depends on:
 //
-//   - the BASE repository permission: what every member gets on every repo in
-//     the org, before any team grant. Must be "none", or every student
-//     silently reads other groups' work repos and the solutions template.
-//   - member REPOSITORY CREATION: whether a plain Member can create repos.
-//     Must be off — work repos are born through labs; a repo a student
-//     creates directly on GitHub sits outside every gate.
+//   - base repository permission: what every member gets on every repo in the
+//     org, before any team grant. Must be "none", or every student reads other
+//     groups' work repos and the solutions template.
+//   - member repository creation: whether a plain Member can create repos. Must
+//     be off. Work repos are born through labs, and a repo a student creates
+//     directly on GitHub sits outside every gate.
 //
-// `confirmClass` enforces and verifies both ONCE, at class creation
-// (handlers/classes.ts — its only caller). A teacher can flip either back in
-// the org's settings at any time; this reconciler is what re-checks them.
+// `confirmClass` enforces and verifies both once, at class creation; its only
+// caller is handlers/classes.ts. A teacher can flip either back in the org's
+// settings at any time, so this reconciler re-checks them.
 import { enforceOrgPolicy } from "../github/org";
 import type { Reconciler } from "./types";
 
@@ -27,8 +27,8 @@ export const basePermissionReconciler: Reconciler = {
         key: BASE_KEY,
         reconciler: "base-permission",
         severity: "broken" as const,
-        // The title says what is TRUE, not what the setting is called. A teacher
-        // reading "base permission is read" may not realise what it grants.
+        // The title says what is true, not what the setting is called. A
+        // teacher reading "base permission is read" may miss what it grants.
         title: "Every member can read every repository",
         detail: `The organization's base repository permission is "${policy.basePermission}", not "none". Students can read other groups' work repositories.`,
         fix: 'Set the base permission back to "none"',
@@ -59,8 +59,8 @@ export const basePermissionReconciler: Reconciler = {
   async apply(ctx, keys) {
     const requested = keys.filter((k) => k === BASE_KEY || k === CREATE_KEY);
     if (requested.length === 0) return [];
-    // ONE PATCH asserts the whole policy — idempotent, so repairing one
-    // setting while the other is already right is a no-op for the latter.
+    // One PATCH asserts the whole policy. It is idempotent, so repairing one
+    // setting leaves an already correct other one untouched.
     await enforceOrgPolicy(ctx.env, ctx.installationId, ctx.org);
     return requested.map((key) => ({ key, ok: true }));
   },

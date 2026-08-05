@@ -1,33 +1,33 @@
 import { createMiddleware } from "hono/factory";
 import type { Env } from "../../env";
 
-/** The methods that can CHANGE something. A GET may be expensive, but it is
- *  never the thing CSRF is trying to reach. */
+/** The methods that can change something. A GET may be expensive, but it is
+ *  never what CSRF is after. */
 const UNSAFE = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
 /**
  * Refuse a state-changing request that a browser tells us came from another
  * site. Defence in depth: the session cookie is already `SameSite=Lax`, so a
  * cross-site POST carries no credentials and lands on `requireAuth` as a 401.
- * This is the second lock — it holds if the cookie attributes ever change (a
+ * This is the second lock. It holds if the cookie attributes ever change (a
  * `SameSite=None` needed for some future embed), and it costs two header reads.
  *
- * Both signals are browser-CONTROLLED headers a page cannot forge:
+ * Both signals are browser-controlled headers a page cannot forge:
  *
- * - `Sec-Fetch-Site: cross-site` — the browser's own verdict, and the one that
+ * - `Sec-Fetch-Site: cross-site`, the browser's own verdict, and the one that
  *   still answers correctly when `Origin` is absent.
- * - `Origin` — checked against BETTER_AUTH_URL, the single origin this Worker
+ * - `Origin`, checked against BETTER_AUTH_URL, the single origin this Worker
  *   serves (`wrangler.jsonc`: one Worker, SPA and API, so first-party cookies).
  *
- * A MISSING `Origin` is allowed through. Browsers send it on every unsafe
- * request, including same-origin form posts, so absence means a non-browser
- * caller — curl, a test, a future CLI — which is not what CSRF is about, and
- * which has no ambient cookie to abuse either. Rejecting on absence would only
- * break those callers.
+ * A missing `Origin` passes. Browsers send it on every unsafe request,
+ * including same-origin form posts, so absence means a non-browser caller
+ * (curl, a test, a future CLI), which is not what CSRF is about and has no
+ * ambient cookie to abuse either. Rejecting on absence would break only those
+ * callers.
  *
  * Not `hono/csrf`, deliberately, though it reads the same two headers: that one
  * engages only for form-style content types (its documented threat model),
- * refuses when BOTH signals are absent, and answers plain-text `Forbidden`.
+ * refuses when both signals are absent, and answers plain-text `Forbidden`.
  * Here every unsafe method is covered whatever its content type, a missing
  * `Origin` passes for the reason above, and the refusal is JSON like every
  * other answer this API gives.

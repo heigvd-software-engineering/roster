@@ -28,16 +28,16 @@ import type { Theme } from "~/lib/theme";
 
 /**
  * THE account control, top-right: the app's one edu-ID (SWITCH) identity, and
- * the menu hanging off it — the linked GitHub account (with
- * unlink), theme, sign out. All data and actions come from the auth context.
+ * the menu hanging off it, holding the linked GitHub account (with unlink),
+ * theme, and sign out. All data and actions come from the auth context.
  *
  * It is chrome, not an identity component: `UserIdentity` is what it renders.
- * The trigger passes no avatarUrl because edu-ID has no picture — so the app's
+ * The trigger passes no avatarUrl because edu-ID has no picture, so the app's
  * own user is initials, exactly like every linked student on a roster.
  *
- * Opens on hover — Base UI's Menu has no hover-open prop, so we drive `open`
- * ourselves (short close delay to bridge the trigger→popup gap) while keeping
- * click/keyboard/Escape working.
+ * Opens on hover. Base UI's Menu has no hover-open prop, so we drive `open`
+ * ourselves, with a short close delay to bridge the trigger→popup gap, while
+ * keeping click/keyboard/Escape working.
  */
 export function MainSwitchIdentity() {
   const { user, github, isSuperAdmin, signOut, unlinkGithub } = useAuth();
@@ -57,8 +57,8 @@ export function MainSwitchIdentity() {
     closeTimer.current = setTimeout(() => setOpen(false), 120);
   };
 
-  // Clear a pending close on unmount — otherwise it fires setOpen after the
-  // component (and its state) is gone.
+  // Clear a pending close on unmount, or it fires setOpen after the component
+  // and its state are gone.
   useEffect(
     () => () => {
       if (closeTimer.current) {
@@ -138,12 +138,11 @@ export function MainSwitchIdentity() {
           </DropdownMenuRadioItem>
         </DropdownMenuRadioGroup>
         <DropdownMenuSeparator />
-        {/* The laws of lab orchestration — one page, students and teachers. */}
         <DropdownMenuItem onClick={() => navigate("/rules")}>
           <BookOpen />
           How roster works
         </DropdownMenuItem>
-        {/* The link is convenience — /api/admin's guard is the security. */}
+        {/* The link is convenience; /api/admin's guard is the security. */}
         {isSuperAdmin && (
           <>
             <DropdownMenuSeparator />

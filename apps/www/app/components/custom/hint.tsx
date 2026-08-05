@@ -12,10 +12,10 @@ import {
 import { cn } from "~/lib/utils";
 
 /**
- * A tiny icon button that explains itself in a popover ON CLICK — for the
- * middle ground between a tooltip (too easy to miss) and a confirm dialog
- * (too heavy to repeat): an operation that stays fully allowed but deserves
- * a visible, readable caveat right next to it.
+ * A tiny icon button that explains itself in a popover ON CLICK, the middle
+ * ground between a tooltip (too easy to miss) and a confirm dialog (too heavy
+ * to repeat): an operation that stays allowed but deserves a visible caveat
+ * next to it.
  */
 const VARIANT = {
   info: {
@@ -43,10 +43,10 @@ export function Hint({
   children,
 }: {
   variant?: keyof typeof VARIANT;
-  /** The button's accessible name — defaults to the variant's generic one.
-   *  Ignored when `text` is given (the visible text names the button). */
+  /** The button's accessible name, defaulting to the variant's generic one.
+   *  Ignored when `text` is given: the visible text names the button. */
   label?: string;
-  /** Visible text beside the icon — for places a bare icon is too subtle. */
+  /** Visible text beside the icon, where a bare icon is too subtle. */
   text?: string;
   /** Optional bold first line of the popover. */
   title?: string;

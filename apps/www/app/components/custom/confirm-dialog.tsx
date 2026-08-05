@@ -12,12 +12,11 @@ import {
 
 /**
  * A confirm gate in front of a consequential action: the `trigger` element
- * (with its own icon/label/tooltips) opens a small dialog; the action only
- * runs on explicit confirmation.
+ * opens a small dialog, and the action runs only on explicit confirmation.
  *
- * Controlled mode — `open`/`onOpenChange`, no `trigger` — is for callers
- * whose trigger lives inside something that unmounts on click (the group
- * card's kebab menu item): the dialog must outlive its opener.
+ * Controlled mode (`open`/`onOpenChange`, no `trigger`) serves callers whose
+ * trigger unmounts on click, like the group card's kebab menu item: the
+ * dialog must outlive its opener.
  */
 export function ConfirmDialog({
   trigger,
@@ -28,8 +27,7 @@ export function ConfirmDialog({
   open: controlledOpen,
   onOpenChange,
 }: {
-  /** The button that asks for the action (rendered as the dialog trigger).
-   *  Omitted in controlled mode. */
+  /** The button that opens the dialog. Omitted in controlled mode. */
   trigger?: ReactElement;
   title: string;
   description: string;

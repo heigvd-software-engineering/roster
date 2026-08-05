@@ -1,8 +1,8 @@
 /**
  * Deadline timestamps. Fixed en-GB so every viewer reads the same shape (the
  * app's copy is English; browser locales would reshuffle day/month order and
- * switch to 12-hour clocks). The time always shows — deadlines are moments,
- * not days — but the year only appears when it isn't the current one:
+ * switch to 12-hour clocks). Deadlines are moments, not days, so the time
+ * always shows, but the year appears only when it isn't the current one:
  * "10 Jul, 23:59" vs "1 Aug 2099, 23:59".
  */
 const WITH_YEAR = new Intl.DateTimeFormat("en-GB", {
@@ -20,7 +20,7 @@ const THIS_YEAR = new Intl.DateTimeFormat("en-GB", {
   minute: "2-digit",
 });
 
-/** Whether the lab is open to students — mirrors the API's `labStarted`
+/** Whether the lab is open to students. Mirrors the API's `labStarted`
  *  (apps/api/src/lib/groups.ts); the server verdict is authoritative, this
  *  only drives rendering. No start date = open since creation. */
 export function labStarted(lab: { startAt?: string | null }): boolean {
@@ -32,8 +32,8 @@ const DAY_MONTH = new Intl.DateTimeFormat("en-GB", {
   month: "short",
 });
 
-/** "1 Jun" — the timeline's compact day (no time, no year: the axis and
- *  the relative label beside it carry the rest). */
+/** "1 Jun": the timeline's compact day. No time, no year, because the axis
+ *  and the relative label beside it carry the rest. */
 export function formatDay(d: Date): string {
   return DAY_MONTH.format(d);
 }
@@ -44,7 +44,7 @@ export function formatDeadline(deadline: Date): string {
   return format.format(deadline);
 }
 
-/** "3 groups" / "1 group" — the one spelling of a pluralized count. */
+/** "3 groups" / "1 group": the one spelling of a pluralized count. */
 export function count(
   n: number,
   singular: string,
@@ -64,7 +64,7 @@ export function labModeLabel(lab: {
     : `group ${lab.minMembers}–${lab.maxMembers}`;
 }
 
-/** A SWITCH user's display name: real first + last when present (THE
+/** A SWITCH user's display name: real first + last when present (the
  *  identity inside the app), else the profile name. */
 export function switchDisplayName(user: {
   firstName: string | null;
@@ -82,7 +82,7 @@ export function switchDisplayName(user: {
 const usersMapCache = new WeakMap<object, Map<string, unknown>>();
 
 /** The linked-users rows (riding on class/groups responses) as a lookup by
- *  GitHub id — the one way member rosters correlate to SWITCH identities. */
+ *  GitHub id: the one way member rosters correlate to SWITCH identities. */
 export function usersByGithubId<U>(
   users?: { githubId: string; user: U }[],
 ): Map<string, U> {

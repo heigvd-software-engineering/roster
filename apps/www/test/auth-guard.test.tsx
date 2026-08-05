@@ -72,7 +72,7 @@ describe("Auth guard", () => {
   });
 
   it("fails OPEN when the link state is unknown (GitHub unreachable)", () => {
-    // An outage must not bounce a healthy link through onboarding — re-linking
+    // An outage must not bounce a healthy link through onboarding: re-linking
     // would fail too. The user stays in; the warning strip explains.
     navigateSpy.mockClear();
     vi.mocked(useAuth).mockReturnValue(

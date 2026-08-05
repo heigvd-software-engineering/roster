@@ -1,20 +1,20 @@
 // A group row whose backing GitHub Team no longer exists.
 //
-// GitHub is the authority for what exists. The team IS the group, as far as
-// GitHub is concerned: it holds the roster, and the work-repo grant is made TO
-// it. When someone deletes the team, the group is gone — the students have lost
-// push, the roster is unrecoverable (it only ever lived in the team), and no
-// amount of app-side data brings either back. So we follow GitHub and drop the
-// row, rather than resurrecting an empty team the teacher never asked for.
+// GitHub is the authority for what exists. As far as GitHub is concerned the
+// team is the group: it holds the roster, and the work-repo grant is made to it.
+// Delete the team and the group is gone. The students have lost push, the roster
+// is unrecoverable because it only ever lived in the team, and no app-side data
+// brings either back. So we follow GitHub and drop the row rather than resurrect
+// an empty team the teacher never asked for.
 //
-// The work repo is deliberately left in place. Nothing in this codebase ever
-// deletes a GitHub repository — student work outlives the group that made it. It
-// becomes an ORPHAN, and orphans re-attach by name: a group recreated with the
+// The work repo stays. Nothing in this codebase ever deletes a GitHub
+// repository, because student work outlives the group that made it. The repo
+// becomes an orphan, and orphans re-attach by name: a group recreated with the
 // same lab title and group name computes the same slug, and `createWorkRepo`'s
 // find-or-create path (or the `work-repos` reconciler) links it straight back.
 //
-// Teams that exist on GitHub but have no group row are NOT our business. We
-// cannot know which lab they belong to, and an org has teams roster never made.
+// Teams that exist on GitHub with no group row are not our business. We cannot
+// know which lab they belong to, and an org has teams roster never made.
 import { groups } from "@roster/db";
 import { eq } from "drizzle-orm";
 import { teamMembers } from "../github/team";
@@ -34,7 +34,7 @@ export const groupTeams: Reconciler = {
   async audit(ctx) {
     const rows = await ctx.groups();
     // A per-team 404 is definitive. Listing the org's teams would be one call
-    // instead of N, but a team the App cannot see would read as deleted — and
+    // instead of N, but a team the App cannot see would read as deleted, and
     // this finding removes a group row.
     const rosters = await Promise.all(
       rows.map((g) =>
@@ -71,7 +71,7 @@ export const groupTeams: Reconciler = {
       const groupId = subjectOf(key);
       try {
         // Idempotent: a row already gone is a success. The GitHub team is
-        // already deleted — that is what produced this finding — and the repo is
+        // already deleted, which is what produced this finding, and the repo is
         // never touched.
         if (byId.has(groupId)) {
           await ctx.db.delete(groups).where(eq(groups.id, groupId));

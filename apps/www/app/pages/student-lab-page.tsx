@@ -9,14 +9,14 @@ import { errorStatus } from "~/lib/api";
 import { formatDeadline, labStarted } from "~/lib/format";
 
 /**
- * /classes/:classId/labs/:labId — the STUDENT's lab page: accept the lab.
- * BOTH modes render through StudentLabGroups (one structure — the individual
- * lab is a solo group, visually too). Deliberately its own page (not a role
- * branch): F8+ grows it into the student's repo and standing. A caller who
- * TEACHES this class is redirected to the manage page.
+ * /classes/:classId/labs/:labId: the student's lab page, where they accept
+ * the lab. Both modes render through StudentLabGroups (one structure: the
+ * individual lab is a solo group, visually too). Its own page rather than a
+ * role branch, because F8+ grows it into the student's repo and standing. A
+ * caller who teaches this class is redirected to the manage page.
  *
- * ONE request: the groups response carries the lab, class identity, role,
- * and live membership state — a PENDING invitee gets the header and the
+ * One request: the groups response carries the lab, class identity, role and
+ * live membership state, so a pending invitee gets the header and the
  * accept-invitation prompt, never a 404.
  */
 export function StudentLabPage() {
@@ -55,7 +55,7 @@ export function StudentLabPage() {
             </Text>
           ) : g.lab.startAt && !labStarted(g.lab) ? (
             // The server already answers head-only pre-start; this is the
-            // matching face: what's next and when — nothing to act on yet.
+            // matching face: what's next and when, nothing to act on yet.
             <Text variant="body2">
               This lab starts {formatDeadline(new Date(g.lab.startAt))} — you'll
               be able to form groups and get the starter code then.

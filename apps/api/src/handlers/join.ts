@@ -9,19 +9,19 @@ import { inviteOrgMember, orgInfo, orgMembership } from "../lib/github/org";
 import { fetchGithubProfile } from "../lib/github/user";
 
 /**
- * Student-facing join flow. The token IS the authorization — anyone signed in
- * with a usable GitHub link may look up the class behind a link they possess
- * and ask to be invited. Deliberately NO isOrgAdmin here; class ids never
- * appear in this flow. An UNKNOWN token reads as 404 invalid_link, so the
- * response never reveals whether a class exists. A KNOWN token whose class is
- * unreachable reads as 409 class_needs_reconcile — the token is already proven
- * valid at that point, so this hides nothing, and the student deserves to know
- * the link is fine and their teacher has something to fix.
+ * Student-facing join flow. The token is the authorization: anyone signed in
+ * with a usable GitHub link may look up the class behind a link they hold and
+ * ask to be invited. No isOrgAdmin here, and class ids never appear in this
+ * flow. An unknown token answers 404 invalid_link, so the response never
+ * reveals whether a class exists. A known token whose class is unreachable
+ * answers 409 class_needs_reconcile: the token is already proven valid, so
+ * this hides nothing, and the student learns the link is fine and their
+ * teacher has something to fix.
  *
- * Both routes are also write points for the `class_members` enrollment
- * display cache (display only, never authorization): an observed membership
- * state is recorded, observed non-membership drops the row, and org Owners
- * (teachers on their own link) are never cached as enrollees.
+ * Both routes also write to the `class_members` enrollment display cache
+ * (display only, never authorization): an observed membership state is
+ * recorded, observed non-membership drops the row, and org Owners (teachers
+ * on their own link) are never cached as enrollees.
  */
 
 type JoinContext = {
@@ -30,7 +30,7 @@ type JoinContext = {
   username: string;
   /** The caller's GitHub user id, as `class_members`/`account` store it. */
   githubId: string;
-  /** The caller's GitHub avatar — cached with the observed membership. */
+  /** The caller's GitHub avatar, cached with the observed membership. */
   avatarUrl: string | null;
 };
 
@@ -76,21 +76,21 @@ async function resolveJoin(
       },
     };
   } catch {
-    // The token is VALID — we found its class. The org is unreachable: the App
-    // was uninstalled, or `installationId` went stale on a reinstall the teacher
-    // never completed. Saying "invalid link" here blames the student for a link
-    // that is perfect, and hides the one thing that would fix it.
+    // The token is valid (we found its class), but the org is unreachable:
+    // the App was uninstalled, or `installationId` went stale on a reinstall
+    // the teacher never completed. "Invalid link" would blame the student for
+    // a perfect link and hide the one thing that would fix it.
     //
     // This reveals nothing the success path doesn't: a healthy class already
-    // returns its name and avatar to anyone holding the token. Only an UNKNOWN
-    // token still reads as `invalid_link`, so whether a class exists stays
-    // hidden from someone who never had the link.
+    // returns its name and avatar to anyone holding the token. Only an
+    // unknown token still reads as `invalid_link`, so whether a class exists
+    // stays hidden from someone who never had the link.
     return { ok: false, status: 409, error: "class_needs_reconcile" };
   }
 }
 
 /** Record an observed membership state in the display cache. Owners are
- *  cached as TEACHERS (shown on the student class card), never as
+ *  cached as teachers (shown on the student class card), never as
  *  enrollees. */
 async function observeMembership(
   db: ReturnType<typeof getDb>,
@@ -116,10 +116,10 @@ async function observeMembership(
   }
 }
 
-/** Class preview + the caller's live membership state for a join link. A GET
- *  returns what it sees: this writes NOTHING. The student's page POSTs
- *  /join/:token/confirm to record what the preview observed, and the `identity`
- *  reconciler owns the org identity cache. */
+/** Class preview and the caller's live membership state for a join link. A GET
+ *  returns what it sees and writes nothing; the student's page POSTs
+ *  /join/:token/confirm to record what the preview observed, and the
+ *  `identity` reconciler owns the org identity cache. */
 export const previewJoin = authedFactory.createHandlers(async (c) => {
   const token = c.req.param("token");
   if (!token) return c.json({ error: "invalid_link" }, 404);
@@ -136,7 +136,7 @@ export const previewJoin = authedFactory.createHandlers(async (c) => {
   );
 
   // `role` lets the UI tell an org owner (teacher on their own link) apart
-  // from an enrolled student — "active" alone reads as "enrolled".
+  // from an enrolled student; "active" alone reads as "enrolled".
   return c.json({
     class: org,
     membership: (membership?.state ?? "none") as "none" | "pending" | "active",
@@ -160,7 +160,7 @@ export const requestJoin = authedFactory.createHandlers(async (c) => {
     username,
   );
   // Existing membership (active, or any pending invite) is left untouched:
-  // replaying is a no-op, and an org OWNER opening their own link must never
+  // replaying is a no-op, and an org Owner opening their own link must never
   // be demoted by a role:"member" PUT.
   if (current) {
     await observeMembership(db, cls, r.ctx, current);
@@ -183,11 +183,12 @@ export const requestJoin = authedFactory.createHandlers(async (c) => {
 });
 
 /**
- * Records what the preview observed. `previewJoin` is a GET and writes nothing;
- * once it reports the caller is already a member, the page POSTs here.
+ * Records what the preview observed. `previewJoin` is a GET and writes
+ * nothing, so once it reports the caller is already a member the page POSTs
+ * here.
  *
  * Re-reads live membership rather than trusting the client, and reuses
- * `observeMembership` — so the `teacher` branch and `forgetMember` (a member
+ * `observeMembership`, so the `teacher` branch and `forgetMember` (a member
  * GitHub no longer knows) come along for free.
  */
 export const confirmJoin = authedFactory.createHandlers(async (c) => {

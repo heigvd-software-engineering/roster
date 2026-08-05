@@ -8,8 +8,8 @@ const state = vi.hoisted(() => ({
   people: {
     teachers: [] as { id: number; login: string; avatarUrl: string | null }[],
     students: [] as { id: number; login: string; avatarUrl: string | null }[],
-    // Pending people are keyed by INVITATION id and carry the role the invite
-    // grants — the two facts that make them a different id space from members.
+    // Pending people are keyed by invitation id and carry the role the invite
+    // grants, the two facts that make them a different id space from members.
     pending: [] as {
       id: number;
       login: string;
@@ -111,7 +111,7 @@ beforeEach(async () => {
 });
 
 test("audit: an Owner who is also a member reads as teacher, not active", async () => {
-  // liveStates applies owners LAST, so the two GitHub lists can overlap.
+  // liveStates applies owners last, so the two GitHub lists can overlap.
   const prof = { id: 1, login: "prof", avatarUrl: null };
   state.people = { teachers: [prof], students: [prof], pending: [] };
 
@@ -124,7 +124,7 @@ test("audit: an Owner who is also a member reads as teacher, not active", async 
 });
 
 test("apply removes ONLY the named subject, never a bulk sweep", async () => {
-  // THE safety property. GitHub's roster is empty, so a whole-roster sweep
+  // The safety property. GitHub's roster is empty, so a whole-roster sweep
   // ("delete everyone absent from the live roster") would wipe all three. The
   // teacher checked one box; apply must destroy exactly one row.
   await cache([
@@ -150,8 +150,8 @@ test("apply: removing a row that is already gone is a success (replay)", async (
 
 test("apply writes what GitHub says NOW, not what the proposal described", async () => {
   // The audit saw a pending invite. By the time the teacher clicks Apply the
-  // student has accepted. We trust the teacher's choice of SUBJECT and re-read
-  // the STATE — so the row lands as "active", not the stale "pending".
+  // student has accepted. We trust the teacher's choice of subject and re-read
+  // the state, so the row lands as "active", not the stale "pending".
   state.people = {
     teachers: [],
     students: [{ id: 5, login: "renamed", avatarUrl: "http://new" }],
@@ -194,14 +194,13 @@ test("apply: a subject GitHub no longer knows fails as ONE op, and the rest stil
   expect(await cachedIds()).toEqual(["5"]);
 });
 
-// ── The two id spaces ──────────────────────────────────────────────────────
-// GitHub reports members by USER id and open invitations by INVITATION id, and
-// never gives the invitee's user id on an invitation. Everything below is about
-// keeping those apart without letting the same person read as two people.
+// The two id spaces: GitHub reports members by user id and open invitations by
+// invitation id, and never gives the invitee's user id on an invitation.
+// Everything below keeps those apart without letting one person read as two.
 
 test("audit: an open Owner invitation reads as an invited TEACHER", async () => {
   // The invite's role is the only thing separating an invited teacher from an
-  // invited student — `state: pending` alone would list them with the students.
+  // invited student; `state: pending` alone would list them with the students.
   state.people.pending = [
     { id: 900, login: "newprof", avatarUrl: null, role: "admin" },
     { id: 901, login: "newstudent", avatarUrl: null, role: "member" },
@@ -216,10 +215,10 @@ test("audit: an open Owner invitation reads as an invited TEACHER", async () => 
 });
 
 test("audit: an ACCEPTED invitation is one promotion, not a remove plus an add", async () => {
-  // THE case the invitation id exists for. Our own invite recorded both ids;
+  // The case the invitation id exists for. Our own invite recorded both ids;
   // the invitee has now accepted, so GitHub lists them as an Owner and the
-  // invitation is gone. Comparing the cached row in the INVITE space would
-  // report "invitation vanished" + "unknown owner appeared" — two findings
+  // invitation is gone. Comparing the cached row in the invite space would
+  // report "invitation vanished" plus "unknown owner appeared": two findings
   // about one person, neither of them true.
   await cache([
     {
@@ -267,15 +266,15 @@ test("apply: accepting an invitation leaves no invitation behind", async () => {
 });
 
 test("apply: someone else's open invitation survives an unrelated member being added", async () => {
-  // REGRESSION. Resolving a user subject clears any invitation row belonging to
-  // THAT person. An invite sent from GitHub's own UI carries no user id, so
-  // login is the only thing tying it to anyone — and a predicate of "any
-  // invitation without a user id" would happily match a stranger's.
+  // Regression. Resolving a user subject clears any invitation row belonging to
+  // that person. An invite sent from GitHub's own UI carries no user id, so
+  // login is the only thing tying it to anyone, and a predicate of "any
+  // invitation without a user id" would match a stranger's.
   //
-  // The person being added here never had an invitation, so the correct answer
-  // is to touch nothing: the only id-less invitation belongs to someone else.
-  // Stating it this way keeps the test independent of row order, which D1 does
-  // not promise (an order-dependent version of this passed against the bug).
+  // The person added here never had an invitation, so the right answer is to
+  // touch nothing: the only id-less invitation belongs to someone else. Stating
+  // it this way keeps the test independent of row order, which D1 does not
+  // promise (an order-dependent version of this passed against the bug).
   await cache([{ invitationId: "901", login: "unrelated", state: "pending" }]);
   state.people.teachers = [{ id: 5, login: "newprof", avatarUrl: null }];
   state.people.pending = [
@@ -289,14 +288,14 @@ test("apply: someone else's open invitation survives an unrelated member being a
     rows.map((r) => [r.login, r.state, r.githubId, r.invitationId]).sort(),
   ).toEqual([
     ["newprof", "teacher", "5", null],
-    // Untouched — it was never newprof's to resolve.
+    // Untouched: it was never newprof's to resolve.
     ["unrelated", "pending", null, "901"],
   ]);
 });
 
 test("apply: accepting an UNATTRIBUTABLE invitation resolves it by login", async () => {
   // The other half of the same rule: this invitation also has no user id, but
-  // it IS the accepting person's. Login is the only correlation available, and
+  // it is the accepting person's. Login is the only correlation available, and
   // without it they would keep a ghost "invited" row forever.
   await cache([
     { invitationId: "900", login: "newprof", state: "pending_teacher" },

@@ -1,19 +1,19 @@
 # Deploying roster to Cloudflare (from scratch)
 
-Target: a working deployment on a **Cloudflare account**, on the custom domain
+Target: a deployment on a **Cloudflare account**, on the custom domain
 **`roster.y-software.ch`**. One Worker (`roster-app`) serves both the API
 (Hono) and the SPA (static assets binding, SPA fallback,
 `run_worker_first: ["/api/*"]`), so there is exactly ONE thing to deploy.
 
-There is **one environment**: the top-level config in `apps/api/wrangler.jsonc`.
-No `--env` flag anywhere — `wrangler dev` runs that config locally, and
-`wrangler deploy` ships it. Everything below refers to the deployed origin as
-`<ORIGIN>` = `https://roster.y-software.ch`.
+There is **one environment**: the top-level config in
+`apps/api/wrangler.jsonc`. No `--env` flag anywhere. `wrangler dev` runs that
+config locally, `wrangler deploy` ships it. Below, `<ORIGIN>` =
+`https://roster.y-software.ch`.
 
 ## The one external dependency, up front
 
 **SWITCH edu-ID.** Sign-in is OIDC against `login.eduid.ch` with client
-`hes-so_roster_client`. The client registration must list the redirect URI or
+`hes-so_roster_client`. The client registration must list this redirect URI or
 every sign-in dies at SWITCH:
 
 ```
@@ -21,34 +21,34 @@ every sign-in dies at SWITCH:
 ```
 
 If you can edit the client registration yourself, add it in phase 4. If it
-belongs to HES-SO administration, request it FIRST — everything else can
-proceed in parallel, but no one signs in until this lands. (For local dev the
-same client also needs `https://localhost:3000/api/auth/oauth2/callback/switch`.)
+belongs to HES-SO administration, request it FIRST: everything else proceeds in
+parallel, but no one signs in until this lands. The same client also needs
+`https://localhost:3000/api/auth/oauth2/callback/switch` for local dev.
 
 ## The GitHub App
 
-One GitHub App backs the deployment. It accepts up to 10 **Callback URLs**
-(OAuth linking works from several origins, so production and `localhost:3000`
-can share one App for *linking*), but the **Setup URL is single-valued** — and
-the "connect a class" flow hangs on it: after an org installs/reconfigures the
-App, GitHub redirects the browser to that one URL, where the class row is born
-(`/api/github/setup`). Point it at production (`<ORIGIN>/api/github/setup`).
+One GitHub App backs the deployment. It accepts up to 10 **Callback URLs**, so
+production and `localhost:3000` share one App for *linking*. The **Setup URL is
+single-valued**, and the "connect a class" flow hangs on it: after an org
+installs or reconfigures the App, GitHub sends the browser there and the class
+row is born (`/api/github/setup`). Point it at production
+(`<ORIGIN>/api/github/setup`).
 
 To exercise the install/connect flow locally, either temporarily repoint the
 Setup URL at `https://localhost:3000/api/github/setup`, or create a separate
 dev App and put its slug + OAuth pair in `apps/api/.dev.vars`. Everyday local
 work (sign-in, GitHub linking) does not need this.
 
-Corollary: the D1 knows only the classes born through its setup callback. An
-org visible in `/user/installations` but without a class row shows no class —
-that's the data model ("GitHub proposes, the DB disposes"), not a bug.
+The D1 knows only the classes born through that setup callback: an org visible
+in `/user/installations` without a class row shows no class. That's the data
+model ("GitHub proposes, the DB disposes"), not a bug.
 
-## Phase 0 — prerequisites
+## Phase 0: prerequisites
 
 - Cloudflare account (free plan is enough: Workers + D1 free tiers cover this).
-- The **`y-software.ch` zone on that account** — the Worker's custom domain is
-  provisioned from `wrangler.jsonc`'s `routes` on deploy, which requires the
-  zone to be active on the deploying account.
+- The **`y-software.ch` zone on that account**: deploy provisions the Worker's
+  custom domain from `wrangler.jsonc`'s `routes`, which requires the zone
+  active on the deploying account.
 - `wrangler login` (opens the browser; grants the CLI your account).
 - A GitHub account for the App.
 
@@ -58,7 +58,7 @@ pnpm exec wrangler login
 pnpm exec wrangler whoami   # confirm the account owns the y-software.ch zone
 ```
 
-## Phase 1 — database + first deploy (claims the domain)
+## Phase 1: database + first deploy (claims the domain)
 
 Create the remote D1 and point the config at it:
 
@@ -84,9 +84,9 @@ pnpm --filter @roster/api run deploy
 #   zone is on this account.
 ```
 
-The app will load but sign-in is dead until phases 2–5. That's expected.
+The app loads, but sign-in stays dead until phases 2–5. That's expected.
 
-## Phase 2 — public config in wrangler.jsonc, secrets outside it
+## Phase 2: public config in wrangler.jsonc, secrets outside it
 
 Non-secret config is committed in the top-level `vars`; secrets never are.
 Wrangler does **not** interpolate env vars into `wrangler.jsonc` (`${VAR}`
@@ -98,63 +98,60 @@ ships as a literal string), so the config file is the only place these live:
   "EDUID_ISSUER": "https://login.eduid.ch",
   "GITHUB_APP_SLUG": "<the App slug, from phase 3>",
   // Comma-separated edu-ID emails. EMPTY = nobody can create classes
-  // (fail closed) — see "Super admins" below.
+  // (fail closed). See "Super admins" below.
   "SUPER_ADMIN_EMAILS": "<admin1@…>,<admin2@…>"
 }
 ```
 
-### Super admins — bootstrap and exact scope
+### Super admins: bootstrap and exact scope
 
-Class creation is a **granted capability**, not open to every signed-in
-user. The bootstrap chain, from nothing to the first class:
+Class creation is a **granted capability**: signing in is not enough. The
+bootstrap chain, from nothing to the first class:
 
 1. Put the admins' **edu-ID emails** in `SUPER_ADMIN_EMAILS` (comma-
    separated; matched case-insensitively against the account's PRIMARY
-   edu-ID email — the one the app's account menu shows, often a personal
-   address, NOT necessarily the institutional one). Deploy.
+   edu-ID email, the one the account menu shows, often a personal address,
+   NOT necessarily the institutional one). Deploy.
 
-   > **Use institutional addresses.** This var is the top of the privilege
-   > chain, and it is matched on a STRING: whoever can receive mail at a
-   > listed address can register an edu-ID under it and become a super
-   > admin. A personal mailbox (hotmail, gmail) puts that entirely outside
-   > the school's control — and unlike everything else here, there is no
-   > second check behind it.
+   > **Use institutional addresses.** This var tops the privilege chain and
+   > matches on a STRING: whoever can receive mail at a listed address can
+   > register an edu-ID under it and become a super admin. A personal
+   > mailbox (hotmail, gmail) puts that outside the school's control, and no
+   > second check stands behind it.
 2. The admin signs in once (their user row must exist), opens the account
    menu → **Super admin** → `/admin`.
 3. There they flip **"Can create classes"** for whoever should create
-   classes — *including themselves*: being an admin grants nothing
-   implicitly; the toggle is the one condition the setup callback checks.
+   classes, *including themselves*: that toggle is the one condition the
+   setup callback checks.
 
-Exact scope of the role, as of 2026-07-27 — a super admin can:
+Exact scope of the role, as of 2026-07-27. A super admin can:
 
 - open `/admin` (everyone else: menu item absent, page bounces, API 403);
-- see the list of all signed-in users (name, primary email, admin badge,
-  grant state) and grant/revoke **"Can create classes"** per user.
+- see all signed-in users (name, primary email, admin badge, grant state)
+  and grant or revoke **"Can create classes"** per user.
 
 And deliberately can NOT:
 
-- create classes without flipping their own toggle (one condition for
-  everyone);
-- make anyone a super admin — the role lives ONLY in this config var, is
+- make anyone a super admin. The role lives ONLY in this config var, is
   never stored in the database, and no UI grants it;
-- see or touch anyone's classes, labs, groups, or repos — class-scoped
+- see or touch anyone's classes, labs, groups, or repos. Class-scoped
   teacher rights come from GitHub org ownership, exactly as before;
-- retroactively affect anything: revoking stops FUTURE class creation
+- change anything retroactively: revoking stops FUTURE class creation
   only; existing classes, and the repair path of an already-connected
   org (reinstall/reconfigure), keep working for their owners.
 
-Empty or unset `SUPER_ADMIN_EMAILS` fails **closed**: no admin zone for
-anyone, and — with no grants ever made — no class creation at all.
+Empty or unset `SUPER_ADMIN_EMAILS` fails **closed**: no admin zone for anyone,
+and with no grants ever made, no class creation at all.
 
 Local dev overrides `BETTER_AUTH_URL` and `GITHUB_APP_SLUG` in
-`apps/api/.dev.vars` (git-ignored) — a value there wins over `vars` during
+`apps/api/.dev.vars` (git-ignored); a value there wins over `vars` during
 `wrangler dev`. That file also holds the phase-5 **secrets**. Copy
 `apps/api/.dev.vars.example` to start.
 
-## Phase 3 — the GitHub App
+## Phase 3: the GitHub App
 
-**Follow `GITHUB_APP_SETUP.md`** — the canonical creation guide (field-by-field
-form values, permissions, private-key conversion) — with these values:
+**Follow `GITHUB_APP_SETUP.md`**, the creation guide (field-by-field form
+values, permissions, private-key conversion), with these values:
 
 | Placeholder in the guide | Value |
 |---|---|
@@ -168,20 +165,20 @@ must be **public** (Advanced → Make public) to be installable on orgs, and the
 private key must be converted to **PKCS#8**.
 
 Collect on the App's General page: **App ID**, **slug**, **Client ID**, a
-generated **client secret**, and the converted **private key** — they feed
+generated **client secret**, and the converted **private key**. They feed
 `wrangler.jsonc` (`GITHUB_APP_SLUG`) and the four `GITHUB_*` secrets in
 phase 5, then redeploy (phase 6).
 
-## Phase 4 — SWITCH edu-ID redirect URI
+## Phase 4: SWITCH edu-ID redirect URI
 
 Add `<ORIGIN>/api/auth/oauth2/callback/switch` to the `hes-so_roster_client`
 registration (and `https://localhost:3000/api/auth/oauth2/callback/switch` for
 local dev).
 
-## Phase 5 — secrets
+## Phase 5: secrets
 
 Seven secrets, all via `wrangler secret put` (each opens a paste prompt; run
-from `apps/api`). No `--env` — they land on the one Worker:
+from `apps/api`). No `--env`: they land on the one Worker.
 
 ```bash
 pnpm exec wrangler secret put BETTER_AUTH_SECRET       # FRESH random: node -e "console.log(crypto.randomBytes(32).toString('hex'))"
@@ -193,21 +190,21 @@ pnpm exec wrangler secret put GITHUB_APP_ID            # the App's numeric id
 pnpm exec wrangler secret put GITHUB_APP_PRIVATE_KEY   # the single-line PKCS#8 from phase 3
 ```
 
-Never reuse the local-dev `BETTER_AUTH_SECRET` — it's in `.dev.vars` on every
+Never reuse the local-dev `BETTER_AUTH_SECRET`: it sits in `.dev.vars` on every
 dev machine.
 
-**⚠ BOM warning:** don't pipe secret values from PowerShell 5.1 — it prepends a
-UTF-8 BOM and the provider will reject the credential as unknown. Paste
+**⚠ BOM warning:** don't pipe secret values from PowerShell 5.1. It prepends a
+UTF-8 BOM and the provider rejects the credential as unknown. Paste
 interactively or pipe with Git Bash `printf '%s'`.
 
-## Phase 6 — final deploy + smoke test
+## Phase 6: final deploy + smoke test
 
 ```bash
 pnpm --filter @roster/www build
 pnpm --filter @roster/api run deploy
 ```
 
-Walk, in order (each step proves a different integration):
+Walk, in order:
 
 1. `<ORIGIN>/api/health` answers.
 2. `<ORIGIN>` loads the SPA; sign in with SWITCH edu-ID → proves the OIDC
@@ -222,8 +219,7 @@ Walk, in order (each step proves a different integration):
 
 ## Redeploys
 
-Any later change — build first, then deploy (two commands; PowerShell 5.1
-has no `&&`):
+Build first, then deploy (two commands; PowerShell 5.1 has no `&&`):
 
 ```bash
 pnpm --filter @roster/www build
@@ -231,12 +227,12 @@ pnpm --filter @roster/api run deploy
 ```
 
 Migrations added later: `wrangler d1 migrations apply roster-db --remote`
-before the deploy. Secrets and D1 survive deploys — only code and `vars` ship.
+before the deploy. Secrets and D1 survive deploys; only code and `vars` ship.
 
-Adding/removing a super admin is a `vars` edit (`SUPER_ADMIN_EMAILS` in
-`wrangler.jsonc`) + redeploy — no migration, nothing stored in the DB.
+Adding or removing a super admin is a `vars` edit (`SUPER_ADMIN_EMAILS` in
+`wrangler.jsonc`) plus a redeploy: no migration, nothing stored in the DB.
 
-A deploy always ships whatever is in `apps/www/build/client` — rebuild from an
+A deploy always ships whatever is in `apps/www/build/client`. Rebuild from an
 up-to-date tree before deploying, and verify the served `index.html` references
 the `assets/manifest-*.js` hash you just built.
 
@@ -244,7 +240,7 @@ the `assets/manifest-*.js` hash you just built.
 
 Everything below runs from `apps/api` (`pnpm exec wrangler …`). No `--env`.
 
-**Live logs — the first tool to reach for when it misbehaves:**
+**Live logs, the first thing to check when it misbehaves:**
 
 ```bash
 pnpm exec wrangler tail --format pretty
@@ -252,8 +248,8 @@ pnpm exec wrangler tail --format pretty
 
 Streams every request and every `console.error` as it happens. The API's error
 handler logs the real upstream failure (e.g.
-`github unavailable: GET /user/installations → 503`), which the SPA only shows
-as a generic banner — the tail is where the actual cause lives.
+`github unavailable: GET /user/installations → 503`), which the SPA shows only
+as a generic banner.
 
 **Versions and rollback:**
 
@@ -264,14 +260,14 @@ pnpm exec wrangler versions view <VERSION_ID>   # a version's compat date/flags,
 pnpm exec wrangler rollback <VERSION_ID>        # make an old version live again
 ```
 
-Every deploy's version id is printed at the end (`Current Version ID: …`).
-Rollback re-activates that exact version — code, vars, and its secrets — so a
+Every deploy prints its version id at the end (`Current Version ID: …`).
+Rollback re-activates that exact version (code, vars, and its secrets), so a
 bad deploy is undone in seconds without a rebuild.
 
 **Secrets:**
 
 ```bash
-pnpm exec wrangler secret list               # names only — values are write-only
+pnpm exec wrangler secret list               # names only; values are write-only
 pnpm exec wrangler secret put <KEY>          # set/replace one (paste prompt)
 pnpm exec wrangler secret delete <KEY>
 ```
@@ -284,52 +280,49 @@ pnpm exec wrangler d1 execute roster-db --remote --json --command "SELECT …"
 ```
 
 `d1 execute` is the remote-debugging escape hatch (row counts, drift checks).
-SQLite gotcha: a double-quoted name that matches no column silently becomes a
-string literal instead of erroring — the auth tables are snake_case
+SQLite gotcha: a double-quoted name matching no column silently becomes a
+string literal instead of erroring, and the auth tables are snake_case
 (`provider_id`, `access_token`), so a typo'd camelCase query "works" and
 returns garbage.
 
 **When the app blames GitHub, check GitHub first.** The SPA's "GitHub is
 unreachable right now" banner plus 503s on everything GitHub-backed is the
-app's *designed* response to a GitHub outage — `wrangler tail` will show
-`github unavailable: … → 5xx` from GitHub itself. Before suspecting a deploy or
-the secrets, check <https://www.githubstatus.com>. `/api/health` only proves
-the Worker runs; it says nothing about the GitHub leg.
+app's *designed* response to a GitHub outage, and `wrangler tail` shows
+`github unavailable: … → 5xx` from GitHub itself. Check
+<https://www.githubstatus.com> before suspecting a deploy or the secrets.
+`/api/health` only proves the Worker runs; it says nothing about the GitHub leg.
 
 ## What the deploy hardens on its own
 
-Three things ship with the Worker and need no setup — listed because they
-are invisible until one of them refuses something.
+Three things ship with the Worker and need no setup. Each stays invisible until
+it refuses something.
 
 - **Rate limits.** Two `ratelimits` bindings in `wrangler.jsonc`:
   `AUTH_LIMITER` (60/min per IP, on `/api/auth/*` and `/api/join/*`) and
-  `SETUP_LIMITER` (10/min, on the unauthenticated `/api/github/setup`,
-  which spends several GitHub calls per request). Which routes carry one is
-  declared in the route module itself (`src/routes/auth.ts`, `join.ts`,
-  `setup.ts`), not in a list somewhere central. Over the limit is a
-  `429 {"error":"rate_limited"}`. `namespace_id` is just a counter name —
-  nothing is provisioned in the dashboard, and the binding is optional in
-  code, so `wrangler dev` runs fine without it. Better Auth's own limiter is
-  switched off on purpose (`src/lib/auth/config.ts`): its counters live in
-  per-isolate memory, which on Workers is no ceiling at all.
+  `SETUP_LIMITER` (10/min, on the unauthenticated `/api/github/setup`, which
+  spends several GitHub calls per request). Each route module declares its own
+  limiter (`src/routes/auth.ts`, `join.ts`, `setup.ts`); no central list
+  exists. Over the limit: `429 {"error":"rate_limited"}`. `namespace_id` is
+  just a counter name, provisioned nowhere, and the binding is optional in
+  code, so `wrangler dev` runs without it. Better Auth's own limiter is off on
+  purpose (`src/lib/auth/config.ts`): its counters live in per-isolate memory,
+  no ceiling at all on Workers.
 - **Response headers.** The SPA's come from `apps/www/build/client/_headers`,
-  GENERATED at build time by `apps/www/scripts/security-headers.mjs`
-  (the CSP hashes the built page's inline scripts, so it cannot be
-  hand-written). The API's are set by the Worker
-  (`src/lib/http/security-headers.ts`). Both surfaces sit on one origin and
-  neither covers the other; a change to one is not a change to the other.
-- **Same-origin writes.** `POST`/`PUT`/`PATCH`/`DELETE` under `/api` are
-  refused with `403 {"error":"cross_origin"}` when the browser reports a
-  different origin. If a future deploy serves the SPA from a SECOND origin,
-  that check (`src/lib/http/same-origin.ts`, keyed on `BETTER_AUTH_URL`) is
-  what will refuse it.
+  GENERATED at build time by `apps/www/scripts/security-headers.mjs` (the CSP
+  hashes the built page's inline scripts, so hand-writing it fails). The
+  Worker sets the API's (`src/lib/http/security-headers.ts`). Both sit on one
+  origin, and neither covers the other.
+- **Same-origin writes.** `POST`/`PUT`/`PATCH`/`DELETE` under `/api` get
+  `403 {"error":"cross_origin"}` when the browser reports a different origin.
+  A future deploy serving the SPA from a SECOND origin will trip that check
+  (`src/lib/http/same-origin.ts`, keyed on `BETTER_AUTH_URL`).
 
 ## Not in scope (revisit for real use)
 
 - CI deploys (GitHub Actions with a Cloudflare API token).
 - D1 backups / time travel beyond the built-in 30 days.
 - GitHub API headroom: shares the GitHub App installation quota
-  (5000/hr/org) — a class of 30 doesn't approach it.
+  (5000/hr/org); a class of 30 doesn't approach it.
 - OAuth tokens (`account.access_token` / `refresh_token`) are stored in D1
   in the clear. Better Auth can encrypt them (`account.encryptOAuthTokens`),
   which needs a decision about the rows already there.

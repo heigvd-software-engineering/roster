@@ -18,11 +18,11 @@ import { Label } from "~/components/ui/label";
 import { api } from "~/lib/api";
 
 /**
- * Invite a teacher, by GitHub username. Teachers are org OWNERS on GitHub —
- * the description says so plainly before anything happens. An active member
- * is promoted on the spot; anyone else gets an Owner invitation and shows as
- * pending until they accept on GitHub. Either way the server observes its own
- * write, so the roster is current without a sync.
+ * Invite a teacher, by GitHub username. Teachers are org OWNERS on GitHub,
+ * and the description says so plainly before anything happens. An active
+ * member is promoted on the spot; anyone else gets an Owner invitation and
+ * shows as pending until they accept on GitHub. Either way the server
+ * observes its own write, so the roster is current without a sync.
  */
 export function InviteTeacherDialog({
   classId,
@@ -30,10 +30,10 @@ export function InviteTeacherDialog({
   onDone,
 }: {
   classId: string;
-  /** The class's GitHub org — links the caller to the invitation they must
+  /** The class's GitHub org: links the caller to the invitation they must
    *  cancel THERE, since only GitHub can withdraw one. */
   orgLogin: string;
-  /** The OWNER of the classes data revalidates — same contract as LabDialog. */
+  /** The OWNER of the classes data revalidates, as in LabDialog. */
   onDone: () => unknown;
 }) {
   const [open, setOpen] = useState(false);
@@ -72,7 +72,7 @@ export function InviteTeacherDialog({
           setError(`@${name} is already a teacher of this class.`);
           return;
         }
-        // An open invitation blocks a second one — GitHub refuses it, and
+        // An open invitation blocks a second one: GitHub refuses it, and
         // removing the person from the organization does NOT withdraw it.
         // Only GitHub can cancel an invitation, so point straight at the page
         // that does it rather than leaving a dead end.
@@ -99,7 +99,7 @@ export function InviteTeacherDialog({
       }
       const body = await res.json();
       await onDone();
-      // A promotion is finished the moment it returns — only a real INVITATION
+      // A promotion is finished the moment it returns. Only a real INVITATION
       // leaves someone to chase, so only that keeps the dialog open.
       if (body.state === "pending") {
         setInvited(name);

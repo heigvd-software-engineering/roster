@@ -4,7 +4,7 @@ import { useApi } from "~/lib/api";
 import { AdminPage } from "~/pages/admin-page";
 
 /**
- * /admin — the page bounces non-admins (display; the API guard is the
+ * /admin: the page bounces non-admins (display only; the API guard is the
  * boundary), filters client-side, and toggles the grant row via PUT.
  */
 
@@ -87,7 +87,7 @@ describe("AdminPage", () => {
     ).toBeInTheDocument();
     const switches = screen.getAllByRole("switch");
     expect(switches).toHaveLength(2);
-    // Ada is config-admin but holds no grant row — her toggle is OFF.
+    // Ada is config-admin but holds no grant row, so her toggle is off.
     expect(switches[0]).toHaveAttribute("aria-checked", "false");
     expect(switches[1]).toHaveAttribute("aria-checked", "true");
   });

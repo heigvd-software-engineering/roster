@@ -1,9 +1,8 @@
 /**
- * The academic calendar as an ORDERED list of terms (by start month,
- * 1-based). Everything else — labels, ranges, paging — derives from this
- * one object, so a calendar shift is a one-line edit here. A date before
- * the first term's start belongs to the LAST term of the previous
- * calendar year.
+ * The academic calendar as an ordered list of terms (by start month,
+ * 1-based). Labels, ranges and paging all derive from this one object, so a
+ * calendar shift is a one-line edit here. A date before the first term's
+ * start belongs to the last term of the previous calendar year.
  *
  * Defaults follow HEIG-VD: spring February–June, summer school July–August,
  * autumn September–January.
@@ -41,7 +40,7 @@ export function semesterOf(
   return { season: last.season, year: year - 1 };
 }
 
-/** e.g. "Spring 2026" — the classes-page group heading. */
+/** e.g. "Spring 2026": the classes-page group heading. */
 export function semesterLabel(
   semester: Semester,
   config: SemesterConfig = SEMESTER_CONFIG,
@@ -50,7 +49,6 @@ export function semesterLabel(
   return `${term?.label ?? semester.season} ${semester.year}`;
 }
 
-/** The semester we're in right now. */
 export function currentSemester(
   now: Date = new Date(),
   config: SemesterConfig = SEMESTER_CONFIG,
@@ -71,7 +69,7 @@ export function previousSemester(
   return { season: last.season, year: semester.year - 1 };
 }
 
-/** The moment the semester begins — the hub's `from` window bound. */
+/** The moment the semester begins: the hub's `from` window bound. */
 export function semesterStart(
   semester: Semester,
   config: SemesterConfig = SEMESTER_CONFIG,
@@ -81,7 +79,7 @@ export function semesterStart(
   return new Date(semester.year, term.startMonth - 1, 1);
 }
 
-/** The moment the semester ends — EXCLUSIVE: the next term's start (autumn
+/** The moment the semester ends, exclusive: the next term's start (autumn
  *  rolls into the next calendar year's first term). */
 export function semesterEnd(
   semester: Semester,
@@ -96,14 +94,14 @@ export function semesterEnd(
 }
 
 /**
- * The labs timeline's date span — the CALLER-side rule the chart itself
- * stays ignorant of (it just draws whatever span it's given): always the
- * labs' OWN dates, earliest effective start (startAt, else createdAt) to
- * the latest deadline. The axis hugs the actual work, not the term — a
- * class whose labs run five weeks reads as five weeks, not a semester of
- * mostly-empty months. The semester window remains only as the no-labs
- * fallback (the hub cards render an empty state instead of the chart, so
- * it's a type-level safety net, not a path users see).
+ * The labs timeline's date span, a caller-side rule the chart stays ignorant
+ * of (it draws whatever span it gets): always the labs' own dates, earliest
+ * effective start (startAt, else createdAt) to the latest deadline. The axis
+ * hugs the work, not the term, so a class whose labs run five weeks reads as
+ * five weeks instead of a semester of mostly-empty months. The semester
+ * window remains only as the no-labs fallback (hub cards render an empty
+ * state instead of the chart, so it's a type-level safety net, not a path
+ * users see).
  */
 export function timelineSpan(
   labs: { startAt: string | null; createdAt: string; deadline: string }[],

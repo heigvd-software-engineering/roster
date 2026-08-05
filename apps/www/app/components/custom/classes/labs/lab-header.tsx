@@ -41,8 +41,6 @@ export function LabHeader({
           <Text variant="body2" className="tabular-nums">
             {formatDeadline(new Date(lab.deadline))}
           </Text>
-          {/* The status word, same vocabulary as the hub timeline — the
-              full story (what a locked lab means, when it opens) on hover. */}
           <LabStatusHover lab={lab} />
         </Row>
         <RoleChip kind={kind} />

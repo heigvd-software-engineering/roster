@@ -108,14 +108,14 @@ describe("timelineSpan", () => {
 
   it("spans earliest effective start (startAt, else createdAt) to latest deadline", () => {
     const labs = [
-      // Runs past the semester's end — the span follows the labs.
+      // Runs past the semester's end, so the span follows the labs.
       {
         startAt: "2026-03-01T08:00:00.000Z",
         createdAt: "2026-02-20T10:00:00.000Z",
         deadline: "2026-09-15T23:59:00.000Z",
       },
-      // No explicit start: its CREATION anchors the left edge — and being
-      // earlier than every startAt, it decides the span here.
+      // No explicit start: creation anchors the left edge, and being earlier
+      // than every startAt it decides the span here.
       {
         startAt: null,
         createdAt: "2026-02-10T10:00:00.000Z",

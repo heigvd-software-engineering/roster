@@ -15,8 +15,8 @@ import {
   unlinkAccount,
 } from "~/lib/auth";
 
-// The /api/me response, inferred — the context re-exposes its fields raw
-// (user = the Drizzle user row; github = the live GitHub profile).
+// The /api/me response, inferred. The context re-exposes its fields raw:
+// user = the Drizzle user row, github = the live GitHub profile.
 type Me = InferResponseType<typeof api.api.me.$get, 200>;
 
 type AuthValue = Pick<Me, "user" | "github" | "githubAppInstallUrl"> & {
@@ -24,23 +24,23 @@ type AuthValue = Pick<Me, "user" | "github" | "githubAppInstallUrl"> & {
   isLoading: boolean;
   /** A session exists (signed in). */
   authed: boolean;
-  /** The GitHub link's live state. "unknown" = GitHub is unreachable — the
-   *  gate fails OPEN on it (warning banner, no onboarding redirect). */
+  /** The GitHub link's live state. "unknown" means GitHub is unreachable; the
+   *  gate fails open on it (warning banner, no onboarding redirect). */
   githubState: Me["githubState"];
-  /** GitHub is PROVEN usable right now (`githubState === "linked"`). */
+  /** GitHub is proven usable right now (`githubState === "linked"`). */
   githubLinked: boolean;
-  /** Config-listed super admin — shows the admin zone. */
+  /** Config-listed super admin; shows the admin zone. */
   isSuperAdmin: boolean;
-  /** May create classes (admin, or granted) — shows "New class". */
+  /** May create classes (admin, or granted); shows "New class". */
   canCreateClasses: boolean;
-  /** Start edu-ID (SWITCH) sign-in. Failures surface on the message strip —
-   *  never a button that silently does nothing. */
+  /** Start edu-ID (SWITCH) sign-in. Failures surface on the message strip,
+   *  never as a button that silently does nothing. */
   signIn: () => Promise<void>;
   /** Sign out, then revalidate /api/me so the UI reflects it immediately. */
   signOut: () => Promise<void>;
   /** Start GitHub account linking (redirects to GitHub). */
   linkGithub: (callbackURL?: string) => void;
-  /** Unlink GitHub, then revalidate — the gate then routes to onboarding. */
+  /** Unlink GitHub, then revalidate; the gate routes to onboarding. */
   unlinkGithub: () => Promise<void>;
 };
 
@@ -55,9 +55,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { data, isLoading, mutate } = useApi(api.api.me);
   const { push } = useMessages();
 
-  // GitHub couldn't answer the boot fetch: say so ONCE, in the global strip.
-  // The app stays usable (fail open) — writes are still authorized live,
-  // per action, server-side; only the display may be missing or stale.
+  // GitHub couldn't answer the boot fetch: say so once, in the global strip.
+  // The app stays usable (fail open) because the server still authorizes
+  // every write live, per action; only the display may be missing or stale.
   const githubState = data?.githubState ?? "unlinked";
   useEffect(() => {
     if (githubState === "unknown") {
@@ -79,9 +79,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isSuperAdmin: data?.isSuperAdmin ?? false,
       canCreateClasses: data?.canCreateClasses ?? false,
       signIn: async () => {
-        // Return to the page the user was on — the login renders in place
-        // (Auth guard), so deep links (e.g. a class join link, which carries
-        // query params) survive.
+        // Return to the page the user was on. The login renders in place
+        // (Auth guard), so deep links survive (e.g. a class join link, which
+        // carries query params).
         try {
           const { error } = await authSignIn.oauth2({
             providerId: "switch",
@@ -90,9 +90,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               window.location.search +
               window.location.hash,
           });
-          // On success the browser navigates to edu-ID — still being here
-          // with an error means the sign-in POST itself failed (API down,
-          // network). Say so; a silent dead button reads as "app is broken".
+          // On success the browser navigates to edu-ID, so an error here means
+          // the sign-in POST itself failed (API down, network). Say so: a
+          // silent dead button reads as "app is broken".
           if (error) throw new Error(error.message ?? "sign-in failed");
         } catch {
           push("Sign-in is unavailable right now — try again in a moment.", {

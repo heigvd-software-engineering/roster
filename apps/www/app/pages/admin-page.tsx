@@ -14,10 +14,10 @@ import { useAuth } from "~/contexts/auth-context";
 import { api, useAction, useApi } from "~/lib/api";
 
 /**
- * /admin — the SUPER-ADMIN zone (config-listed emails only; the API guard
- * is the boundary, this page just bounces non-admins). One job: grant or
- * revoke "can create classes" per SWITCH user. The list is every user row;
- * filtering is client-side (school scale).
+ * /admin: the super-admin zone (config-listed emails only; the API guard is
+ * the boundary, this page only bounces non-admins). One job: grant or revoke
+ * "can create classes" per SWITCH user. The list is every user row; filtering
+ * is client-side (school scale).
  */
 export function AdminPage() {
   const { isLoading: authLoading, isSuperAdmin } = useAuth();
@@ -27,9 +27,9 @@ export function AdminPage() {
   }, [authLoading, isSuperAdmin, navigate]);
 
   const { data, isLoading, mutate } = useApi(api.api.admin.users);
-  // A toggle can change the CALLER's own capability, and `canCreateClasses`
-  // rides the /api/me boot fetch — revalidate that cache too, so "New
-  // class" appears/disappears without a manual reload.
+  // A toggle can change the caller's own capability, and `canCreateClasses`
+  // rides the /api/me boot fetch, so revalidate that cache too: "New class"
+  // then appears or disappears without a manual reload.
   const { mutate: mutateByKey } = useSWRConfig();
   const { busy, act } = useAction(async () => {
     await Promise.all([mutate(), mutateByKey("/api/me")]);
@@ -62,15 +62,15 @@ export function AdminPage() {
               <Row key={u.id} justify="between" className="w-full">
                 <Row gap="sm">
                   <UserIdentity name={u.name} subtitle={u.email} />
-                  {/* Config status, display only — super admin is NEVER
-                      granted from the app (SUPER_ADMIN_EMAILS). */}
+                  {/* Config status, display only: the app never grants
+                      super admin (SUPER_ADMIN_EMAILS). */}
                   {u.isSuperAdmin ? (
                     <Badge variant="outline">Super admin</Badge>
                   ) : null}
                 </Row>
                 <Row gap="sm">
                   <Text variant="caption">Can create classes</Text>
-                  {/* The toggle IS the grant row — the one condition the
+                  {/* The toggle is the grant row, the one condition the
                       gate checks, identical for everyone; admins flip
                       their own like anyone else's. */}
                   <Switch

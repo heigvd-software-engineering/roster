@@ -1,12 +1,12 @@
-// App-JWT operations — reads about the App itself and its installations.
-// One GitHub call + narrowing per function; no orchestration (see README.md).
+// App-JWT operations: reads about the App itself and its installations.
+// One GitHub call plus narrowing per function; no orchestration (see README.md).
 import type { AuthEnv } from "../auth/config";
 import { appJwtOctokit } from "./clients";
 
 /**
- * The account an installation is installed on, or null when GitHub reports
- * none / a shape without a login (e.g. the rarer enterprise account — narrow
- * with `in`, never assume the org shape).
+ * The account an installation sits on, or null when GitHub reports none or a
+ * shape without a login (the rarer enterprise account, say). Narrow with `in`;
+ * never assume the org shape.
  */
 export async function installationAccount(
   env: AuthEnv,
@@ -27,8 +27,8 @@ export async function installationAccount(
   };
 }
 
-/** The installation's org login; throws when there is none (a class row
- *  always points at an org installation — anything else is a broken state). */
+/** The installation's org login; throws when there is none, since a class row
+ *  always points at an org installation and anything else is a broken state. */
 export async function orgLogin(env: AuthEnv, installationId: number) {
   const account = await installationAccount(env, installationId);
   if (!account) {

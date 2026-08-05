@@ -35,8 +35,8 @@ vi.mock("../src/lib/auth/github-token", () => ({
 }));
 
 vi.mock("../src/lib/github/user", async (importOriginal) => {
-  // Spread the real module: `GithubUnavailableError` must be the REAL class,
-  // or the on-error translator's instanceof check can't recognize the throw.
+  // Spread the real module: `GithubUnavailableError` must be the real class, or
+  // the on-error translator's instanceof check cannot recognize the throw.
   const actual =
     await importOriginal<typeof import("../src/lib/github/user")>();
   return {
@@ -116,8 +116,9 @@ beforeEach(async () => {
 });
 
 test("GET: a GitHub outage is a 503, never 'invalid link'", async () => {
-  // The link is VALID and the student's link is healthy — GitHub just can't
-  // answer. Blaming the link would send them to their teacher for nothing.
+  // The join link is valid and the student's GitHub link is healthy; GitHub
+  // cannot answer. Blaming the link would send them to their teacher for
+  // nothing.
   state.githubDown = true;
   const res = await app.request("/api/join/tok123", {}, env);
   expect(res.status).toBe(503);
@@ -151,10 +152,10 @@ test("GET: no usable GitHub token → 403 github_not_linked", async () => {
 });
 
 test("GET: a valid token whose class is unreachable needs a reconcile, not a new link", async () => {
-  // The token resolved to a class, so it is already proven valid — a healthy
-  // class returns its name and avatar to anyone holding it. Saying "invalid
-  // link" would blame the student for a link that is perfect, and hide the one
-  // thing that fixes it. An UNKNOWN token still reads as 404 invalid_link.
+  // The token resolved to a class, so it is proven valid: a healthy class
+  // returns its name and avatar to anyone holding it. Saying "invalid link"
+  // would blame the student for a perfect link and hide the one thing that fixes
+  // it. An unknown token still reads as 404 invalid_link.
   state.orgLoginFails = true;
   const res = await app.request("/api/join/tok123", {}, env);
   expect(res.status).toBe(409);

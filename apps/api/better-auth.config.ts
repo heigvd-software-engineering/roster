@@ -1,7 +1,7 @@
-// CLI-only entry for `@better-auth/cli generate`.
-// Schema generation reads the auth OPTIONS only — it never connects to the DB
-// or the IdP — so placeholder env values are safe here. The runtime uses
-// `createAuth(env)` with the real Cloudflare bindings.
+// CLI-only entry for `@better-auth/cli generate`. Schema generation reads the
+// auth options only, never connecting to the DB or the IdP, so the placeholder
+// values below are safe. The runtime calls `createAuth(env)` with the real
+// Cloudflare bindings.
 import { createAuth } from "./src/lib/auth/config";
 
 export const auth = createAuth({

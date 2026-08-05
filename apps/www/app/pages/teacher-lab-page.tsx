@@ -8,19 +8,19 @@ import { Text } from "~/components/custom/typography/text";
 import { errorStatus } from "~/lib/api";
 
 /**
- * /classes/:classId/labs/:labId/manage — the TEACHER's lab page: the
- * without-a-group pool and full group management. Deliberately its own page
- * (not a role branch): F8+ grows it into repos, progress, and grading. A
- * caller who is only ENROLLED here is redirected to the student page.
+ * /classes/:classId/labs/:labId/manage: the teacher's lab page, with the
+ * without-a-group pool and full group management. Its own page rather than a
+ * role branch, because F8+ grows it into repos, progress and grading. A
+ * caller who is only enrolled here is redirected to the student page.
  *
- * ONE request: the groups response carries the lab, class identity, and the
- * caller's role — no /api/classes fetch just to render the header.
+ * One request: the groups response carries the lab, class identity and the
+ * caller's role, so the header costs no extra /api/classes fetch.
  */
 export function TeacherLabPage() {
   const { classId = "", labId = "" } = useParams();
   const g = useLabGroups(classId, labId);
 
-  // 404 = the class/lab doesn't exist or the caller isn't in it — distinct
+  // 404 = the class/lab doesn't exist or the caller isn't in it, distinct
   // from a transient failure, which gets the refresh message.
   const notFound = errorStatus(g.error) === 404;
 

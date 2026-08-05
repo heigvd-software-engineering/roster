@@ -9,7 +9,7 @@ import {
 import { Hint } from "~/components/custom/hint";
 import { formatDeadline } from "~/lib/format";
 
-/** The card's left spine — the same state as the chip, scannable as a color
+/** The card's left spine: the same state as the chip, scannable as a color
  *  column without reading (the class cards' role-spine trick). */
 export const STATUS_SPINE: Record<GroupLabStatus, string> = {
   on_track: "border-l-role-enrolled",
@@ -46,9 +46,9 @@ function coarse(ms: number): string {
   return `${Math.round(hours / 24)}d`;
 }
 
-/** Who wrote the repo's last default-branch commit, and what it said —
- *  deliberately labeled by the commit, not the push: a teammate can push
- *  someone else's commit, and main can trail a feature branch. */
+/** Who wrote the repo's last default-branch commit, and what it said.
+ *  Labeled by the commit, not the push: a teammate can push someone else's
+ *  commit, and main can trail a feature branch. */
 export type LastCommitInfo = {
   login: string | null;
   name: string | null;
@@ -68,9 +68,9 @@ function CommitByline({ commit }: { commit: LastCommitInfo }) {
   );
 }
 
-/** The card footer's activity line: the last push (as a moment) with its
- *  relation to the deadline — the context that makes "late" concrete — and
- *  the last commit's author + headline when GitHub gave us one. */
+/** The card footer's activity line: the last push as a moment, its relation
+ *  to the deadline (the context that makes "late" concrete), and the last
+ *  commit's author + headline when GitHub gave us one. */
 export function LastPush({
   pushedAt,
   status,
@@ -83,8 +83,8 @@ export function LastPush({
   lastCommit?: LastCommitInfo | null;
 }) {
   if (status === "no_pushes") {
-    // The verdict is a heuristic — a push inside the creation grace window
-    // reads as the starter commit — so it must carry its own caveat, and
+    // The verdict is a heuristic, since a push inside the creation grace
+    // window reads as the starter commit, so it must carry its own caveat
     // visibly: a Hint, not a hover tooltip nobody finds.
     const graceMin = Math.round(CREATION_PUSH_GRACE_MS / 60_000);
     return (

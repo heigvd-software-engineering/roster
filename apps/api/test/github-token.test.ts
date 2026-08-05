@@ -4,10 +4,10 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { AuthEnv } from "../src/lib/auth/config";
 import { githubAccessToken } from "../src/lib/auth/github-token";
 
-// Real better-auth + real D1: these tests exercise the actual
-// `auth.api.getAccessToken` refresh path, with only GitHub's token endpoint
-// faked (global fetch stub — the pool has no fetchMock). Everything except
-// DB is a dummy value; the refresh flow reads GITHUB_CLIENT_ID/SECRET and
+// Real better-auth and real D1: these tests exercise the actual
+// `auth.api.getAccessToken` refresh path with only GitHub's token endpoint faked
+// through a global fetch stub, since the pool has no fetchMock. Everything but
+// the DB is a dummy value; the refresh flow reads GITHUB_CLIENT_ID/SECRET and
 // nothing else.
 const authEnv = {
   ...env,
@@ -107,8 +107,8 @@ test("refreshes an expired token and persists the new tokens", async () => {
 
   expect(await githubAccessToken(authEnv, "u1")).toBe("fresh-token");
 
-  // The refreshed tokens must be persisted — the next caller reuses them
-  // instead of re-refreshing.
+  // The refreshed tokens must be persisted so the next caller reuses them
+  // instead of refreshing again.
   const [row] = await db.select().from(account);
   expect(row).toMatchObject({
     accessToken: "fresh-token",

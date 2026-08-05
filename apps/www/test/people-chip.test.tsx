@@ -29,7 +29,6 @@ describe("PeopleChip", () => {
     // ② bob is GitHub only → login as the name (shown as a @handle) + the note.
     expect(screen.getByText("@bob")).toBeInTheDocument();
     expect(screen.getByText("not linked to edu-ID")).toBeInTheDocument();
-    // A pending invite is badged.
     expect(screen.getByText("pending")).toBeInTheDocument();
     // No two-column table anymore.
     expect(screen.queryByText("Switch identity")).not.toBeInTheDocument();

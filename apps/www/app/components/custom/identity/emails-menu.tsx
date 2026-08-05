@@ -8,18 +8,18 @@ import {
 } from "~/components/ui/popover";
 
 /**
- * The email menu: a chevron that reveals a person's professional email —
+ * The email menu: a chevron that reveals a person's professional email,
  * `user.email`, the identity email (HES-SO audience). A SIBLING of
- * UserIdentity, never inside it — identity rows stay plain display (they
- * render inside buttons in pickers), and call sites cluster this with their
- * other per-row actions (remove ×). Renders nothing when there is no email
- * (the person never signed in to roster).
+ * UserIdentity, never inside it, because identity rows stay plain display
+ * (they render inside buttons in pickers) and call sites cluster this with
+ * their other per-row actions (remove ×). Renders nothing when there is no
+ * email, meaning the person never signed in to roster.
  */
 export function EmailsMenu({
   name,
   email,
 }: {
-  /** Whose email — names the button for screen readers. */
+  /** Whose email: names the button for screen readers. */
   name: string;
   email: string | null;
 }) {

@@ -15,7 +15,7 @@ const state = vi.hoisted(() => ({
     id: number;
     login: string | null;
     email: string | null;
-    /** GitHub's own role vocabulary — wider than ours on purpose. */
+    /** GitHub's own role vocabulary, wider than ours on purpose. */
     role: string;
   }>,
 }));

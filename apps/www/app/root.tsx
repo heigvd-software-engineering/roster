@@ -26,11 +26,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <Meta />
         <Links />
-        {/* Paint-time theme bootstrap ONLY — everything after hydration lives
-            in ThemeProvider. React runs after first paint, so a context alone
-            would flash the wrong scheme; and an inline script in JSX requires
-            dangerouslySetInnerHTML (string children of <script> are escaped).
-            Static string, no user input. */}
+        {/* Paint-time theme bootstrap; everything after hydration lives in
+            ThemeProvider. React runs after first paint, so a context alone
+            would flash the wrong scheme, and an inline script in JSX needs
+            dangerouslySetInnerHTML (string children of <script> are
+            escaped). */}
         <script
           // biome-ignore lint/security/noDangerouslySetInnerHtml: static scheme snippet, no user input
           dangerouslySetInnerHTML={{

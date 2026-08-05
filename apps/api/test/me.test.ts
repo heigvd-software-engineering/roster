@@ -5,10 +5,10 @@ import { beforeEach, expect, test, vi } from "vitest";
 
 /**
  * /api/me's `githubState` contract (unavailability fix, 2026-07-09):
- * "linked" = the profile was READ with a working token; "unlinked" = no
- * token, or GitHub answered 401 (proven-dead — the only re-link signal);
- * "unknown" = GitHub couldn't answer. /api/me is the SPA's boot fetch, so
- * an outage must still be a 200 — with "unknown", never "unlinked".
+ * "linked" = the profile was read with a working token; "unlinked" = no token,
+ * or GitHub answered 401, the one proven-dead re-link signal; "unknown" = GitHub
+ * could not answer. /api/me is the SPA's boot fetch, so an outage must still be
+ * a 200 carrying "unknown", never "unlinked".
  */
 
 const state = vi.hoisted(() => ({
@@ -138,8 +138,8 @@ test("a class_creators row grants canCreateClasses, not admin", async () => {
 });
 
 test("a config-listed email is admin but does NOT create without the row", async () => {
-  // Case-insensitive, whitespace-tolerant match — and ONE condition for
-  // creation: even an admin needs the explicit grant.
+  // The match is case-insensitive and whitespace-tolerant. Creation has one
+  // condition: even an admin needs the explicit grant.
   const body = await me({ SUPER_ADMIN_EMAILS: " Other@y.ch , U1@X.CH " });
   expect(body.isSuperAdmin).toBe(true);
   expect(body.canCreateClasses).toBe(false);

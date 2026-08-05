@@ -5,10 +5,10 @@ import {
 } from "../src/lib/github/user";
 
 /**
- * The null/throw contract (unavailability fix, 2026-07-09): `null` means
- * exactly ONE thing — GitHub answered 401, the token is dead, (re)linking is
- * the right next step. EVERY other failure throws GithubUnavailableError so
- * an outage can never read as "not linked" and bounce a healthy user through
+ * The null/throw contract (unavailability fix, 2026-07-09): `null` means exactly
+ * one thing, that GitHub answered 401, the token is dead, and (re)linking is the
+ * right next step. Every other failure throws GithubUnavailableError, so an
+ * outage can never read as "not linked" and bounce a healthy user through
  * onboarding.
  */
 

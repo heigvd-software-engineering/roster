@@ -24,15 +24,15 @@ import { cn } from "~/lib/utils";
  * bar from its effective start (`startAt ?? createdAt`) to its deadline on a
  * shared month axis, so overlapping labs look overlapping and the teal
  * now-line answers "where are we in the course" at a glance. Rows read
- * CHRONOLOGICALLY (top = the first lab worked on) — on a timeline, reading
+ * CHRONOLOGICALLY (top = the first lab worked on): on a timeline, reading
  * order is time order, the same order the API serves.
  *
  * Three states, derived per render from the clock alone:
- *   done     deadline passed — dimmed, muted bar, ✓;
- *   running  started and not due — teal bar, elapsed fill; the label's
+ *   done     deadline passed: dimmed, muted bar, ✓;
+ *   running  started and not due: teal bar, elapsed fill, and the label's
  *            status dot pulses (the chart's one animation);
- *   locked   before startAt — amber hatch; for students the row is not a
- *            link and the starter-code chip is hidden, exactly the
+ *   locked   before startAt: amber hatch, and for students the row is not
+ *            a link and the starter-code chip is hidden, exactly the
  *            locked-row semantics the old LabRow carried.
  *
  * NO GitHub calls behind any of this: bars and statuses are clock math.
@@ -45,16 +45,16 @@ const effectiveStart = (lab: HubLabItem) =>
 
 const monthStart = (year: number, month: number) => new Date(year, month, 1);
 
-/** The chart's span is an INPUT — the caller decides (see `timelineSpan`
- *  in lib/semester.ts: the labs' own dates). */
+/** The chart's span is an INPUT: the caller decides (see `timelineSpan` in
+ *  lib/semester.ts, which uses the labs' own dates). */
 export type TimelineSpan = { start: Date; end: Date };
 
-/** The axis: EXACTLY the span — the earliest effective start to the last
- *  deadline, no month padding on either side, so the first bar begins at
- *  the chart's left edge and the last ends at its right. `months` holds
- *  every month boundary that falls INSIDE the axis (the gridlines and
- *  their labels); the partial months at the edges have no boundary of
- *  their own, which is the point. */
+/** The axis is EXACTLY the span, the earliest effective start to the last
+ *  deadline, with no month padding on either side, so the first bar begins
+ *  at the chart's left edge and the last ends at its right. `months` holds
+ *  every month boundary that falls INSIDE the axis (the gridlines and their
+ *  labels); the partial months at the edges have no boundary of their own,
+ *  which is the point. */
 function buildAxis(span: TimelineSpan) {
   const start = span.start.getTime();
   const end = span.end.getTime();
@@ -81,7 +81,7 @@ const pct = (axis: Axis, t: number) =>
     Math.max(0, ((t - axis.start) / (axis.end - axis.start)) * 100),
   );
 
-/** Label column width — the one number the axis overlay and every row share. */
+/** Label column width, the one number the axis overlay and every row share. */
 const LABEL_W = "320px";
 
 export function LabsTimeline({
@@ -91,8 +91,8 @@ export function LabsTimeline({
   action,
 }: {
   labs: HubLabItem[];
-  /** The chart's date span — computed by the CALLER (see `timelineSpan`);
-   *  bars outside it clamp to the edges. */
+  /** The chart's date span, computed by the CALLER (see `timelineSpan`).
+   *  Bars outside it clamp to the edges. */
   span: TimelineSpan;
   /** Teacher framing: rows link to /manage, locked rows stay clickable,
    *  and the starter-code chip survives the lock. */
@@ -100,9 +100,9 @@ export function LabsTimeline({
   /** Per-row trailing control (the teacher's edit pencil). */
   action?: (lab: HubLabItem) => ReactNode;
 }) {
-  // Course order — chronological by effective start, deadline breaking
-  // ties. The API already serves this order; sorting here keeps it a
-  // component INVARIANT rather than a hope about the caller.
+  // Course order: chronological by effective start, deadline breaking ties.
+  // The API already serves this order; sorting here keeps it a component
+  // INVARIANT rather than a hope about the caller.
   const rows = [...labs].sort(
     (a, b) =>
       effectiveStart(a) - effectiveStart(b) ||
@@ -110,7 +110,7 @@ export function LabsTimeline({
   );
   const axis = buildAxis(span);
   // A "now" outside the axis (an archived class, a not-yet-started term)
-  // would clamp to an edge and point at the wrong month — drop it instead.
+  // would clamp to an edge and point at the wrong month, so drop it.
   const now = Date.now();
   const nowPct = now >= axis.start && now <= axis.end ? pct(axis, now) : null;
   const trackRight = action ? "40px" : "0px";
@@ -176,9 +176,9 @@ function MonthGrid({ axis, right }: { axis: Axis; right: string }) {
               className="absolute inset-y-0 w-px bg-foreground/10"
               style={{ left: `${pct(axis, m.getTime())}%` }}
             />
-            {/* The last month may be PARTIAL (the axis ends at the last
-                deadline) — a midpoint past the end would clamp onto the
-                right border; skip it. */}
+            {/* The last month may be PARTIAL, since the axis ends at the last
+                deadline: a midpoint past the end would clamp onto the right
+                border, so skip it. */}
             {mid < axis.end ? (
               <i
                 className="absolute inset-y-0 w-px bg-foreground/5"
@@ -193,8 +193,8 @@ function MonthGrid({ axis, right }: { axis: Axis; right: string }) {
   );
 }
 
-/** Today, cutting through every row — dot head, mono caps "now · date"
- *  (the label names the line for everyone; there is no tooltip). */
+/** Today, cutting through every row: dot head, mono caps "now · date". The
+ *  label names the line for everyone, so there is no tooltip. */
 function NowLine({ leftPct, right }: { leftPct: number; right: string }) {
   return (
     <div
@@ -225,8 +225,8 @@ function TimelineRow({
   action?: ((lab: HubLabItem) => ReactNode) | undefined;
 }) {
   const state = labState(lab);
-  // The bar's left edge is the TRUTH: an explicit start when declared,
-  // else the moment the lab appeared (it could not be worked on earlier).
+  // The bar's left edge is the TRUTH: an explicit start when declared, else
+  // the moment the lab appeared, since it could not be worked on earlier.
   // The bar's tooltip names which of the two it is.
   const startPct = pct(axis, effectiveStart(lab));
   const endPct = pct(axis, Date.parse(lab.deadline));
@@ -263,8 +263,8 @@ function TimelineRow({
   );
 
   if (state === "locked" && !manage) {
-    // Nothing behind the row a student may act on — not a link, dimmed
-    // (the same contract the locked list row had).
+    // Nothing behind the row a student may act on: not a link, dimmed, the
+    // same contract the locked list row had.
     return (
       <div
         aria-disabled="true"
@@ -291,10 +291,10 @@ function TimelineRow({
 }
 
 /**
- * Label column: title / meta / status (design 2026-07-24). The label
- * mirrors the edit form's fields — title, mode, the date range, the
- * template chip — plus ONE derived status word. The range is the only
- * date statement (no "starts" pill).
+ * Label column: title / meta / status (design 2026-07-24). The label mirrors
+ * the edit form's fields (title, mode, the date range, the template chip)
+ * plus ONE derived status word. The range is the only date statement, with
+ * no "starts" pill.
  */
 function RowLabel({
   lab,
@@ -329,9 +329,9 @@ function RowLabel({
         )}
       >
         <span>{labModeLabel(lab)}</span>
-        {/* Only an EXPLICIT start earns range text — a null startAt means
-            the bar's left edge is merely the creation date, and printing
-            it would read as a chosen start the teacher never set. */}
+        {/* Only an EXPLICIT start earns range text: with a null startAt the
+            bar's left edge is merely the creation date, and printing it would
+            read as a chosen start the teacher never set. */}
         <span>
           {" "}
           ·{" "}
@@ -349,7 +349,7 @@ function RowLabel({
   );
 }
 
-/** The template marker — full repo name on hover, never in the text. */
+/** The template marker: full repo name on hover, never in the text. */
 function StarterChip({ name }: { name: string | null }) {
   return (
     <span
@@ -363,9 +363,9 @@ function StarterChip({ name }: { name: string | null }) {
 
 type BarProps = { lab: HubLabItem; leftPct: number; widthPct: number };
 
-/** The shared bar shell: the pill positioned on the axis, its tooltip as
- *  the LAST child (overlays painted before it can't eat the hover). The
- *  state components style and fill it. */
+/** The shared bar shell: the pill positioned on the axis, its tooltip as the
+ *  LAST child so overlays painted before it can't eat the hover. The state
+ *  components style and fill it. */
 function Bar({
   lab,
   leftPct,
@@ -401,8 +401,8 @@ function DoneBar(props: BarProps) {
   );
 }
 
-/** Running: teal pill with the elapsed share filled up to "now" — flat on
- *  its leading edge (only the bar's own caps are round). */
+/** Running: teal pill with the elapsed share filled up to "now", flat on its
+ *  leading edge because only the bar's own caps are round. */
 function RunningBar(props: BarProps) {
   const start = effectiveStart(props.lab);
   const deadline = Date.parse(props.lab.deadline);
@@ -424,7 +424,7 @@ function RunningBar(props: BarProps) {
   );
 }
 
-/** Locked: amber hatch + lock — visibly "not yet", never just dimmed. */
+/** Locked: amber hatch + lock, visibly "not yet", never only dimmed. */
 function LockedBar(props: BarProps) {
   return (
     <Bar
@@ -440,9 +440,9 @@ function LockedBar(props: BarProps) {
   );
 }
 
-/** The floating "due … · in N d" right of a running bar — brand-red when
- *  urgent; suppressed when the bar ends too close to the chart's edge to
- *  fit it (the bar's tooltip still carries the date). */
+/** The floating "due … · in N d" right of a running bar, brand-red when
+ *  urgent. Suppressed when the bar ends too close to the chart's edge to fit
+ *  it, since the bar's tooltip still carries the date. */
 function DueAnnotation({
   deadline,
   endPct,
@@ -467,9 +467,9 @@ function DueAnnotation({
 }
 
 /** ONE hover surface over the whole bar telling the exact truth about its
- *  span: how it starts (a declared start, or merely its creation — called
- *  out as such) and when it's due. A span, not a button: the row around it
- *  is already the link. */
+ *  span: how it starts (a declared start, or merely its creation, called out
+ *  as such) and when it's due. A span, not a button, because the row around
+ *  it is already the link. */
 function BarTooltip({ lab }: { lab: HubLabItem }) {
   return (
     <Tooltip>

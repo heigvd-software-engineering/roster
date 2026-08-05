@@ -1,12 +1,12 @@
 /**
  * Theme preference storage: an explicit "light"/"dark"/"terminal" choice
  * persisted in localStorage, or "system" (nothing stored) which follows the
- * OS setting. "terminal" is the phosphor CLI skin — it RIDES ON dark (html
+ * OS setting. "terminal" is the phosphor CLI skin and rides on dark: html
  * gets both classes, so every `dark:` style keeps working and `.terminal`
- * only re-skins the tokens). Pure read/write helpers — applying classes to
- * <html> is ThemeProvider's job (contexts/theme-context.tsx); the inline
- * script in root.tsx reads the same key before first paint so a stored
- * choice never flashes.
+ * only re-skins the tokens. These are read/write helpers; applying classes
+ * to <html> is ThemeProvider's job (contexts/theme-context.tsx), and the
+ * inline script in root.tsx reads the same key before first paint so a
+ * stored choice never flashes.
  */
 export type Theme = "light" | "dark" | "terminal" | "system";
 

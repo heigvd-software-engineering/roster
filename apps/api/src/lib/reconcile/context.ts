@@ -1,8 +1,8 @@
-// The one place a reconciler's audit/apply reaches for the truth. Every
-// source is fetched lazily and at most once per audit: `roster` and
-// `base-permission` both want `ctx.people()`, and `orgPeople` is three
-// paginated GitHub calls — it must run once, not once per reconciler.
-// Equally, a reconciler that never asks for `orgRepos()` never pays for it.
+// The one place a reconciler's audit/apply reaches for the truth. Every source
+// is fetched lazily and at most once per audit: `roster` and `base-permission`
+// both want `ctx.people()`, and `orgPeople` costs three paginated GitHub calls,
+// so it must run once, not once per reconciler. A reconciler that never asks
+// for `orgRepos()` never pays for it.
 import {
   type Class,
   classMembers,
@@ -19,16 +19,15 @@ import type { ClassContext } from "./types";
 
 type Db = ReturnType<typeof getDb>;
 
-/** Memoize a zero-arg async thunk — including its rejection, so a failing source
- *  is not retried once per reconciler within one audit. */
+/** Memoize a zero-arg async thunk, including its rejection, so one audit never
+ *  retries a failing source once per reconciler. */
 function once<T>(fn: () => Promise<T>): () => Promise<T> {
   let p: Promise<T> | undefined;
   return () => (p ??= fn());
 }
 
-/** Every group of every lab of this class. Groups belong to a lab, and labs
- *  belong to a class — there is no direct groups.classId column, so this is
- *  a join through labs, not a plain select. */
+/** Every group of every lab of this class. Groups belong to a lab and labs to a
+ *  class; there is no groups.classId column, so this joins through labs. */
 async function groupsOfClass(db: Db, classId: string): Promise<Group[]> {
   const rows = await db
     .select({ group: groups })
@@ -40,9 +39,9 @@ async function groupsOfClass(db: Db, classId: string): Promise<Group[]> {
 
 /**
  * Everything a reconciler may read, fetched lazily and at most once per audit.
- * `installationId` is the LIVE value, derived before any reconciler runs —
- * otherwise every GitHub reconciler fails against a dead pointer, which is
- * exactly when the page is needed.
+ * `installationId` is the live value, derived before any reconciler runs.
+ * Against a dead pointer every GitHub reconciler fails, which is exactly when
+ * the page is needed.
  */
 export function buildContext(
   env: AuthEnv,

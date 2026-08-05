@@ -2,8 +2,8 @@ import { Stack } from "~/components/custom/layout/stack";
 import { Text } from "~/components/custom/typography/text";
 
 /**
- * BrandHeader — the roster identity block: a monospace eyebrow, a bold title, and
- * the Swiss-red rule. Shared by the login and authed-home views.
+ * The roster identity block: a monospace eyebrow, a bold title, and the
+ * Swiss-red rule. Shared by the login and authed-home views.
  *   - size="hero" for the landing wordmark ("roster")
  *   - size="page" for in-app page titles (e.g. the user's name)
  */

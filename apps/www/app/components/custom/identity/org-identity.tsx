@@ -8,13 +8,13 @@ type OrgIdentityProps = {
   login: string;
   avatarUrl?: string | null;
   /** "lg" = class-card masthead (larger semibold name); "default" matches
-   *  UserIdentity's scale for side-by-side contexts (e.g. the join page). */
+   *  UserIdentity's scale for side-by-side contexts like the join page. */
   size?: "default" | "lg";
 };
 
 /**
- * A GitHub organization's identity: square avatar (orgs are rounded squares,
- * people are circles — GitHub's own convention) + name over the mono @login.
+ * A GitHub organization's identity: square avatar (GitHub's convention, where
+ * orgs are rounded squares and people circles) + name over the mono @login.
  * The org-flavored sibling of UserIdentity.
  */
 export function OrgIdentity({

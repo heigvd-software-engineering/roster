@@ -1,11 +1,10 @@
-// The combined schema barrel — what `getDb` registers and drizzle-kit reads.
+// The combined schema barrel: what `getDb` registers and drizzle-kit reads.
 //
-// - ./auth-schema.ts  CLI-GENERATED (user/session/account/verification).
-//   Never edit; regenerate via `pnpm --filter @roster/api run auth:schema`.
-// - ./app-schema.ts   HAND-OWNED app tables (classes, …).
+// - ./auth-schema.ts  CLI-generated (user/session/account/verification).
+//   Never edit; regenerate with `pnpm --filter @roster/api run auth:schema`.
+// - ./app-schema.ts   hand-owned app tables (classes, …).
 //
-// Keeping them in sibling files means an auth-schema regeneration can never
-// wipe an app table.
+// Sibling files mean an auth-schema regeneration can never wipe an app table.
 
 export * from "./app-schema";
 export * from "./auth-schema";

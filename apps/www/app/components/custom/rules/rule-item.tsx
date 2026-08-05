@@ -3,7 +3,7 @@ import { Row } from "~/components/custom/layout/row";
 import { CAPS_LABEL, Text } from "~/components/custom/typography/text";
 import { cn } from "~/lib/utils";
 
-/** Who a rule binds — colored with the app's ROLE hues (role-marker.tsx uses
+/** Who a rule binds, colored with the app's ROLE hues (role-marker.tsx uses
  *  the same recipe on class cards): teaching violet for the teacher, enrolled
  *  teal for students, plain outline for everyone. The badge is the scanning
  *  aid: a teacher finds their powers by color, a student their boundaries. */

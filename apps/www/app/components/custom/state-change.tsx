@@ -4,9 +4,9 @@ import { cn } from "~/lib/utils";
 
 /**
  * A state transition read left to right: what stands NOW → what it becomes.
- * The join page's "you → class" row at chip scale — the arrow is the verb.
- * The FROM chip is neutral (it is merely the present); the TO chip carries the
- * outcome in brand color.
+ * The join page's "you → class" row at chip scale, where the arrow is the verb.
+ * The FROM chip stays neutral because it is merely the present; the TO chip
+ * carries the outcome in brand color.
  */
 export function StateChange({ from, to }: { from: string; to: string }) {
   return (

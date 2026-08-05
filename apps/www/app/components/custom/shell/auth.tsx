@@ -12,12 +12,12 @@ type AuthProps = {
 
 /**
  * Route guard: renders children only for a signed-in user. Signed-out visitors
- * get the login screen IN PLACE — the URL is preserved, so after sign-in they
- * land exactly where they were headed (deep links survive). A signed-in user
- * whose GitHub link is PROVEN dead ("unlinked") is sent to onboarding — the
- * one real redirect. "unknown" (GitHub unreachable) fails OPEN: re-linking
- * during an outage would fail too, and the outage is not the user's fault —
- * the AuthProvider's warning strip says what's going on instead.
+ * get the login screen IN PLACE, preserving the URL, so after sign-in they land
+ * exactly where they were headed and deep links survive. A signed-in user whose
+ * GitHub link is PROVEN dead ("unlinked") is sent to onboarding, the one real
+ * redirect. "unknown" (GitHub unreachable) fails OPEN: re-linking during an
+ * outage would fail too, and the outage is not the user's fault, so the
+ * AuthProvider's warning strip says what's going on instead.
  */
 export function Auth({ requireGithubLinked = true, children }: AuthProps) {
   const { isLoading, authed, githubState } = useAuth();

@@ -7,27 +7,27 @@ import { teamMembers } from "./github/team";
 type Db = ReturnType<typeof getDb>;
 
 /**
- * Writers and readers for the `group_members` roster DISPLAY CACHE.
+ * Writers and readers for the `group_members` roster display cache.
  *
- * GitHub's Team is the authority: it holds the roster, and it is what grants
- * push on the work repo. This table is a mirror, so that rendering a lab costs
- * zero GitHub calls and "is this student already in a group of this lab?" is a
- * query rather than one team-roster fetch per group.
+ * GitHub's Team is the authority: it holds the roster and it grants push on the
+ * work repo. This table mirrors it, so rendering a lab costs zero GitHub calls
+ * and "is this student already in a group of this lab?" is a query rather than
+ * one team-roster fetch per group.
  *
- * INVARIANT (same as `class_members`): nothing authorizes against this table.
+ * Invariant, same as `class_members`: nothing authorizes against this table.
  * Push comes from the team.
  *
  * There is deliberately no bulk writer across groups. `syncGroupMembers` takes
- * ONE group and replaces exactly that group's rows with what GitHub just said
+ * one group and replaces exactly that group's rows with what GitHub just said
  * about that one team.
  */
 
-/** Mirror a roster we ALREADY hold into `group_members`, replacing what's there.
+/** Mirror a roster we already hold into `group_members`, replacing what's there.
  *
- *  Scoped to ONE group, so a failure can never reach another group's rows. Split
+ *  Scoped to one group, so a failure can never reach another group's rows. Split
  *  out of `syncGroupMembers` because several write paths fetch the live roster
  *  for their own reasons (the solo-group guard, the "is this group complete
- *  enough for a repo" gate) — they mirror what they read rather than pay for a
+ *  enough for a repo" gate) and mirror what they read rather than pay for a
  *  second call. Anywhere a write path holds the truth, it writes it. */
 export async function replaceGroupMembers(
   db: Db,
@@ -52,16 +52,16 @@ export async function replaceGroupMembers(
 
 /** GitHub's roster for one team, mirrored into `group_members`.
  *
- *  Called on the WRITE paths (join, leave, add, remove, create) — right after
- *  the mutation that GitHub just accepted, so the cache is re-derived from the
- *  authority rather than guessed from the request. That also means a login
- *  rename or an out-of-band edit self-heals on the next mutation.
+ *  Called on the write paths (join, leave, add, remove, create) right after the
+ *  mutation GitHub just accepted, so the cache is re-derived from the authority
+ *  rather than guessed from the request. A login rename or an out-of-band edit
+ *  therefore self-heals on the next mutation.
  *
  *  Returns the live roster, or `null` when the team is gone on GitHub. A 404 is
- *  UNKNOWABLE, not empty: the rows are left exactly as they were. Deleting them
+ *  unknowable, not empty, so the rows stay exactly as they were: deleting them
  *  would destroy the only record of who was in the group on the strength of a
- *  call that merely failed — and the `group-teams` reconciler, not a read, is
- *  what decides a vanished team's fate. */
+ *  call that merely failed, and the `group-teams` reconciler, not a read,
+ *  decides a vanished team's fate. */
 export async function syncGroupMembers(
   db: Db,
   env: AuthEnv,
@@ -71,13 +71,13 @@ export async function syncGroupMembers(
 ): Promise<OrgPerson[] | null> {
   const live = await teamMembers(env, installationId, org, group.ghTeamSlug);
   if (live === null) return null;
-  // Replace, not diff: the live list IS the roster.
+  // Replace, not diff: the live list is the roster.
   await replaceGroupMembers(db, group.id, live);
   return live;
 }
 
-/** Cached rosters for many groups, in ONE query. Groups with no rows map to an
- *  empty list — a group nobody has joined yet is legitimately empty. */
+/** Cached rosters for many groups, in one query. Groups with no rows map to an
+ *  empty list: a group nobody has joined yet is legitimately empty. */
 export async function cachedRosters(
   db: Db,
   groupIds: string[],
@@ -99,7 +99,6 @@ export async function cachedRosters(
   return out;
 }
 
-/** One group's cached roster. */
 export async function cachedRoster(
   db: Db,
   groupId: string,

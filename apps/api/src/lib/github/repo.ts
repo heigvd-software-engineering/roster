@@ -1,14 +1,14 @@
-// Installation-token operations on a class org's REPOSITORIES — the work
-// repos F8 distributes. One GitHub call + narrowing per function; no
-// orchestration (see README.md). Repos are always PRIVATE; students reach
-// them only through their team's grant (base permission is "none").
+// Installation-token operations on a class org's repositories, the work repos
+// F8 distributes. One GitHub call plus narrowing per function; no orchestration
+// (see README.md). Repos are always private; students reach them only through
+// their team's grant (base permission is "none").
 import type { AuthEnv } from "../auth/config";
 import { installationOctokit } from "./clients";
 
 export type CreatedRepo = { id: number; fullName: string };
 
-/** Create an empty private repo in the org (auto-initialized so it's
- *  immediately cloneable). */
+/** Create an empty private repo in the org, auto-initialized so it is
+ *  cloneable at once. */
 export async function createOrgRepo(
   env: AuthEnv,
   installationId: number,
@@ -25,7 +25,7 @@ export async function createOrgRepo(
   return { id: data.id, fullName: data.full_name };
 }
 
-/** Read a repo the org already owns. Used to ADOPT a work repo whose creation
+/** Read a repo the org already owns. Used to adopt a work repo whose creation
  *  succeeded but never got recorded (see `createWorkRepo`). Throws 404 when the
  *  App installation can't see it. */
 export async function getOrgRepo(
@@ -42,7 +42,7 @@ export async function getOrgRepo(
   return { id: data.id, fullName: data.full_name };
 }
 
-/** Create a private repo from a TEMPLATE repo (starter code). */
+/** Create a private repo from a template repo (starter code). */
 export async function generateFromTemplate(
   env: AuthEnv,
   installationId: number,
@@ -65,7 +65,7 @@ export async function generateFromTemplate(
   return { id: data.id, fullName: data.full_name };
 }
 
-/** Grant the group's team PUSH on its work repo. */
+/** Grant the group's team push on its work repo. */
 export async function grantTeamRepo(
   env: AuthEnv,
   installationId: number,
@@ -85,11 +85,11 @@ export async function grantTeamRepo(
 }
 
 /**
- * Push/creation timestamps for ALL the org's repos, keyed by full name —
- * ONE list call covers every work repo of a lab (the org listing already
- * carries `pushed_at`), instead of a per-repo GET. Note: the creation
- * commit (auto-init / template generation) also bumps `pushed_at`, so
- * "has the group pushed" must compare it against `created_at`.
+ * Push and creation timestamps for all the org's repos, keyed by full name.
+ * One list call covers every work repo of a lab, since the org listing already
+ * carries `pushed_at`, instead of a GET per repo. The creation commit
+ * (auto-init or template generation) also bumps `pushed_at`, so "has the group
+ * pushed" must compare it against `created_at`.
  */
 export async function orgRepoActivity(
   env: AuthEnv,
@@ -121,11 +121,11 @@ export type RepoLastCommit = {
   commitCount: number;
 };
 
-/** What ONE repo alias in the `reposLastCommit` query resolves to — the
- *  mirror of its selection set, hand-declared because a GraphQL response is
- *  shaped by our query text, not by an endpoint the lib could type. Null
- *  when the alias didn't resolve (repo gone); `defaultBranchRef` null on an
- *  empty repo; `user` null when the git identity has no GitHub account. */
+/** What one repo alias in the `reposLastCommit` query resolves to: the mirror
+ *  of its selection set, hand-declared because our query text shapes a GraphQL
+ *  response, not an endpoint the lib could type. Null when the alias didn't
+ *  resolve (repo gone); `defaultBranchRef` null on an empty repo; `user` null
+ *  when the git identity has no GitHub account. */
 type LastCommitAlias = {
   defaultBranchRef: {
     target: {
@@ -145,12 +145,12 @@ type LastCommitAlias = {
 } | null;
 
 /**
- * The last commit on each repo's DEFAULT branch (author identity, headline,
- * date) plus that branch's total commit count — ONE GraphQL request, one
- * alias per repo, covers all of a lab's work repos instead of a commits GET
- * per repo. Repos GraphQL can't resolve (deleted, renamed, still empty) are
- * simply absent from the map. NOTE: default branch only — `pushed_at`
- * (any-branch) stays the activity signal; this is the byline.
+ * The last commit on each repo's default branch (author identity, headline,
+ * date) plus that branch's total commit count. One GraphQL request, one alias
+ * per repo, covers all of a lab's work repos instead of a commits GET per repo.
+ * Repos GraphQL can't resolve (deleted, renamed, still empty) are absent from
+ * the map. Default branch only: `pushed_at` (any branch) stays the activity
+ * signal, and this is the byline.
  */
 export async function reposLastCommit(
   env: AuthEnv,
@@ -173,8 +173,8 @@ export async function reposLastCommit(
     })
     .join("\n");
   // A dead alias (repo deleted between the listing and this query) makes
-  // octokit THROW a GraphqlResponseError that still carries every alias
-  // that DID resolve — recover the partial data instead of losing the batch.
+  // octokit throw a GraphqlResponseError that still carries every alias that
+  // did resolve, so recover the partial data instead of losing the batch.
   let data: Record<string, LastCommitAlias>;
   try {
     data = await gh.graphql<Record<string, LastCommitAlias>>(
@@ -202,7 +202,7 @@ export async function reposLastCommit(
   return out;
 }
 
-/** The org's TEMPLATE repos — the lab dialog's starter-code choices. */
+/** The org's template repos, the lab dialog's starter-code choices. */
 export async function orgTemplateRepos(
   env: AuthEnv,
   installationId: number,
@@ -219,19 +219,19 @@ export async function orgTemplateRepos(
 }
 
 /**
- * Why a work repo couldn't be created. "name_taken" = the repo exists but we
- * can't read it back; "template_error" = the /generate call refused (the
- * template repo is EMPTY or gone) and is ONLY ever returned when the lab has a
- * template; "app_permissions" = the App lacks Repository write.
+ * Why a work repo couldn't be created. "name_taken": the repo exists but we
+ * can't read it back. "template_error": the /generate call refused (the
+ * template repo is empty or gone), returned only when the lab has a template.
+ * "app_permissions": the App lacks Repository write.
  */
 export type RepoFailure = "name_taken" | "template_error" | "app_permissions";
 
-/** Everything GitHub said about a failure. A 422 body carries a GENERIC
- *  summary ("Repository creation failed.") plus the actual reason in
- *  `errors[]` ("name already exists on this account") — so reading `message`
- *  alone tells you nothing. Octokit flattens both into `err.message`; we join
- *  every source rather than depend on which. Lives HERE so knowledge of
- *  octokit's error shape never leaves lib/github. */
+/** Everything GitHub said about a failure. A 422 body carries a generic summary
+ *  ("Repository creation failed.") plus the real reason in `errors[]` ("name
+ *  already exists on this account"), so `message` alone tells you nothing.
+ *  Octokit flattens both into `err.message`; joining every source avoids
+ *  depending on which. Lives here so knowledge of octokit's error shape never
+ *  leaves lib/github. */
 function githubErrorText(err: unknown): string {
   const e = err as {
     message?: string;
@@ -247,8 +247,8 @@ function githubErrorText(err: unknown): string {
 
 /**
  * Turn a GitHub repo-creation error into one of our sentinels, or `null` when
- * we don't recognize it (the caller rethrows — a 500 with the real error beats
- * a friendly lie). `usedTemplate` matters: a lab with no template calls
+ * we don't recognize it (the caller rethrows: a 500 with the real error beats a
+ * friendly lie). `usedTemplate` matters because a lab with no template calls
  * `POST /orgs/{org}/repos`, where a template error is impossible by
  * construction, so we must never blame one.
  */
@@ -258,10 +258,10 @@ export function classifyRepoFailure(
 ): RepoFailure | null {
   const status = (err as { status?: number }).status;
   // "Resource not accessible by integration": the App installation lacks
-  // Repository Administration/Contents write — an admin problem, surface it.
+  // Repository Administration or Contents write, an admin problem to surface.
   if (status === 403) return "app_permissions";
-  // A template lab's /generate 404s when the template was DELETED or RENAMED
-  // since the lab was created — same teacher-must-fix answer as an empty
+  // A template lab's /generate 404s when the template was deleted or renamed
+  // since the lab was created, the same teacher-must-fix answer as an empty
   // one. A 404 on the plain create path stays unrecognized (rethrown).
   if (status === 404) return usedTemplate ? "template_error" : null;
   if (status !== 422) return null;

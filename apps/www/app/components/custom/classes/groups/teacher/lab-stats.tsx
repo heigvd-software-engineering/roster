@@ -12,9 +12,9 @@ type LabStat = {
 };
 
 /**
- * The lab's summary strip — hairline-separated numbers answering "do I need
- * to look closer at all?" before the roster. A solid card surface: the
- * page's graph-paper background must not show through the numbers.
+ * The lab's summary strip: hairline-separated numbers answering "do I need
+ * to look closer at all?" before the roster. A solid card surface, because
+ * the page's graph-paper background must not show through the numbers.
  */
 export function LabStats({ stats }: { stats: LabStat[] }) {
   return (

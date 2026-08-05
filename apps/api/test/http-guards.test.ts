@@ -21,7 +21,7 @@ const app = new Hono<Env>()
 const call = (path: string, init?: RequestInit) =>
   app.request(path, init, bindings);
 
-/** The limiter on its own — the two tests below differ only in the bindings. */
+/** The limiter on its own; the two tests below differ only in the bindings. */
 const limited = new Hono<Env>()
   .use("/api/*", rateLimit("AUTH_LIMITER"))
   .get("/api/thing", (c) => c.json({ ok: true }));

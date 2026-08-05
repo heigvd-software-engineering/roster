@@ -7,8 +7,8 @@ import { Text } from "~/components/custom/typography/text";
 import { Button } from "~/components/ui/button";
 import { api, useApi } from "~/lib/api";
 
-/** /classes/:id/confirm — locks the org to roster's policy: base repo
- *  permission No access + no member repository creation. */
+/** /classes/:id/confirm: locks the org to roster's policy, base repo
+ *  permission No access and no member repository creation. */
 export function ClassConfirmPage() {
   const { id = "" } = useParams();
   const navigate = useNavigate();

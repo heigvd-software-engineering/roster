@@ -12,16 +12,15 @@ import { Card } from "~/components/ui/card";
 import { cn } from "~/lib/utils";
 
 /**
- * The student's "start the lab" surface — ONE card for both lab modes, so
- * the two flows differ in copy, never in structure. Three states:
+ * The student's "start the lab" surface: ONE card for both lab modes, so the
+ * two flows differ in copy, never in structure. Three states:
  *
- *   accept  (individual, not accepted) — the one-click accept CTA;
- *   create  — the work repo doesn't exist yet: offer to create it
- *             (on individual labs that means the accept's repo step failed);
- *   clone   — the repo link and the git commands to get working locally
- *             (or, if `repoStatus` is "missing", a destructive-styled
- *             notice instead — no link, no clone commands for a repo
- *             that's gone).
+ *   accept  individual and not accepted, the one-click accept CTA;
+ *   create  the work repo doesn't exist yet, so offer to create it (on
+ *           individual labs that means the accept's repo step failed);
+ *   clone   the repo link and the git commands to get working locally, or,
+ *           when `repoStatus` is "missing", a destructive-styled notice with
+ *           no link and no clone commands for a repo that's gone.
  */
 export function StartLabCard({
   mode = "group",
@@ -37,7 +36,7 @@ export function StartLabCard({
    *  card only once the group is ready, so it defaults to true. */
   accepted?: boolean;
   repoFullName: string | null;
-  /** "missing" = deleted directly on GitHub — only the teacher can fix it
+  /** "missing" = deleted directly on GitHub. Only the teacher can fix it
    *  (see `MissingRepoBadge`), so this is informational here, no action. */
   repoStatus?: "ok" | "missing" | undefined;
   busy: boolean;
@@ -58,10 +57,10 @@ export function StartLabCard({
     <Card
       className={cn(
         "h-full gap-0 p-4",
-        // Colored ONLY once the repo exists — same highlight as your group
-        // tile (the Card's outline is a RING, ring-1, not a border);
-        // earlier states keep the neutral ring. A MISSING repo overrides the
-        // "all good" green — the ring is part of what must read as broken.
+        // Colored ONLY once the repo exists, the same highlight as your group
+        // tile (the Card's outline is a RING, ring-1, not a border). Earlier
+        // states keep the neutral ring. A MISSING repo overrides the "all
+        // good" green: the ring is part of what must read as broken.
         created && (missing ? "ring-destructive/60" : "ring-role-enrolled/60"),
       )}
     >
@@ -128,7 +127,7 @@ export function StartLabCard({
               </Button>
             ) : (
               // Creating the repo LOCKS the group (server: 409 has_repo on
-              // join/leave) — make the point of no return explicit.
+              // join/leave), so make the point of no return explicit.
               <ConfirmDialog
                 title="Create the work repository?"
                 description="This locks the group: once the repository exists, nobody can join or leave on their own — only your teacher can change the group. Make sure everyone is in before you continue."
@@ -150,9 +149,9 @@ export function StartLabCard({
           </>
         ) : repoFullName !== null ? (
           missing ? (
-            // No link, no clone commands — both point at a repo that's gone.
+            // No link, no clone commands: both point at a repo that's gone.
             // The badge stays (same explanation as the teacher's), but the
-            // headline itself must not be missable the way a small badge can be.
+            // headline must not be missable the way a small badge can be.
             <Stack gap="xs">
               <Row gap="xs" align="center">
                 <Text variant="error" className="font-medium">
@@ -179,8 +178,8 @@ export function StartLabCard({
   );
 }
 
-/** The clone-and-enter snippet as a copyable code block — shared by the
- *  group start-lab card and the individual lab's accepted state. */
+/** The clone-and-enter snippet as a copyable code block, shared by the group
+ *  start-lab card and the individual lab's accepted state. */
 function CloneCommands({
   fullName,
   className,

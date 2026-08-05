@@ -1,5 +1,5 @@
-// Installation-token operations on a class's org — least privilege: the App
-// installation acts, never the user's OAuth token. One GitHub call +
+// Installation-token operations on a class's org. Least privilege: the App
+// installation acts, never the user's OAuth token. One GitHub call plus
 // narrowing per function; no orchestration (see README.md).
 import type { AuthEnv } from "../auth/config";
 import { installationOctokit } from "./clients";
@@ -19,7 +19,7 @@ export async function orgInfo(
   };
 }
 
-/** The two org settings roster enforces — its "org policy". */
+/** The two org settings roster enforces, its "org policy". */
 export type OrgPolicy = {
   /** Base repository permission (labs wants "none"). */
   basePermission: string;
@@ -27,7 +27,7 @@ export type OrgPolicy = {
   membersCanCreateRepos: boolean;
 };
 
-/** The org's current policy settings, read live. */
+/** The org's policy settings, read live. */
 export async function orgPolicy(
   env: AuthEnv,
   installationId: number,
@@ -37,17 +37,17 @@ export async function orgPolicy(
   const { data } = await gh.request("GET /orgs/{org}", { org });
   return {
     basePermission: data.default_repository_permission ?? "",
-    // Absent from the payload would mean the API hid the field — treat as
-    // the UNSAFE value so the caller flags it rather than trusting it.
+    // A field absent from the payload means the API hid it, so assume the
+    // unsafe value and let the caller flag it rather than trust it.
     membersCanCreateRepos: data.members_can_create_repositories ?? true,
   };
 }
 
-/** Lock the org to roster's policy, in one PATCH: base repository permission
- *  "none" (membership grants nothing on its own — students only see repos
- *  they're explicitly granted) AND no member repository creation (work
- *  repos are born through labs; a repo a student creates directly on
- *  GitHub would sit outside every gate). Callers re-read to verify. */
+/** Lock the org to roster's policy in one PATCH: base repository permission
+ *  "none", so membership grants nothing on its own and students see only repos
+ *  they were granted, and no member repository creation, since work repos are
+ *  born through labs and a repo a student creates on GitHub would sit outside
+ *  every gate. Callers re-read to verify. */
 export async function enforceOrgPolicy(
   env: AuthEnv,
   installationId: number,
@@ -61,7 +61,7 @@ export async function enforceOrgPolicy(
   });
 }
 
-/** True iff the GitHub user is an org Owner (teacher = live org `admin`).
+/** True iff the GitHub user is an org Owner (a teacher is a live org `admin`).
  *  Errors propagate to the caller. */
 export async function isOrgAdmin(
   env: AuthEnv,
@@ -119,7 +119,7 @@ export async function inviteOrgMember(
   return data.state;
 }
 
-/** The GitHub user behind a typed username — canonical id/login/avatar, or
+/** The GitHub user behind a typed username: canonical id, login and avatar, or
  *  null when no such user exists (404). Other errors propagate. */
 export async function lookupUser(
   env: AuthEnv,
@@ -139,7 +139,7 @@ export async function lookupUser(
 }
 
 /** Promote an active org Member to Owner (teacher). Same call as
- *  `inviteOrgMember`, elevated role. */
+ *  `inviteOrgMember` with a higher role. */
 export async function promoteToOrgAdmin(
   env: AuthEnv,
   installationId: number,
@@ -154,8 +154,8 @@ export async function promoteToOrgAdmin(
   });
 }
 
-/** Invite a NON-member as an org Owner (teacher). Returns the invitation id —
- *  pending people are keyed on it, both on the live roster
+/** Invite a non-member as an org Owner (teacher). Returns the invitation id,
+ *  which is what keys pending people both on the live roster
  *  (`GET /orgs/{org}/invitations`) and in the `class_members` cache. */
 export async function inviteOrgAdmin(
   env: AuthEnv,
@@ -178,20 +178,20 @@ export type OrgPerson = {
   avatarUrl: string | null;
 };
 
-/** What an open invitation is FOR. GitHub's invitation roles are finer than
+/** What an open invitation is for. GitHub's invitation roles are finer than
  *  ours (`direct_member`, `billing_manager`, `hiring_manager`, …); only
- *  `admin` becomes a teacher, everything else is an ordinary member. */
+ *  `admin` becomes a teacher, everything else an ordinary member. */
 export type InvitedRole = "member" | "admin";
 
 /** An open invitation: an OrgPerson keyed by invitation id, plus the role it
- *  grants — the thing that decides whether they are an invited teacher. */
+ *  grants, which decides whether they are an invited teacher. */
 export type OrgInvitation = OrgPerson & { role: InvitedRole };
 
 /**
- * The class's people, read live. Teachers = org Owners (role admin),
- * students = non-owner Members, pending = open invitations (no avatar; login
- * falls back to the invite email — roster only creates username invites, but
- * org owners can invite by email on GitHub). Paginated so orgs beyond one
+ * The class's people, read live. Teachers are org Owners (role admin),
+ * students are non-owner Members, pending are open invitations (no avatar, and
+ * login falls back to the invite email: roster only creates username invites,
+ * but org owners can invite by email on GitHub). Paginated so orgs beyond one
  * page stay correct.
  */
 export async function orgPeople(

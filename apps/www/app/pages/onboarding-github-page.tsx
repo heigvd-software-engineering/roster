@@ -10,8 +10,8 @@ export function OnboardingGitHubPage() {
   const { linkGithub } = useAuth();
   const [params] = useSearchParams();
   const raw = params.get("returnTo") ?? "/";
-  // Same-app absolute paths only — "//host" is scheme-relative, and browsers
-  // normalize "\" to "/" (so "/\host" becomes one too): both open redirects.
+  // Same-app absolute paths only: "//host" is scheme-relative, and browsers
+  // normalize "\" to "/" (so "/\host" becomes one too). Both open redirects.
   const returnTo =
     raw.startsWith("/") && !raw.startsWith("//") && !raw.includes("\\")
       ? raw
@@ -22,7 +22,7 @@ export function OnboardingGitHubPage() {
   const errors = params.getAll("error");
   const failed = errors.length > 0;
   const cause = errors.find((e) => e !== "link_failed");
-  // These two USUALLY mean GitHub withheld the profile (user-fixable), but
+  // These two usually mean GitHub withheld the profile (user-fixable), but
   // unable_to_get_user_info is ambiguous: GitHub's token endpoint answers
   // HTTP 200 with an error body on bad client credentials, so Better Auth
   // only notices at the profile fetch and emits the same code. Anything else

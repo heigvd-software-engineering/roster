@@ -7,8 +7,8 @@ import { cn } from "~/lib/utils";
  * to point at the state it will produce. Shared by the roster's group drawer
  * and the unassigned pool's student list, so the two read as the same verb.
  *
- * Icon-only — `label` is the accessible name and carries what's disclosed
- * ("Show all 12 students"), since the chevron alone says nothing.
+ * Icon-only, so `label` is the accessible name and carries what's disclosed
+ * ("Show all 12 students"): the chevron alone says nothing.
  */
 export function DisclosureToggle({
   expanded,
@@ -23,7 +23,7 @@ export function DisclosureToggle({
   label: string;
   /** Hover text, when the label is too terse to explain the consequence. */
   title?: string;
-  /** id of the region this controls — omit while that region is unmounted. */
+  /** id of the region this controls. Omit while that region is unmounted. */
   controls?: string | undefined;
 }) {
   return (

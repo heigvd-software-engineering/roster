@@ -1,11 +1,11 @@
 import { cn } from "~/lib/utils";
 
 /**
- * Text — the single typography component. `variant` picks the visual style and
- * a sensible default element (heading variants render <h1>/<h2>, the rest <p>).
- * Pass `as` to render on a different element when a variant's default doesn't
- * fit the context (e.g. a <p> isn't valid inside a <button>) — like MUI's
- * `component` prop.
+ * The single typography component. `variant` picks the visual style and a
+ * sensible default element (heading variants render <h1>/<h2>, the rest <p>).
+ * Pass `as`, like MUI's `component` prop, to render on a different element
+ * when a variant's default doesn't fit the context, say because a <p> isn't
+ * valid inside a <button>.
  *
  *   hero      landing wordmark              subtitle  muted intro paragraph
  *   title     in-app page/screen heading    overline  small mono uppercase label
@@ -28,8 +28,8 @@ const VARIANT = {
 } as const;
 
 /**
- * The DENSE caps-label token — table/stat headers where `overline` is too
- * airy (10px, tighter tracking, no color: consumers pick it). One spelling
+ * The DENSE caps-label token for table/stat headers where `overline` is too
+ * airy: 10px, tighter tracking, no color (consumers pick it). One spelling
  * for what lab-row, lab-stats, and the roster head all share.
  */
 export const CAPS_LABEL = "font-mono text-[10px] uppercase tracking-[0.18em]";

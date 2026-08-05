@@ -5,13 +5,13 @@ import type { AuthEnv } from "./config";
 /**
  * What every session read returns, and what it does on the way.
  *
- * Extracted from the `customSession` plugin so both halves are testable: the
- * plugin itself is Better Auth's to call, but WHAT it does on each read is
- * ours, and a wiring mistake here (dropping the heal, or the flag) is exactly
- * the kind of thing that leaves a green suite and a broken app.
+ * Extracted from the `customSession` plugin so both halves are testable: Better
+ * Auth calls the plugin, but what it does on each read is ours, and a wiring
+ * mistake here (dropping the heal, or the flag) leaves a green suite and a
+ * broken app.
  *
  * Generic over `user`/`session` so the SPA keeps inferring the real session
- * shape through `customSessionClient<Auth>` — narrowing them here would erase
+ * shape through `customSessionClient<Auth>`; narrowing them here would erase
  * the fields the client depends on.
  */
 export async function buildSessionPayload<U extends { id: string }, S>(
@@ -20,8 +20,8 @@ export async function buildSessionPayload<U extends { id: string }, S>(
   session: S,
 ): Promise<{ user: U; session: S; githubLinked: boolean }> {
   // Two independent questions, one round trip. The heal returns immediately
-  // unless this user has an outstanding invitation, and never throws — a
-  // session read must not depend on it.
+  // unless this user has an outstanding invitation, and never throws: a session
+  // read must not depend on it.
   const [, accounts] = await Promise.all([
     healAcceptedInvitations(env, user.id),
     getDb(env.DB).query.account.findMany({
@@ -33,8 +33,8 @@ export async function buildSessionPayload<U extends { id: string }, S>(
     user,
     session,
     // Drives the onboarding gate: true once a `github` account row exists, so
-    // the client knows whether to send them through linking without a second
-    // request.
+    // the client knows whether to send them through linking without asking
+    // again.
     githubLinked: accounts.some((a) => a.providerId === "github"),
   };
 }

@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useApi } from "~/lib/api";
 import { ClassesPage } from "~/pages/classes-page";
 
-// "New class" is a granted capability — most tests run WITH it (the
+// "New class" is a granted capability. Most tests run with it (the
 // pre-gating behavior); the gating tests below flip it off.
 const authState = vi.hoisted(() => ({ canCreateClasses: true }));
 
@@ -43,7 +43,7 @@ describe("ClassesPage", () => {
 
     render(<ClassesPage />);
 
-    // No button — and the empty-hub copy must not point at one either.
+    // No button, and the empty-hub copy must not point at one either.
     expect(screen.queryByText("New class")).not.toBeInTheDocument();
     expect(screen.queryByText(/Use "New class" above/)).not.toBeInTheDocument();
     expect(screen.getByText(/open the class link/)).toBeInTheDocument();
@@ -132,8 +132,8 @@ describe("ClassesPage", () => {
       screen.getByText("Spring 2026 · 1 Feb → 30 Jun · 1 class · 1 lab"),
     ).toBeInTheDocument();
     expect(screen.getByText("Lab 1 — Sockets")).toBeInTheDocument();
-    // Read-only: no teacher actions. Lab rows DO link — students accept
-    // their labs on the lab page.
+    // Read-only: no teacher actions. Lab rows still link, because students
+    // accept their labs on the lab page.
     expect(
       screen.queryByRole("button", { name: "Copy join link" }),
     ).not.toBeInTheDocument();
@@ -171,8 +171,8 @@ describe("ClassesPage", () => {
   });
 
   it("shows the empty state when nothing exists in any semester", () => {
-    // The ghost connect card is gone (user-decided 2026-07-07) — an empty
-    // hub explains itself in text; connecting lives in the header dialog.
+    // The ghost connect card is gone (user-decided 2026-07-07): an empty
+    // hub explains itself in text, and connecting lives in the header dialog.
     vi.mocked(useApi).mockReturnValue({
       data: { classes: [], enrolled: [], hasOlder: false },
     } as unknown as ReturnType<typeof useApi>);

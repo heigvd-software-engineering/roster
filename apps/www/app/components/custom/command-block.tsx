@@ -6,8 +6,8 @@ import { cn } from "~/lib/utils";
 /**
  * A shell snippet the reader copies in ONE go: the commands as a <pre>, a copy
  * button pinned to the top-right that flips to a check for two seconds. Long
- * snippets scroll inside the block (the button stays put). Copying can be
- * refused — insecure origin, denied permission — and then the flip never
+ * snippets scroll inside the block, and the button stays put. An insecure
+ * origin or a denied permission refuses the copy, and then the flip never
  * happens; the <pre> stays selectable, which was the fallback all along.
  */
 export function CommandBlock({
@@ -28,7 +28,7 @@ export function CommandBlock({
     try {
       await navigator.clipboard.writeText(commands);
     } catch {
-      return; // refused — leave the block as-is, the text is selectable
+      return; // refused: the block stays as-is and the text stays selectable
     }
     setCopied(true);
     clearTimeout(copyResetTimer.current);
@@ -37,9 +37,9 @@ export function CommandBlock({
 
   return (
     // min-w-0: as a grid/flex item this box's automatic minimum size is its
-    // min-content — the longest (unwrappable) command line — which would push
-    // the whole dialog past its max-width. Zero it, and the <pre> below gets
-    // to be the scroller instead.
+    // min-content, the longest unwrappable command line, which would push the
+    // whole dialog past its max-width. Zero it and the <pre> below scrolls
+    // instead.
     <div
       className={cn("relative w-full min-w-0 rounded-md bg-muted", className)}
     >

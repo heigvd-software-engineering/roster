@@ -4,10 +4,10 @@ import { Hono } from "hono";
 import { beforeEach, expect, test, vi } from "vitest";
 
 /**
- * /api/admin — the super-admin zone. The guard is CONFIG-based
- * (SUPER_ADMIN_EMAILS matched against the session email); the grant it
- * manages is the `class_creators` row, the ONE condition class creation
- * checks — identical for admins and everyone else.
+ * /api/admin, the super-admin zone. Config decides the guard: SUPER_ADMIN_EMAILS
+ * matched against the session email. The grant it manages is the
+ * `class_creators` row, the one condition class creation checks, and it works
+ * the same for admins and everyone else.
  */
 
 const state = vi.hoisted(() => ({
@@ -38,8 +38,6 @@ beforeEach(async () => {
   ]);
 });
 
-// ── The guard ────────────────────────────────────────────────────────────
-
 test("no session is 401", async () => {
   state.session = null;
   const res = await app.request("/api/admin/users", {}, asAdmin);
@@ -68,8 +66,6 @@ test("the email match is case-insensitive and whitespace-tolerant", async () => 
   expect(res.status).toBe(200);
 });
 
-// ── The list ─────────────────────────────────────────────────────────────
-
 test("lists every user with grant state and config-admin state", async () => {
   await db
     .insert(classCreators)
@@ -87,12 +83,10 @@ test("lists every user with grant state and config-admin state", async () => {
   expect(users).toHaveLength(2);
   const admin = users.find((u) => u.id === "admin");
   const bob = users.find((u) => u.id === "u2");
-  // The admin holds no grant row — the toggle is off even for them.
+  // The admin holds no grant row, so the toggle is off even for them.
   expect(admin).toMatchObject({ isSuperAdmin: true, canCreateClasses: false });
   expect(bob).toMatchObject({ isSuperAdmin: false, canCreateClasses: true });
 });
-
-// ── The toggle ───────────────────────────────────────────────────────────
 
 const put = (id: string, enabled: boolean) =>
   app.request(

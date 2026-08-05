@@ -55,7 +55,7 @@ const individualLab = {
 const alice = { id: 7, login: "alice", avatarUrl: "http://a" };
 const bob = { id: 8, login: "bob", avatarUrl: null };
 
-/** The page is ONE request now — a single groups response (or its error). */
+/** The page is one request: a single groups response (or its error). */
 function mockApi(labGroupsData: unknown, error?: unknown) {
   vi.mocked(useApi).mockImplementation(
     () =>
@@ -176,7 +176,7 @@ describe("StudentLabPage — group lab", () => {
     mockApi(groupsData({ groups: [grp({ members: [alice, bob] })] }));
     render(<StudentLabPage />);
 
-    // The button no longer fires directly — it opens the confirm gate.
+    // The button no longer fires directly; it opens the confirm gate.
     fireEvent.click(screen.getByRole("button", { name: "Create repository" }));
     expect(screen.getByText("Create the work repository?")).toBeInTheDocument();
     expect(screen.getByText(/This locks the group/)).toBeInTheDocument();
@@ -198,7 +198,7 @@ describe("StudentLabPage — group lab", () => {
     const leave = screen.getByRole("button", { name: "Leave" });
     expect(leave).toBeDisabled();
     // The reason lives in a real tooltip (native title is unreliable on
-    // disabled buttons) — its trigger wraps the button, shown on focus.
+    // disabled buttons). Its trigger wraps the button and shows on focus.
     fireEvent.focus(leave.parentElement as HTMLElement);
     expect(
       await screen.findByText(
@@ -241,14 +241,14 @@ describe("StudentLabPage — group lab", () => {
     );
     render(<StudentLabPage />);
 
-    // Visible without clicking anything — not just a small badge.
+    // Visible without clicking anything, not just a small badge.
     expect(
       screen.getByText("This repository no longer exists on GitHub"),
     ).toBeInTheDocument();
     expect(
       screen.getByText("repository deleted on GitHub"),
     ).toBeInTheDocument();
-    // Cloning a deleted repo makes no sense — neither the link nor the
+    // Cloning a deleted repo makes no sense, so neither the link nor the
     // clone commands render.
     expect(
       screen.queryByRole("link", { name: /acme\/lab-1-team-alpha/ }),
@@ -327,7 +327,7 @@ describe("StudentLabPage — individual lab", () => {
     );
     render(<StudentLabPage />);
 
-    // The solo tile — the group flow's own skeleton, solo copy.
+    // The solo tile: the group flow's own skeleton with solo copy.
     expect(screen.getByText("your solo lab")).toBeInTheDocument();
     expect(screen.getByText("Your lab is ready")).toBeInTheDocument();
     expect(
@@ -411,7 +411,7 @@ describe("StudentLabPage — edges", () => {
   });
 
   it("redirects a TEACHER to the manage page", () => {
-    // The response's role decides the redirect — no class list involved.
+    // The response's role decides the redirect, with no class list involved.
     mockApi(groupsData({ role: "teacher" }));
     render(<StudentLabPage />);
     expect(screen.getByTestId("navigate")).toHaveTextContent(

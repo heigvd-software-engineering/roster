@@ -42,7 +42,7 @@ describe("DeadlineText", () => {
   });
 
   it("reads 'closed' the moment the deadline passes, calm", () => {
-    // A single minute past the deadline — no waiting for the next midnight.
+    // A single minute past the deadline, with no wait for the next midnight.
     renderDeadline(-1 * MINUTE);
     const el = screen.getByText("closed");
     expect(el.className).toContain("text-muted-foreground");
@@ -51,7 +51,7 @@ describe("DeadlineText", () => {
 
   it("reads 'closed' at the exact boundary, no longer urgent", () => {
     // A deadline of "now" resolves to a tiny negative delta by render time,
-    // so it is already closed — not "today", not urgent.
+    // so it is already closed, neither "today" nor urgent.
     renderDeadline(0);
     const el = screen.getByText("closed");
     expect(el.className).toContain("text-muted-foreground");

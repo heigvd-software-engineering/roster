@@ -3,8 +3,8 @@ import type { ComponentProps } from "react";
 import { cn } from "~/lib/utils";
 
 /**
- * The seat bases — every open slot on a group card builds on one of these
- * two, and each role file names its own NATURES over them (the teacher's
+ * The seat bases. Every open slot on a group card builds on one of these two,
+ * and each role file names its own NATURES over them (the teacher's
  * AddMemberSeat; the student's JoinSeat / VacantSeat / LockedSeat), so a
  * nature's copy and accent live next to their one consumer.
  *
@@ -14,15 +14,15 @@ import { cn } from "~/lib/utils";
  * wears the warning tint in every nature.
  */
 
-/** A filled member row and an open seat must share one height, or the
- *  wall's rhythm breaks — GroupCard applies this to member rows too. */
+/** A filled member row and an open seat must share one height, or the wall's
+ *  rhythm breaks. GroupCard applies this to member rows too. */
 export const SEAT_ROW_HEIGHT = "min-h-9";
 
 const SEAT = {
   row: cn(
     SEAT_ROW_HEIGHT,
-    // foreground/40, not less — a lighter dash all but disappears on the
-    // light theme's white card.
+    // foreground/40, not less: a lighter dash all but disappears on the light
+    // theme's white card.
     "flex w-full items-center gap-2.5 rounded-md border border-foreground/40 border-dashed px-2 text-left text-muted-foreground text-xs transition",
   ),
   // Every open seat recedes to 70% so it reads as background next to the
@@ -41,9 +41,9 @@ const SEAT = {
 
 type SeatButtonProps = ComponentProps<"button"> & { required?: boolean };
 
-/** Base for the ACTING natures — plus in the circle. Plain button (props
- *  spread) so a nature can be handed to a PopoverTrigger's `render` and
- *  anchor a picker. */
+/** Base for the ACTING natures: plus in the circle. A plain button with props
+ *  spread, so a nature can be handed to a PopoverTrigger's `render` and anchor
+ *  a picker. */
 export function SeatButton({
   required = false,
   className,
@@ -77,9 +77,9 @@ export function SeatButton({
 
 type SeatSlotProps = ComponentProps<"div"> & { required?: boolean };
 
-/** Base for the PASSIVE natures — empty circle. A div, not a disabled
- *  button: it should explain itself on hover (`title`), and disabled
- *  buttons swallow pointer events. */
+/** Base for the PASSIVE natures: empty circle. A div, not a disabled button,
+ *  because it explains itself on hover (`title`) and disabled buttons swallow
+ *  pointer events. */
 export function SeatSlot({
   required = false,
   className,

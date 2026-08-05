@@ -13,9 +13,8 @@ export const classesRoutes = new Hono<AuthedEnv>()
   .use("/classes/*", requireAuth)
   .post("/classes/:id/confirm", ...confirmClass)
   .post("/classes/:id/teachers", ...inviteTeacher)
-  // Retires the current join link and returns its replacement.
   .post("/classes/:id/join-token", ...rotateJoinToken)
-  // The audit READS (it writes nothing); reconcile applies what the teacher accepted.
+  // The audit writes nothing; reconcile applies what the teacher accepted.
   .get("/classes/:id/audit", ...auditClass)
   .post("/classes/:id/reconcile", ...reconcileClass)
   .get("/classes", ...listClasses);

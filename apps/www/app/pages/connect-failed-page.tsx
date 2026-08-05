@@ -8,10 +8,10 @@ import { useAuth } from "~/contexts/auth-context";
 import { cn } from "~/lib/utils";
 
 /** Every way the connect flow dies, in user words. `key` matches the setup
- *  callback's `/?error=…` codes; `member` has NO code — GitHub bounces a
- *  member's install "Request" back without ever calling us, so it can only
- *  be explained, never detected. That case is WHY this page lists every
- *  cause instead of echoing one. */
+ *  callback's `/?error=…` codes. `member` has no code: GitHub bounces a
+ *  member's install "Request" back without calling us, so we can explain
+ *  that case but never detect it, which is why this page lists every cause
+ *  instead of echoing one. */
 const CAUSES: { key: string; title: string; detail: string }[] = [
   {
     key: "member",
@@ -52,11 +52,10 @@ const CAUSES: { key: string; title: string; detail: string }[] = [
 ];
 
 /**
- * /classes/connect-failed?reason=… — where the connect-a-class flow lands
- * when no class came out of it. The reported reason (when the setup
- * callback had one) leads, highlighted; every other cause stays visible
- * because the most common one (member, not owner) reaches us with no
- * signal at all.
+ * /classes/connect-failed?reason=…: where the connect-a-class flow lands
+ * when no class came out of it. The reported reason (when the setup callback
+ * had one) leads, highlighted; every other cause stays visible because the
+ * most common one (member, not owner) reaches us with no signal at all.
  */
 export function ConnectFailedPage() {
   const [searchParams] = useSearchParams();

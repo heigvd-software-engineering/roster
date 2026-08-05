@@ -16,7 +16,7 @@ vi.mock("~/lib/api", () => ({
   useApi: () => ({ data: { templates: [] }, isLoading: false }),
 }));
 
-// The data owner's revalidate, handed in as a prop — no cache-key guessing.
+// The data owner's revalidate, handed in as a prop, so no cache-key guessing.
 const onSaved = vi.fn();
 
 beforeEach(() => {

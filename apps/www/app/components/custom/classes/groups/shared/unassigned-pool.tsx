@@ -10,14 +10,14 @@ import { usersByGithubId } from "~/lib/format";
 import { personIdentity } from "~/lib/identity";
 
 /**
- * The "students without a group for this lab" pool — shared by BOTH lab
- * pages: the teacher's radar, and the students' organizing aid (who still
- * needs a team). It IS a warning, so it wears the warning tint. Sourced
- * from the class_members display cache riding on the lab-groups response;
- * hidden entirely once everyone is placed.
+ * The "students without a group for this lab" pool, shared by BOTH lab pages:
+ * the teacher's radar, and the students' organizing aid (who still needs a
+ * team). It IS a warning, so it wears the warning tint. Sourced from the
+ * class_members display cache riding on the lab-groups response, and hidden
+ * once everyone is placed.
  *
  * It has to read the same at 1 student and at 30, so it is ALWAYS the summary
- * line — the label and the count, nothing else — with the names one chevron
+ * line, the label and the count and nothing else, with the names one chevron
  * away. The strip is therefore a fixed height whatever the class size, and the
  * roster below it never moves. Revealed names are a grid, not a wrap: columns
  * you can scan down.
@@ -60,7 +60,7 @@ export function UnassignedPool({
           expanded={open}
           onToggle={() => setOpen(!open)}
           label={open ? "Hide the student list" : reveal}
-          // Only while the region exists — a dangling idref is invalid ARIA.
+          // Only while the region exists: a dangling idref is invalid ARIA.
           controls={open ? listId : undefined}
         />
       </Row>
@@ -72,9 +72,9 @@ export function UnassignedPool({
           className="grid w-full grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] gap-2"
         >
           {sorted.map(({ githubId, email, ...identity }) => (
-            // The very row the group roster uses — a student reads the same
-            // whether they're in a group or waiting for one. The emails
-            // menu sits NEXT to the identity, like everywhere else.
+            // The very row the group roster uses, so a student reads the same
+            // whether they're in a group or waiting for one. The emails menu
+            // sits NEXT to the identity, like everywhere else.
             <Row
               key={githubId}
               gap="sm"

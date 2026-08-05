@@ -1,7 +1,7 @@
 // The live org roster vs the `class_members` display cache.
 //
-// THE only whole-roster observer. Every other write point — observeMember,
-// forgetMember, the join POSTs — sees exactly one person: the caller. So this is
+// The only whole-roster observer. Every other write point (observeMember,
+// forgetMember, the join POSTs) sees exactly one person, the caller. So this is
 // the only thing that can notice someone who joined the org out of band, an
 // Owner who was promoted, a login that changed, or a student who left.
 
@@ -17,15 +17,15 @@ import type {
 } from "./types";
 
 /**
- * WHO a finding is about. GitHub reports a roster in two id spaces and they
- * are not interchangeable: members and Owners arrive as USER ids, open invites
- * as INVITATION ids (`/orgs/{org}/invitations` never returns the invitee's user
- * id). A subject therefore says which space it belongs to — comparing a bare
- * number across the two would silently mistake an invitation for a person.
+ * Who a finding is about. GitHub reports a roster in two id spaces that are not
+ * interchangeable: members and Owners arrive as user ids, open invites as
+ * invitation ids, because `/orgs/{org}/invitations` never returns the invitee's
+ * user id. A subject names its own space, since comparing a bare number across
+ * the two would mistake an invitation for a person.
  */
 type Subject = { kind: "user" | "invite"; id: string };
 
-/** "user=123" / "invite=456" — the id space travels WITH the id. */
+/** "user=123" / "invite=456": the id space travels with the id. */
 const subjectKey = ({ kind, id }: Subject) => `${kind}=${id}`;
 const userSubject = (id: string | number): Subject => ({
   kind: "user",
@@ -37,7 +37,7 @@ const inviteSubject = (id: string | number): Subject => ({
 });
 
 /** "roster:remove:user=9" → "user=9". Findings are content-addressed, so the
- *  key IS the subject: nothing else has to travel from audit to apply. */
+ *  key is the subject: nothing else has to travel from audit to apply. */
 const subjectOf = (key: FindingKey) => key.split(":")[2] ?? "";
 
 const parseSubject = (subject: string): Subject | null => {
@@ -60,7 +60,7 @@ const TITLES: Record<string, string> = {
   refresh: "A member's GitHub details changed",
 };
 
-/** How a cached state reads on the class card — the from/to chips speak the
+/** How a cached state reads on the class card. The from/to chips speak the
  *  card's language, not the enum's. */
 const STATE_LABEL: Record<MemberState, string> = {
   pending: "Invited",
@@ -86,10 +86,10 @@ const finding = (
   change,
 });
 
-/** GitHub's roster, flattened to the states we cache and keyed by SUBJECT.
- *  Owners are applied LAST so that an Owner who also appears as a member reads
- *  as `teacher`. Pending people key on their invitation, everyone else on their
- *  user id — `orgPeople` already hands them over that way. */
+/** GitHub's roster, flattened to the states we cache and keyed by subject.
+ *  Owners are applied last so an Owner who also appears as a member reads as
+ *  `teacher`. Pending people key on their invitation, everyone else on their
+ *  user id, which is how `orgPeople` hands them over. */
 function liveStates(people: {
   teachers: OrgPerson[];
   students: OrgPerson[];
@@ -106,8 +106,8 @@ function liveStates(people: {
     put(userSubject(person.id), "active", person);
   }
   for (const invite of people.pending) {
-    // The invitation's ROLE picks the state, exactly as it does for accepted
-    // members (`teacher` vs `active`) — an Owner invite is a pending teacher.
+    // The invitation's role picks the state, as it does for accepted members
+    // (`teacher` vs `active`): an Owner invite is a pending teacher.
     put(
       inviteSubject(invite.id),
       invite.role === "admin" ? "pending_teacher" : "pending",
@@ -121,14 +121,14 @@ function liveStates(people: {
 }
 
 /**
- * The cached row's subject — which id space this row should be COMPARED in.
+ * The cached row's subject: which id space to compare this row in.
  *
- * A row we wrote for an invite WE sent carries both ids, and the answer depends
- * on what GitHub says now: while the invite is open the live roster lists it as
+ * A row we wrote for an invite we sent carries both ids, and the answer depends
+ * on what GitHub says now. While the invite is open the live roster lists it as
  * an invitation, so the row must compare as `invite=` or it would read as a
  * missing person plus a stale invitation. Once they accept, the live roster
- * lists them as a USER, and comparing the same row as `user=` turns what would
- * be a spurious remove+add pair into one honest "they became a teacher".
+ * lists them as a user, and comparing the same row as `user=` turns a spurious
+ * remove+add pair into one honest "they became a teacher".
  */
 const cachedSubject = (
   row: { githubId: string | null; invitationId: string | null },
@@ -146,10 +146,10 @@ export const roster: Reconciler = {
 
   async audit(ctx) {
     const live = liveStates(await ctx.people());
-    // Each cached row is placed in the id space GitHub is currently using for
-    // it, so both sides of the diff speak the same language. A row that is in
-    // neither space (no ids at all) cannot be named by a finding, so it cannot
-    // be repaired — `observeMember` refuses to create one.
+    // Each cached row goes in the id space GitHub currently uses for it, so both
+    // sides of the diff speak the same language. A row in neither space (no ids
+    // at all) cannot be named by a finding, so it cannot be repaired, and
+    // `observeMember` refuses to create one.
     const cached = new Map(
       (await ctx.members()).flatMap((m) => {
         const subject = cachedSubject(m, live);
@@ -235,7 +235,7 @@ export const roster: Reconciler = {
 
   async apply(ctx, keys) {
     // The live roster, so an add/promote writes what GitHub says rather than
-    // what a stale proposal claimed. We trust the teacher's choice of SUBJECT,
+    // what a stale proposal claimed. We trust the teacher's choice of subject,
     // never the client's description of it.
     const live = liveStates(await ctx.people());
     const results: (AppliedOp | FailedOp)[] = [];
@@ -247,29 +247,29 @@ export const roster: Reconciler = {
         if (!subject) throw new Error(`unrecognised subject "${subjectStr}"`);
 
         if (key.startsWith("roster:remove:")) {
-          // ONE row. Never syncRoster, whose semantics are "delete everyone
-          // absent from the live roster" — a stale proposal would then wipe
-          // students it never named. Deleting a row already gone is a success.
+          // One row. Never syncRoster, which means "delete everyone absent from
+          // the live roster", so a stale proposal would wipe students it never
+          // named. Deleting a row already gone is a success.
           await forgetMember(ctx.db, ctx.cls.id, memberKeyOf(subject));
         } else {
           const entry = live.get(subjectStr);
           if (!entry) throw new Error("no longer on the organization's roster");
 
           if (subject.kind === "user") {
-            // A real person. If they got here by ACCEPTING an invite we sent,
-            // an invitation-keyed row may still exist — under the same user id
-            // (our own invite, which recorded both) or under none at all (an
-            // invite from GitHub's UI, which we could never attribute). The
-            // first updates in place; the second would strand an orphan row
-            // that keeps showing them as invited, so drop it first.
+            // A real person. If they got here by accepting an invite we sent,
+            // an invitation-keyed row may still exist: under the same user id
+            // (our own invite recorded both) or under none at all (an invite
+            // from GitHub's UI, which we could never attribute). The first
+            // updates in place; the second would strand an orphan row that
+            // keeps showing them as invited, so drop it first.
             const login = entry.person.login.toLowerCase();
             const orphan = (await ctx.members()).find(
               (m) =>
                 m.invitationId !== null &&
-                // Our own invite: the user id ties the rows together outright.
-                // Otherwise login is the ONLY correlation there is — matching
-                // on "has no user id" alone would delete somebody else's
-                // pending invite.
+                // Our own invite: the user id ties the rows together. Otherwise
+                // login is the only correlation there is, and matching on "has
+                // no user id" alone would delete somebody else's pending
+                // invite.
                 (m.githubId === subject.id ||
                   (m.githubId === null && m.login?.toLowerCase() === login)),
             );
@@ -289,9 +289,9 @@ export const roster: Reconciler = {
               entry.state,
             );
           } else {
-            // Still an open invitation — the only id GitHub gives us. `login`
-            // may be an email here (org owners can invite by address), which
-            // is exactly why there is no user id to record.
+            // Still an open invitation, the only id GitHub gives us. `login`
+            // may be an email here, since org owners can invite by address,
+            // which is why there is no user id to record.
             await observeMember(
               ctx.db,
               ctx.cls.id,

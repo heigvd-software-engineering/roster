@@ -56,21 +56,21 @@ type RosterRow = {
   pushedAt: string | null;
   status: GroupLabStatus;
 };
-/** Statuses that need nothing from anyone — everything else is attention. */
+/** Statuses that need nothing from anyone. Everything else is attention. */
 const GOOD_STATUSES: GroupLabStatus[] = ["on_track", "on_time", "ready"];
 /** The pool members a teacher may add to a group (linked login required). */
 type AddCandidate = LabGroups["unplaced"][number] & { login: string };
 
 /**
  * The TEACHER's lab page is a GROUP WALL: summary stats, the without-a-group
- * pool, then one CARD per group of THIS lab — the full roster inline (~30
+ * pool, then one CARD per group of THIS lab, with the full roster inline (~30
  * students in ~12 groups fit one screen; nothing hides behind a disclosure),
  * open seats for the remaining capacity, repo + last push pinned at the
  * bottom, status chip + colored spine. Management lives ON the card: an open
- * seat is the add-from-pool picker, each member wears its remove ×, the
- * kebab holds the one rare verb (delete). The toolbar's search + status
- * segments DIM non-matching cards rather than hide them — the wall keeps
- * its shape, so the eye's map of the class survives filtering.
+ * seat is the add-from-pool picker, each member wears its remove ×, the kebab
+ * holds the one rare verb (delete). The toolbar's search + status segments
+ * DIM non-matching cards rather than hide them, so the wall keeps its shape
+ * and the eye's map of the class survives filtering.
  */
 export function TeacherLabGroups({
   classId,
@@ -83,8 +83,8 @@ export function TeacherLabGroups({
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<StatusFilter>("all");
 
-  // Add-member candidates = everyone unplaced (never double-books), by
-  // login — teachers included, so removing one from a group is reversible.
+  // Add-member candidates = everyone unplaced (never double-books), by login.
+  // Teachers included, so removing one from a group is reversible.
   const addCandidates = g.unplaced.filter(
     (s): s is AddCandidate => s.login !== null,
   );
@@ -194,9 +194,9 @@ export function TeacherLabGroups({
 }
 
 /** The escape hatch, labeled as such: while the lab hasn't started, both
- *  repo-create confirms carry this extra sentence — a repository created
- *  now hands its group the starter code before the start time. Empty once
- *  started. */
+ *  repo-create confirms carry this extra sentence, because a repository
+ *  created now hands its group the starter code before the start time.
+ *  Empty once started. */
 function preStartRepoWarning(started: boolean, scope: "one" | "many") {
   if (started) return "";
   return scope === "one"
@@ -204,7 +204,7 @@ function preStartRepoWarning(started: boolean, scope: "one" | "many") {
     : " This lab hasn't started: creating repositories now gives their groups access to the starter code before the start time.";
 }
 
-/** Search + status segments (they DIM, never hide) + the toolbar verbs:
+/** Search + status segments (they DIM, never hide) plus the toolbar verbs:
  *  batch repo creation, create a group, and clone every work repo. */
 function RosterToolbar({
   g,
@@ -231,11 +231,11 @@ function RosterToolbar({
   total: number;
   attentionCount: number;
   lateCount: number;
-  /** Complete groups still lacking their repo — the batch button's scope. */
+  /** Complete groups still lacking their repo: the batch button's scope. */
   missingCount: number;
-  /** Full names of every work repo in this lab — the clone block's scope. */
+  /** Full names of every work repo in this lab: the clone block's scope. */
   repos: string[];
-  /** False before the lab's startAt — the batch confirm names the leak. */
+  /** False before the lab's startAt, so the batch confirm names the leak. */
   started: boolean;
 }) {
   const [cloneOpen, setCloneOpen] = useState(false);
@@ -280,7 +280,7 @@ function RosterToolbar({
       </ToggleGroup>
       <span className="flex-1" />
       {missingCount > 0 ? (
-        // Repo creation LOCKS each group (students can't join/leave after) —
+        // Repo creation LOCKS each group (students can't join/leave after),
         // worth an explicit confirm on the batch, like the card's Delete.
         <ConfirmDialog
           title="Create the missing repositories?"
@@ -360,10 +360,10 @@ function TeacherGroupCard({
   g: LabGroups;
   row: RosterRow;
   deadline: string;
-  /** False before the lab's startAt — the create confirm names the leak. */
+  /** False before the lab's startAt, so the create confirm names the leak. */
   started: boolean;
   addCandidates: AddCandidate[];
-  /** Filtered out — but the wall dims instead of hiding. */
+  /** Filtered out, but the wall dims instead of hiding. */
   dimmed: boolean;
 }) {
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -386,8 +386,8 @@ function TeacherGroupCard({
           <Row gap="xs" align="center">
             {repo !== null ? (
               // The teacher's roster verbs stay UNLOCKED on a repo-owning
-              // group (only student self-service froze) — an always-visible
-              // warning, because the seats below still add/remove silently.
+              // group (only student self-service froze), so the warning stays
+              // visible: the seats below still add and remove silently.
               <Hint
                 variant="warning"
                 text="repo exists"
@@ -401,7 +401,7 @@ function TeacherGroupCard({
             ) : null}
             {over ? (
               // Lowering the lab's max never evicts anyone (updateLab leaves
-              // attached groups untouched, by design) — so an oversized group
+              // attached groups untouched, by design), so an oversized group
               // is a state the teacher must be TOLD about, or the only trace
               // is a "4/3" count that reads like a typo.
               <Hint
@@ -422,9 +422,9 @@ function TeacherGroupCard({
         memberAction={(member) => (
           <Row gap="xs">
             {userByGithubId.has(String(member.id)) ? null : (
-              // The identity lookup is by GitHub account id — the link
-              // forms on its own the moment the student signs in with
-              // SWITCH and connects this account. Inform, don't alarm.
+              // The identity lookup is by GitHub account id, and the link
+              // forms on its own the moment the student signs in with SWITCH
+              // and connects this account. Inform, don't alarm.
               <Hint
                 label={`@${member.login} hasn't signed in yet`}
                 title="No SWITCH identity yet"
@@ -442,7 +442,7 @@ function TeacherGroupCard({
               disabled={g.busy}
               aria-label={`Remove ${member.login} from ${group.name}`}
               // The teacher's roster verbs stay UNLOCKED on a repo-owning
-              // group (only student self-service froze) — the title carries
+              // group (only student self-service froze), so the title carries
               // the consequence instead of a confirm on every click.
               title={
                 repo !== null
@@ -468,8 +468,8 @@ function TeacherGroupCard({
           />
         )}
         footer={
-          // The kebab lives DOWN here, not in the header — the header's
-          // width belongs to the group's name.
+          // The kebab lives DOWN here, not in the header: the header's width
+          // belongs to the group's name.
           <Row gap="sm" align="end" justify="between" className="w-full">
             <div className="min-w-0 flex-1">
               <CardFooter
@@ -502,9 +502,9 @@ function TeacherGroupCard({
   );
 }
 
-/** The teacher's seat NATURE: placing a student here — the add-picker's
- *  anchor, in the teaching accent (the required variant keeps the base's
- *  warning tint). */
+/** The teacher's seat NATURE: placing a student here, the add-picker's anchor
+ *  in the teaching accent. The required variant keeps the base's warning
+ *  tint. */
 function AddMemberSeat({
   required = false,
   className,
@@ -525,10 +525,10 @@ function AddMemberSeat({
   );
 }
 
-/** The card's kebab — the one rare verb (groups are per-lab, so delete IS
- *  "remove from this lab"). Locked once the repo exists: the item stays
- *  visible but disabled, with the reason spelled out under it (the server
- *  refuses anyway — orphan protection, 409 has_repo). */
+/** The card's kebab, holding the one rare verb (groups are per-lab, so delete
+ *  IS "remove from this lab"). Locked once the repo exists: the item stays
+ *  visible but disabled, with the reason spelled out under it. The server
+ *  refuses anyway, as orphan protection, with 409 has_repo. */
 function CardMenu({
   name,
   locked,
@@ -574,9 +574,9 @@ function CardMenu({
   );
 }
 
-/** The card's bottom-pinned repo facts: the link (+ the 404 badge when the
- *  repo was deleted directly on GitHub) over the last push; or the create
- *  action once the group is complete; or the forms-when-complete note. */
+/** The card's bottom-pinned repo facts: the link (plus the 404 badge when the
+ *  repo was deleted directly on GitHub) over the last push, or the create
+ *  action once the group is complete, or the forms-when-complete note. */
 function CardFooter({
   g,
   group,
@@ -649,9 +649,9 @@ function CardFooter({
 }
 
 /** An open seat that IS the "add from the pool" picker: the seat anchors a
- *  popover whose CONTENT holds the search state — the popover unmounts when
+ *  popover whose CONTENT holds the search state. The popover unmounts when
  *  closed, so the ~36 closed seats of a fresh lab cost nothing per render.
- *  An empty pool disables the seat — nobody left to place. */
+ *  An empty pool disables the seat, since nobody is left to place. */
 function AddFromPool({
   required,
   groupName,
@@ -696,8 +696,8 @@ function AddFromPool({
 
 /** The picker's body (built for ~30 students): a filter input over the
  *  without-a-group pool, scrollable, each row the student's SWITCH identity
- *  over their login. Stays open for multi-add. Mounted only while its
- *  popover is open — the filtering runs for one picker at a time. */
+ *  over their login. Stays open for multi-add. Mounted only while its popover
+ *  is open, so the filtering runs for one picker at a time. */
 function PoolPicker({
   candidates,
   identityFor,
@@ -741,8 +741,8 @@ function PoolPicker({
           </Text>
         ) : (
           filtered.map((s) => {
-            // Inside a <button>: display only — no emails menu here
-            // (nested interactive elements are invalid HTML).
+            // Inside a <button>: display only, no emails menu here, because
+            // nested interactive elements are invalid HTML.
             const { email: _email, ...identity } = identityFor(s);
             return (
               <button

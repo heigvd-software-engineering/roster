@@ -9,19 +9,19 @@ import {
   GithubUnavailableError,
 } from "../lib/github/user";
 
-/** The GitHub link's LIVE state. "unknown" = GitHub couldn't answer — the
- *  gate fails OPEN on it (banner, not onboarding): only a PROVEN-dead token
- *  ("unlinked") may send a user back to re-link. */
+/** The GitHub link's live state. "unknown" means GitHub couldn't answer, and
+ *  the gate fails open on it (banner, not onboarding): only a proven-dead
+ *  token ("unlinked") sends a user back to re-link. */
 type GithubState = "linked" | "unlinked" | "unknown";
 
 /**
- * Current user (Drizzle-inferred `User`) + their linked GitHub profile + the
- * professional email (HES-SO audience: the identity email), flowing to the
- * frontend via hc<AppType> (no hand shape).
+ * Current user (Drizzle-inferred `User`), their linked GitHub profile, and the
+ * professional email (HES-SO audience: the identity email). The shape reaches
+ * the frontend through hc<AppType>, never hand-written.
  */
 export const getMe = factory.createHandlers(async (c) => {
-  // Client config rides on the boot fetch — the SPA has no env of its own
-  // (static assets); the Worker env is the single configuration surface.
+  // Client config rides on the boot fetch: the SPA is static assets with no
+  // env of its own, so the Worker env is the only configuration surface.
   const githubAppInstallUrl = `https://github.com/apps/${c.env.GITHUB_APP_SLUG}/installations/new`;
 
   const session = await createAuth(c.env).api.getSession({
@@ -43,29 +43,29 @@ export const getMe = factory.createHandlers(async (c) => {
     where: (u, { eq }) => eq(u.id, session.user.id),
   });
 
-  // GitHub App user tokens expire after 8h — githubAccessToken refreshes an
-  // expired one with the stored refresh token, so a stale link self-heals
-  // here instead of bouncing the user back to onboarding.
+  // GitHub App user tokens expire after 8h. githubAccessToken refreshes an
+  // expired one from the stored refresh token, so a stale link heals here
+  // instead of bouncing the user back to onboarding.
   const token = await githubAccessToken(c.env, session.user.id);
   let github: GithubProfile | null = null;
   let githubState: GithubState = "unlinked";
   if (token) {
     try {
       github = await fetchGithubProfile(token);
-      // "linked" = GitHub is USABLE right now (we read the profile with the
-      // refreshed token). A null profile is a PROVEN-dead token (401) — the
-      // gate sends the user to (re)link on that, and only on that.
+      // "linked" means GitHub is usable right now (we just read the profile
+      // with the refreshed token). A null profile is a proven-dead token
+      // (401), the only thing that sends the user back to (re)link.
       githubState = github ? "linked" : "unlinked";
     } catch (err) {
       if (!(err instanceof GithubUnavailableError)) throw err;
-      // /api/me is the boot fetch — it must answer. An outage is not a dead
+      // /api/me is the boot fetch and must answer. An outage is not a dead
       // link: report "unknown" and let the SPA fail open with a warning.
       githubState = "unknown";
     }
   }
-  // The two capabilities ride the boot fetch: `isSuperAdmin` (config) shows
-  // the admin zone, `canCreateClasses` (the grant row — ONE condition, even
-  // for admins) shows "New class". Display only — the setup callback and
+  // Both capabilities ride the boot fetch: `isSuperAdmin` (config) shows the
+  // admin zone, `canCreateClasses` (the grant row, one condition even for
+  // admins) shows "New class". Display only: the setup callback and
   // /api/admin re-check server-side.
   const superAdmin = isSuperAdmin(c.env, user?.email);
   const canCreateClasses = user ? await userCanCreateClasses(db, user) : false;

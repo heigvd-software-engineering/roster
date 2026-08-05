@@ -6,12 +6,12 @@ import { authedFactory } from "../factory";
 import { isSuperAdmin } from "../lib/auth/super-admin";
 
 /**
- * The super-admin zone's data: every SWITCH user in the app (the `user`
- * table IS the SWITCH users). `canCreateClasses` is the grant row — THE
- * one condition the gate checks, identical for everyone; super admins
- * hold no implicit grant and toggle themselves like anyone. Their
- * `isSuperAdmin` (config, never grantable from the app) rides along for
- * display only. School-scale: no pagination, filtering is client-side.
+ * The super-admin zone's data: every SWITCH user in the app (the `user` table
+ * holds exactly those). `canCreateClasses` is the grant row, the one condition
+ * the gate checks for everyone; super admins hold no implicit grant and toggle
+ * themselves like anyone else. `isSuperAdmin` comes from config, is never
+ * grantable from the app, and rides along for display only. School-scale, so
+ * no pagination and client-side filtering.
  */
 export const listUsers = authedFactory.createHandlers(async (c) => {
   const db = getDb(c.env.DB);
@@ -39,8 +39,8 @@ export const listUsers = authedFactory.createHandlers(async (c) => {
 export const setClassCreator = authedFactory.createHandlers(
   zValidator("json", z.object({ enabled: z.boolean() })),
   async (c) => {
-    // `param` types as string | undefined here (factory handlers don't see
-    // the route path) — an absent id is just an unknown user.
+    // `param` types as string | undefined (factory handlers don't see the
+    // route path); an absent id is an unknown user.
     const userId = c.req.param("id");
     if (!userId) return c.json({ error: "not_found" }, 404);
     const { enabled } = c.req.valid("json");

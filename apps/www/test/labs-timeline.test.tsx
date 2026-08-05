@@ -56,10 +56,10 @@ const lockedLab = {
   templateRepoFullName: "acme/lab2-solution",
 } as HubLabItem;
 
-// Passed intentionally OUT of order — the timeline must re-sort by start.
+// Passed out of order on purpose: the timeline must re-sort by start.
 const labs = [lockedLab, doneLab, runningLab];
 // The span the caller would compute (labs carry explicit starts): earliest
-// start → latest deadline. Tests pass it explicitly, like the cards do.
+// start → latest deadline. Tests pass it explicitly, as the cards do.
 const span = { start: new Date(at(-58)), end: new Date(at(50)) };
 
 describe("LabsTimeline", () => {
@@ -85,8 +85,8 @@ describe("LabsTimeline", () => {
   it("marks today and pulses only the running lab's status dot", () => {
     const { container } = render(<LabsTimeline labs={labs} span={span} />);
     expect(screen.getByText(/now ·/)).toBeInTheDocument();
-    // ONE ping ring — on the in-progress status dot, nowhere else (the bar
-    // itself carries no animation).
+    // One ping ring, on the in-progress status dot and nowhere else (the
+    // bar itself carries no animation).
     expect(container.querySelectorAll(".animate-ping")).toHaveLength(1);
     expect(screen.getByText(/due/)).toBeInTheDocument();
   });
@@ -103,7 +103,7 @@ describe("LabsTimeline", () => {
       screen.getByTitle("This lab hasn't started yet"),
     ).toBeInTheDocument();
     // The running lab's template shows; the locked lab's must not (its name
-    // is the leak the start gate prevents) — so exactly ONE starter chip.
+    // is the leak the start gate prevents), so exactly one starter chip.
     expect(screen.getAllByText("starter code")).toHaveLength(1);
     expect(screen.getByText("not started")).toBeInTheDocument();
   });
@@ -117,14 +117,14 @@ describe("LabsTimeline", () => {
       "/classes/c1/labs/l3/manage",
     ]);
     expect(screen.getAllByText("starter code")).toHaveLength(2);
-    // Same status word as the student side — the lab is locked, not hidden.
+    // Same status word as the student side: the lab is locked, not hidden.
     expect(screen.getByText("not started")).toBeInTheDocument();
     expect(screen.queryByText(/hidden/)).not.toBeInTheDocument();
   });
 
   it("keeps a truthful edge and labels by deadline only when no start is set", () => {
-    // The bar's left edge stays TRUTHFUL (createdAt — the lab could not be
-    // worked on earlier); the tooltip names it, the label prints no
+    // The bar's left edge stays truthful (createdAt: the lab could not be
+    // worked on earlier); the tooltip names it, and the label prints no
     // pseudo-start.
     const noStart = { ...runningLab, startAt: null } as HubLabItem;
     const { container } = render(<LabsTimeline labs={[noStart]} span={span} />);
@@ -140,8 +140,8 @@ describe("LabsTimeline", () => {
     const { container } = render(
       <LabsTimeline labs={[runningLab]} span={span} />,
     );
-    // ONE tooltip zone covering the whole bar — start truth + deadline —
-    // rendered as the bar's LAST child so overlays can't eat the hover.
+    // One tooltip zone covers the whole bar (start truth and deadline),
+    // rendered as the bar's last child so overlays can't eat the hover.
     const zones = container.querySelectorAll(".cursor-help");
     expect(zones).toHaveLength(1);
     expect(zones[0]).toBe(zones[0]?.parentElement?.lastElementChild);
@@ -149,15 +149,15 @@ describe("LabsTimeline", () => {
 
   it("drops the now line when today falls outside the span", () => {
     // An archived class: every lab done, the whole span in the past. A
-    // clamped "now" would point at the wrong month — so it's absent.
+    // clamped "now" would point at the wrong month, so it's absent.
     const pastSpan = { start: new Date(at(-90)), end: new Date(at(-25)) };
     render(<LabsTimeline labs={[doneLab]} span={pastSpan} />);
     expect(screen.queryByText(/now ·/)).not.toBeInTheDocument();
   });
 
   it("drops the now line when today is before the span too", () => {
-    // A next-term class scheduled entirely in the future — same rule,
-    // left side.
+    // A next-term class scheduled entirely in the future: same rule, left
+    // side.
     const futureSpan = { start: new Date(at(30)), end: new Date(at(90)) };
     render(<LabsTimeline labs={[lockedLab]} span={futureSpan} />);
     expect(screen.queryByText(/now ·/)).not.toBeInTheDocument();

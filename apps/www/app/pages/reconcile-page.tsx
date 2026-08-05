@@ -15,8 +15,8 @@ import { Card } from "~/components/ui/card";
 import { api, useApi } from "~/lib/api";
 import { cn } from "~/lib/utils";
 
-/** INFERRED from the audit endpoint (the server's `lib/reconcile/types.ts` is
- *  the one source) — hand-modeling this shape would sever the compile-time
+/** Inferred from the audit endpoint (the server's `lib/reconcile/types.ts` is
+ *  the one source). Hand-modeling this shape would sever the compile-time
  *  link the type spine exists to keep. */
 type Finding = InferResponseType<
   (typeof api.api.classes)[":id"]["audit"]["$get"],
@@ -24,7 +24,7 @@ type Finding = InferResponseType<
 >["findings"][number];
 type Severity = Finding["severity"];
 
-/** The reconcilers, in the order a teacher should read them: what the class IS,
+/** The reconcilers, in the order a teacher should read them: what the class is,
  *  then who is in it, then what they work in, then who can see what. */
 const SECTIONS: { name: string; reconcilers: string[] }[] = [
   { name: "Class", reconcilers: ["installation", "identity"] },
@@ -47,9 +47,8 @@ const SPINE: Record<Severity, string> = {
 /**
  * Group the findings into the sections above, and sweep everything else into a
  * final one. Adding a reconciler is meant to be a file and one line on the
- * server — if its name is missing here, its findings must still reach the
- * teacher rather than silently vanishing from the page that exists to surface
- * them.
+ * server, so if its name is missing here its findings must still reach the
+ * teacher instead of vanishing from the page that exists to surface them.
  */
 function sections(findings: Finding[]) {
   const known = new Set(SECTIONS.flatMap((s) => s.reconcilers));
@@ -71,7 +70,7 @@ const initialSelection = (findings: Finding[]) =>
 const fixable = (findings: Finding[]) => findings.filter((f) => f.fix);
 
 /**
- * /classes/:id/reconcile — audit the class against GitHub, then apply only what
+ * /classes/:id/reconcile: audit the class against GitHub, then apply only what
  * the teacher accepts. The audit is a pure read; nothing here repairs anything
  * until Apply is pressed.
  */
@@ -88,7 +87,7 @@ export function ReconcilePage() {
   const [applying, setApplying] = useState(false);
   const [result, setResult] = useState<string | null>(null);
 
-  // Seed the selection from the first audit that arrives, then leave it alone —
+  // Seed the selection from the first audit that arrives, then leave it alone:
   // re-seeding on every render would fight the teacher's clicks.
   const checked = selected ?? initialSelection(findings);
 
@@ -172,8 +171,8 @@ export function ReconcilePage() {
               {checked.size} selected
             </Text>
             <span className="flex-1" />
-            {/* "Select all" never selects a finding with no fix — there is
-                nothing to apply. */}
+            {/* "Select all" skips findings with no fix: there is nothing
+                to apply. */}
             <Button
               size="sm"
               variant="ghost"
@@ -194,11 +193,11 @@ export function ReconcilePage() {
             </Button>
           </Row>
 
-          {/* One card per section, rows divided inside it — a card per finding
-              turned a long audit into a wall of boxes. No section heading: the
-              finding titles already say what they are about, and the reading
-              ORDER (what the class is → who is in it → what they work in) is
-              what the grouping is for. */}
+          {/* One card per section, rows divided inside it: a card per finding
+              turned a long audit into a wall of boxes. No section heading,
+              because the finding titles already say what they are about and
+              the reading order (what the class is → who is in it → what they
+              work in) is what the grouping is for. */}
           {sections(findings).map((section) => (
             <Card
               key={section.name}
@@ -217,8 +216,8 @@ export function ReconcilePage() {
             </Card>
           ))}
 
-          {/* The bar follows the teacher down a long audit — Apply must never be
-              a scroll away from the boxes it acts on. */}
+          {/* The bar follows the teacher down a long audit: Apply must never
+              be a scroll away from the boxes it acts on. */}
           <Row
             gap="md"
             align="center"
@@ -245,7 +244,7 @@ export function ReconcilePage() {
   );
 }
 
-/** One finding. Unfixable ones (`fix === null`) are reported, not offered —
+/** One finding. Unfixable ones (`fix === null`) are reported, not offered:
  *  they get no checkbox, because there is nothing to consent to. */
 function FindingRow({
   finding,
@@ -296,7 +295,7 @@ function FindingRow({
           {title}
         </Text>
         <Text variant="caption">{detail}</Text>
-        {/* What Apply will DO, visually distinct from what we OBSERVED above:
+        {/* What Apply will do, visually distinct from what we observed above:
             the state that stands → the state Apply produces. Findings without
             a two-state reading fall back to the fix sentence. */}
         <div className="mt-1.5" title={fix}>

@@ -1,9 +1,9 @@
 import { Navigate, useLocation } from "react-router";
 import { Auth } from "~/components/custom/shell/auth";
 
-/** / — login when signed out (rendered in place), else the classes hub.
- *  The GitHub App setup callback reports its failures as `/?error=…` —
- *  those route to the connect-failed explainer, not the hub. */
+/** /: login when signed out (rendered in place), else the classes hub.
+ *  The GitHub App setup callback reports failures as `/?error=…`; those
+ *  route to the connect-failed explainer, not the hub. */
 export default function Home() {
   const { search } = useLocation();
   const error = new URLSearchParams(search).get("error");

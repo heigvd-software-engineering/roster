@@ -2,10 +2,9 @@ import { describe, expect, it } from "vitest";
 import { repoSkipMessages } from "~/components/custom/classes/groups/shared/use-lab-groups";
 
 /**
- * The batch repo-create's 200 can still skip groups — these messages are
- * the only thing standing between a partial batch and a teacher believing
- * every repo exists. Names over ids; reason-worded like the single-create
- * conflicts.
+ * The batch repo-create's 200 can still skip groups, and these messages are
+ * all that stands between a partial batch and a teacher believing every repo
+ * exists. Names over ids, reason-worded like the single-create conflicts.
  */
 describe("repoSkipMessages", () => {
   const groups = [

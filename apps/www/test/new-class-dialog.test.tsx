@@ -17,14 +17,14 @@ describe("NewClassDialog", () => {
     expect(screen.getByText("Teachers")).toBeInTheDocument();
     expect(screen.getByText("Students")).toBeInTheDocument();
     expect(screen.getByText("Student work")).toBeInTheDocument();
-    // Teachers are invited from within roster (InviteTeacherDialog) — the dialog
-    // must point there, not at GitHub's own invite UI.
+    // Teachers are invited from within roster (InviteTeacherDialog), so the
+    // dialog must point there, not at GitHub's own invite UI.
     expect(
       screen.getByText(/roster sends the Owner invitation/),
     ).toBeInTheDocument();
-    // The privacy section: base permission is dropped to No access and member
-    // repo creation turned off, keeping student work private and repo
-    // creation inside roster — the safety-critical claims must survive.
+    // The privacy section: base permission drops to No access and member repo
+    // creation is turned off, keeping student work private and repo creation
+    // inside roster. These safety-critical claims must survive.
     expect(screen.getByText("Who can see and do what")).toBeInTheDocument();
     expect(screen.getByText(/member repository creation/)).toBeInTheDocument();
     expect(

@@ -7,12 +7,12 @@ import { RulePhase } from "~/components/custom/rules/rule-phase";
 import { Text } from "~/components/custom/typography/text";
 
 /**
- * /rules — the laws of lab orchestration, on one page, identical for
+ * /rules: the laws of lab orchestration, on one page, identical for
  * students and teachers: students learn their boundaries, teachers see
  * their powers spelled out next to them. Axioms first (the overview), then
- * the phases of a lab's life as a timeline. Every rule here is ENFORCED
- * server-side (the named 409s in the group handlers); this page documents,
- * it doesn't decide.
+ * the phases of a lab's life as a timeline. The server enforces every rule
+ * here (the named 409s in the group handlers); this page documents, it
+ * doesn't decide.
  */
 export function RulesPage() {
   return (

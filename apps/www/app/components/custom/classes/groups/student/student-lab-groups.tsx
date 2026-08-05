@@ -20,18 +20,18 @@ import type { LabItem } from "~/lib/api";
 import { cn } from "~/lib/utils";
 
 /**
- * The STUDENT's lab surface, BOTH modes — one structure, mode-specific copy:
+ * The STUDENT's lab surface, BOTH modes: one structure, mode-specific copy.
  *
- * INDIVIDUAL — your solo card (1/3, a ghost until accepted) beside the
+ * INDIVIDUAL: your solo card (1/3, a ghost until accepted) beside the
  * start-lab card (2/3), whose accept state creates group + repo in one click.
  *
- * GROUP, BROWSE (not in a group yet) — the same GROUP WALL the teacher sees,
- * without the management verbs: every group's full roster, and an OPEN SEAT
- * is the join affordance — taking a seat is what joining is. Amber seats mark
- * groups still short of the minimum. Plus "new group" (a fresh group for
- * THIS lab; you auto-join).
+ * GROUP, BROWSE (not in a group yet): the same GROUP WALL the teacher sees,
+ * without the management verbs. Every group's full roster, and an OPEN SEAT
+ * is the join affordance, because taking a seat is what joining is. Amber
+ * seats mark groups still short of the minimum. Plus "new group", a fresh
+ * group for THIS lab that you auto-join.
  *
- * GROUP, YOURS — the others disappear; your group card (1/3) sits beside
+ * GROUP, YOURS: the others disappear, and your group card (1/3) sits beside
  * the same start-lab card (2/3) that owns the work repo. Your open seats are
  * placeholders, not verbs: classmates seat themselves.
  */
@@ -61,7 +61,7 @@ export function StudentLabGroups({
 
   if (lab.groupMode === "individual") {
     // The server models an individual acceptance as a SOLO GROUP named after
-    // the student — render exactly that, in the group flow's own skeleton.
+    // the student, so render exactly that in the group flow's own skeleton.
     // Before accepting, the card is a GHOST of the same shape (dimmed you),
     // so accepting changes state, never layout. min = max = 1: no seats.
     const solo = mine ?? {
@@ -112,13 +112,12 @@ export function StudentLabGroups({
   }
 
   if (mine) {
-    // Once the work repo exists the group is LOCKED — the server refuses
-    // join/leave (409 has_repo); the disabled state just says so up front
-    // (same pattern as the teacher's Delete item).
+    // Once the work repo exists the group is LOCKED: the server refuses
+    // join/leave (409 has_repo), and the disabled state says so up front,
+    // the same pattern as the teacher's Delete item.
     const locked = mine.repoFullName !== null;
     return (
       <>
-        {/* Who still needs a team — the students' organizing aid. */}
         <UnassignedPool students={g.unassignedStudents} users={g.users} />
         <Stack gap="md" className="w-full">
           <Text variant="overline">Your group</Text>
@@ -154,7 +153,7 @@ export function StudentLabGroups({
                 locked ? <LockedSeat /> : <VacantSeat required={required} />
               }
             />
-            {/* The lab starts here once the group reaches the minimum size —
+            {/* The lab starts here once the group reaches the minimum size,
                 and STAYS once the repo exists: a locked group can drop below
                 min via the teacher, and the survivors still need their repo. */}
             {mine.members.length >= g.min || locked ? (
@@ -175,7 +174,6 @@ export function StudentLabGroups({
 
   return (
     <>
-      {/* Who still needs a team — the students' organizing aid. */}
       <UnassignedPool students={g.unassignedStudents} users={g.users} />
       <Stack gap="md" className="w-full">
         <Text variant="overline">Groups in this lab</Text>
@@ -187,8 +185,8 @@ export function StudentLabGroups({
         <div className={GROUP_WALL}>
           {g.groups.map((group) => {
             // Same lock as the "mine" branch above: repo exists ⇒ only the
-            // teacher changes membership. A FULL group simply has no open
-            // seat — the join affordance disappears with the room.
+            // teacher changes membership. A FULL group has no open seat, so
+            // the join affordance disappears with the room.
             const locked = group.repoFullName !== null;
             return (
               <GroupCard
@@ -198,9 +196,9 @@ export function StudentLabGroups({
                 min={g.min}
                 max={g.max}
                 renderOpenSeat={(required) =>
-                  // The seat survives the lock — hiding it would make a 2/3
-                  // locked group read as full. It just changes nature: the
-                  // teacher is the path onto a locked team.
+                  // The seat survives the lock, since hiding it would make a
+                  // 2/3 locked group read as full. Only its nature changes:
+                  // the teacher is the path onto a locked team.
                   locked ? (
                     <LockedSeat />
                   ) : (
@@ -227,8 +225,8 @@ export function StudentLabGroups({
   );
 }
 
-/** The "this one is yours" line under the card's name — enrolled color
- *  while it's really yours, muted for the not-yet-accepted ghost. */
+/** The "this one is yours" line under the card's name: enrolled color while
+ *  it's really yours, muted for the not-yet-accepted ghost. */
 function MineNote({
   active = true,
   children,
@@ -247,8 +245,8 @@ function MineNote({
   );
 }
 
-/** The student's seat NATURE: taking it IS joining — enrolled accent (the
- *  required variant keeps the base's warning tint). */
+/** The student's seat NATURE: taking it IS joining, in the enrolled accent.
+ *  The required variant keeps the base's warning tint. */
 function JoinSeat({
   required = false,
   className,
@@ -270,7 +268,7 @@ function JoinSeat({
   );
 }
 
-/** Your own group's open spot: someone ELSE seats themselves here — no
+/** Your own group's open spot: someone ELSE seats themselves here, so no
  *  verb on this card. */
 function VacantSeat({ required = false }: { required?: boolean }) {
   return (
@@ -283,9 +281,9 @@ function VacantSeat({ required = false }: { required?: boolean }) {
   );
 }
 
-/** A seat behind the repo lock: capacity remains, but only the teacher
- *  moves people once the work repository exists. Brand red — the lock is
- *  the seat's dominant fact, whatever the group's size. */
+/** A seat behind the repo lock: capacity remains, but only the teacher moves
+ *  people once the work repository exists. Brand red, because the lock is the
+ *  seat's dominant fact whatever the group's size. */
 function LockedSeat() {
   return (
     <SeatSlot

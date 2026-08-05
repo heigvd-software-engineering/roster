@@ -3,10 +3,10 @@ import { account, getDb, user } from "@roster/db";
 import { beforeEach, expect, test, vi } from "vitest";
 import type { AuthEnv } from "../src/lib/auth/config";
 
-// What every session read does. The heal itself is covered in
-// accepted-invitation-heal.test.ts; what matters HERE is the wiring — that reading
-// a session actually triggers it, and that the onboarding flag is right.
-// Without this, deleting the heal call would leave the whole suite green.
+// What every session read does. accepted-invitation-heal.test.ts covers the heal
+// itself; what matters here is the wiring: reading a session triggers it, and
+// the onboarding flag is right. Without this, deleting the heal call would leave
+// the whole suite green.
 
 const state = vi.hoisted(() => ({ healedFor: [] as string[] }));
 
@@ -55,8 +55,8 @@ test("githubLinked is true once a github account exists", async () => {
 });
 
 test("githubLinked is false with only a SWITCH account — the onboarding gate", async () => {
-  // Every user has this one: signing in creates it. Only the GitHub link is
-  // the thing onboarding is waiting for.
+  // Every user has this one: signing in creates it. Onboarding waits for the
+  // GitHub link alone.
   await db.insert(account).values({
     id: "a-switch",
     userId: "u1",
@@ -96,8 +96,8 @@ test("another user's github account does not link this one", async () => {
 });
 
 test("user and session pass through untouched", async () => {
-  // The SPA infers the session shape from this return — anything dropped here
-  // silently disappears from every client that reads the session.
+  // The SPA infers the session shape from this return, so anything dropped here
+  // disappears from every client that reads the session.
   const u = { id: "u1", name: "Prof", firstName: "Bob" };
   const s = { id: "s1", token: "t", expiresAt: now };
 

@@ -1,7 +1,7 @@
-// @roster/db = the SCHEMA layer, nothing more: Drizzle table models, inferred
-// entity types, and `getDb`. There is deliberately NO query-helper layer —
-// endpoints write their Drizzle queries inline (decided 2026-07-03: the db
-// itself is the abstraction). See README.md.
+// @roster/db is the schema layer, nothing more: Drizzle table models, inferred
+// entity types, and `getDb`. It has no query-helper layer on purpose; endpoints
+// write their Drizzle queries inline (decided 2026-07-03: the db itself is the
+// abstraction). See README.md.
 import type { D1Database } from "@cloudflare/workers-types";
 import { drizzle } from "drizzle-orm/d1";
 import * as schema from "./schema";

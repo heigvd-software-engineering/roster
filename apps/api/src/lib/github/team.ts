@@ -1,15 +1,15 @@
-// Installation-token operations on a class org's TEAMS — a roster group is a
-// GitHub Team (F7). One GitHub call + narrowing per function; no
+// Installation-token operations on a class org's teams: a roster group is a
+// GitHub Team (F7). One GitHub call plus narrowing per function; no
 // orchestration (see README.md). Students are always role `member`, so only
 // roster (installation token) and org Owners can manage rosters.
 import type { AuthEnv } from "../auth/config";
 import { installationOctokit } from "./clients";
 import type { OrgPerson } from "./org";
 
-/** Create the group's backing team — `secret`, so non-members can't discover
- *  or request to join it out of band. Returns GitHub's team identity (the
- *  slug is GitHub-derived from the name; a duplicate name 422s, which the
- *  route surfaces as "name taken"). */
+/** Create the group's backing team as `secret`, so non-members can't discover
+ *  it or ask to join out of band. Returns GitHub's team identity (GitHub
+ *  derives the slug from the name; a duplicate name 422s, which the route
+ *  surfaces as "name taken"). */
 export async function createTeam(
   env: AuthEnv,
   installationId: number,
@@ -25,8 +25,8 @@ export async function createTeam(
   return { id: data.id, slug: data.slug, name: data.name };
 }
 
-/** The team's live member list — THE group roster (never stored). Null when
- *  the team is gone on GitHub (404): the group row is orphaned and the
+/** The team's live member list, which is the group roster (never stored). Null
+ *  when the team is gone on GitHub (404): the group row is orphaned and the
  *  caller reconciles. Other errors propagate. */
 export async function teamMembers(
   env: AuthEnv,
@@ -53,7 +53,7 @@ export async function teamMembers(
   }
 }
 
-/** Add a user to the team — always role `member` (never maintainer). */
+/** Add a user to the team, always role `member`, never maintainer. */
 export async function addTeamMember(
   env: AuthEnv,
   installationId: number,
@@ -70,7 +70,6 @@ export async function addTeamMember(
   });
 }
 
-/** Remove a user from the team. */
 export async function removeTeamMember(
   env: AuthEnv,
   installationId: number,

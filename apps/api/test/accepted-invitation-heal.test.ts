@@ -3,9 +3,9 @@ import { account, classes, classMembers, getDb, user } from "@roster/db";
 import { beforeEach, expect, test, vi } from "vitest";
 import type { AuthEnv } from "../src/lib/auth/config";
 
-// What `customSession` runs on every session read: resolve the caller's OWN
+// What `customSession` runs on every session read: resolve the caller's own
 // accepted teacher invitation. Two properties matter as much as the heal
-// itself — it must not touch anyone else's rows, and it must not reach for
+// itself: it must not touch anyone else's rows, and it must not reach for
 // GitHub when the user has nothing outstanding.
 
 const state = vi.hoisted(() => ({
@@ -164,7 +164,7 @@ test("a STUDENT who accepted becomes active, not a teacher", async () => {
 
 test("does NOT heal while GitHub still says the invitation is open", async () => {
   // The cached row is a claim, not evidence. Only live GitHub can say the
-  // invitation was accepted — here it says they are still pending.
+  // invitation was accepted, and here it says they are still pending.
   state.orgMemberships = { acme: { role: "admin", state: "pending" } };
   await member({
     id: "cm-self",
@@ -201,7 +201,7 @@ test("touches ONLY the signed-in user — never another invitee's row", async ()
   await healAcceptedInvitations(authEnv, "u1");
 
   expect(await rows()).toEqual([
-    // Still invited: we have no evidence THEY accepted.
+    // Still invited: we have no evidence they accepted.
     ["colleague", "pending_teacher", "222", "901"],
     ["prof", "teacher", "111", null],
   ]);
@@ -225,7 +225,7 @@ test("heals only the classes the caller actually owns now", async () => {
     login: "prof",
     state: "pending_teacher",
   });
-  // Owner of acme only — the other invitation is still outstanding.
+  // Owner of acme only, so the other invitation is still outstanding.
   state.orgMemberships = { acme: { role: "admin", state: "active" } };
 
   await healAcceptedInvitations(authEnv, "u1");
@@ -237,8 +237,8 @@ test("heals only the classes the caller actually owns now", async () => {
 });
 
 test("with nothing outstanding it never reaches for GitHub", async () => {
-  // THE reason this can hang off every session read: the DB gate runs first,
-  // so the overwhelmingly common read costs one indexed query and no network.
+  // Why this can hang off every session read: the DB gate runs first, so the
+  // common read costs one indexed query and no network.
   await member({
     id: "cm-self",
     classId: "c1",

@@ -59,8 +59,8 @@ beforeEach(async () => {
   await db.delete(account);
   await db.delete(user);
   await db.insert(user).values({ id: "u1", name: "U1", email: "u1@x.ch" });
-  // Class creation is a granted capability — the happy paths assume the
-  // caller holds it; the not_class_creator tests below delete it.
+  // Class creation is a granted capability. The happy paths assume the caller
+  // holds it; the not_class_creator tests below delete it.
   await db
     .insert(classCreators)
     .values({ userId: "u1", createdAt: new Date(0) });

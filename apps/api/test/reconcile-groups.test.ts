@@ -147,8 +147,6 @@ beforeEach(async () => {
   await seedLab("lab", "Lab One", null);
 });
 
-// --- group-teams -----------------------------------------------------------
-
 test("group-teams audit: a live team produces no finding", async () => {
   state.liveTeams.add("lab-one-alpha");
   await seedGroup("alpha", "lab", "lab-one-alpha", null);
@@ -166,7 +164,8 @@ test("group-teams audit: a deleted team proposes a group delete", async () => {
     reconciler: "group-teams",
     severity: "broken",
   });
-  // The teacher must be told the repo survives — that's what makes the delete safe.
+  // The teacher must be told the repo survives; that is what makes the delete
+  // safe.
   expect(f?.detail).toContain("acme/lab-one-alpha");
 });
 
@@ -176,7 +175,7 @@ test("group-teams apply deletes ONLY the named group", async () => {
   await seedGroup("beta", "lab", "lab-one-beta", null);
   await seedGroup("gamma", "lab", "lab-one-gamma", null);
 
-  // alpha AND gamma both have dead teams; the teacher only checked alpha.
+  // alpha and gamma both have dead teams; the teacher checked only alpha.
   const results = await groupTeams.apply(await ctx(), [
     "group-teams:delete:groupId=alpha",
   ]);
@@ -200,8 +199,6 @@ test("group-teams apply: a row already gone is a success (replay)", async () => 
   expect(await groupIds()).toEqual([]);
 });
 
-// --- work-repos ------------------------------------------------------------
-
 test("work-repos audit: an unrecorded repo is proposed for adoption", async () => {
   state.orgRepos.add("acme/lab-one-alpha");
   await seedGroup("alpha", "lab", "lab-one-alpha", null);
@@ -220,7 +217,7 @@ test("work-repos audit: a group that already has its repo is left alone", async 
 });
 
 test("work-repos audit: a lab's own TEMPLATE is never adopted", async () => {
-  // Adoption ends in grantTeamRepo. Adopting the template would hand the
+  // Adoption ends in grantTeamRepo, so adopting the template would hand
   // students push on the starter code.
   await seedLab("lab-t", "Lab Two", "acme/lab-two-starter");
   state.orgRepos.add("acme/lab-two-starter");

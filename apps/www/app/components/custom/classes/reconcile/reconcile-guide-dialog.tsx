@@ -11,13 +11,13 @@ import {
 } from "~/components/ui/dialog";
 
 /**
- * The catalogue of what reconcile can find and what Apply does about each —
- * one entry per drift the subsystem recognises, grouped by the SAME sections the
+ * The catalogue of what reconcile can find and what Apply does about each: one
+ * entry per drift the subsystem recognises, grouped by the SAME sections the
  * reconcile page uses (what the class IS → who is in it → what they work in →
- * who can see what). This is prose, deliberately: the reconcilers' own titles
- * are generated per finding, so there is no static list to render — the source
- * of truth for "what does this cover" is each reconciler's header comment, and
- * this mirrors it. Adding a reconciler means adding an entry here.
+ * who can see what). Prose, deliberately: the reconcilers' own titles are
+ * generated per finding, so there is no static list to render. Each
+ * reconciler's header comment is the source of truth for "what does this
+ * cover", and this mirrors it. Adding a reconciler means adding an entry here.
  */
 const GUIDE: {
   section: string;
@@ -100,7 +100,7 @@ const GUIDE: {
 ];
 
 /**
- * "What does reconcile cover?" — an on-demand reference for the reconcile page.
+ * "What does reconcile cover?", an on-demand reference for the reconcile page.
  * The audit lists what has drifted RIGHT NOW; this lists everything the
  * subsystem can ever notice and how it repairs each, so a teacher can trust an
  * empty audit and know what an Apply will and won't do. A quiet link, not a
@@ -152,8 +152,8 @@ export function ReconcileGuideDialog() {
             </Stack>
           ))}
 
-          {/* The one guarantee that isn't a per-row fix: a broken check reports
-              itself instead of taking the page down with it. */}
+          {/* The one guarantee that isn't a per-row fix: a broken check
+              reports itself instead of taking the page down with it. */}
           <Text variant="caption" className="border-t pt-3">
             A check that can't run — say the App was removed from the
             organization — is reported on its own and never blocks the others.

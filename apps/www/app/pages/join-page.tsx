@@ -17,7 +17,7 @@ import { api } from "~/lib/api";
 
 const MEMBERSHIPS = ["none", "pending", "active"] as const;
 type Membership = (typeof MEMBERSHIPS)[number];
-/** The preview's `class` field, INFERRED from the join endpoint — never
+/** The preview's `class` field, inferred from the join endpoint, never
  *  hand-modeled (type-spine rule). */
 type ClassIdentity = InferResponseType<
   (typeof api.api.join)[":token"]["$get"],
@@ -35,11 +35,11 @@ type JoinState =
       kind: "ready";
       cls: ClassIdentity;
       membership: Membership;
-      /** GitHub org role when membership exists — "admin" = owner (teacher). */
+      /** GitHub org role when membership exists; "admin" = owner (teacher). */
       role: string | null;
     };
 
-/** Narrow an API value to a known membership — anything else is an error
+/** Narrow an API value to a known membership. Anything else is an error
  *  state, never silently rendered as "enrolled". */
 function asMembership(value: unknown): Membership | null {
   return MEMBERSHIPS.includes(value as Membership)
@@ -48,10 +48,10 @@ function asMembership(value: unknown): Membership | null {
 }
 
 /**
- * /join/:token — the student side of the class join link (spec: F4 design).
+ * /join/:token: the student side of the class join link (spec: F4 design).
  * A small explicit state machine (useApi is param-less GET only, and the
  * transitions here are bespoke): loading → ready(none|pending|active) with
- * invalid (404) and error (retry) terminals. Joining creates a PENDING GitHub
+ * invalid (404) and error (retry) terminals. Joining creates a pending GitHub
  * org invite; acceptance is native on GitHub, so the page offers the
  * invitation link in a new tab plus a live "Check my enrollment" re-read.
  */
@@ -99,9 +99,9 @@ export function JoinPage() {
     void load();
   }, [load]);
 
-  /** The preview is a pure read, so accepting the GitHub invite records nothing
-   *  by itself. This is the student saying "I've accepted" — an explicit action,
-   *  not an effect on page load, so a failure is visible and retryable. */
+  /** The preview is a pure read, so accepting the GitHub invite records
+   *  nothing by itself. This is the student saying "I've accepted": an explicit
+   *  action, not a page-load effect, so a failure is visible and retryable. */
   async function finishJoining(then?: () => void) {
     setSubmitting(true);
     try {
@@ -207,14 +207,14 @@ export function JoinPage() {
             : `Join ${className}`
       }
     >
-      {/* You → the class: the acting GitHub identity on the left — with
+      {/* You → the class: the acting GitHub identity on the left. With
           account switching (e.g. teacher vs student test accounts), the
           membership shown below is meaningless without it. */}
       <Row gap="md" align="center" wrap>
         {github ? (
           <>
-            {/* Named by GitHub, so it wears the GitHub photo — the whole point
-                is to catch an account-swap before you join as the wrong user. */}
+            {/* Named by GitHub, so it wears the GitHub photo: the point is to
+                catch an account swap before you join as the wrong user. */}
             <UserIdentity
               name={github.name ?? github.login}
               handle={github.login}

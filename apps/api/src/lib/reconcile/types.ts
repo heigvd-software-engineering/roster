@@ -1,4 +1,4 @@
-// The contracts of the reconciliation subsystem. A reconciler owns ONE
+// The contracts of the reconciliation subsystem. A reconciler owns one
 // GitHub-authoritative concern (installation, identity, roster, group-teams,
 // work-repos, base-permission) and never talks to GitHub directly: it reads
 // through `ClassContext` (context.ts) and reports/fixes drift as `Finding`s.
@@ -9,10 +9,10 @@ import type { OrgInvitation, OrgPerson, OrgPolicy } from "../github/org";
 type Db = ReturnType<typeof getDb>;
 type ClassMember = typeof classMembers.$inferSelect;
 
-/** Stable and derived from CONTENT, not a counter. Two audits of the same drift
+/** Stable and derived from content, not a counter. Two audits of the same drift
  *  produce the same key; a changed drift is a different finding. The segment
- *  before the first ":" is the reconciler name — `applyFindings` dispatches on it. */
-export type FindingKey = string; // "roster:remove:githubId=9"
+ *  before the first ":" is the reconciler name `applyFindings` dispatches on. */
+export type FindingKey = string; // "roster:remove:user=9"
 
 export type Severity = "broken" | "drift" | "info";
 
@@ -26,9 +26,9 @@ export type Finding = {
   detail: string;
   /** What Apply will do. `null` = we can see it, we cannot fix it. */
   fix: string | null;
-  /** The state transition Apply performs — `from` is what stands NOW, `to`
-   *  what it becomes. Rendered as `from → to`; null when the change has no
-   *  meaningful two-state reading (then `fix` alone speaks). */
+  /** The state transition Apply performs: `from` is what stands now, `to` what
+   *  it becomes. Rendered as `from → to`; null when the change has no two-state
+   *  reading, and then `fix` alone speaks. */
   change: { from: string; to: string } | null;
 };
 
@@ -38,7 +38,7 @@ export type FailedOp = { key: FindingKey; ok: false; error: string };
 export type Reconciler = {
   name: string;
   audit(ctx: ClassContext): Promise<Finding[]>;
-  /** Only ever called with keys THIS reconciler produced. Each op is idempotent. */
+  /** Only ever called with keys this reconciler produced. Each op is idempotent. */
   apply(
     ctx: ClassContext,
     keys: FindingKey[],
@@ -47,10 +47,10 @@ export type Reconciler = {
 
 /**
  * Everything a reconciler may read: GitHub truth plus this class's own rows,
- * fetched lazily and memoized at most once per audit (see context.ts's
- * `buildContext`). `org`/`installationId` are the LIVE values, resolved once
- * before any reconciler runs — never `cls.installationId`, which is a cache
- * that reconciliation itself exists to correct.
+ * fetched lazily and memoized once per audit (see `buildContext` in context.ts).
+ * `org` and `installationId` are the live values, resolved once before any
+ * reconciler runs, never `cls.installationId`, which is a cache that
+ * reconciliation itself exists to correct.
  */
 export type ClassContext = {
   db: Db;
@@ -66,8 +66,8 @@ export type ClassContext = {
   people: () => Promise<{
     teachers: OrgPerson[];
     students: OrgPerson[];
-    /** Open invitations carry the ROLE they grant — an invited teacher is not
-     *  an invited student, and nothing else can tell them apart. */
+    /** Open invitations carry the role they grant: an invited teacher is not an
+     *  invited student, and nothing else can tell them apart. */
     pending: OrgInvitation[];
   }>;
   orgPolicy: () => Promise<OrgPolicy>;

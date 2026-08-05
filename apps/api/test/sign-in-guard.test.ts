@@ -1,10 +1,10 @@
 import { expect, test } from "vitest";
 import { requireEduIdSignIn } from "../src/lib/auth/sign-in-guard";
 
-// The identity model in one test file: edu-ID is the only way to a session,
-// and GitHub may be LINKED but never signed in with. Better Auth's own
-// `disableSignUp` does not carry this — it only refuses to create a user, while
-// an already-linked account still signs in through /sign-in/social.
+// The identity model in one test file: edu-ID is the only way to a session, and
+// GitHub may be linked but never signed in with. Better Auth's own
+// `disableSignUp` does not carry this. It only refuses to create a user, and an
+// already-linked account still signs in through /sign-in/social.
 
 /** The middleware only reads `path`; a literal is the whole ctx. */
 const run = (path: string) =>

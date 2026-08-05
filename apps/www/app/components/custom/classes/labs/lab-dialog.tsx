@@ -28,10 +28,10 @@ import { api, type LabItem, useApi } from "~/lib/api";
 
 const NO_TEMPLATE = "No template — empty repository";
 
-/** The words for a failed save: the 409s the teacher can act on get
- *  specific messages (a start that doesn't precede the deadline; a
- *  duplicate title — the title decides group repo names, so it must be
- *  unique in the class); everything else gets the per-mode generic. */
+/** The words for a failed save. The 409s the teacher can act on get specific
+ *  messages: a start that doesn't precede the deadline, or a duplicate title
+ *  (the title decides group repo names, so it must be unique in the class).
+ *  Everything else gets the per-mode generic. */
 function saveErrorMessage(
   status: number,
   code: string | undefined,
@@ -57,10 +57,10 @@ function toDatetimeLocal(iso: string) {
 
 /**
  * The lab dialog (F6): title + deadline + mode (group reveals min/max).
- * CREATE mode (no `lab`) triggers from the class toolbar; EDIT mode (`lab`
- * given) triggers from the pencil on the lab's row and prefills from it —
- * same form, same validation, PUT instead of POST. On success the classes
- * list revalidates and the dialog closes.
+ * CREATE mode (no `lab`) triggers from the class toolbar. EDIT mode (`lab`
+ * given) triggers from the pencil on the lab's row and prefills from it: same
+ * form, same validation, PUT instead of POST. On success the classes list
+ * revalidates and the dialog closes.
  */
 export function LabDialog({
   classId,
@@ -69,7 +69,7 @@ export function LabDialog({
 }: {
   classId: string;
   lab?: LabItem | undefined;
-  /** The OWNER of the classes data revalidates — the dialog never guesses
+  /** The OWNER of the classes data revalidates, so the dialog never guesses
    *  cache keys (the hub's key carries its semester window). */
   onSaved: () => unknown;
 }) {
@@ -92,8 +92,8 @@ export function LabDialog({
   function openChange(next: boolean) {
     setOpen(next);
     if (next) {
-      // (Re-)seed the form on every open: from the lab when editing, fresh
-      // otherwise — so a cancelled edit doesn't leak into the next one.
+      // (Re-)seed the form on every open, from the lab when editing and fresh
+      // otherwise, so a cancelled edit doesn't leak into the next one.
       setTitle(lab?.title ?? "");
       setDeadline(lab ? toDatetimeLocal(lab.deadline) : "");
       setStartAt(lab?.startAt ? toDatetimeLocal(lab.startAt) : "");
@@ -164,9 +164,9 @@ export function LabDialog({
   }
 
   return (
-    // NOT dismissible by outside press: date pickers invite clicking away
-    // to unfocus a field, and that must not eat a half-filled form. Cancel,
-    // the X, and Escape remain the deliberate ways out.
+    // NOT dismissible by outside press: date pickers invite clicking away to
+    // unfocus a field, and that must not eat a half-filled form. Cancel, the
+    // X, and Escape remain the deliberate ways out.
     <Dialog open={open} onOpenChange={openChange} disablePointerDismissal>
       {lab ? (
         <DialogTrigger
@@ -202,7 +202,7 @@ export function LabDialog({
           <DialogTitle className="flex items-center gap-1">
             {lab ? "Edit lab" : "New lab"}
             {lab ? (
-              // Edits never reshape what already exists — say so up front
+              // Edits never reshape what already exists, so say so up front
               // instead of confirm-gating every save.
               <Hint
                 variant="warning"
@@ -349,8 +349,8 @@ function TemplatePicker({
   return (
     <Stack gap="sm">
       <Label htmlFor="lab-template">Starter code</Label>
-      {/* Design-system Select (not a native <select>): the OS paints native
-          option popups by its own scheme — unstylable, broken in dark mode. */}
+      {/* Design-system Select, not a native <select>: the OS paints native
+          option popups by its own scheme, unstylable and broken in dark mode. */}
       <Select
         items={{
           "": NO_TEMPLATE,

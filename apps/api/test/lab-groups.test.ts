@@ -29,8 +29,8 @@ const state = vi.hoisted(() => ({
     string,
     { pushedAt: string | null; createdAt: string | null }
   >,
-  // Make the org-repos LISTING itself fail (rate limit, outage) — distinct
-  // from a repo simply being absent from it.
+  // Make the org-repos listing itself fail (rate limit, outage), which differs
+  // from a repo being absent from it.
   activityFails: false,
   // repo fullName → last default-branch commit (the byline). Absent = GraphQL
   // couldn't resolve the repo (deleted, empty).
@@ -45,19 +45,18 @@ const state = vi.hoisted(() => ({
       commitCount: number;
     }
   >,
-  // Make the byline batch itself fail — must degrade, never break the wall.
+  // Make the byline batch itself fail; it must degrade, never break the wall.
   lastCommitsFails: false,
-  // Repo names ALREADY in the org — creating them 422s. `visible` says whether
-  // the App installation can then read the repo back (adoption) or not.
+  // Repo names already in the org; creating them 422s. `visible` says whether
+  // the App installation can then read the repo back for adoption.
   orgRepos: {} as Record<string, { visible: boolean }>,
-  // The lab's template repo was DELETED/RENAMED since — /generate 404s.
+  // The lab's template repo was deleted or renamed since, so /generate 404s.
   templateGone: false,
-  // Every team-push grant made, in order — and a switch to make the NEXT
-  // grant blow up (simulates a create dying between the row write and the
-  // grant).
+  // Every team-push grant made, in order, plus a switch to make the next grant
+  // blow up (simulating a create that dies between the row write and the grant).
   grants: [] as Array<{ team: string; repo: string }>,
   grantFails: false,
-  // Call counters: the cached-identity hot path must NOT spend these.
+  // Call counters: the cached-identity hot path must not spend these.
   profileCalls: 0,
   orgLoginCalls: 0,
 }));
@@ -86,13 +85,13 @@ vi.mock("../src/lib/github/org", () => ({
 
 const repoSeq = vi.hoisted(() => ({ next: 9000 }));
 vi.mock("../src/lib/github/repo", async (importOriginal) => {
-  // The REAL module also exports `classifyRepoFailure` — pure, no GitHub
-  // call — and these tests exercise it for real: only the API-calling
+  // The real module also exports `classifyRepoFailure`, which is pure and calls
+  // no GitHub API, so these tests exercise it for real. Only the API-calling
   // operations below are faked.
   const actual =
     await importOriginal<typeof import("../src/lib/github/repo")>();
-  /** The REAL 422 GitHub sends when an org repo name is taken: the reason is
-   *  in `errors[]`, NOT in the top-level `message`. */
+  /** The real 422 GitHub sends when an org repo name is taken: the reason is in
+   *  `errors[]`, not in the top-level `message`. */
   const nameTaken = () =>
     Object.assign(
       new Error(
@@ -300,7 +299,7 @@ async function seedRoster(
   );
 }
 
-/** A live class membership — the reuse eligibility rules check enrollment. */
+/** A live class membership; the reuse eligibility rules check enrollment. */
 async function seedClassMember(
   person: { id: number; login: string },
   memberState: "active" | "teacher" | "pending" = "active",
@@ -457,7 +456,7 @@ test("copy-forward refuses when a member is already placed in this lab", async (
     name: "Team",
     members: [alice, bob],
   });
-  // bob is already placed in a group of THIS lab (l1) → all-or-nothing: the
+  // bob is already placed in a group of this lab (l1), so all-or-nothing: the
   // whole copy is refused, never a partial team.
   await seedGroup({ id: "here", labId: "l1", name: "Here", members: [bob] });
 
@@ -570,7 +569,7 @@ test("reusable annotates each source with its blocker", async () => {
   await seedLab({ id: "l2" });
   await seedClassMember(alice);
   await seedClassMember(bob);
-  // carol has NO live membership — she left the class.
+  // carol has no live membership: she left the class.
   await seedGroup({
     id: "fine",
     labId: "l2",
@@ -584,7 +583,7 @@ test("reusable annotates each source with its blocker", async () => {
     members: [alice, carol],
   });
   await seedGroup({ id: "solo", labId: "l2", name: "Solo", members: [alice] });
-  // bob is already placed in a group of the CURRENT lab.
+  // bob is already placed in a group of the current lab.
   await seedGroup({ id: "here", labId: "l1", name: "Here", members: [bob] });
 
   const res = await app.request("/api/classes/c1/labs/l1/reusable", {}, env);
@@ -722,8 +721,8 @@ test("a repo absent from the org listing AND a confirmed 404 is reported missing
 test("a repo absent from the listing but found under a NEW name (renamed) heals silently", async () => {
   await seedLab({ id: "l1" });
   await seedGroup({ id: "g1", labId: "l1", name: "A", repo: true }); // ghRepoFullName: acme/g1
-  // Not in state.activity, but the confirm call (by group.slug, "l1-g1")
-  // finds it — under a DIFFERENT full name than what's stored.
+  // Not in state.activity, but the confirm call (by group.slug, "l1-g1") finds
+  // it under a different full name than the stored one.
   state.orgRepos["l1-g1"] = { visible: true };
 
   const res = await app.request("/api/classes/c1/labs/l1/groups", {}, env);
@@ -788,7 +787,7 @@ test("a PENDING invitee gets the header data and an empty roster, not a 404", as
     students: [],
   });
 
-  // allowPending is LIST-only: a pending invitee still can't act.
+  // allowPending is list-only: a pending invitee still cannot act.
   expect((await createGroup("l1", { name: "Alpha" })).status).toBe(404);
 });
 
@@ -832,8 +831,8 @@ test("the people list carries active students AND teachers, never pending", asyn
   const body = (await res.json()) as {
     students: Array<{ githubId: string }>;
   };
-  // The teacher rides along WITH their state — the picker offers them for
-  // placement; the "students without a group" strip filters them out.
+  // The teacher rides along with their state: the picker offers them for
+  // placement, and the "students without a group" strip filters them out.
   expect(
     body.students.toSorted((a, b) => a.githubId.localeCompare(b.githubId)),
   ).toEqual([
@@ -889,7 +888,7 @@ test("create repo enforces the lab min, then names the repo by group slug", asyn
   expect(ok.status).toBe(200);
   expect((await asRepo(ok)).repo.fullName).toBe("acme/l1-g1");
 
-  // Idempotent — the group row now carries the repo.
+  // Idempotent: the group row now carries the repo.
   const again = await repo("l1", "g1");
   expect((await asRepo(again)).repo.fullName).toBe("acme/l1-g1");
 });
@@ -945,17 +944,17 @@ test("accept creates the solo group + repo and reuses on replay", async () => {
 });
 
 test("accept on an EXISTING solo group mirrors its roster into the cache", async () => {
-  // The student's own page finds their group by looking for THEMSELVES in its
+  // The student's own page finds their group by looking for themselves in its
   // roster. An accept that answers 200 while `group_members` stays empty is a
-  // silent no-op on screen — observed live on lab-6-inidividual-tigoes44.
+  // no-op on screen, observed live on lab-6-inidividual-tigoes44.
   await seedLab({
     id: "l2",
     groupMode: "individual",
     minMembers: null,
     maxMembers: null,
   });
-  // A solo group whose team exists on GitHub, but with NO cached roster (made
-  // before the cache existed).
+  // A solo group whose team exists on GitHub but has no cached roster, made
+  // before the cache existed.
   await seedGroup({ id: "solo", labId: "l2", name: "alice" });
   state.rosters["solo-slug"] = [alice];
 
@@ -968,17 +967,17 @@ test("accept on an EXISTING solo group mirrors its roster into the cache", async
 });
 
 test("accept NEVER adopts an existing repo — collisions refuse", async () => {
-  // Adoption used to grant the team push on ANY same-named org repo: a group
+  // Adoption used to grant the team push on any same-named org repo: a group
   // named to collide with the teacher's private solution would capture it.
   // Collisions now always refuse; a genuinely interrupted create is recovered
-  // on the audit page, where the TEACHER approves the link explicitly.
+  // on the audit page, where the teacher approves the link explicitly.
   await seedLab({
     id: "l2",
     groupMode: "individual",
     minMembers: null,
     maxMembers: null,
   });
-  // Readable by the App or not — it must make NO difference anymore.
+  // Readable by the App or not, it makes no difference anymore.
   state.orgRepos["lab-l2-alice"] = { visible: true };
 
   const res = await accept("l2");
@@ -993,7 +992,7 @@ test("accept NEVER adopts an existing repo — collisions refuse", async () => {
 });
 
 test("a create that dies before the grant is healed by the next click", async () => {
-  // createWorkRepo persists the row BEFORE granting: a grant failure leaves a
+  // createWorkRepo persists the row before granting: a grant failure leaves a
   // recorded repo whose team has no push. The next create request hits the
   // repo-already-recorded branch and re-asserts the grant (regrantWorkRepo).
   await seedLab();
@@ -1001,7 +1000,7 @@ test("a create that dies before the grant is healed by the next click", async ()
   state.grantFails = true;
 
   const first = await repo("l1", "g1");
-  expect(first.status).toBe(500); // the grant blew up — but the row is written
+  expect(first.status).toBe(500); // the grant blew up, but the row is written
   expect(await db.select().from(groups)).toMatchObject([
     { id: "g1", ghRepoFullName: "acme/l1-g1" },
   ]);
@@ -1021,7 +1020,7 @@ test("accept reports a name collision it cannot read, and never blames a templat
     minMembers: null,
     maxMembers: null,
   });
-  // The name is taken by a repo the App can't see — adoption is impossible.
+  // The name is taken by a repo the App cannot see, so adoption is impossible.
   state.orgRepos["lab-l2-alice"] = { visible: false };
 
   const res = await accept("l2");
@@ -1031,9 +1030,9 @@ test("accept reports a name collision it cannot read, and never blames a templat
 });
 
 test("a template deleted since the lab was created answers template_error", async () => {
-  // The lab points at starter code that no longer exists (deleted or renamed
-  // on GitHub) — /generate 404s. The student must get the same
-  // "ask your teacher" answer as an empty template, never a raw 500.
+  // The lab points at starter code that no longer exists, deleted or renamed on
+  // GitHub, so /generate 404s. The student must get the same "ask your teacher"
+  // answer as for an empty template, never a raw 500.
   await seedLab({ templateRepoFullName: "acme/starter-gone" });
   await seedGroup({ id: "g1", labId: "l1", name: "A", members: [alice] });
   state.templateGone = true;
@@ -1046,7 +1045,7 @@ test("a template deleted since the lab was created answers template_error", asyn
 
 test("accept never adopts the lab's own template repo", async () => {
   // A slug that collides with the template's name, template in the same org.
-  // Adopting it would grant the student team PUSH on the starter code.
+  // Adopting it would grant the student team push on the starter code.
   await seedLab({
     id: "l2",
     groupMode: "individual",

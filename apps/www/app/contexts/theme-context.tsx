@@ -10,7 +10,7 @@ import {
 import { getTheme, persistTheme, type Theme } from "~/lib/theme";
 
 type ThemeValue = {
-  /** The stored preference — "system" means: follow the OS. */
+  /** The stored preference; "system" follows the OS. */
   theme: Theme;
   /** Persist a preference and apply it immediately. */
   setTheme: (theme: Theme) => void;
@@ -20,10 +20,10 @@ const ThemeContext = createContext<ThemeValue | null>(null);
 
 /**
  * One source of truth for the color scheme, shared via useTheme(). Keeps the
- * `.dark` class on <html> in sync with the preference and — while on
- * "system" — with live OS changes. First paint is handled by the inline
- * script in root.tsx (React only runs after paint); this provider owns
- * everything from hydration on.
+ * `.dark` class on <html> in sync with the preference, and with live OS
+ * changes while on "system". The inline script in root.tsx handles first
+ * paint (React runs only after paint); this provider owns everything from
+ * hydration on.
  */
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => getTheme());
@@ -36,7 +36,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const media = matchMedia("(prefers-color-scheme: dark)");
     // Which <html> classes each preference means. "terminal" rides on dark:
     // both classes, so `dark:` styles keep working and `.terminal` only
-    // re-skins the tokens (app.css). Exhaustive over Theme — a new theme
+    // re-skins the tokens (app.css). Exhaustive over Theme: a new theme
     // fails to compile until it's mapped here.
     const classesFor = (preference: Theme) => {
       switch (preference) {

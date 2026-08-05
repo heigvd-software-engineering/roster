@@ -92,8 +92,8 @@ describe("UnassignedPool", () => {
     render(<UnassignedPool students={[student(1)]} />);
     fireEvent.click(screen.getByRole("button", { name: "Show the student" }));
 
-    // ② GitHub only → the login IS the name, shown once as a @handle (not
-    // doubled as a plain name + a separate handle line).
+    // ② GitHub only → the login is the name, shown once as a @handle, not
+    // doubled as a plain name plus a separate handle line.
     expect(screen.getAllByText("@s1")).toHaveLength(1);
     expect(screen.queryByText("s1")).not.toBeInTheDocument();
   });

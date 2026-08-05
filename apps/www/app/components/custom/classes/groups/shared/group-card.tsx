@@ -12,24 +12,24 @@ import { usersByGithubId } from "~/lib/format";
 import { personIdentity } from "~/lib/identity";
 import { cn } from "~/lib/utils";
 
-/** The wall grid: as many columns as fit a readable card, capped at 3 — the
- *  column min is at least a third of the row minus its two gaps, so a
- *  fourth never fits; auto-fill still collapses to 2/1 below 220px each,
- *  no breakpoint ladder to maintain. The gap is named ONCE (--wall-gap)
- *  and consumed by both the cap's calc and the gap utility, so editing it
- *  can't silently readmit a fourth column. Rows stretch (no align-items):
- *  every card in a row is the same height, and the card pins its footer to
- *  the bottom to absorb it. */
+/** The wall grid: as many columns as fit a readable card, capped at 3. The
+ *  column min is at least a third of the row minus its two gaps, so a fourth
+ *  never fits, and auto-fill still collapses to 2/1 below 220px each with no
+ *  breakpoint ladder to maintain. The gap is named ONCE (--wall-gap) and
+ *  consumed by both the cap's calc and the gap utility, so editing it can't
+ *  silently readmit a fourth column. Rows stretch (no align-items): every
+ *  card in a row is the same height, and the card pins its footer to the
+ *  bottom to absorb it. */
 export const GROUP_WALL =
   "grid w-full [--wall-gap:0.75rem] gap-(--wall-gap) grid-cols-[repeat(auto-fill,minmax(max(220px,calc((100%_-_2*var(--wall-gap))/3)),1fr))]";
 
 /**
  * Which open seats a group's card shows, as required-to-form flags. A capped
- * lab renders the group at its full capacity — filled members plus one slot
+ * lab renders the group at its full capacity: filled members plus one slot
  * per remaining seat, the first `min - size` of them required. An uncapped
- * lab has no capacity to draw, so: the required seats while forming, then a
- * single optional slot (the add affordance must survive completion). A group
- * OVER the cap renders no open seats.
+ * lab has no capacity to draw, so it renders the required seats while
+ * forming, then a single optional slot, since the add affordance must
+ * survive completion. A group OVER the cap renders no open seats.
  */
 function openSeatsFor(size: number, min: number, max: number): boolean[] {
   const required = Math.max(0, min - size);
@@ -39,11 +39,11 @@ function openSeatsFor(size: number, min: number, max: number): boolean[] {
   return Array.from({ length: total }, (_, i) => i < required);
 }
 
-/** The count beside the name — brand red whenever the SIZE is the problem
- *  (short of the min, past the max), muted otherwise. An uncapped lab has
- *  no denominator to show at all (`max` is Infinity, which renders
- *  literally). The needs-N-more / over-max wording lives in the seats and
- *  hints; here it's just the numbers. */
+/** The count beside the name: brand red whenever the SIZE is the problem
+ *  (short of the min, past the max), muted otherwise. An uncapped lab has no
+ *  denominator to show, since `max` is Infinity and renders literally. The
+ *  needs-N-more / over-max wording lives in the seats and hints; here it's
+ *  the numbers alone. */
 function SizeCount({
   size,
   min,
@@ -70,15 +70,15 @@ function SizeCount({
 }
 
 /**
- * One group of the wall — the shared, role-agnostic SHELL: header (name +
- * size count, `notes` under it, `actions` at the right edge), the FULL
- * roster inline (the wall's whole point: no expanding to see who's where),
- * open seats after the members, and a bottom-pinned `footer` for the repo
- * facts. Everything role-specific arrives through the slots: the teacher
- * composes the status chip into `actions`, the add-picker into
- * `renderOpenSeat`, and its kebab into `footer` (the header's width belongs
- * to the name); the student composes join/leave. Seat natures build on
- * seats.tsx's bases, next to their role file.
+ * One group of the wall, the shared role-agnostic SHELL: header (name + size
+ * count, `notes` under it, `actions` at the right edge), the FULL roster
+ * inline (the wall's whole point: no expanding to see who's where), open
+ * seats after the members, and a bottom-pinned `footer` for the repo facts.
+ * Everything role-specific arrives through the slots: the teacher composes
+ * the status chip into `actions`, the add-picker into `renderOpenSeat`, and
+ * its kebab into `footer` because the header's width belongs to the name;
+ * the student composes join/leave. Seat natures build on seats.tsx's bases,
+ * next to their role file.
  */
 export function GroupCard({
   group,
@@ -114,7 +114,7 @@ export function GroupCard({
   renderOpenSeat?: (required: boolean) => ReactNode;
   /** Marks the viewer's OWN group in their role color. */
   highlight?: boolean;
-  /** Status spine — a border-l color class; the card widens the left edge
+  /** Status spine, a border-l color class. The card widens the left edge
    *  only when a spine is worn (the teacher's status column). */
   spine?: string;
   className?: string;
@@ -133,8 +133,8 @@ export function GroupCard({
         <Row gap="xs" align="start" className="w-full">
           <Stack gap="none" className="min-w-0 flex-1">
             <Row gap="sm" align="baseline" className="min-w-0">
-              {/* The tooltip carries the full name — truncation is the
-                  narrow card's escape valve, not information loss. */}
+              {/* The tooltip carries the full name: truncation is the narrow
+                  card's escape valve, not information loss. */}
               <Text
                 variant="label"
                 as="span"
@@ -150,9 +150,9 @@ export function GroupCard({
           {actions}
         </Row>
         <Stack gap="sm" className="w-full">
-          {/* No "empty" fallback here — an empty group IS its open seats.
-              (GroupMembers keeps the caption for the reuse dialog, where an
-              expanded roster showing nothing would read as broken.) */}
+          {/* No "empty" fallback here: an empty group IS its open seats.
+              GroupMembers keeps the caption for the reuse dialog, where an
+              expanded roster showing nothing would read as broken. */}
           {group.members.length > 0 ? (
             <GroupMembers
               members={group.members}
@@ -162,7 +162,7 @@ export function GroupCard({
             />
           ) : null}
           {seats.map((required, i) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: a seat has no identity BUT its position — the list is positional and only grows/shrinks at the tail
+            // biome-ignore lint/suspicious/noArrayIndexKey: a seat has no identity but its position, and the list is positional, growing and shrinking only at the tail
             <Fragment key={i}>{renderOpenSeat?.(required)}</Fragment>
           ))}
         </Stack>
@@ -214,8 +214,8 @@ export function GroupMembers({
         );
         return (
           // The identity is pure display; everything interactive (emails
-          // menu, the teacher's remove ×) sits NEXT to it, clustered at
-          // the row's right edge.
+          // menu, the teacher's remove ×) sits NEXT to it, clustered at the
+          // row's right edge.
           <Row
             key={member.id}
             gap="sm"

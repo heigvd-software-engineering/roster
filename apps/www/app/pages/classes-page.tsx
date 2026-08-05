@@ -21,8 +21,8 @@ import {
   semesterStart,
 } from "~/lib/semester";
 
-/** The heading's exact dates — the semester's own window ("1 Feb → 30 Jun",
- *  end shown INCLUSIVE), so the season word above the cards means concrete
+/** The heading's exact dates: the semester's own window ("1 Feb → 30 Jun",
+ *  end shown inclusive), so the season word above the cards means concrete
  *  dates, the same window a card's timeline falls back to. */
 function semesterSpanLabel(group: Entry[]) {
   const first = group[0];
@@ -32,8 +32,8 @@ function semesterSpanLabel(group: Entry[]) {
   return `${formatDay(semesterStart(semester))} → ${formatDay(lastDay)}`;
 }
 
-/** One hub entry — a class the caller teaches or one they're enrolled in.
- *  Both carry createdAt + labs, which is all grouping needs. */
+/** One hub entry: a class the caller teaches or one they're enrolled in.
+ *  Both carry createdAt and labs, which is all grouping needs. */
 type Entry =
   | { kind: "teaching"; cls: ClassItem }
   | { kind: "enrolled"; cls: EnrolledClassItem };
@@ -60,11 +60,11 @@ function groupBySemester(entries: Entry[]) {
  * they're enrolled in (read-only, from the enrollment cache), together
  * under semester headings.
  *
- * PAGED BY SEMESTER to keep the load cheap (every visible teaching class
+ * Paged by semester to keep the load cheap (every visible teaching class
  * costs live GitHub calls): the first load fetches only the current
- * semester; "Load more" widens the window one semester back per click.
- * Semesters with nothing in them are skipped automatically (summer school
- * is a term too — most users' summers are empty).
+ * semester, and "Load more" widens the window one semester back per click.
+ * Empty semesters are skipped automatically (summer school is a term too,
+ * and most summers are empty).
  */
 export function ClassesPage() {
   const { canCreateClasses } = useAuth();
@@ -72,8 +72,8 @@ export function ClassesPage() {
   const { data, isLoading, error, mutate } = useApi(
     api.api.classes,
     { query: { from: semesterStart(oldest).toISOString() } },
-    // Each window is its own cache key — keep the previous window on screen
-    // while the widened one loads (no flash back to the spinner).
+    // Each window is its own cache key. Keep the previous window on screen
+    // while the widened one loads, with no flash back to the spinner.
     { keepPreviousData: true },
   );
   const entries: Entry[] = [
@@ -84,15 +84,15 @@ export function ClassesPage() {
   ];
 
   // Auto-skip: if the window's oldest semester came back empty and older
-  // classes exist, widen again — "Load more" always lands on content.
-  // CAPPED per gesture (a DB row can be older yet never visible — e.g. the
-  // caller stopped being that org's owner — and hasOlder alone would widen
-  // forever); the cap resets on a manual click, ~2 years per press.
+  // classes exist, widen again so "Load more" always lands on content.
+  // Capped per gesture, because a row can be older yet never visible (the
+  // caller stopped being that org's owner) and hasOlder alone would widen
+  // forever. The cap resets on a manual click, ~2 years per press.
   const autoSkips = useRef(0);
   useEffect(() => {
-    // While a window is in flight, `data` is still the PREVIOUS window
-    // (keepPreviousData) — deciding on it would skip semesters that the
-    // pending response actually fills. Wait for the fetch.
+    // While a window is in flight, `data` is still the previous window
+    // (keepPreviousData), and deciding on it would skip semesters the
+    // pending response fills. Wait for the fetch.
     if (isLoading) return;
     if (!data?.hasOlder || autoSkips.current >= 6) return;
     const label = semesterLabel(oldest);
@@ -109,7 +109,7 @@ export function ClassesPage() {
     <Page>
       <Row justify="between" className="w-full">
         <Text variant="heading">Classes</Text>
-        {/* Creation is a GRANTED capability (super-admin zone) — without it
+        {/* Creation is a granted capability (super-admin zone). Without it
             there is no button to explain, so it's hidden, not disabled. The
             setup callback re-checks server-side either way. */}
         {canCreateClasses ? <NewClassDialog /> : null}
@@ -123,10 +123,10 @@ export function ClassesPage() {
           ) : (
             <>
               {entries.length === 0 && !data?.hasOlder ? (
-                // The EMPTY hub: plain words, one per role. "New class"
-                // (page header) opens the dialog that explains what
-                // connecting an organization even means; students don't act
-                // here at all — their class arrives through the join link.
+                // The empty hub: plain words, one per role. "New class"
+                // (page header) opens the dialog explaining what connecting
+                // an organization means. Students don't act here at all:
+                // their class arrives through the join link.
                 <Stack gap="sm" className="w-full max-w-xl">
                   <Text variant="body2">No classes yet.</Text>
                   <Text variant="caption">
@@ -145,8 +145,8 @@ export function ClassesPage() {
                       "labs",
                     )}`}
                   </Text>
-                  {/* Cards breathe wider apart than the label sits from its
-                      group: the heading belongs TO the first card, while each
+                  {/* Cards sit wider apart than the label sits from its
+                      group: the heading belongs to the first card, while each
                       card is its own object. One gap for both made a semester
                       read as one undifferentiated column. */}
                   <Stack gap="lg" className="w-full">
@@ -164,7 +164,7 @@ export function ClassesPage() {
                   </Stack>
                 </Stack>
               ))}
-              {/* Visible even with nothing left (disabled) — the affordance
+              {/* Visible even with nothing left (disabled) so the affordance
                   stays discoverable; hidden only on a fully empty hub. */}
               {entries.length > 0 || data?.hasOlder ? (
                 <Button

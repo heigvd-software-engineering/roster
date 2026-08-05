@@ -33,8 +33,8 @@ const { identity } = await import("../src/lib/reconcile/identity");
 const db = getDb(env.DB);
 const now = new Date(0);
 
-// GitHub calls are mocked below, so only DB is ever actually read; the rest
-// is dummy to satisfy the AuthEnv shape (same pattern as reconcile-context.test.ts).
+// GitHub calls are mocked above, so only the DB is really read. The rest is
+// dummy filler for the AuthEnv shape (same pattern as reconcile-context.test.ts).
 const authEnv = {
   ...env,
   BETTER_AUTH_URL: "http://localhost:8787",
@@ -98,8 +98,8 @@ test("runAudit never rejects; a throwing reconciler becomes an info finding", as
       fix: null,
     }),
   );
-  // The rest of the audit still reported (identity ran and found no drift,
-  // since state.org matches the seeded class — the point is it didn't throw).
+  // The rest of the audit still reported: identity ran and found no drift,
+  // since state.org matches the seeded class, and it did not throw.
   expect(findings.some((f) => f.reconciler === "boom")).toBe(true);
 });
 

@@ -10,7 +10,7 @@ import {
   PopoverTrigger,
 } from "~/components/ui/popover";
 
-/** The group's work repo, linked (opens on GitHub). */
+/** The group's work repo, linked, opening on GitHub. */
 export function RepoLink({ fullName }: { fullName: string }) {
   return (
     <a
@@ -28,11 +28,11 @@ export function RepoLink({ fullName }: { fullName: string }) {
 
 /**
  * Sits next to `RepoLink` when its repo was deleted directly on GitHub
- * (`repoStatus: "missing"`). Visible to everyone — it's just status — but
- * `onUnlink` (present only for the teacher who can act on it) is what turns
- * this from a dead end into a fix: unlinking flips the group back to
- * "no repo", which reveals the card's own existing Delete-group and
- * Create-repo controls — no bespoke recovery UI beyond this one button.
+ * (`repoStatus: "missing"`). Visible to everyone, since it is status, but
+ * `onUnlink` (present only for the teacher who can act on it) turns this from
+ * a dead end into a fix: unlinking flips the group back to "no repo", which
+ * reveals the card's own Delete-group and Create-repo controls. No bespoke
+ * recovery UI beyond this one button.
  */
 export function MissingRepoBadge({
   onUnlink,

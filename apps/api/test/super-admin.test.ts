@@ -4,11 +4,11 @@ import { beforeEach, expect, test } from "vitest";
 import { userCanCreateClasses } from "../src/lib/auth/super-admin";
 
 /**
- * The class-creation grant is a `class_creators` row — nothing else. These
- * tests pin the FAIL-CLOSED contract of the lookup itself, including the
- * "no row" representation: the answer must be false for BOTH `undefined`
- * (Drizzle's current contract) and `null` (any future ORM/driver change),
- * because the alternative failure mode is everyone becoming a creator.
+ * The class-creation grant is a `class_creators` row and nothing else. These
+ * tests pin the fail-closed contract of the lookup itself, including how "no
+ * row" arrives: the answer must be false for both `undefined` (Drizzle's current
+ * contract) and `null` (any future ORM or driver change), because the other
+ * failure mode is everyone becoming a creator.
  */
 
 const db = getDb(env.DB);

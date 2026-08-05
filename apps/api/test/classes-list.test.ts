@@ -12,8 +12,8 @@ const state = vi.hoisted(() => ({
     account: { id: number; login: string };
   }>,
   org: { login: "acme", name: "Acme", avatarUrl: "http://a" },
-  // The caller's role per org login for the BULK memberships call. null =
-  // derive "admin"/"active" for every installation (the common case).
+  // The caller's role per org login for the bulk memberships call. null derives
+  // "admin"/"active" for every installation, the common case.
   orgMemberships: null as Record<
     string,
     { role: string; state: string }
@@ -63,8 +63,8 @@ const userInstallationsByOrgIdMock = vi.hoisted(() =>
   }),
 );
 
-// The hub's ONLY other GitHub call: the caller's role in every org at once.
-// Keyed by LOWERCASED login, like the real helper.
+// The hub's only other GitHub call: the caller's role in every org at once.
+// Keyed by lowercased login, like the real helper.
 const userOrgMembershipsMock = vi.hoisted(() =>
   vi.fn(async (_token: string) => {
     const byLogin = new Map<string, { role: string; state: string }>();
@@ -87,7 +87,7 @@ const userOrgMembershipsMock = vi.hoisted(() =>
 );
 
 vi.mock("../src/lib/github/user", async (importOriginal) => {
-  // Spread the real module so `GithubUnavailableError` stays the REAL class —
+  // Spread the real module so `GithubUnavailableError` stays the real class:
   // the on-error translator recognizes throws by instanceof.
   const actual =
     await importOriginal<typeof import("../src/lib/github/user")>();
@@ -109,8 +109,8 @@ const db = getDb(env.DB);
 
 const now = new Date(0);
 
-// HES-SO audience: affiliations come from `user.email` (the identity email
-// IS the professional address) — no id_token decoding anywhere anymore.
+// HES-SO audience: affiliations come from `user.email`, since the identity email
+// is the professional address. Nothing decodes an id_token anymore.
 
 async function seedClass(args?: {
   id?: string;
@@ -138,7 +138,7 @@ async function seedClass(args?: {
   });
 }
 
-/** The hub's people chips read the `class_members` DISPLAY cache. Reconcile is
+/** The hub's people chips read the `class_members` display cache. Reconcile is
  *  what keeps it true; the hub itself never writes it. */
 async function seedMembers(
   classId = "c1",
@@ -233,7 +233,7 @@ test("lists classes with people + linked users, from live installation data", as
     // login + avatarUrl ride on the /user/installations payload, already fetched.
     login: "acme",
     avatarUrl: "http://a",
-    // `name` is NOT on that payload — it comes from the cached row.
+    // `name` is not on that payload; it comes from the cached row.
     name: "Acme",
     joinToken: "tok-c1",
     teachers: state.people.teachers,
@@ -243,8 +243,8 @@ test("lists classes with people + linked users, from live installation data", as
   });
   // Only the teacher's GitHub account (111) is linked to a roster user here.
   expect(body.classes[0]?.users).toHaveLength(1);
-  // EXACT shape: names + the professional email (`user.email`, HES-SO
-  // audience) — nothing else rides along.
+  // Exact shape: names plus the professional email (`user.email`, HES-SO
+  // audience), and nothing else.
   expect(body.classes[0]?.users[0]).toEqual({
     githubId: "111",
     user: {
@@ -255,7 +255,7 @@ test("lists classes with people + linked users, from live installation data", as
     },
   });
 
-  // NOT reconciled: the stored pointer stays 100 even though the live id is 200.
+  // Not reconciled: the stored pointer stays 100 even though the live id is 200.
   // A GET returns what it sees; repairing it is the `installation` reconciler's
   // job, and the teacher's decision.
   const [row] = await db.select().from(classes).where(eq(classes.id, "c1"));
@@ -317,8 +317,8 @@ test("does not touch the row when installationId and org cache are current", asy
 });
 
 test("skips a class whose org is missing from the memberships answer", async () => {
-  // An org can rate-limit or vanish between the two bulk calls — a class we
-  // cannot decide about is skipped, never shown (and never a 500).
+  // An org can rate-limit or vanish between the two bulk calls. A class we
+  // cannot decide about is skipped, never shown, and never a 500.
   await seedClass({ id: "c1", orgId: 42, installationId: 100 });
   await seedClass({ id: "c2", orgId: 43, installationId: 101 });
   state.installations = [
@@ -342,8 +342,8 @@ test("returns a class connected by someone else when the caller is an org owner"
 });
 
 test("skips a class when the caller has installation access but is NOT an org owner (F8 guard)", async () => {
-  // /user/installations lists installations the caller can ACCESS, not ones they
-  // own — a student with push on a work repo appears there. Only the live Owner
+  // /user/installations lists installations the caller can access, not ones they
+  // own: a student with push on a work repo appears there. Only the live Owner
   // check grants the class, and a cached `teacher` row never could.
   await seedClass();
   await seedMembers();
@@ -358,7 +358,7 @@ test("skips a class when the caller has installation access but is NOT an org ow
 });
 
 test("skips a class when the caller's Owner invite is still pending", async () => {
-  // `state: "pending"` is not an Owner yet — an invited Owner who hasn't
+  // `state: "pending"` is not an Owner yet: an invited Owner who has not
   // accepted must not see the class (fan-out spec).
   await seedClass();
   state.orgMemberships = { acme: { role: "admin", state: "pending" } };
@@ -410,8 +410,8 @@ test("returns [] when the GitHub token is dead and unrefreshable", async () => {
 
 test("orders a class's labs by effective start (startAt, else createdAt), first worked on first", async () => {
   await seedClass();
-  // Deadlines deliberately CONTRADICT the expected order: the sort key is
-  // the effective start, not the deadline.
+  // Deadlines deliberately contradict the expected order: the sort key is the
+  // effective start, not the deadline.
   await db.insert(labs).values([
     {
       id: "lab-old",
@@ -447,7 +447,7 @@ test("orders a class's labs by effective start (startAt, else createdAt), first 
     classes: Array<{ labs: Array<{ id: string }> }>;
   };
   expect(body.classes[0]?.labs.map((l) => l.id)).toEqual([
-    "lab-old", //       effective 2099-01-01 (createdAt) — latest DEADLINE
+    "lab-old", //       effective 2099-01-01 (createdAt), latest deadline
     "lab-new", //       effective 2099-05-01 (createdAt)
     "lab-scheduled", // effective 2099-06-01 (startAt)
   ]);
@@ -511,8 +511,8 @@ test("a stale class still renders correctly", async () => {
 
 test("returns the caller's enrolled classes (with labs) from the cache alone", async () => {
   await seedClass(); // teaching c1 (org 42, in installations)
-  // c2: a class the caller is enrolled in but does NOT teach — its org is
-  // not among the caller's installations, so only the cache can surface it.
+  // c2: a class the caller is enrolled in but does not teach. Its org is not
+  // among the caller's installations, so only the cache can surface it.
   await db.insert(classes).values({
     id: "c2",
     orgId: 43,
@@ -566,9 +566,9 @@ test("returns the caller's enrolled classes (with labs) from the cache alone", a
 
 test("someone invited to TEACH is not enrolled — they see nothing until they accept", async () => {
   // A `pending_teacher` row is an unanswered invitation to teach, not an
-  // enrolment. Listing it renders a STUDENT card with a pending badge — the
-  // wrong role, at the moment the person is working out what they were asked
-  // to do. They are not an Owner yet either, so the class is absent entirely.
+  // enrolment. Listing it would render a student card with a pending badge: the
+  // wrong role, at the moment the person is working out what they were asked to
+  // do. They are not an Owner yet either, so the class is absent entirely.
   await db.insert(classes).values({
     id: "c2",
     orgId: 43,
@@ -647,10 +647,10 @@ test("an enrolled class's teachers carry their professional identity email", asy
     createdAt: new Date(500),
     updatedAt: new Date(500),
   });
-  // The caller (u1/111) is enrolled; a teacher (500) runs the class. The
-  // teacher signed in to roster (SWITCH-linked GitHub account) — the caller,
-  // a STUDENT, sees their name + professional email (user.email, HES-SO
-  // audience), nothing more.
+  // The caller (u1/111) is enrolled; a teacher (500) runs the class. The teacher
+  // signed in to roster with a SWITCH-linked GitHub account, so the caller, a
+  // student, sees their name and professional email (user.email, HES-SO
+  // audience) and nothing more.
   await db.insert(classMembers).values([
     {
       id: "m1",
@@ -766,8 +766,8 @@ test("?from windows the list — no GitHub work for out-of-window classes", asyn
   };
   expect(body.classes.map((c) => c.id)).toEqual(["c-new"]);
   expect(body.hasOlder).toBe(true);
-  // The saving: GitHub work is TWO bulk calls regardless of how many classes
-  // are in (or out of) the window — never per-class.
+  // The saving: GitHub work is two bulk calls whatever the window holds, never
+  // one per class.
   expect(userInstallationsByOrgIdMock).toHaveBeenCalledTimes(1);
   expect(userOrgMembershipsMock).toHaveBeenCalledTimes(1);
 

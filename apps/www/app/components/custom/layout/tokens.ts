@@ -1,7 +1,7 @@
 /**
  * Shared spacing scale for the layout primitives. Only the steps currently in
- * use are listed — add more as screens need them. Values MUST be static literal
- * class strings (never `gap-${x}`); Tailwind only generates classes it sees.
+ * use are listed, so add more as screens need them. Values MUST be static
+ * literal class strings, never `gap-${x}`: Tailwind generates what it sees.
  */
 export const GAP = {
   none: "gap-0",

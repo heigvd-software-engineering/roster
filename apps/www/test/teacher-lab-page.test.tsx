@@ -48,7 +48,7 @@ const alice = { id: 7, login: "alice", avatarUrl: "http://a" };
 const bob = { id: 8, login: "bob", avatarUrl: null };
 const carol = { id: 9, login: "carol", avatarUrl: null };
 
-/** The page is ONE request now — a single groups response (or its error). */
+/** The page is one request: a single groups response (or its error). */
 function mockApi(labGroupsData: unknown, error?: unknown) {
   vi.mocked(useApi).mockImplementation(
     () =>
@@ -103,14 +103,14 @@ describe("TeacherLabPage", () => {
     expect(
       screen.getByText(/Students without a group for this lab/),
     ).toBeInTheDocument();
-    // The pool collapses at every size — the names are one click away.
+    // The pool collapses at every size; the names are one click away.
     // alice is GitHub-only here → named by her login, shown as a @handle.
     fireEvent.click(screen.getByRole("button", { name: "Show the student" }));
     expect(screen.getByText("@alice")).toBeInTheDocument();
     // The roster: Team Alpha with 1/2 members → under min.
     expect(screen.getByText("Team Alpha")).toBeInTheDocument();
     expect(screen.getByText("under min")).toBeInTheDocument();
-    // Toolbar: create a group for THIS lab (no attach — groups are per-lab).
+    // Toolbar: create a group for this lab (no attach: groups are per-lab).
     expect(
       screen.getByRole("button", { name: "+ New group" }),
     ).toBeInTheDocument();
@@ -155,7 +155,7 @@ describe("TeacherLabPage", () => {
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Manage Team Alpha" }));
     expect(screen.getByRole("button", { name: "Delete group" })).toBeDisabled();
-    // Roster edits stay allowed — a warning hint explains the consequences.
+    // Roster edits stay allowed; a warning hint explains the consequences.
     fireEvent.click(
       screen.getByRole("button", {
         name: "repo exists",
@@ -173,9 +173,9 @@ describe("TeacherLabPage", () => {
         grp({
           members: [alice, bob],
           repoFullName: "acme/lab1-team-alpha",
-          // Pushed 60s after creation — inside the grace window, so the
+          // Pushed 60s after creation, inside the grace window, so the
           // push reads as the starter commit and the verdict must both
-          // say "no pushes yet" AND carry the hint that explains it.
+          // say "no pushes yet" and carry the hint that explains it.
           repoCreatedAt: "2026-03-11T10:00:00.000Z",
           pushedAt: "2026-03-11T10:01:00.000Z",
         }),
@@ -313,7 +313,7 @@ describe("TeacherLabPage", () => {
     });
     render(<TeacherLabPage />);
 
-    // The strip counts only alice — a teacher is not a missing student.
+    // The strip counts only alice: a teacher is not a missing student.
     expect(
       screen.getByRole("button", { name: "Show the student" }),
     ).toBeInTheDocument();
@@ -426,15 +426,13 @@ describe("TeacherLabPage", () => {
   });
 
   it("redirects an enrolled STUDENT to the student page", () => {
-    // The response's role decides the redirect — no class list involved.
+    // The response's role decides the redirect, with no class list involved.
     mockApi({ ...groupsData, role: "student" });
     render(<TeacherLabPage />);
     expect(screen.getByTestId("navigate")).toHaveTextContent(
       "/classes/c1/labs/l1",
     );
   });
-
-  // --- the lab's max size, seen from the roster ---
 
   it("disables the add-picker once the group is at the lab's max", () => {
     // maxMembers: 3, and the group is at 3 → the pool has nowhere to go.
@@ -453,14 +451,14 @@ describe("TeacherLabPage", () => {
     expect(
       screen.getByRole("button", { name: /Add from the pool/ }),
     ).toBeDisabled();
-    // A full group is not an over-max group — no warning, just no room.
+    // A full group is not an over-max group: no warning, only no room.
     expect(
       screen.queryByRole("button", { name: "over the lab max" }),
     ).not.toBeInTheDocument();
   });
 
   it("flags an oversized group on the row itself, without opening the drawer", () => {
-    // 4 against maxMembers: 3 — the row must say so, or a teacher who just
+    // 4 against maxMembers: 3. The row must say so, or a teacher who just
     // shrank the lab has to open every drawer to find who is stranded.
     mockApi({
       ...groupsData,
@@ -484,7 +482,7 @@ describe("TeacherLabPage", () => {
   });
 
   it("shows no denominator for a lab with no maximum", () => {
-    // maxMembers: null on a group lab = uncapped — "2/Infinity members" is
+    // maxMembers: null on a group lab = uncapped; "2/Infinity members" is
     // what a naive render produces here.
     mockApi({
       ...groupsData,
@@ -499,7 +497,7 @@ describe("TeacherLabPage", () => {
   });
 
   it("warns when the lab's max was lowered below the group's size", () => {
-    // 4 members against maxMembers: 3 — the shrink stranded this group.
+    // 4 members against maxMembers: 3, so the shrink stranded this group.
     mockApi({
       ...groupsData,
       groups: [
@@ -536,9 +534,9 @@ describe("TeacherLabPage", () => {
     });
     render(<TeacherLabPage />);
 
-    // The header's status word — the timeline's vocabulary, not a banner.
+    // The header's status word: the timeline's vocabulary, not a banner.
     expect(screen.getByText("not started")).toBeInTheDocument();
-    // The per-row create stays ENABLED (the escape hatch) but its confirm
+    // The per-row create stays enabled (the escape hatch) but its confirm
     // names the consequence.
     fireEvent.click(screen.getByRole("button", { name: "Create repository" }));
     expect(screen.getByText(/before the start time/)).toBeInTheDocument();

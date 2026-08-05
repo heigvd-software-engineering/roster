@@ -5,11 +5,11 @@ import { createAuth } from "./config";
 import type { AuthedEnv } from "./require-auth";
 
 /**
- * Super admins are CONFIG, not data: exactly the emails in
+ * Super admins are config, not data: exactly the emails in
  * `SUPER_ADMIN_EMAILS` (comma-separated, case-insensitive, whitespace
- * tolerated). Empty/unset = no super admins — the app FAILS CLOSED:
- * with an empty `class_creators` table nobody can create classes, so
- * every deployment must set the var (DEPLOY.md).
+ * tolerated). Unset means no super admins and the app fails closed: with an
+ * empty `class_creators` table nobody can create classes, so every deployment
+ * must set the var (DEPLOY.md).
  */
 export function isSuperAdmin(
   env: AuthEnv,
@@ -23,9 +23,9 @@ export function isSuperAdmin(
     .includes(email.toLowerCase());
 }
 
-/** Class creation = a `class_creators` row, ONE condition for everyone.
- *  Super admins hold no implicit grant — they flip their own toggle in
- *  the zone like anyone else (admin = managing grants, not creating). */
+/** Class creation means a `class_creators` row, one condition for everyone.
+ *  Super admins hold no implicit grant; they flip their own toggle in the zone
+ *  like anyone else (admin means managing grants, not creating). */
 export async function userCanCreateClasses(
   db: ReturnType<typeof getDb>,
   user: Pick<User, "id">,
@@ -35,12 +35,12 @@ export async function userCanCreateClasses(
     columns: { userId: true },
   });
   // `!= null` not `!== undefined`: if the ORM's "no row" answer ever became
-  // `null`, strict-undefined would fail OPEN — everyone a class creator.
+  // `null`, strict-undefined would fail open and make everyone a class creator.
   return row != null;
 }
 
 /** Gate for /api/admin/*: 401 without a session, 403 without admin. The
- *  account-menu link is convenience; THIS is the security boundary. */
+ *  account-menu link is convenience; this is the security boundary. */
 export const requireSuperAdmin = createMiddleware<AuthedEnv>(
   async (c, next) => {
     const session = await createAuth(c.env).api.getSession({

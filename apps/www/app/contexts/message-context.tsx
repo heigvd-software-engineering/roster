@@ -21,7 +21,7 @@ type MessageActions = {
     text: string,
     opts?: { variant?: MessageVariant; durationMs?: number },
   ) => void;
-  /** Remove a message by id — used by the viewport's dismiss button. */
+  /** Remove a message by id; the viewport's dismiss button calls it. */
   dismiss: (id: number) => void;
 };
 
@@ -36,10 +36,10 @@ const MessageListContext = createContext<Message[] | null>(null);
 
 /**
  * Global transient messages: pushed from anywhere via useMessages(), shown
- * by <MessageViewport> as an overlay just below the app header — content
+ * by <MessageViewport> as an overlay just below the app header, so content
  * never shifts. Auto-dismissed (default 5s), dismissable, three variants.
- * Scope rule: page-level action feedback goes here; a modal FORM's
- * validation/submit errors stay inline in the dialog, next to their fix
+ * Scope rule: page-level action feedback goes here; a modal form's
+ * validation and submit errors stay inline in the dialog, next to their fix
  * (a message strip would sit behind the dialog overlay).
  */
 export function MessageProvider({ children }: { children: ReactNode }) {
@@ -76,7 +76,7 @@ export function MessageProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Stable — push/dismiss never change identity, so this value doesn't either.
+  // push/dismiss never change identity, so this value doesn't either.
   const actions = useMemo<MessageActions>(
     () => ({ push, dismiss }),
     [push, dismiss],
@@ -110,8 +110,8 @@ const VARIANT = {
   error: { Icon: CircleX, tone: "text-destructive" },
 } as const;
 
-/** The message strip — an absolute overlay rendered by AppLayout right
- *  under the header's brand hairline (nothing below moves). */
+/** The message strip: an absolute overlay AppLayout renders right under the
+ *  header's brand hairline, so nothing below it moves. */
 export function MessageViewport() {
   const messages = useContext(MessageListContext);
   const { dismiss } = useMessageActions();

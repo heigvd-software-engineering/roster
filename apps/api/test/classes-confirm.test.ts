@@ -83,7 +83,7 @@ beforeEach(async () => {
     { id: "u1", name: "U1", email: "u1@x.ch" },
     { id: "someone-else", name: "SE", email: "se@x.ch" },
   ]);
-  // The caller's linked GitHub id (111) — an org admin by default.
+  // The caller's linked GitHub id (111), an org admin by default.
   await db.insert(account).values({
     id: "a1",
     userId: "u1",
@@ -147,7 +147,6 @@ test("unknown class id returns 404", async () => {
 
 test("confirms for a co-owner (admin) even if they didn't connect it", async () => {
   await seedClass("someone-else");
-  // seeded identity: caller's github id 111 is in the admins list → 200
   const res = await app.request(
     "/api/classes/c1/confirm",
     { method: "POST" },

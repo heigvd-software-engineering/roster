@@ -16,8 +16,8 @@ import { cn } from "~/lib/utils";
  *
  * Pending is not a decoration: it is the student one step short of everything
  * the class is for, and the remaining step is on GitHub, not here. Stating the
- * status alone leaves them to discover the consequences by hitting them — the
- * lab page shows no groups, joining one 404s — so this says what they cannot
+ * status alone leaves them to discover the consequences by hitting them (the
+ * lab page shows no groups, joining one 404s), so this says what they cannot
  * do yet, and hands them the link that fixes it.
  *
  * Warning rather than info: nothing is broken, but they are blocked and only
@@ -35,8 +35,8 @@ function PendingInvitationWarning({ orgLogin }: { orgLogin: string | null }) {
           Until you do, you can open the class and its labs, but you can't join
           a group or get your lab repository.
         </span>
-        {/* Absent only until a teacher path refreshes the org identity cache;
-            better to drop the link than to build one around "unknown". */}
+        {/* Absent only until a teacher path refreshes the org identity cache.
+            Better to drop the link than to build one around "unknown". */}
         {orgLogin ? (
           <a
             href={`https://github.com/orgs/${orgLogin}/invitation`}
@@ -58,10 +58,10 @@ function PendingInvitationWarning({ orgLogin }: { orgLogin: string | null }) {
 
 /**
  * A class the caller is ENROLLED in (student side): the same flat surface as
- * the teacher's ClassCard, read-only — org identity + a quiet enrollment
- * state instead of people stats and actions, and inert lab rows (the student
- * lab flow arrives with accept, F8). Org identity comes from the DB cache;
- * it can be momentarily null until any teacher path refreshes it.
+ * the teacher's ClassCard, read-only. Org identity + a quiet enrollment state
+ * instead of people stats and actions, and inert lab rows (the student lab
+ * flow arrives with accept, F8). Org identity comes from the DB cache, so it
+ * can be momentarily null until any teacher path refreshes it.
  */
 export function EnrolledClassCard({ cls }: { cls: EnrolledClassItem }) {
   const name = cls.name ?? cls.login ?? "Class";
@@ -94,7 +94,7 @@ export function EnrolledClassCard({ cls }: { cls: EnrolledClassItem }) {
           identity
         )}
         <Row gap="sm">
-          {/* The class's teachers, from the enrollment cache — the same
+          {/* The class's teachers, from the enrollment cache, in the same
               popover the teaching card uses for its people. */}
           {cls.teachers.length > 0 ? (
             <PeopleChip

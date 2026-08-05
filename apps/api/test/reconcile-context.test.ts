@@ -36,8 +36,8 @@ const { orgPeople } = await import("../src/lib/github/org");
 const db = getDb(env.DB);
 const now = new Date(0);
 
-// GitHub calls are mocked below, so only DB is ever actually read; the rest
-// is dummy to satisfy the AuthEnv shape (same pattern as github-token.test.ts).
+// GitHub calls are mocked above, so only the DB is really read. The rest is
+// dummy filler for the AuthEnv shape (same pattern as github-token.test.ts).
 const authEnv = {
   ...env,
   BETTER_AUTH_URL: "http://localhost:8787",

@@ -130,8 +130,8 @@ describe("JoinPage", () => {
     expect(
       await screen.findByText("You're enrolled in Acme."),
     ).toBeInTheDocument();
-    // The state is terminal here — offer the way onward. It confirms first:
-    // the preview that put us here wrote nothing.
+    // The state is terminal here, so offer the way onward. It confirms
+    // first, because the preview that put us here wrote nothing.
     fireEvent.click(screen.getByRole("button", { name: "Go to your classes" }));
     await vi.waitFor(() =>
       expect(navigateMock).toHaveBeenCalledWith("/classes"),

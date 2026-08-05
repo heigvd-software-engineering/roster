@@ -17,15 +17,16 @@ type Denied = { error: "not_found" | "no_installation"; status: 404 | 403 };
 /**
  * Both endpoints resolve the class the same way, and the order matters.
  *
- * The LIVE installation id is derived from `GET /user/installations` BEFORE the
+ * The live installation id comes from `GET /user/installations` before the
  * authorization check. `resolveClassAsTeacher` would authorize via
- * `orgLogin(cls.installationId)` — the stored pointer — so a stale one would make
- * the page whose whole purpose is to repair it refuse to load.
+ * `orgLogin(cls.installationId)`, the stored pointer, so a stale one would
+ * make the page whose whole purpose is to repair it refuse to load.
  *
- * The teacher check is live (`isOrgAdmin`). `class_members` may never authorize:
- * a cached `teacher` row is a display fact, not a role. And `/user/installations`
- * lists installations the caller can ACCESS, not ones they own — a student with
- * push on a work repo appears there — so it decides nothing on its own.
+ * The teacher check is live (`isOrgAdmin`). `class_members` may never
+ * authorize: a cached `teacher` row is a display fact, not a role. And
+ * `/user/installations` lists installations the caller can access, not ones
+ * they own (a student with push on a work repo appears there), so it decides
+ * nothing on its own.
  */
 async function teacherContext(
   c: Context<AuthedEnv>,
@@ -56,7 +57,7 @@ async function teacherContext(
   return { ctx: buildContext(c.env, db, cls, live) };
 }
 
-/** Read-only. Runs every reconciler and reports what drifted. Writes nothing —
+/** Read-only. Runs every reconciler and reports what drifted. Writes nothing:
  *  the teacher decides what, if anything, gets repaired. */
 export const auditClass = authedFactory.createHandlers(async (c) => {
   const r = await teacherContext(c);
@@ -64,8 +65,8 @@ export const auditClass = authedFactory.createHandlers(async (c) => {
   const { cls } = r.ctx;
   return c.json({
     auditedAt: new Date().toISOString(),
-    // Class identity so the page renders its header from this one request,
-    // not a second (expensive) /api/classes fetch just to name the class.
+    // Class identity, so the page renders its header from this one request
+    // instead of a second, expensive /api/classes fetch to name the class.
     class: { id: cls.id, name: cls.name, login: cls.login },
     findings: await runAudit(r.ctx),
   });

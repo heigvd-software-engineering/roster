@@ -8,23 +8,21 @@ import {
 } from "~/lib/api";
 
 /**
- * A group's standing in one lab — ONE derivation for both role UIs (the
+ * A group's standing in one lab, ONE derivation for both role UIs (the
  * teacher's roster chips, the student's start-lab gate). Blocked states
  * first (under_min, no_repo), then push-based activity: on_track/on_time
  * (last push respects the deadline, open/closed), late (pushed after it),
  * no_pushes (repo untouched). "ready" = repo exists but activity unknown
- * (the org listing failed) — chips degrade, the roster never does.
+ * because the org listing failed: chips degrade, the roster never does.
  */
 
 /** Pushes within this window of the repo's creation read as the creation
- *  commit (auto-init / template generation bumps `pushed_at` too), not as
+ *  commit (auto-init and template generation bump `pushed_at` too), not as
  *  group activity. A real push inside the window stays invisible until the
- *  group pushes again — the "no pushes yet" tooltip owns explaining this. */
+ *  group pushes again; the "no pushes yet" tooltip explains this. */
 export const CREATION_PUSH_GRACE_MS = 2 * 60_000;
 
 export type GroupLabStatus =
-  /** The GitHub team is gone: the roster is unknowable and the students have
-   *  lost push on the work repo, because the grant lived on that team. */
   | "under_min"
   | "no_repo"
   | "no_pushes"
@@ -33,11 +31,11 @@ export type GroupLabStatus =
   | "late"
   | "ready";
 
-/** The lab page's action failures, by the server's 409 `error` code — every
+/** The lab page's action failures, by the server's 409 `error` code. Every
  *  create/join/leave verb on this page routes its conflict through this one
  *  table, so a code can't drift to two different messages across the file. */
-// Named because the batch repo-create reuses them for its skip warnings —
-// one wording, whether the create was clicked alone or as "create all".
+// Named because the batch repo-create reuses them for its skip warnings: one
+// wording, whether the create was clicked alone or as "create all".
 const GROUP_INCOMPLETE_MESSAGE =
   "This group needs more members before it can get its repository — check the lab's minimum size.";
 const REPO_NAME_TAKEN_MESSAGE =
@@ -47,8 +45,8 @@ const CONFLICT_MESSAGE: Record<string, string> = {
   member_already_participating:
     "You're already in another group for this lab — leave it first.",
   group_incomplete: GROUP_INCOMPLETE_MESSAGE,
-  // Repo creation is CREATE-only (never adopts an existing repo, even one
-  // labs could read back — see lib/groups.ts createWorkRepo): a name
+  // Repo creation is CREATE-only, never adopting an existing repo even one
+  // labs could read back (see lib/groups.ts createWorkRepo), so a name
   // collision always refuses. A genuine interrupted create is recovered by
   // the teacher on the reconciler audit page, never automatically.
   repo_name_taken: REPO_NAME_TAKEN_MESSAGE,
@@ -56,28 +54,28 @@ const CONFLICT_MESSAGE: Record<string, string> = {
     "The lab's starter-code template can't be used — it's likely empty or unavailable. Ask your teacher to add a file to it (or remove the template).",
   app_permissions:
     "roster can't create repositories yet — the GitHub App needs updated permissions (an administrator must approve them).",
-  // Read by BOTH roles (a teacher's stale delete lands here too) — stay
-  // role-neutral.
+  // Read by BOTH roles, since a teacher's stale delete lands here too, so
+  // stay role-neutral.
   has_repo:
     "This group already has its work repository — membership and deletion are locked.",
   group_full: "That group is already full — pick another or start your own.",
   name_taken: "A group with that name already exists in this lab.",
-  // Students only — teachers bypass the start gate entirely.
+  // Students only: teachers bypass the start gate entirely.
   not_started:
     "This lab hasn't started yet — groups and repositories open at the start time.",
-  // unlinkGroupRepo re-verifies live before clearing the link — this means
+  // unlinkGroupRepo re-verifies live before clearing the link, so this means
   // someone recreated a repo under the same name between page load and click.
   still_exists:
     "That repository still exists on GitHub — refresh to see its current state.",
-  // The page thought this was an individual lab and the server disagrees —
+  // The page thought this was an individual lab and the server disagrees:
   // the teacher changed its mode while it was open. Reloading is the fix, so
   // say that rather than describing the mismatch.
   group_lab:
     "This lab works in groups, not individually — reload the page to see its groups.",
   // Accepting an individual lab, when the solo group already exists but its
   // live GitHub team doesn't confirm it's the caller's. Three distinct causes,
-  // and NONE of them is something the student can fix themselves — so each says
-  // who can, rather than inviting a retry that will fail identically.
+  // and the student can fix none of them, so each says who can rather than
+  // inviting a retry that will fail identically.
   solo_team_empty:
     "Your group for this lab exists, but you're not in it on GitHub — either you were removed from the organization, or you were removed from the group. Ask your teacher to add you back.",
   solo_team_missing:
@@ -86,7 +84,7 @@ const CONFLICT_MESSAGE: Record<string, string> = {
     "A group named after your GitHub account already exists in this lab and belongs to someone else. Ask your teacher to sort it out.",
 };
 
-/** For codes no table knows — kept OUT of the table so an unknown code can
+/** For codes no table knows. Kept OUT of the table so an unknown code can
  *  never collide with a real one named "default". */
 const DEFAULT_CONFLICT_MESSAGE =
   "That didn't go through — refresh and try again.";
@@ -101,10 +99,10 @@ const REPO_SKIP_MESSAGE: Record<string, string> = {
     "its GitHub team no longer exists — repair the class from its GitHub sync.",
 };
 
-/** One warning per group the batch repo-create SKIPPED — the 200 response
- *  carries them (`{created, skipped}`) and silence here is how a teacher
- *  ships a lab believing every repo exists. Named by group (the id alone
- *  helps nobody), reason-worded like the single-create conflicts. */
+/** One warning per group the batch repo-create SKIPPED. The 200 response
+ *  carries them (`{created, skipped}`), and silence here is how a teacher
+ *  ships a lab believing every repo exists. Named by group, since the id
+ *  alone helps nobody, and reason-worded like the single-create conflicts. */
 export function repoSkipMessages(
   skipped: Array<{ groupId: string; reason: string }>,
   groups: Array<{ id: string; name: string }>,
@@ -115,8 +113,8 @@ export function repoSkipMessages(
   });
 }
 
-/** The codes whose ADVICE splits by role — an override layer over the shared
- *  table, not a second copy of it (a code absent here falls through).
+/** The codes whose ADVICE splits by role: an override layer over the shared
+ *  table, not a second copy of it, so a code absent here falls through.
  *
  *  `group_full` reaches a teacher at all only because the size cap now binds
  *  addGroupMember too, and the student's remedy ("pick another") is not one a
@@ -128,12 +126,12 @@ const TEACHER_CONFLICT_MESSAGE: Record<string, string> = {
 
 /**
  * The lab page's group data + actions (per-lab model, spec 2026-07-07):
- * groups belong to THIS lab, so the list IS the lab's groups — no attach,
- * no cross-lab reach. Each group carries its live roster + work repo + push
- * activity, and the response carries the lab row, class identity, and the
- * caller's role — the page's ONE request. Shared by the teacher and student
- * sections; every action revalidates; failures surface on the global
- * message strip.
+ * groups belong to THIS lab, so the list IS the lab's groups, with no attach
+ * and no cross-lab reach. Each group carries its live roster + work repo +
+ * push activity, and the response carries the lab row, class identity, and
+ * the caller's role, making it the page's ONE request. Shared by the teacher
+ * and student sections; every action revalidates; failures surface on the
+ * global message strip.
  */
 export function useLabGroups(classId: string, labId: string) {
   const { data, isLoading, error, mutate } = useApi(labGroupsApi, {
@@ -163,7 +161,7 @@ export function useLabGroups(classId: string, labId: string) {
     if (!group.repoFullName) {
       return group.members.length >= min ? "no_repo" : "under_min";
     }
-    // `lab` always accompanies `groups` in the response — the !lab arm is
+    // `lab` always accompanies `groups` in the response, so the !lab arm is
     // for the type only.
     if (!lab || (group.pushedAt === null && group.repoCreatedAt === null)) {
       return "ready"; // repo exists, activity unknown
@@ -182,7 +180,7 @@ export function useLabGroups(classId: string, labId: string) {
   };
   // Everyone placeable (class_members display cache: active students AND
   // teachers) who is in NO group of this lab. The pool strip narrows to
-  // students — a teacher is not a missing student — but the add-picker
+  // students, since a teacher is not a missing student, but the add-picker
   // offers all of them, or removing a teacher would make them unaddable.
   const inGroup = new Set(
     groups.flatMap((g) => g.members.map((m) => String(m.id))),
@@ -204,11 +202,11 @@ export function useLabGroups(classId: string, labId: string) {
     busy,
     act,
     revalidate: mutate,
-    /** The lab row — rides on the response, present once loaded. */
+    /** The lab row, riding on the response, present once loaded. */
     lab,
     /** The caller's role in this class (drives the page redirects). */
     role,
-    /** Live org membership — "pending" renders the accept-invitation prompt. */
+    /** Live org membership. "pending" renders the accept-invitation prompt. */
     membershipState: data?.membershipState,
     /** The class's display name for the breadcrumb. */
     className: data ? (data.class.name ?? data.class.login) : null,
@@ -246,15 +244,15 @@ export function useLabGroups(classId: string, labId: string) {
       ),
     deleteGroup: (groupId: string) =>
       act(() => classGroupsApi[":groupId"].$delete(groupParam(groupId))),
-    /** Clear a repo link the server has confirmed is gone from GitHub —
-     *  the escape hatch for a repo deleted directly on GitHub. */
+    /** Clear a repo link the server has confirmed is gone from GitHub: the
+     *  escape hatch for a repo deleted directly on GitHub. */
     unlinkRepo: (groupId: string) =>
       act(() => classGroupsApi[":groupId"].repo.$delete(groupParam(groupId))),
     /** The explicit accept-completion step: create the group's repo. */
     createRepo: (groupId: string) =>
       act(() => labGroupsApi[":groupId"].repo.$post(labGroupParam(groupId))),
     /** Teacher toolbar: every missing repo in ONE request (one refetch).
-     *  A 200 can still SKIP groups (name taken, under min, team gone) —
+     *  A 200 can still SKIP groups (name taken, under min, team gone), so
      *  surface each one, or the teacher reads silence as "all created". */
     createMissingRepos: () =>
       act(

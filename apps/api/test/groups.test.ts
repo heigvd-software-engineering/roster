@@ -20,14 +20,14 @@ const state = vi.hoisted(() => ({
     state: "active" | "pending";
     role: string;
   } | null,
-  // slug → roster; a missing slug means the team is GONE on GitHub (404).
+  // slug → roster; a missing slug means the team is gone on GitHub (404).
   rosters: {} as Record<
     string,
     Array<{ id: number; login: string; avatarUrl: string | null }>
   >,
   calls: [] as Array<{ op: string; args: unknown[] }>,
-  // Race hooks: run INSIDE the mocked GitHub membership calls, to simulate
-  // state that changes while the request is in flight (e.g. repo creation).
+  // Race hooks: they run inside the mocked GitHub membership calls, simulating
+  // state that changes while the request is in flight, such as repo creation.
   onTeamAdd: null as (() => Promise<void>) | null,
   onTeamRemove: null as (() => Promise<void>) | null,
   // group.slug → is the repo still visible to the App installation? Missing
@@ -285,8 +285,8 @@ test("leave is refused once the work repo exists (locked group)", async () => {
 
 test("a teacher still ADDS members to a locked group (escape hatch)", async () => {
   state.membership = { state: "active", role: "admin" };
-  // Room to spare: the REPO LOCK is what's under test here, and an
-  // individual lab (max 1) would refuse on size before the lock is reached.
+  // Room to spare: the repo lock is under test here, and an individual lab
+  // (max 1) would refuse on size before the lock is reached.
   await seedLab("l1", { groupMode: "group", maxMembers: 3 });
   await seedGroup({ id: "g1", labId: "l1", repo: true, members: [bob] });
 
@@ -350,8 +350,8 @@ test("a group-mode lab with no maxMembers is uncapped", async () => {
   ]);
 });
 
-// The cap binds the TEACHER too — it is the LAB's rule, not a student-only
-// speed bump. The lever for a bigger group is the lab's own maxMembers.
+// The cap binds the teacher too: it is the lab's rule, not a student-only speed
+// bump. The lever for a bigger group is the lab's own maxMembers.
 test("a teacher's add-member is refused when the group is FULL", async () => {
   state.membership = { state: "active", role: "admin" };
   await seedLab("l1", { groupMode: "group", maxMembers: 2 });
@@ -384,7 +384,7 @@ test("a teacher's add-member fills a group up to the max", async () => {
 });
 
 // "Individual" is a lab-level statement (a group of one), so it binds the
-// teacher's add too — pairing students up means switching the LAB to group.
+// teacher's add too; pairing students up means switching the lab to group mode.
 test("a teacher cannot add a second member to an individual lab's group", async () => {
   state.membership = { state: "active", role: "admin" };
   await seedLab("l1"); // individual: min = max = 1
@@ -400,8 +400,8 @@ test("a teacher cannot add a second member to an individual lab's group", async 
   expect(state.calls).toEqual([]);
 });
 
-// Lowering the lab's max never evicts anyone, so an ALREADY-oversized group
-// exists — it must not be allowed to grow further from there.
+// Lowering the lab's max never evicts anyone, so an oversized group can exist;
+// it must not grow further from there.
 test("a teacher's add-member is refused on a group already OVER the max", async () => {
   state.membership = { state: "active", role: "admin" };
   await seedLab("l1", { groupMode: "group", maxMembers: 1 });
@@ -462,7 +462,7 @@ test("a leave racing repo creation is reinstated", async () => {
   ]);
 });
 
-// --- one-group-per-student-per-LAB (within one lab) ---
+// --- one group per student per lab ---
 
 test("join is refused when it would double-book the SAME lab", async () => {
   await seedLab("l1");
@@ -481,7 +481,7 @@ test("joining a group in ANOTHER lab stays allowed (cross-lab is free)", async (
   await seedLab("l2");
   await seedGroup({ id: "g1", labId: "l1" });
   await seedGroup({ id: "g3", labId: "l2" });
-  // alice in g1 on l1; g3 is on l2 — different lab, no conflict.
+  // alice in g1 on l1; g3 is on l2, a different lab, so no conflict.
   state.rosters["g1-slug"] = [alice];
   state.rosters["g3-slug"] = [];
 
@@ -616,7 +616,7 @@ test("a group whose work repo exists can't be deleted (deliverable)", async () =
 test("deleting a group whose team is already gone still drops the row", async () => {
   state.membership = { state: "active", role: "admin" };
   await seedLab("l1");
-  await seedGroup({ id: "g1", labId: "l1" }); // g1-slug NOT in rosters → 404
+  await seedGroup({ id: "g1", labId: "l1" }); // g1-slug not in rosters → 404
   const res = await app.request(
     "/api/classes/c1/groups/g1",
     { method: "DELETE" },

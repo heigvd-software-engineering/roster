@@ -1,9 +1,9 @@
 import { cn } from "~/lib/utils";
 
 /**
- * Dashed ghost TILE — the "add action lives where the added thing will
- * appear" affordance (same family as the hub's connect card). A plain
- * button so it composes as a Base UI `render` target (dialog/menu trigger).
+ * Dashed ghost TILE, the "add action lives where the added thing will appear"
+ * affordance, same family as the hub's connect card. A plain button so it
+ * composes as a Base UI `render` target (dialog/menu trigger).
  */
 export function GhostTile({
   className,

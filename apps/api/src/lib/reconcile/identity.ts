@@ -1,13 +1,13 @@
 // The cheapest, least destructive reconciler: the org's login/name/avatar,
-// cached on the class row so the STUDENT hub is a pure DB read. Orgs get
-// renamed; avatars change — this is what keeps the cache from going stale.
+// cached on the class row so the student hub is a pure DB read. Orgs get renamed
+// and avatars change, so this is what keeps the cache fresh.
 import { classes } from "@roster/db";
 import { eq } from "drizzle-orm";
 import type { Reconciler } from "./types";
 
-/** The old and new value of one field that actually moved. Reporting a field
- *  that didn't change reads as noise and hides the one that did. Avatar VALUES
- *  are URLs — name the change, never print them. */
+/** The old and new value of one field that moved. Reporting a field that stayed
+ *  put reads as noise and hides the one that did move. Avatar values are URLs,
+ *  so name the change instead of printing them. */
 const changed = (
   field: string,
   was: string | null,
@@ -51,8 +51,7 @@ export const identity: Reconciler = {
   async apply(ctx, keys) {
     if (!keys.includes("identity:refresh")) return [];
     const org = await ctx.orgInfo();
-    // Idempotent: re-applying writes the same values that a fresh audit would
-    // read back, so calling apply twice for the same drift is a no-op success.
+    // Idempotent: re-applying writes the same values a fresh audit would read.
     await ctx.db
       .update(classes)
       .set({
