@@ -1,3 +1,5 @@
+import { ClipboardList } from "lucide-react";
+import { Row } from "~/components/custom/layout/row";
 import { Stack } from "~/components/custom/layout/stack";
 import { Text } from "~/components/custom/typography/text";
 import { Button } from "~/components/ui/button";
@@ -8,7 +10,10 @@ export function LoginPage() {
   const { signIn } = useAuth();
   return (
     <Stack gap="lg" align="start" justify="center" className="flex-1">
-      <Text variant="title">roster</Text>
+      <Row gap="sm">
+        <ClipboardList aria-hidden className="size-8" />
+        <Text variant="title">Roster</Text>
+      </Row>
       <Text variant="subtitle" className="max-w-md">
         Course assignments, on your own GitHub. HEIG-VD Software Engineering.
       </Text>
