@@ -1,10 +1,10 @@
 import { Check, Link2, RefreshCw, RotateCcw } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
+import { AssignmentDialog } from "~/components/custom/classes/assignments/assignment-dialog";
+import { AssignmentsTable } from "~/components/custom/classes/assignments/assignments-table";
 import { InviteTeacherDialog } from "~/components/custom/classes/hub/invite-teacher-dialog";
 import { PeopleChip } from "~/components/custom/classes/hub/people-chip";
-import { LabDialog } from "~/components/custom/classes/labs/lab-dialog";
-import { LabsTable } from "~/components/custom/classes/labs/labs-table";
 import { RoleChip } from "~/components/custom/classes/role-marker";
 import { ConfirmDialog } from "~/components/custom/confirm-dialog";
 import { OrgIdentity } from "~/components/custom/identity/org-identity";
@@ -29,8 +29,8 @@ function peopleLabel(n: number, noun: string, pendingCount: number) {
 /**
  * One connected class (GitHub org) as a single flat surface: identity + people
  * stats in the masthead (information only), then a toolbar with every class
- * action side by side (New lab, invite link (F4), GitHub sync), then the labs
- * table, each sectioned off by a hairline. No nested boxes.
+ * action side by side (New assignment, invite link (F4), GitHub sync), then the
+ * assignments table, each sectioned off by a hairline. No nested boxes.
  */
 export function ClassCard({
   id,
@@ -43,10 +43,10 @@ export function ClassCard({
   pending,
   pendingTeachers,
   users,
-  labs,
+  assignments,
   onChanged,
 }: ClassItem & {
-  /** The hub's own revalidate: lab edits refresh the data they came from. */
+  /** The hub's own revalidate: assignment edits refresh the data they came from. */
   onChanged: () => unknown;
 }) {
   // Correlate GitHub org members with their roster users. The API returns raw
@@ -117,7 +117,7 @@ export function ClassCard({
           answers "what can I do to this class". The masthead above carries
           information only. */}
       <Row gap="sm" wrap className="border-border border-t px-3 py-2">
-        <LabDialog classId={id} onSaved={onChanged} />
+        <AssignmentDialog classId={id} onSaved={onChanged} />
         <JoinLinkAction
           classId={id}
           joinToken={joinToken}
@@ -129,16 +129,20 @@ export function ClassCard({
 
       {/* Sectioned off by a hairline, not a nested box. */}
       <div className="w-full border-border border-t">
-        {labs.length === 0 ? (
+        {assignments.length === 0 ? (
           <Text variant="body2" className="px-5 py-3">
-            No labs yet — use "New lab" above.
+            No assignments yet — use "New assignment" above.
           </Text>
         ) : (
-          <LabsTable
-            labs={labs}
+          <AssignmentsTable
+            assignments={assignments}
             manage
-            action={(lab) => (
-              <LabDialog classId={id} lab={lab} onSaved={onChanged} />
+            action={(assignment) => (
+              <AssignmentDialog
+                classId={id}
+                assignment={assignment}
+                onSaved={onChanged}
+              />
             )}
           />
         )}
@@ -149,9 +153,10 @@ export function ClassCard({
 
 /**
  * The class join link, behind a popover rather than a bare copy button: the one
- * thing a teacher gets wrong here is thinking they invite students to a LAB.
- * They don't: one link enrolls a student into the whole CLASS, and every lab
- * follows from that membership. The popover says so, before the copy.
+ * thing a teacher gets wrong here is thinking they invite students to a
+ * ASSIGNMENT. They don't: one link enrolls a student into the whole CLASS, and
+ * every assignment follows from that membership. The popover says so, before
+ * the copy.
  */
 function JoinLinkAction({
   classId,
@@ -199,8 +204,9 @@ function JoinLinkAction({
             Invite students
           </Text>
           <Text variant="caption">
-            One link per class, not per lab. Share it once — a student who joins
-            enrols in this whole class and gets every lab in it, now and later.
+            One link per class, not per assignment. Share it once — a student
+            who joins enrols in this whole class and gets every assignment in
+            it, now and later.
           </Text>
           <Text variant="caption">
             Joining makes the student a member of the class's GitHub

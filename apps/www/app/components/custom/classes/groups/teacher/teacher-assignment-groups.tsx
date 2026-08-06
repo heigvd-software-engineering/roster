@@ -8,19 +8,19 @@ import { NewGroupDialog } from "~/components/custom/classes/groups/shared/new-gr
 import { SeatButton } from "~/components/custom/classes/groups/shared/seats";
 import { UnassignedPool } from "~/components/custom/classes/groups/shared/unassigned-pool";
 import {
-  type GroupLabStatus,
-  useLabGroups,
-} from "~/components/custom/classes/groups/shared/use-lab-groups";
+  type GroupAssignmentStatus,
+  useAssignmentGroups,
+} from "~/components/custom/classes/groups/shared/use-assignment-groups";
 import {
   MissingRepoBadge,
   RepoLink,
 } from "~/components/custom/classes/groups/shared/work-repo";
+import { AssignmentStats } from "~/components/custom/classes/groups/teacher/assignment-stats";
 import { CloneAllDialog } from "~/components/custom/classes/groups/teacher/clone-all-dialog";
 import {
   LastPush,
   StatusChip,
 } from "~/components/custom/classes/groups/teacher/group-status";
-import { LabStats } from "~/components/custom/classes/groups/teacher/lab-stats";
 import { ConfirmDialog } from "~/components/custom/confirm-dialog";
 import { DeleteDialog, STAKES } from "~/components/custom/delete-dialog";
 import { Hint } from "~/components/custom/hint";
@@ -43,43 +43,43 @@ import {
   PopoverTrigger,
 } from "~/components/ui/popover";
 import { ToggleGroup, ToggleGroupItem } from "~/components/ui/toggle-group";
-import type { GroupItem, LabItem } from "~/lib/api";
-import { labStarted, usersByGithubId } from "~/lib/format";
+import type { AssignmentItem, GroupItem } from "~/lib/api";
+import { assignmentStarted, usersByGithubId } from "~/lib/format";
 import { type PersonIdentity, personIdentity } from "~/lib/identity";
 import { cn } from "~/lib/utils";
 
 type StatusFilter = "all" | "attention" | "late";
-type LabGroups = ReturnType<typeof useLabGroups>;
+type AssignmentGroups = ReturnType<typeof useAssignmentGroups>;
 type RosterRow = {
   group: GroupItem;
   repo: string | null;
   pushedAt: string | null;
-  status: GroupLabStatus;
+  status: GroupAssignmentStatus;
 };
 /** Statuses that need nothing from anyone. Everything else is attention. */
-const GOOD_STATUSES: GroupLabStatus[] = ["on_track", "on_time", "ready"];
+const GOOD_STATUSES: GroupAssignmentStatus[] = ["on_track", "on_time", "ready"];
 /** The pool members a teacher may add to a group (linked login required). */
-type AddCandidate = LabGroups["unplaced"][number] & { login: string };
+type AddCandidate = AssignmentGroups["unplaced"][number] & { login: string };
 
 /**
- * The TEACHER's lab page is a GROUP WALL: summary stats, the without-a-group
- * pool, then one CARD per group of THIS lab, with the full roster inline (~30
- * students in ~12 groups fit one screen; nothing hides behind a disclosure),
- * open seats for the remaining capacity, repo + last push pinned at the
- * bottom, status badge in the corner. Management lives ON the card: an open
- * seat is the add-from-pool picker, each member wears its remove ×, the kebab
- * holds the one rare verb (delete). The toolbar's search + status segments
- * DIM non-matching cards rather than hide them, so the wall keeps its shape
- * and the eye's map of the class survives filtering.
+ * The TEACHER's assignment page is a GROUP WALL: summary stats, the
+ * without-a-group pool, then one CARD per group of THIS assignment, with the
+ * full roster inline (~30 students in ~12 groups fit one screen; nothing hides
+ * behind a disclosure), open seats for the remaining capacity, repo + last push
+ * pinned at the bottom, status badge in the corner. Management lives ON the
+ * card: an open seat is the add-from-pool picker, each member wears its remove
+ * ×, the kebab holds the one rare verb (delete). The toolbar's search + status
+ * segments DIM non-matching cards rather than hide them, so the wall keeps its
+ * shape and the eye's map of the class survives filtering.
  */
-export function TeacherLabGroups({
+export function TeacherAssignmentGroups({
   classId,
-  lab,
+  assignment,
 }: {
   classId: string;
-  lab: LabItem;
+  assignment: AssignmentItem;
 }) {
-  const g = useLabGroups(classId, lab.id);
+  const g = useAssignmentGroups(classId, assignment.id);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<StatusFilter>("all");
 
@@ -109,16 +109,17 @@ export function TeacherLabGroups({
   const attention = rows.filter((r) => !GOOD_STATUSES.includes(r.status));
   const late = rows.filter((r) => r.status === "late");
   const missingRepos = rows.filter((r) => r.status === "no_repo");
-  // Every work repo of this lab, filter-independent: "clone all" means all.
+  // Every work repo of this assignment, filter-independent: "clone all" means
+  // all.
   const repos = rows
     .map((r) => r.repo)
     .filter((repo): repo is string => repo !== null);
-  const matchesFilter = (status: GroupLabStatus) =>
+  const matchesFilter = (status: GroupAssignmentStatus) =>
     filter === "all" ||
     (filter === "late" ? status === "late" : !GOOD_STATUSES.includes(status));
   const needle = query.toLowerCase();
 
-  const started = labStarted(lab);
+  const started = assignmentStarted(assignment);
 
   if (g.error) {
     return (
@@ -131,7 +132,7 @@ export function TeacherLabGroups({
 
   return (
     <>
-      <LabStats
+      <AssignmentStats
         stats={[
           { value: g.groups.length, label: "groups" },
           {
@@ -154,7 +155,7 @@ export function TeacherLabGroups({
         <RosterToolbar
           g={g}
           classId={classId}
-          labId={lab.id}
+          assignmentId={assignment.id}
           query={query}
           onQuery={setQuery}
           filter={filter}
@@ -169,7 +170,7 @@ export function TeacherLabGroups({
 
         {rows.length === 0 ? (
           <Text variant="body2">
-            No groups in this lab yet — create one above.
+            No groups in this assignment yet — create one above.
           </Text>
         ) : (
           <div className={GROUP_WALL}>
@@ -178,7 +179,7 @@ export function TeacherLabGroups({
                 key={row.group.id}
                 g={g}
                 row={row}
-                deadline={lab.deadline}
+                deadline={assignment.deadline}
                 started={started}
                 addCandidates={addCandidates}
                 dimmed={
@@ -193,15 +194,15 @@ export function TeacherLabGroups({
   );
 }
 
-/** The escape hatch, labeled as such: while the lab hasn't started, both
+/** The escape hatch, labeled as such: while the assignment hasn't started, both
  *  repo-create confirms carry this extra sentence, because a repository
  *  created now hands its group the starter code before the start time.
  *  Empty once started. */
 function preStartRepoWarning(started: boolean, scope: "one" | "many") {
   if (started) return "";
   return scope === "one"
-    ? " This lab hasn't started: creating the repository now gives this group access to the starter code before the start time."
-    : " This lab hasn't started: creating repositories now gives their groups access to the starter code before the start time.";
+    ? " This assignment hasn't started: creating the repository now gives this group access to the starter code before the start time."
+    : " This assignment hasn't started: creating repositories now gives their groups access to the starter code before the start time.";
 }
 
 /** Search + status segments (they DIM, never hide) plus the toolbar verbs:
@@ -209,7 +210,7 @@ function preStartRepoWarning(started: boolean, scope: "one" | "many") {
 function RosterToolbar({
   g,
   classId,
-  labId,
+  assignmentId,
   query,
   onQuery,
   filter,
@@ -221,9 +222,9 @@ function RosterToolbar({
   repos,
   started,
 }: {
-  g: LabGroups;
+  g: AssignmentGroups;
   classId: string;
-  labId: string;
+  assignmentId: string;
   query: string;
   onQuery: (query: string) => void;
   filter: StatusFilter;
@@ -233,9 +234,9 @@ function RosterToolbar({
   lateCount: number;
   /** Complete groups still lacking their repo: the batch button's scope. */
   missingCount: number;
-  /** Full names of every work repo in this lab: the clone block's scope. */
+  /** Full names of every work repo in this assignment: the clone block's scope. */
   repos: string[];
-  /** False before the lab's startAt, so the batch confirm names the leak. */
+  /** False before the assignment's startAt, so the batch confirm names the leak. */
   started: boolean;
 }) {
   const [cloneOpen, setCloneOpen] = useState(false);
@@ -305,7 +306,7 @@ function RosterToolbar({
       ) : null}
       <NewGroupDialog
         classId={classId}
-        labId={labId}
+        assignmentId={assignmentId}
         autoJoins={false}
         triggerLabel="New group"
         trigger={
@@ -313,7 +314,7 @@ function RosterToolbar({
             variant="outline"
             size="sm"
             type="button"
-            title="Create a new group for this lab"
+            title="Create a new group for this assignment"
           />
         }
         onCreated={g.revalidate}
@@ -327,7 +328,7 @@ function RosterToolbar({
         title={
           repos.length === 0
             ? "No work repositories to clone yet"
-            : "Copy a git clone command for every work repository in this lab"
+            : "Copy a git clone command for every work repository in this assignment"
         }
         onClick={() => setCloneOpen(true)}
       >
@@ -357,10 +358,10 @@ function TeacherGroupCard({
   addCandidates,
   dimmed,
 }: {
-  g: LabGroups;
+  g: AssignmentGroups;
   row: RosterRow;
   deadline: string;
-  /** False before the lab's startAt, so the create confirm names the leak. */
+  /** False before the assignment's startAt, so the create confirm names the leak. */
   started: boolean;
   addCandidates: AddCandidate[];
   /** Filtered out, but the wall dims instead of hiding. */
@@ -396,20 +397,21 @@ function TeacherGroupCard({
               </Hint>
             ) : null}
             {over ? (
-              // Lowering the lab's max never evicts anyone (updateLab leaves
-              // attached groups untouched, by design), so an oversized group
-              // is a state the teacher must be TOLD about, or the only trace
-              // is a "4/3" count that reads like a typo.
+              // Lowering the assignment's max never evicts anyone
+              // (updateAssignment leaves attached groups untouched, by design),
+              // so an oversized group is a state the teacher must be TOLD
+              // about, or the only trace is a "4/3" count that reads like a
+              // typo.
               <Hint
                 variant="warning"
                 text="over max"
-                title={`This group has ${size} members and the lab allows ${g.max}`}
+                title={`This group has ${size} members and the assignment allows ${g.max}`}
               >
-                The lab's maximum was lowered after this group formed — nobody
-                was removed, and the group keeps working. Remove {size - g.max}{" "}
-                member
-                {size - g.max > 1 ? "s" : ""} to fit the lab, or raise the lab's
-                maximum in its settings if the size is fine.
+                The assignment's maximum was lowered after this group formed —
+                nobody was removed, and the group keeps working. Remove{" "}
+                {size - g.max} member
+                {size - g.max > 1 ? "s" : ""} to fit the assignment, or raise
+                the assignment's maximum in its settings if the size is fine.
               </Hint>
             ) : null}
           </Row>
@@ -514,17 +516,17 @@ function groupStakes(members: number, repo: string | null): string[] {
   return [
     STAKES.team,
     ...(members > 0
-      ? [STAKES.students(members, "their place in this lab")]
+      ? [STAKES.students(members, "their place in this assignment")]
       : []),
     ...(repo !== null
       ? [STAKES.reposSurvive(repo), STAKES.reposReturn]
-      : ["Students can form a new group for this lab afterwards."]),
+      : ["Students can form a new group for this assignment afterwards."]),
   ];
 }
 
-/** The card's kebab, holding the one rare verb (groups are per-lab, so delete
- *  IS "remove from this lab"). Never disabled: deletion is refused nowhere in
- *  this app, and `DeleteDialog` is the whole gate. */
+/** The card's kebab, holding the one rare verb (groups are per-assignment, so delete
+ * IS "remove from this assignment"). Never disabled: deletion is refused
+ * nowhere in this app, and `DeleteDialog` is the whole gate. */
 function CardMenu({ name, onDelete }: { name: string; onDelete: () => void }) {
   return (
     <DropdownMenu>
@@ -562,11 +564,11 @@ function CardFooter({
   deadline,
   started,
 }: {
-  g: LabGroups;
+  g: AssignmentGroups;
   group: GroupItem;
   repo: string | null;
   pushedAt: string | null;
-  status: GroupLabStatus;
+  status: GroupAssignmentStatus;
   deadline: string;
   started: boolean;
 }) {
@@ -621,9 +623,9 @@ function CardFooter({
 }
 
 /** An open seat that IS the "add from the pool" picker: the seat anchors a
- *  popover whose CONTENT holds the search state. The popover unmounts when
- *  closed, so the ~36 closed seats of a fresh lab cost nothing per render.
- *  An empty pool disables the seat, since nobody is left to place. */
+ * popover whose CONTENT holds the search state. The popover unmounts when
+ * closed, so the ~36 closed seats of a fresh assignment cost nothing per
+ * render. An empty pool disables the seat, since nobody is left to place. */
 function AddFromPool({
   required,
   groupName,

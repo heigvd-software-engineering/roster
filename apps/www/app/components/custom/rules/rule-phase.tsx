@@ -12,12 +12,12 @@ type RulePhaseProps = {
   /** Timeline index: "01" … "04", or "∞" for the timeless card. */
   step: string;
   title: string;
-  /** One line saying what this moment of a lab's life is about. */
+  /** One line saying what this moment of an assignment's life is about. */
   tagline: string;
   children: ReactNode;
 };
 
-/** One moment of a lab's life: a numbered card holding its rules. The page
+/** One moment of an assignment's life: a numbered card holding its rules. The page
  *  reads in order because the cards are numbered and stacked. */
 export function RulePhase({ step, title, tagline, children }: RulePhaseProps) {
   return (

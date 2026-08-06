@@ -2,7 +2,7 @@
 
 GitHub holds the state that matters: org membership, teams, team rosters, repository grants, the App
 installation. roster caches parts of it so pages render without calling GitHub, and writes to GitHub
-through its own flows (see [classes and labs](./classes-and-labs.md)). Anyone with rights on the org
+through its own flows (see [classes and assignments](./classes-and-assignments.md)). Anyone with rights on the org
 can edit a team, remove a member, flip a setting, or reinstall the App without telling roster.
 Reconcile is how a teacher sees that and decides what to do about it. It lives in
 `apps/api/src/lib/reconcile/`, behind two endpoints in `apps/api/src/handlers/reconcile.ts`.
@@ -46,8 +46,8 @@ roster to compare.
 | `identity`<br>`identity:refresh` | `classes.login`, `name` or `avatarUrl` no longer match the org | `orgInfo()` | those three fields on the class row |
 | `roster`<br>`roster:{add,remove,promote,demote,refresh}:{user,invite}=id` | the live org roster (members, Owners, open invitations) against the `class_members` cache | `people()`, `members()` | one row per accepted key, through `observeMember` / `forgetMember`, from a re-read of GitHub |
 | `group-teams`<br>`group-teams:delete:groupId=…` | a group row whose GitHub Team 404s | `groups()`, one `teamMembers` call per group | deletes that group row; the work repo is untouched |
-| `group-members`<br>`group-members:sync:groupId=…` | the live team roster differs from the `group_members` cache, or no roster was ever recorded | `groups()`, `teamMembers`, `cachedRosters`, lab titles | `syncGroupMembers` replaces the group's cached rows with GitHub's team |
-| `work-repos`<br>`work-repos:adopt:groupId=…` | a group with `ghRepoFullName` NULL while `org/slug` exists in the org, skipping the lab's own template | `groups()`, `orgRepos()`, `labs.templateRepoFullName` | `grantTeamRepo`, then `groups.ghRepoId` and `ghRepoFullName` |
+| `group-members`<br>`group-members:sync:groupId=…` | the live team roster differs from the `group_members` cache, or no roster was ever recorded | `groups()`, `teamMembers`, `cachedRosters`, assignment titles | `syncGroupMembers` replaces the group's cached rows with GitHub's team |
+| `work-repos`<br>`work-repos:adopt:groupId=…` | a group with `ghRepoFullName` NULL while `org/slug` exists in the org, skipping the assignment's own template | `groups()`, `orgRepos()`, `assignments.templateRepoFullName` | `grantTeamRepo`, then `groups.ghRepoId` and `ghRepoFullName` |
 | `base-permission`<br>`base-permission:reset`, `base-permission:repo-creation` | base repository permission other than `none`; members allowed to create repositories | `orgPolicy()` | one `enforceOrgPolicy` PATCH asserting both settings |
 
 The caches they repair are in [data model](./data-model.md), the vocabulary in
@@ -65,10 +65,10 @@ team the App cannot see would read as deleted, and that finding deletes a row.
 the roster and the push grant on the work repo. Delete the team and both are gone for good, so
 `group-teams` drops the group row instead of recreating an empty team nobody asked for. The repo
 stays, because nothing in `apps/api` deletes a GitHub repository and student work outlives the group
-that made it. Orphans re-attach by name: a group recreated with the same lab title and group name
+that made it. Orphans re-attach by name: a group recreated with the same assignment title and group name
 computes the same slug, which `createWorkRepo`'s find-or-create path (or `work-repos`) links straight
 back. Teams that exist on GitHub with no group row are left alone; an org has teams roster never
-made, and roster cannot know which lab they would belong to.
+made, and roster cannot know which assignment they would belong to.
 
 **Apply names its subjects.** `roster:remove` deletes one row through `forgetMember`, never
 `syncRoster`, whose meaning is "delete everyone absent from the live roster". A proposal that goes

@@ -1,13 +1,19 @@
 import { zValidator } from "@hono/zod-validator";
-import { classMembers, type Group, groups, type Lab, labs } from "@roster/db";
+import {
+  type Assignment,
+  assignments,
+  classMembers,
+  type Group,
+  groups,
+} from "@roster/db";
 import { and, desc, eq, inArray, isNull, ne } from "drizzle-orm";
 import type { Context } from "hono";
 import { z } from "zod";
 import { authedFactory } from "../factory";
 import type { AuthedEnv } from "../lib/auth/require-auth";
 import {
+  findAssignmentInClass,
   findGroupInClass,
-  findLabInClass,
   resolveClassAsMember,
 } from "../lib/class-scope";
 import { memberUserIds } from "../lib/enrollment";
@@ -23,10 +29,10 @@ import {
   replaceGroupMembers,
 } from "../lib/group-members";
 import {
-  createGroupInLab,
+  assignmentStarted,
+  createGroupInAssignment,
   createWorkRepo,
   groupsWithRosters,
-  labStarted,
   regrantWorkRepo,
   resolveRepoStatuses,
   reuseBlocker,
@@ -34,11 +40,12 @@ import {
 import { profilesByGithubId } from "../lib/identity";
 
 /**
- * The lab page's group surface (per-lab model, spec 2026-07-07): groups belong
- * to one lab, so the list is this lab's groups, with no attach and no
- * cross-lab reach. Each group carries its live roster, its own work repo, and
- * push activity. Creating a group is lab-scoped and may copy a roster forward
- * from another lab. Denials are 404, like everything class-scoped.
+ * The assignment page's group surface (per-assignment model, spec 2026-07-07):
+ * groups belong to one assignment, so the list is this assignment's groups,
+ * with no attach and no cross-assignment reach. Each group carries its live
+ * roster, its own work repo, and push activity. Creating a group is
+ * assignment-scoped and may copy a roster forward from another assignment.
+ * Denials are 404, like everything class-scoped.
  */
 
 // AGENTS EXCEPTION (rule 6): not drizzle-zod, because nothing here derives
@@ -48,27 +55,27 @@ import { profilesByGithubId } from "../lib/identity";
 const createGroupInput = z.object({
   name: z.string().trim().min(1).max(100),
   // Copy-forward: seed this new group's roster from an existing group
-  // (typically the same team on a previous lab).
+  // (typically the same team on a previous assignment).
   copyFromGroupId: z.string().optional(),
 });
 
-/** The lab's minimum group size (individual = a group of one). */
-const labMin = (lab: Lab) =>
-  lab.groupMode === "individual" ? 1 : (lab.minMembers ?? 1);
+/** The assignment's minimum group size (individual = a group of one). */
+const assignmentMin = (assignment: Assignment) =>
+  assignment.groupMode === "individual" ? 1 : (assignment.minMembers ?? 1);
 
-/** Logins already in a group of this lab, the one-group-per-lab invariant as a
+/** Logins already in a group of this assignment, the one-group-per-assignment invariant as a
  *  set (cached rosters: one query, zero GitHub calls). */
-async function placedLoginsInLab(
+async function placedLoginsInAssignment(
   db: Parameters<typeof cachedRosters>[0],
-  labId: string,
+  assignmentId: string,
 ): Promise<Set<string>> {
-  const labGroups = await db
+  const assignmentGroups = await db
     .select({ id: groups.id })
     .from(groups)
-    .where(eq(groups.labId, labId));
+    .where(eq(groups.assignmentId, assignmentId));
   const rosters = await cachedRosters(
     db,
-    labGroups.map((g) => g.id),
+    assignmentGroups.map((g) => g.id),
   );
   return new Set([...rosters.values()].flatMap((r) => r.map((m) => m.login)));
 }
@@ -98,25 +105,28 @@ async function classLoginsSet(
 const repoFailure = (c: Context<AuthedEnv>, f: RepoFailure) =>
   c.json({ error: f === "name_taken" ? "repo_name_taken" : f }, 409);
 
-/** This lab's groups with live rosters, work repo, and push activity, plus the
- *  class's enrolled students (the "without a group" pool) and linked SWITCH
- *  users for everyone involved. It also carries the lab row, the class
- *  identity, and the caller's role: the lab page's one request, so it never
- *  re-fetches the whole class list to render its header. */
-export const listLabGroups = authedFactory.createHandlers(async (c) => {
+/** This assignment's groups with live rosters, work repo, and push activity, plus the
+ * class's enrolled students (the "without a group" pool) and linked SWITCH
+ * users for everyone involved. It also carries the assignment row, the class
+ * identity, and the caller's role: the assignment page's one request, so it
+ * never re-fetches the whole class list to render its header. */
+export const listAssignmentGroups = authedFactory.createHandlers(async (c) => {
   // allowPending: the student page must tell "accept your invitation first"
   // apart from "not your class", so a pending invitee gets the header data and
-  // an empty roster, never a 404. They already see the lab through the
+  // an empty roster, never a 404. They already see the assignment through the
   // enrolled list, so this reveals nothing new.
   const access = await resolveClassAsMember(c, c.req.param("id"), {
     allowPending: true,
   });
   if (!access) return c.json({ error: "not_found" }, 404);
-  const lab = await findLabInClass(access, c.req.param("labId"));
-  if (!lab) return c.json({ error: "not_found" }, 404);
+  const assignment = await findAssignmentInClass(
+    access,
+    c.req.param("assignmentId"),
+  );
+  if (!assignment) return c.json({ error: "not_found" }, 404);
 
   const head = {
-    lab,
+    assignment,
     class: { name: access.cls.name, login: access.org },
     role: access.isTeacher ? ("teacher" as const) : ("student" as const),
     membershipState: access.membershipState,
@@ -124,17 +134,17 @@ export const listLabGroups = authedFactory.createHandlers(async (c) => {
   if (access.membershipState === "pending") {
     return c.json({ ...head, groups: [], users: [], students: [] });
   }
-  // The start gate, list edition: a student on a not-yet-open lab gets the
-  // head (a direct URL renders "starts …", never a 404) and empty lists, so
+  // The start gate, list edition: a student on a not-yet-open assignment gets
+  // the head (a direct URL renders "starts …", never a 404) and empty lists, so
   // pre-formed rosters stay invisible until the start. Teachers see all.
-  if (!access.isTeacher && !labStarted(lab)) {
+  if (!access.isTeacher && !assignmentStarted(assignment)) {
     return c.json({ ...head, groups: [], users: [], students: [] });
   }
 
   const rows = await access.db
     .select()
     .from(groups)
-    .where(eq(groups.labId, lab.id))
+    .where(eq(groups.assignmentId, assignment.id))
     .orderBy(groups.createdAt);
   const out = await groupsWithRosters(access, rows);
 
@@ -164,8 +174,8 @@ export const listLabGroups = authedFactory.createHandlers(async (c) => {
     ? await resolveRepoStatuses(c.env, access, rows, new Set(activity.keys()))
     : new Map<string, { status: "ok" | "missing"; repoFullName: string }>();
   // The byline ("last commit by @login", message): one GraphQL batch over the
-  // lab's linked repos, after rename resolution. Same deal as the activity
-  // listing: a failure only loses the byline.
+  // assignment's linked repos, after rename resolution. Same deal as the
+  // activity listing: a failure only loses the byline.
   const linkedRepos = out
     .map((g) =>
       g.repoFullName
@@ -236,7 +246,7 @@ export const listLabGroups = authedFactory.createHandlers(async (c) => {
 });
 
 /**
- * Groups in other labs of this class: the "reuse a group" sources for
+ * Groups in other assignments of this class: the "reuse a group" sources for
  * copy-forward, with rosters from the cache. A student sees only groups they
  * belong to (self-organising); a teacher manages groups top-down and sees
  * every group in the class.
@@ -244,14 +254,22 @@ export const listLabGroups = authedFactory.createHandlers(async (c) => {
 export const listReusableGroups = authedFactory.createHandlers(async (c) => {
   const access = await resolveClassAsMember(c, c.req.param("id"));
   if (!access) return c.json({ error: "not_found" }, 404);
-  const lab = await findLabInClass(access, c.req.param("labId"));
-  if (!lab) return c.json({ error: "not_found" }, 404);
+  const assignment = await findAssignmentInClass(
+    access,
+    c.req.param("assignmentId"),
+  );
+  if (!assignment) return c.json({ error: "not_found" }, 404);
 
   const rows = await access.db
-    .select({ group: groups, labTitle: labs.title })
+    .select({ group: groups, assignmentTitle: assignments.title })
     .from(groups)
-    .innerJoin(labs, eq(groups.labId, labs.id))
-    .where(and(eq(labs.classId, access.cls.id), ne(groups.labId, lab.id)))
+    .innerJoin(assignments, eq(groups.assignmentId, assignments.id))
+    .where(
+      and(
+        eq(assignments.classId, access.cls.id),
+        ne(groups.assignmentId, assignment.id),
+      ),
+    )
     .orderBy(desc(groups.createdAt));
   // Cached rosters: one query, where this once cost one GitHub call per group.
   const rosters = await cachedRosters(
@@ -268,18 +286,19 @@ export const listReusableGroups = authedFactory.createHandlers(async (c) => {
         members.some((m) => m.login === access.callerLogin),
       );
   // Annotate each source with why it can't be copied (or null): the dialog
-  // renders the verdict, and createLabGroup re-checks as the backstop.
-  const placed = await placedLoginsInLab(access.db, lab.id);
+  // renders the verdict, and createAssignmentGroup re-checks as the backstop.
+  const placed = await placedLoginsInAssignment(access.db, assignment.id);
   const inClass = await classLoginsSet(access.db, access.cls.id);
   const out = visible.map(({ r, members }) => ({
     id: r.group.id,
     name: r.group.name,
-    labTitle: r.labTitle,
+    assignmentTitle: r.assignmentTitle,
     members,
-    blocker: reuseBlocker(lab, members, placed, inClass),
+    blocker: reuseBlocker(assignment, members, placed, inClass),
   }));
-  // Linked SWITCH identities for everyone shown, the same correlation the lab
-  // page does, so the dialog names members by the same rule (personIdentity).
+  // Linked SWITCH identities for everyone shown, the same correlation the
+  // assignment page does, so the dialog names members by the same rule
+  // (personIdentity).
   const users = await profilesByGithubId(access.db, [
     ...new Set(out.flatMap((g) => g.members.map((m) => String(m.id)))),
   ]);
@@ -287,21 +306,24 @@ export const listReusableGroups = authedFactory.createHandlers(async (c) => {
 });
 
 /**
- * Create a group in this lab (any active member). A creating student
+ * Create a group in this assignment (any active member). A creating student
  * auto-joins; a teacher stays out. `copyFromGroupId` seeds the roster from
  * another group's members, skipping anyone already placed in a group of this
- * lab (the one-group-per-lab invariant).
+ * assignment (the one-group-per-assignment invariant).
  */
-export const createLabGroup = authedFactory.createHandlers(
+export const createAssignmentGroup = authedFactory.createHandlers(
   zValidator("json", createGroupInput),
   async (c) => {
     const access = await resolveClassAsMember(c, c.req.param("id"));
     if (!access) return c.json({ error: "not_found" }, 404);
-    const lab = await findLabInClass(access, c.req.param("labId"));
-    if (!lab) return c.json({ error: "not_found" }, 404);
-    // The start gate: before the lab opens, students change nothing (no
+    const assignment = await findAssignmentInClass(
+      access,
+      c.req.param("assignmentId"),
+    );
+    if (!assignment) return c.json({ error: "not_found" }, 404);
+    // The start gate: before the assignment opens, students change nothing (no
     // groups, no repos, no starter code). Teachers pass (escape hatch).
-    if (!access.isTeacher && !labStarted(lab)) {
+    if (!access.isTeacher && !assignmentStarted(assignment)) {
       return c.json({ error: "not_started" }, 409);
     }
     const { name, copyFromGroupId } = c.req.valid("json");
@@ -323,22 +345,22 @@ export const createLabGroup = authedFactory.createHandlers(
       }
       // All-or-nothing reuse: any blocker refuses the whole copy. The dialog
       // greys these out and the API is the backstop (joinGroup's group_full
-      // pattern), so a race (someone joins a group of this lab between
+      // pattern), so a race (someone joins a group of this assignment between
       // dialog-open and submit) answers 409, never a partial team.
       const blocker = reuseBlocker(
-        lab,
+        assignment,
         sourceMembers,
-        await placedLoginsInLab(access.db, lab.id),
+        await placedLoginsInAssignment(access.db, assignment.id),
         await classLoginsSet(access.db, access.cls.id),
       );
       if (blocker) return c.json({ error: blocker.reason }, 409);
       copyFromLogins = sourceMembers.map((m) => m.login);
     }
 
-    const group = await createGroupInLab(
+    const group = await createGroupInAssignment(
       c.env,
       access,
-      lab,
+      assignment,
       name,
       c.get("user").id,
       {
@@ -355,26 +377,29 @@ export const createLabGroup = authedFactory.createHandlers(
 
 /**
  * Create the group's work repo, the explicit accept-completion step: any group
- * member (or a teacher) triggers it once the group meets the lab's min size,
- * enforced here. Idempotent: an existing repo is returned.
+ * member (or a teacher) triggers it once the group meets the assignment's min
+ * size, enforced here. Idempotent: an existing repo is returned.
  *
  * SECURITY: creation is the group's freeze moment (membership locks), and it
  * is create-only. A name collision with any existing org repo answers
  * repo_name_taken, never adoption, so students can't capture the teacher's
  * private repos by naming their group after one (see createWorkRepo).
  */
-export const createLabRepo = authedFactory.createHandlers(async (c) => {
+export const createAssignmentRepo = authedFactory.createHandlers(async (c) => {
   const access = await resolveClassAsMember(c, c.req.param("id"));
   if (!access) return c.json({ error: "not_found" }, 404);
-  const lab = await findLabInClass(access, c.req.param("labId"));
+  const assignment = await findAssignmentInClass(
+    access,
+    c.req.param("assignmentId"),
+  );
   const group = await findGroupInClass(access, c.req.param("groupId"));
-  if (!lab || !group || group.labId !== lab.id) {
+  if (!assignment || !group || group.assignmentId !== assignment.id) {
     return c.json({ error: "not_found" }, 404);
   }
   // The start gate precedes even the idempotent return: a teacher may have
   // pre-created the repo (escape hatch), and that must not open it to students
   // early, so a pre-start student gets not_started, never the repo.
-  if (!access.isTeacher && !labStarted(lab)) {
+  if (!access.isTeacher && !assignmentStarted(assignment)) {
     return c.json({ error: "not_started" }, 409);
   }
   if (group.ghRepoFullName) {
@@ -394,162 +419,184 @@ export const createLabRepo = authedFactory.createHandlers(async (c) => {
   ) {
     return c.json({ error: "not_found" }, 404);
   }
-  if (members.length < labMin(lab)) {
+  if (members.length < assignmentMin(assignment)) {
     return c.json({ error: "group_incomplete" }, 409);
   }
   // We hold the live roster, so mirror it. Free, and it keeps the cache honest
   // on a path a student reaches without touching the membership endpoints.
   await replaceGroupMembers(access.db, group.id, members);
 
-  const repo = await createWorkRepo(c.env, access, lab, group);
+  const repo = await createWorkRepo(c.env, access, assignment, group);
   if (typeof repo === "string") return repoFailure(c, repo);
   return c.json({ repo: { fullName: repo.fullName } });
 });
 
 /**
- * Batch-create every missing work repo for the lab (teacher only): one request
- * instead of N create+refetch round-trips. Sequential on purpose, because
- * repo-creation bursts trip GitHub's abuse limits. Per-group blockers (under
- * min, orphaned team, name collision) are skipped and reported; a template or
- * permissions failure aborts, since one bad template or one missing App
- * permission fails every remaining create the same way.
+ * Batch-create every missing work repo for the assignment (teacher only): one
+ * request instead of N create+refetch round-trips. Sequential on purpose,
+ * because repo-creation bursts trip GitHub's abuse limits. Per-group blockers
+ * (under min, orphaned team, name collision) are skipped and reported; a
+ * template or permissions failure aborts, since one bad template or one missing
+ * App permission fails every remaining create the same way.
  *
  * SECURITY: create-only like every repo path. A name collision is a skip
  * (repo_name_taken), never an adoption, even on this teacher-triggered batch:
  * a maliciously named group must not capture an existing repo because the
  * teacher clicked the batch button.
  */
-export const createMissingLabRepos = authedFactory.createHandlers(async (c) => {
-  const access = await resolveClassAsMember(c, c.req.param("id"));
-  if (!access) return c.json({ error: "not_found" }, 404);
-  if (!access.isTeacher) return c.json({ error: "not_found" }, 404);
-  const lab = await findLabInClass(access, c.req.param("labId"));
-  if (!lab) return c.json({ error: "not_found" }, 404);
+export const createMissingAssignmentRepos = authedFactory.createHandlers(
+  async (c) => {
+    const access = await resolveClassAsMember(c, c.req.param("id"));
+    if (!access) return c.json({ error: "not_found" }, 404);
+    if (!access.isTeacher) return c.json({ error: "not_found" }, 404);
+    const assignment = await findAssignmentInClass(
+      access,
+      c.req.param("assignmentId"),
+    );
+    if (!assignment) return c.json({ error: "not_found" }, 404);
 
-  const missing = await access.db
-    .select()
-    .from(groups)
-    .where(and(eq(groups.labId, lab.id), isNull(groups.ghRepoFullName)));
+    const missing = await access.db
+      .select()
+      .from(groups)
+      .where(
+        and(
+          eq(groups.assignmentId, assignment.id),
+          isNull(groups.ghRepoFullName),
+        ),
+      );
 
-  let created = 0;
-  const skipped: {
-    groupId: string;
-    reason: "group_gone" | "group_incomplete" | "repo_name_taken";
-  }[] = [];
-  for (const group of missing) {
-    // Live roster: "is the group complete" gates an irreversible repo create.
-    const members = await access.team.roster(group.ghTeamSlug);
-    if (members === null) {
-      skipped.push({ groupId: group.id, reason: "group_gone" });
-      continue;
+    let created = 0;
+    const skipped: {
+      groupId: string;
+      reason: "group_gone" | "group_incomplete" | "repo_name_taken";
+    }[] = [];
+    for (const group of missing) {
+      // Live roster: "is the group complete" gates an irreversible repo create.
+      const members = await access.team.roster(group.ghTeamSlug);
+      if (members === null) {
+        skipped.push({ groupId: group.id, reason: "group_gone" });
+        continue;
+      }
+      if (members.length < assignmentMin(assignment)) {
+        skipped.push({ groupId: group.id, reason: "group_incomplete" });
+        continue;
+      }
+      await replaceGroupMembers(access.db, group.id, members);
+      const repo = await createWorkRepo(c.env, access, assignment, group);
+      if (repo === "name_taken") {
+        skipped.push({ groupId: group.id, reason: "repo_name_taken" });
+        continue;
+      }
+      // template_error / app_permissions hit every group the same way, so
+      // abort.
+      if (typeof repo === "string") return repoFailure(c, repo);
+      created++;
     }
-    if (members.length < labMin(lab)) {
-      skipped.push({ groupId: group.id, reason: "group_incomplete" });
-      continue;
-    }
-    await replaceGroupMembers(access.db, group.id, members);
-    const repo = await createWorkRepo(c.env, access, lab, group);
-    if (repo === "name_taken") {
-      skipped.push({ groupId: group.id, reason: "repo_name_taken" });
-      continue;
-    }
-    // template_error / app_permissions hit every group the same way, so abort.
-    if (typeof repo === "string") return repoFailure(c, repo);
-    created++;
-  }
-  return c.json({ created, skipped });
-});
+    return c.json({ created, skipped });
+  },
+);
 
 /**
- * One-click accept for individual labs: find or create the caller's solo group
- * in this lab (a team named after their login) and create the work repo. A
- * solo group is always complete, so accept means repo in one click. Group labs
- * refuse; their accept path is the group UI. Idempotent.
+ * One-click accept for individual assignments: find or create the caller's solo
+ * group in this assignment (a team named after their login) and create the work
+ * repo. A solo group is always complete, so accept means repo in one click.
+ * Group assignments refuse; their accept path is the group UI. Idempotent.
  *
- * SECURITY: same create-only rule as createLabRepo. A repo-name collision
- * refuses (repo_name_taken), never adopts an existing repo.
+ * SECURITY: same create-only rule as createAssignmentRepo. A repo-name
+ * collision refuses (repo_name_taken), never adopts an existing repo.
  */
-export const acceptIndividualLab = authedFactory.createHandlers(async (c) => {
-  const access = await resolveClassAsMember(c, c.req.param("id"));
-  if (!access) return c.json({ error: "not_found" }, 404);
-  const lab = await findLabInClass(access, c.req.param("labId"));
-  if (!lab) return c.json({ error: "not_found" }, 404);
-  if (lab.groupMode !== "individual") {
-    return c.json({ error: "group_lab" }, 409);
-  }
-  if (!access.isTeacher && !labStarted(lab)) {
-    return c.json({ error: "not_started" }, 409);
-  }
+export const acceptIndividualAssignment = authedFactory.createHandlers(
+  async (c) => {
+    const access = await resolveClassAsMember(c, c.req.param("id"));
+    if (!access) return c.json({ error: "not_found" }, 404);
+    const assignment = await findAssignmentInClass(
+      access,
+      c.req.param("assignmentId"),
+    );
+    if (!assignment) return c.json({ error: "not_found" }, 404);
+    if (assignment.groupMode !== "individual") {
+      return c.json({ error: "group_assignment" }, 409);
+    }
+    if (!access.isTeacher && !assignmentStarted(assignment)) {
+      return c.json({ error: "not_started" }, 409);
+    }
 
-  async function finish(solo: Group) {
-    if (!access || !lab) throw new Error("unreachable");
-    if (solo.ghRepoFullName) {
-      // Same heal as createLabRepo: re-assert the grant on the recorded repo.
-      await regrantWorkRepo(c.env, access, solo);
+    async function finish(solo: Group) {
+      if (!access || !assignment) throw new Error("unreachable");
+      if (solo.ghRepoFullName) {
+        // Same heal as createAssignmentRepo: re-assert the grant on the
+        // recorded repo.
+        await regrantWorkRepo(c.env, access, solo);
+        return c.json({
+          ok: true,
+          groupId: solo.id,
+          repo: { fullName: solo.ghRepoFullName },
+        });
+      }
+      const repo = await createWorkRepo(c.env, access, assignment, solo);
+      if (typeof repo === "string") return repoFailure(c, repo);
       return c.json({
         ok: true,
         groupId: solo.id,
-        repo: { fullName: solo.ghRepoFullName },
+        repo: { fullName: repo.fullName },
       });
     }
-    const repo = await createWorkRepo(c.env, access, lab, solo);
-    if (typeof repo === "string") return repoFailure(c, repo);
-    return c.json({
-      ok: true,
-      groupId: solo.id,
-      repo: { fullName: repo.fullName },
-    });
-  }
 
-  // The solo group for this lab, by naming convention (name = login).
-  const [existing] = await access.db
-    .select()
-    .from(groups)
-    .where(and(eq(groups.labId, lab.id), eq(groups.name, access.callerLogin)));
-  if (existing) {
-    // Live roster: this decides whether the solo team is really the caller's.
-    // Three ways it can fail, and they are not the same problem. The student
-    // can act on one, and only a teacher on the others, so each answers with
-    // its own code rather than one opaque conflict.
-    const members = await access.team.roster(existing.ghTeamSlug);
-    if (members === null) {
-      // The group row points at a team GitHub no longer has. Recreating it
-      // would mean writing to the org on a student's behalf, which this route
-      // never does; the audit page repairs it.
-      return c.json({ error: "solo_team_missing" }, 409);
+    // The solo group for this assignment, by naming convention (name = login).
+    const [existing] = await access.db
+      .select()
+      .from(groups)
+      .where(
+        and(
+          eq(groups.assignmentId, assignment.id),
+          eq(groups.name, access.callerLogin),
+        ),
+      );
+    if (existing) {
+      // Live roster: this decides whether the solo team is really the caller's.
+      // Three ways it can fail, and they are not the same problem. The student
+      // can act on one, and only a teacher on the others, so each answers with
+      // its own code rather than one opaque conflict.
+      const members = await access.team.roster(existing.ghTeamSlug);
+      if (members === null) {
+        // The group row points at a team GitHub no longer has. Recreating it
+        // would mean writing to the org on a student's behalf, which this route
+        // never does; the audit page repairs it.
+        return c.json({ error: "solo_team_missing" }, 409);
+      }
+      if (members.length === 0) {
+        // The team exists and nobody is in it. Two ways to get here, both
+        // outside the student's control: they were removed from the org (which
+        // drops them from every team, and rejoining does not put them back), or
+        // a teacher removed them from this group. Only a teacher can put them
+        // back, and adopting the team on their say-so is the capture this route
+        // refuses to do.
+        return c.json({ error: "solo_team_empty" }, 409);
+      }
+      if (members.length !== 1 || members[0]?.login !== access.callerLogin) {
+        // Somebody else holds the group carrying this login, the one case that
+        // is genuinely a name collision.
+        return c.json({ error: "solo_name_taken" }, 409);
+      }
+      // Mirror it. Without this, an accept on an already-existing solo group
+      // answers 200 while `group_members` stays empty, and the student's own
+      // page, which finds their group by looking for themselves in its roster,
+      // shows nothing.
+      await replaceGroupMembers(access.db, existing.id, members);
+      return finish(existing);
     }
-    if (members.length === 0) {
-      // The team exists and nobody is in it. Two ways to get here, both
-      // outside the student's control: they were removed from the org (which
-      // drops them from every team, and rejoining does not put them back), or
-      // a teacher removed them from this group. Only a teacher can put them
-      // back, and adopting the team on their say-so is the capture this route
-      // refuses to do.
-      return c.json({ error: "solo_team_empty" }, 409);
-    }
-    if (members.length !== 1 || members[0]?.login !== access.callerLogin) {
-      // Somebody else holds the group carrying this login, the one case that
-      // is genuinely a name collision.
+
+    const created = await createGroupInAssignment(
+      c.env,
+      access,
+      assignment,
+      access.callerLogin,
+      c.get("user").id,
+      { autoJoin: true },
+    );
+    if (created === "name_taken") {
       return c.json({ error: "solo_name_taken" }, 409);
     }
-    // Mirror it. Without this, an accept on an already-existing solo group
-    // answers 200 while `group_members` stays empty, and the student's own
-    // page, which finds their group by looking for themselves in its roster,
-    // shows nothing.
-    await replaceGroupMembers(access.db, existing.id, members);
-    return finish(existing);
-  }
-
-  const created = await createGroupInLab(
-    c.env,
-    access,
-    lab,
-    access.callerLogin,
-    c.get("user").id,
-    { autoJoin: true },
-  );
-  if (created === "name_taken") {
-    return c.json({ error: "solo_name_taken" }, 409);
-  }
-  return finish(created);
-});
+    return finish(created);
+  },
+);

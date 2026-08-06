@@ -1,7 +1,7 @@
 // The class's pointer at its GitHub App installation. A reinstall mints a new
-// installation id, and `githubSetupCallback` records it only if the browser that
-// performed the reinstall reached the Setup URL. A student cannot repair it:
-// re-deriving the id needs `GET /user/installations`, which lists only the
+// installation id, and `githubSetupCallback` records it only if the browser
+// that performed the reinstall reached the Setup URL. A student cannot repair
+// it: re-deriving the id needs `GET /user/installations`, which lists only the
 // installations the caller administers. So this reconciler and setup.ts are the
 // only two writers.
 import { classes } from "@roster/db";
@@ -24,7 +24,7 @@ export const installation: Reconciler = {
         // one, and the reconciler cannot tell them apart.
         title: "The class points at an old GitHub App installation",
         detail:
-          "Until this is repaired, students and lab pages cannot reach this class.",
+          "Until this is repaired, students and assignment pages cannot reach this class.",
         fix: "Repoint the class at the current installation",
         change: {
           from: `Installation ${ctx.cls.installationId}`,

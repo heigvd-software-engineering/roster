@@ -28,8 +28,8 @@ import {
   SelectValue,
 } from "~/components/ui/select";
 import {
+  assignmentGroupsApi,
   type ClassItem,
-  labGroupsApi,
   type ReusableGroup,
   reusableGroupsApi,
   useApi,
@@ -39,35 +39,35 @@ import { personIdentity } from "~/lib/identity";
 import { cn } from "~/lib/utils";
 
 /**
- * The New-group dialog (per-lab model): create a group IN this lab, started
- * from scratch OR **reused** from a group in another lab (copy-forward: same
- * members, a fresh GitHub team for this lab). The fork is two first-class
- * cards ("An empty group" / "Reuse a group" with an availability chip), and
- * picking reuse reveals the source list below. That stays a selection, not a
- * mode switch: Create is the single verb, disabled until a source is picked.
- * Reuse is ALL-OR-NOTHING. The server annotates each source with why it can't
- * be copied (`blocker`), those rows render disabled with the reason, and the
- * create endpoint enforces the same rule as the backstop. The reuse sources
- * come from the API by role: a student sees their own groups, a teacher sees
- * every group in the class (scoped by a lab select). A creating student
- * auto-joins.
+ * The New-group dialog (per-assignment model): create a group IN this
+ * assignment, started from scratch OR **reused** from a group in another
+ * assignment (copy-forward: same members, a fresh GitHub team for this
+ * assignment). The fork is two first-class cards ("An empty group" / "Reuse a
+ * group" with an availability chip), and picking reuse reveals the source list
+ * below. That stays a selection, not a mode switch: Create is the single verb,
+ * disabled until a source is picked. Reuse is ALL-OR-NOTHING. The server
+ * annotates each source with why it can't be copied (`blocker`), those rows
+ * render disabled with the reason, and the create endpoint enforces the same
+ * rule as the backstop. The reuse sources come from the API by role: a student
+ * sees their own groups, a teacher sees every group in the class (scoped by an
+ * assignment select). A creating student auto-joins.
  */
 export function NewGroupDialog({
   classId,
-  labId,
+  assignmentId,
   autoJoins,
   triggerLabel = "New group",
   trigger,
   onCreated,
 }: {
   classId: string;
-  labId: string;
+  assignmentId: string;
   /** Students auto-join the group they create; teachers stay out. */
   autoJoins: boolean;
   triggerLabel?: string;
   /** Replaces the default ghost tile (e.g. a toolbar button). */
   trigger?: React.ReactElement;
-  /** Follow-up after creation: revalidates the lab's group list. */
+  /** Follow-up after creation: revalidates the assignment's group list. */
   onCreated: () => unknown;
 }) {
   const [open, setOpen] = useState(false);
@@ -80,7 +80,7 @@ export function NewGroupDialog({
             <Button
               variant="outline"
               type="button"
-              title="Create a new group for this lab"
+              title="Create a new group for this assignment"
             />
           )
         }
@@ -92,7 +92,7 @@ export function NewGroupDialog({
         {open ? (
           <NewGroupForm
             classId={classId}
-            labId={labId}
+            assignmentId={assignmentId}
             autoJoins={autoJoins}
             onClose={() => setOpen(false)}
             onCreated={onCreated}
@@ -113,11 +113,11 @@ function blockerReason(blocker: Blocker, memberCount: number): string {
     case "source_empty":
       return "no members to copy — start empty instead";
     case "group_too_large":
-      return `${count(memberCount, "member")} — this lab takes at most ${blocker.max}`;
+      return `${count(memberCount, "member")} — this assignment takes at most ${blocker.max}`;
     case "member_already_placed":
       return `${handles(blocker.logins)} ${
         blocker.logins.length === 1 ? "is" : "are"
-      } already in a group of this lab`;
+      } already in a group of this assignment`;
     case "member_not_in_class":
       return `${handles(blocker.logins)} ${
         blocker.logins.length === 1 ? "is" : "are"
@@ -129,13 +129,13 @@ function blockerReason(blocker: Blocker, memberCount: number): string {
 function conflictMessage(code: string | undefined): string {
   switch (code) {
     case "name_taken":
-      return "A group with that name already exists in this lab.";
+      return "A group with that name already exists in this assignment.";
     case "member_already_placed":
-      return "Someone in that group has already joined a group of this lab — it can't be reused anymore.";
+      return "Someone in that group has already joined a group of this assignment — it can't be reused anymore.";
     case "member_not_in_class":
       return "Someone in that group is no longer in the class — it can't be reused anymore.";
     case "group_too_large":
-      return "That group no longer fits this lab's size limit.";
+      return "That group no longer fits this assignment's size limit.";
     case "source_empty":
       return "That group has no members to copy — start from an empty group.";
     default:
@@ -152,19 +152,19 @@ type StartFrom =
 
 function NewGroupForm({
   classId,
-  labId,
+  assignmentId,
   autoJoins,
   onClose,
   onCreated,
 }: {
   classId: string;
-  labId: string;
+  assignmentId: string;
   autoJoins: boolean;
   onClose: () => void;
   onCreated: () => unknown;
 }) {
   const { data, mutate } = useApi(reusableGroupsApi, {
-    param: { id: classId, labId },
+    param: { id: classId, assignmentId },
   });
   const reusable = data?.groups ?? [];
   const users = data?.users;
@@ -176,8 +176,8 @@ function NewGroupForm({
 
   const isLoaded = data !== undefined;
   const nothingToReuse = isLoaded && reusable.length === 0;
-  // The reuse card's advertisement: copyable sources across ALL labs. The
-  // picker's lab select scopes the list, not this count.
+  // The reuse card's advertisement: copyable sources across ALL assignments.
+  // The picker's assignment select scopes the list, not this count.
   const copyable = reusable.filter((r) => r.blocker === null);
   // Derived fresh each render so a revalidation re-checks the pick against
   // the server's verdicts: a source that got blocked under us deselects
@@ -202,8 +202,8 @@ function NewGroupForm({
     setSubmitting(true);
     setError(null);
     try {
-      const res = await labGroupsApi.$post({
-        param: { id: classId, labId },
+      const res = await assignmentGroupsApi.$post({
+        param: { id: classId, assignmentId },
         json: {
           name: name.trim(),
           ...(source ? { copyFromGroupId: source.id } : {}),
@@ -242,7 +242,7 @@ function NewGroupForm({
       <DialogHeader>
         <DialogTitle>New group</DialogTitle>
         <DialogDescription>
-          A group for this lab.
+          A group for this assignment.
           {autoJoins ? " You'll join the group you create." : ""}
         </DialogDescription>
       </DialogHeader>
@@ -272,8 +272,8 @@ function NewGroupForm({
               label="Reuse a group"
               description={
                 nothingToReuse
-                  ? "No groups from other labs yet — once another lab has groups, you can copy one forward."
-                  : "Copy the same members forward from an earlier lab."
+                  ? "No groups from other assignments yet — once another assignment has groups, you can copy one forward."
+                  : "Copy the same members forward from an earlier assignment."
               }
               onPick={() =>
                 setStartFrom((prev) =>
@@ -295,7 +295,7 @@ function NewGroupForm({
           <ReuseSourcePicker
             groups={reusable}
             users={users}
-            scopeByLab={!autoJoins}
+            scopeByAssignment={!autoJoins}
             selectedId={source?.id ?? null}
             onPick={pick}
           />
@@ -321,7 +321,7 @@ function NewGroupForm({
             button that triggers it. */}
         <Text variant="caption" className="min-w-0 flex-1">
           {source
-            ? `Copies ${count(source.members.length, "member")} into a fresh group for this lab.`
+            ? `Copies ${count(source.members.length, "member")} into a fresh group for this assignment.`
             : startFrom.kind === "reuse"
               ? "Pick a group above to copy its members forward."
               : "Creates an empty group — members join after."}
@@ -425,75 +425,78 @@ function AvailabilityChip({ copyable }: { copyable: number }) {
 }
 
 /**
- * The reuse source list. Teacher (`scopeByLab`): a lab select scopes the
- * list to ONE lab, defaulting to the most recent (the list is createdAt-desc,
- * so the first title is the likeliest team to carry forward). A student's
- * list is already small (one group per lab), so it stays flat with the lab
- * named inline. Owns the view-only state (lab scope, roster expansion); the
- * selection belongs to the form.
+ * The reuse source list. Teacher (`scopeByAssignment`): an assignment select
+ * scopes the list to ONE assignment, defaulting to the most recent (the list is
+ * createdAt-desc, so the first title is the likeliest team to carry forward). A
+ * student's list is already small (one group per assignment), so it stays flat
+ * with the assignment named inline. Owns the view-only state (assignment scope,
+ * roster expansion); the selection belongs to the form.
  */
 function ReuseSourcePicker({
   groups,
   users,
-  scopeByLab,
+  scopeByAssignment,
   selectedId,
   onPick,
 }: {
   groups: ReusableGroup[];
   users?: ClassItem["users"] | undefined;
-  scopeByLab: boolean;
+  scopeByAssignment: boolean;
   selectedId: string | null;
   onPick: (group: ReusableGroup) => void;
 }) {
-  const [labChoice, setLabChoice] = useState<string | null>(null);
+  const [assignmentChoice, setAssignmentChoice] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  // One pass: lab title → group count, in list order.
-  const labCounts = new Map<string, number>();
+  // One pass: assignment title → group count, in list order.
+  const assignmentCounts = new Map<string, number>();
   for (const g of groups)
-    labCounts.set(g.labTitle, (labCounts.get(g.labTitle) ?? 0) + 1);
-  const labTitles = [...labCounts.keys()];
-  const labSelect = scopeByLab && labTitles.length > 1;
-  const activeLab = labChoice ?? labTitles[0];
-  const shown = labSelect
-    ? groups.filter((r) => r.labTitle === activeLab)
+    assignmentCounts.set(
+      g.assignmentTitle,
+      (assignmentCounts.get(g.assignmentTitle) ?? 0) + 1,
+    );
+  const assignmentTitles = [...assignmentCounts.keys()];
+  const assignmentSelect = scopeByAssignment && assignmentTitles.length > 1;
+  const activeAssignment = assignmentChoice ?? assignmentTitles[0];
+  const shown = assignmentSelect
+    ? groups.filter((r) => r.assignmentTitle === activeAssignment)
     : groups;
   const usable = shown.filter((r) => r.blocker === null);
   const blocked = shown.filter((r) => r.blocker !== null);
-  const labLabel = (title: string) =>
-    `${title} · ${count(labCounts.get(title) ?? 0, "group")}`;
+  const assignmentLabel = (title: string) =>
+    `${title} · ${count(assignmentCounts.get(title) ?? 0, "group")}`;
   const toggle = (id: string) =>
     setExpandedId((prev) => (prev === id ? null : id));
 
   return (
     <Stack gap="sm">
-      {labSelect ? (
+      {assignmentSelect ? (
         <Row gap="md">
           <Label
-            htmlFor="reuse-lab"
+            htmlFor="reuse-assignment"
             className="flex-none text-muted-foreground"
           >
-            From lab
+            From assignment
           </Label>
           <Select
             // value→label map so the trigger shows the label.
             items={Object.fromEntries(
-              labTitles.map((title) => [title, labLabel(title)]),
+              assignmentTitles.map((title) => [title, assignmentLabel(title)]),
             )}
-            value={activeLab}
-            onValueChange={(value: string | null) => setLabChoice(value)}
+            value={activeAssignment}
+            onValueChange={(value: string | null) => setAssignmentChoice(value)}
           >
             <SelectTrigger
-              id="reuse-lab"
+              id="reuse-assignment"
               className="h-9 flex-1"
-              title="Pick the lab to reuse a group from"
+              title="Pick the assignment to reuse a group from"
             >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {labTitles.map((title) => (
+              {assignmentTitles.map((title) => (
                 <SelectItem key={title} value={title}>
-                  {labLabel(title)}
+                  {assignmentLabel(title)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -506,7 +509,7 @@ function ReuseSourcePicker({
             key={group.id}
             group={group}
             users={users}
-            showLab={!labSelect}
+            showAssignment={!assignmentSelect}
             selected={selectedId === group.id}
             expanded={expandedId === group.id}
             onPick={() => onPick(group)}
@@ -519,7 +522,7 @@ function ReuseSourcePicker({
         <BlockedSources
           groups={blocked}
           users={users}
-          showLab={!labSelect}
+          showAssignment={!assignmentSelect}
           expandedId={expandedId}
           onToggle={toggle}
         />
@@ -533,13 +536,13 @@ function ReuseSourcePicker({
 function BlockedSources({
   groups,
   users,
-  showLab,
+  showAssignment,
   expandedId,
   onToggle,
 }: {
   groups: ReusableGroup[];
   users?: ClassItem["users"] | undefined;
-  showLab: boolean;
+  showAssignment: boolean;
   expandedId: string | null;
   onToggle: (id: string) => void;
 }) {
@@ -569,7 +572,7 @@ function BlockedSources({
               key={group.id}
               group={group}
               users={users}
-              showLab={showLab}
+              showAssignment={showAssignment}
               selected={false}
               expanded={expandedId === group.id}
               onPick={() => {}}
@@ -592,7 +595,7 @@ function BlockedSources({
 function SourceRow({
   group,
   users,
-  showLab,
+  showAssignment,
   selected,
   expanded,
   onPick,
@@ -600,8 +603,8 @@ function SourceRow({
 }: {
   group: ReusableGroup;
   users?: ClassItem["users"] | undefined;
-  /** Name the source lab inline (no lab select scoping the list). */
-  showLab: boolean;
+  /** Name the source assignment inline (no assignment select scoping the list). */
+  showAssignment: boolean;
   selected: boolean;
   expanded: boolean;
   onPick: () => void;
@@ -628,9 +631,9 @@ function SourceRow({
         >
           <RadioMark selected={selected} />
           <span className="truncate font-medium text-sm">{group.name}</span>
-          {showLab ? (
+          {showAssignment ? (
             <span className="truncate text-muted-foreground text-xs">
-              {group.labTitle}
+              {group.assignmentTitle}
             </span>
           ) : null}
           <span className="ml-auto flex flex-none items-center gap-2">

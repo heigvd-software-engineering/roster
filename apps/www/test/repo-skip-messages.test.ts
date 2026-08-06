@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { repoSkipMessages } from "~/components/custom/classes/groups/shared/use-lab-groups";
+import { repoSkipMessages } from "~/components/custom/classes/groups/shared/use-assignment-groups";
 
 /**
  * The batch repo-create's 200 can still skip groups, and these messages are

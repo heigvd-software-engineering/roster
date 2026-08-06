@@ -1,11 +1,11 @@
 import { env } from "cloudflare:test";
 import {
   account,
+  assignments,
   classes,
   getDb,
   groupMembers,
   groups,
-  labs,
   user,
 } from "@roster/db";
 import { eq } from "drizzle-orm";
@@ -111,14 +111,14 @@ const alice = { id: 7, login: "alice", avatarUrl: "http://p" };
 const bob = { id: 8, login: "bob", avatarUrl: null };
 const carol = { id: 9, login: "carol", avatarUrl: null };
 
-async function seedLab(
+async function seedAssignment(
   id: string,
-  over: Partial<typeof labs.$inferInsert> = {},
+  over: Partial<typeof assignments.$inferInsert> = {},
 ) {
-  await db.insert(labs).values({
+  await db.insert(assignments).values({
     id,
     classId: "c1",
-    title: `Lab ${id}`,
+    title: `Assignment ${id}`,
     deadline: new Date("2099-01-01"),
     createdByUserId: "u1",
     createdAt: now,
@@ -130,16 +130,16 @@ async function seedLab(
 /** The row, the GitHub team roster, and the `group_members` mirror. */
 async function seedGroup(args: {
   id: string;
-  labId: string;
+  assignmentId: string;
   repo?: boolean;
   members?: { id: number; login: string; avatarUrl: string | null }[];
 }) {
   await db.insert(groups).values({
     id: args.id,
-    labId: args.labId,
+    assignmentId: args.assignmentId,
     ghTeamId: Math.floor(Math.random() * 1e6),
     ghTeamSlug: `${args.id}-slug`,
-    slug: `${args.labId}-${args.id}`,
+    slug: `${args.assignmentId}-${args.id}`,
     name: `Group ${args.id}`,
     ghRepoId: args.repo ? Math.floor(Math.random() * 1e6) : null,
     ghRepoFullName: args.repo ? `acme/${args.id}` : null,
@@ -182,7 +182,7 @@ beforeEach(async () => {
 
   await db.delete(groupMembers);
   await db.delete(groups);
-  await db.delete(labs);
+  await db.delete(assignments);
   await db.delete(classes);
   await db.delete(account);
   await db.delete(user);
@@ -225,16 +225,16 @@ test("requires auth", async () => {
 
 test("non-members get 404 (class existence never confirmed)", async () => {
   state.membership = null;
-  await seedLab("l1");
-  await seedGroup({ id: "g1", labId: "l1" });
+  await seedAssignment("l1");
+  await seedGroup({ id: "g1", assignmentId: "l1" });
   expect((await join()).status).toBe(404);
 });
 
 // --- self membership ---
 
 test("join adds the CALLER to the team", async () => {
-  await seedLab("l1");
-  await seedGroup({ id: "g1", labId: "l1" });
+  await seedAssignment("l1");
+  await seedGroup({ id: "g1", assignmentId: "l1" });
   state.rosters["g1-slug"] = [];
   const res = await join();
   expect(res.status).toBe(200);
@@ -244,8 +244,8 @@ test("join adds the CALLER to the team", async () => {
 });
 
 test("leave removes the CALLER from the team", async () => {
-  await seedLab("l1");
-  await seedGroup({ id: "g1", labId: "l1" });
+  await seedAssignment("l1");
+  await seedGroup({ id: "g1", assignmentId: "l1" });
   const res = await app.request(
     "/api/classes/c1/groups/g1/membership",
     { method: "DELETE" },
@@ -260,8 +260,8 @@ test("leave removes the CALLER from the team", async () => {
 // --- the repo lock: membership freezes once the work repo exists ---
 
 test("join is refused once the work repo exists (locked group)", async () => {
-  await seedLab("l1");
-  await seedGroup({ id: "g1", labId: "l1", repo: true, members: [bob] });
+  await seedAssignment("l1");
+  await seedGroup({ id: "g1", assignmentId: "l1", repo: true, members: [bob] });
 
   const res = await join();
   expect(res.status).toBe(409);
@@ -270,8 +270,13 @@ test("join is refused once the work repo exists (locked group)", async () => {
 });
 
 test("leave is refused once the work repo exists (locked group)", async () => {
-  await seedLab("l1");
-  await seedGroup({ id: "g1", labId: "l1", repo: true, members: [alice] });
+  await seedAssignment("l1");
+  await seedGroup({
+    id: "g1",
+    assignmentId: "l1",
+    repo: true,
+    members: [alice],
+  });
 
   const res = await app.request(
     "/api/classes/c1/groups/g1/membership",
@@ -285,10 +290,10 @@ test("leave is refused once the work repo exists (locked group)", async () => {
 
 test("a teacher still ADDS members to a locked group (escape hatch)", async () => {
   state.membership = { state: "active", role: "admin" };
-  // Room to spare: the repo lock is under test here, and an individual lab
-  // (max 1) would refuse on size before the lock is reached.
-  await seedLab("l1", { groupMode: "group", maxMembers: 3 });
-  await seedGroup({ id: "g1", labId: "l1", repo: true, members: [bob] });
+  // Room to spare: the repo lock is under test here, and an individual
+  // assignment (max 1) would refuse on size before the lock is reached.
+  await seedAssignment("l1", { groupMode: "group", maxMembers: 3 });
+  await seedGroup({ id: "g1", assignmentId: "l1", repo: true, members: [bob] });
 
   const res = await app.request(
     "/api/classes/c1/groups/g1/members/carol",
@@ -303,8 +308,13 @@ test("a teacher still ADDS members to a locked group (escape hatch)", async () =
 
 test("a teacher still REMOVES members from a locked group (escape hatch)", async () => {
   state.membership = { state: "active", role: "admin" };
-  await seedLab("l1");
-  await seedGroup({ id: "g1", labId: "l1", repo: true, members: [alice, bob] });
+  await seedAssignment("l1");
+  await seedGroup({
+    id: "g1",
+    assignmentId: "l1",
+    repo: true,
+    members: [alice, bob],
+  });
 
   const res = await app.request(
     "/api/classes/c1/groups/g1/members/bob",
@@ -320,8 +330,8 @@ test("a teacher still REMOVES members from a locked group (escape hatch)", async
 // --- the size cap: the API is the boundary, not the hidden Join button ---
 
 test("join is refused when the group is already FULL", async () => {
-  await seedLab("l1", { groupMode: "group", maxMembers: 2 });
-  await seedGroup({ id: "g1", labId: "l1", members: [bob, carol] });
+  await seedAssignment("l1", { groupMode: "group", maxMembers: 2 });
+  await seedGroup({ id: "g1", assignmentId: "l1", members: [bob, carol] });
 
   const res = await join();
   expect(res.status).toBe(409);
@@ -329,9 +339,9 @@ test("join is refused when the group is already FULL", async () => {
   expect(state.calls).toEqual([]);
 });
 
-test("an individual lab's solo group is full at one", async () => {
-  await seedLab("l1"); // groupMode defaults to individual: min = max = 1
-  await seedGroup({ id: "g1", labId: "l1", members: [bob] });
+test("an individual assignment's solo group is full at one", async () => {
+  await seedAssignment("l1"); // groupMode defaults to individual: min = max = 1
+  await seedGroup({ id: "g1", assignmentId: "l1", members: [bob] });
 
   const res = await join();
   expect(res.status).toBe(409);
@@ -339,9 +349,9 @@ test("an individual lab's solo group is full at one", async () => {
   expect(state.calls).toEqual([]);
 });
 
-test("a group-mode lab with no maxMembers is uncapped", async () => {
-  await seedLab("l1", { groupMode: "group" });
-  await seedGroup({ id: "g1", labId: "l1", members: [bob, carol] });
+test("a group-mode assignment with no maxMembers is uncapped", async () => {
+  await seedAssignment("l1", { groupMode: "group" });
+  await seedGroup({ id: "g1", assignmentId: "l1", members: [bob, carol] });
 
   const res = await join();
   expect(res.status).toBe(200);
@@ -350,12 +360,13 @@ test("a group-mode lab with no maxMembers is uncapped", async () => {
   ]);
 });
 
-// The cap binds the teacher too: it is the lab's rule, not a student-only speed
-// bump. The lever for a bigger group is the lab's own maxMembers.
+// The cap binds the teacher too: it is the assignment's rule, not a
+// student-only speed bump. The lever for a bigger group is the assignment's own
+// maxMembers.
 test("a teacher's add-member is refused when the group is FULL", async () => {
   state.membership = { state: "active", role: "admin" };
-  await seedLab("l1", { groupMode: "group", maxMembers: 2 });
-  await seedGroup({ id: "g1", labId: "l1", members: [bob, carol] });
+  await seedAssignment("l1", { groupMode: "group", maxMembers: 2 });
+  await seedGroup({ id: "g1", assignmentId: "l1", members: [bob, carol] });
 
   const res = await app.request(
     "/api/classes/c1/groups/g1/members/dave",
@@ -369,8 +380,8 @@ test("a teacher's add-member is refused when the group is FULL", async () => {
 
 test("a teacher's add-member fills a group up to the max", async () => {
   state.membership = { state: "active", role: "admin" };
-  await seedLab("l1", { groupMode: "group", maxMembers: 2 });
-  await seedGroup({ id: "g1", labId: "l1", members: [bob] });
+  await seedAssignment("l1", { groupMode: "group", maxMembers: 2 });
+  await seedGroup({ id: "g1", assignmentId: "l1", members: [bob] });
 
   const res = await app.request(
     "/api/classes/c1/groups/g1/members/carol",
@@ -383,12 +394,13 @@ test("a teacher's add-member fills a group up to the max", async () => {
   ]);
 });
 
-// "Individual" is a lab-level statement (a group of one), so it binds the
-// teacher's add too; pairing students up means switching the lab to group mode.
-test("a teacher cannot add a second member to an individual lab's group", async () => {
+// "Individual" is an assignment-level statement (a group of one), so it binds
+// the teacher's add too; pairing students up means switching the assignment to
+// group mode.
+test("a teacher cannot add a second member to an individual assignment's group", async () => {
   state.membership = { state: "active", role: "admin" };
-  await seedLab("l1"); // individual: min = max = 1
-  await seedGroup({ id: "g1", labId: "l1", members: [bob] });
+  await seedAssignment("l1"); // individual: min = max = 1
+  await seedGroup({ id: "g1", assignmentId: "l1", members: [bob] });
 
   const res = await app.request(
     "/api/classes/c1/groups/g1/members/carol",
@@ -400,12 +412,12 @@ test("a teacher cannot add a second member to an individual lab's group", async 
   expect(state.calls).toEqual([]);
 });
 
-// Lowering the lab's max never evicts anyone, so an oversized group can exist;
-// it must not grow further from there.
+// Lowering the assignment's max never evicts anyone, so an oversized group can
+// exist; it must not grow further from there.
 test("a teacher's add-member is refused on a group already OVER the max", async () => {
   state.membership = { state: "active", role: "admin" };
-  await seedLab("l1", { groupMode: "group", maxMembers: 1 });
-  await seedGroup({ id: "g1", labId: "l1", members: [bob, carol] });
+  await seedAssignment("l1", { groupMode: "group", maxMembers: 1 });
+  await seedGroup({ id: "g1", assignmentId: "l1", members: [bob, carol] });
 
   const res = await app.request(
     "/api/classes/c1/groups/g1/members/dave",
@@ -420,8 +432,8 @@ test("a teacher's add-member is refused on a group already OVER the max", async 
 // --- the lock races repo creation: re-check after the GitHub call ---
 
 test("a join racing repo creation is rolled back", async () => {
-  await seedLab("l1", { groupMode: "group", maxMembers: 3 });
-  await seedGroup({ id: "g1", labId: "l1" });
+  await seedAssignment("l1", { groupMode: "group", maxMembers: 3 });
+  await seedGroup({ id: "g1", assignmentId: "l1" });
   // The repo materializes while GitHub processes the add.
   state.onTeamAdd = async () => {
     await db
@@ -440,8 +452,8 @@ test("a join racing repo creation is rolled back", async () => {
 });
 
 test("a leave racing repo creation is reinstated", async () => {
-  await seedLab("l1", { groupMode: "group", maxMembers: 3 });
-  await seedGroup({ id: "g1", labId: "l1", members: [alice, bob] });
+  await seedAssignment("l1", { groupMode: "group", maxMembers: 3 });
+  await seedGroup({ id: "g1", assignmentId: "l1", members: [alice, bob] });
   state.onTeamRemove = async () => {
     await db
       .update(groups)
@@ -462,13 +474,13 @@ test("a leave racing repo creation is reinstated", async () => {
   ]);
 });
 
-// --- one group per student per lab ---
+// --- one group per student per assignment ---
 
-test("join is refused when it would double-book the SAME lab", async () => {
-  await seedLab("l1");
-  // alice already in g1 (same lab l1) → joining g2 double-books l1.
-  await seedGroup({ id: "g1", labId: "l1", members: [alice] });
-  await seedGroup({ id: "g2", labId: "l1", members: [] });
+test("join is refused when it would double-book the SAME assignment", async () => {
+  await seedAssignment("l1");
+  // alice already in g1 (same assignment l1) → joining g2 double-books l1.
+  await seedGroup({ id: "g1", assignmentId: "l1", members: [alice] });
+  await seedGroup({ id: "g2", assignmentId: "l1", members: [] });
 
   const res = await join("g2");
   expect(res.status).toBe(409);
@@ -476,12 +488,12 @@ test("join is refused when it would double-book the SAME lab", async () => {
   expect(state.calls).toEqual([]);
 });
 
-test("joining a group in ANOTHER lab stays allowed (cross-lab is free)", async () => {
-  await seedLab("l1");
-  await seedLab("l2");
-  await seedGroup({ id: "g1", labId: "l1" });
-  await seedGroup({ id: "g3", labId: "l2" });
-  // alice in g1 on l1; g3 is on l2, a different lab, so no conflict.
+test("joining a group in ANOTHER assignment stays allowed (cross-assignment is free)", async () => {
+  await seedAssignment("l1");
+  await seedAssignment("l2");
+  await seedGroup({ id: "g1", assignmentId: "l1" });
+  await seedGroup({ id: "g3", assignmentId: "l2" });
+  // alice in g1 on l1; g3 is on l2, a different assignment, so no conflict.
   state.rosters["g1-slug"] = [alice];
   state.rosters["g3-slug"] = [];
 
@@ -492,11 +504,11 @@ test("joining a group in ANOTHER lab stays allowed (cross-lab is free)", async (
   ]);
 });
 
-test("a teacher's add-member is refused for the same within-lab double-book", async () => {
+test("a teacher's add-member is refused for the same within-assignment double-book", async () => {
   state.membership = { state: "active", role: "admin" };
-  await seedLab("l1");
-  await seedGroup({ id: "g1", labId: "l1", members: [bob] });
-  await seedGroup({ id: "g2", labId: "l1", members: [] });
+  await seedAssignment("l1");
+  await seedGroup({ id: "g1", assignmentId: "l1", members: [bob] });
+  await seedGroup({ id: "g2", assignmentId: "l1", members: [] });
 
   const res = await app.request(
     "/api/classes/c1/groups/g2/members/bob",
@@ -519,7 +531,7 @@ test("a group from ANOTHER class is unreachable (404)", async () => {
     createdAt: now,
     updatedAt: now,
   });
-  await db.insert(labs).values({
+  await db.insert(assignments).values({
     id: "l9",
     classId: "c2",
     title: "Other",
@@ -528,7 +540,7 @@ test("a group from ANOTHER class is unreachable (404)", async () => {
     createdAt: now,
     updatedAt: now,
   });
-  await seedGroup({ id: "g9", labId: "l9" });
+  await seedGroup({ id: "g9", assignmentId: "l9" });
   expect((await join("g9")).status).toBe(404);
   expect(state.calls).toEqual([]);
 });
@@ -536,8 +548,8 @@ test("a group from ANOTHER class is unreachable (404)", async () => {
 // --- teacher member management ---
 
 test("students cannot manage other members", async () => {
-  await seedLab("l1");
-  await seedGroup({ id: "g1", labId: "l1" });
+  await seedAssignment("l1");
+  await seedGroup({ id: "g1", assignmentId: "l1" });
   const res = await app.request(
     "/api/classes/c1/groups/g1/members/bob",
     { method: "PUT" },
@@ -549,8 +561,8 @@ test("students cannot manage other members", async () => {
 
 test("a teacher adds and removes ANY member", async () => {
   state.membership = { state: "active", role: "admin" };
-  await seedLab("l1");
-  await seedGroup({ id: "g1", labId: "l1" });
+  await seedAssignment("l1");
+  await seedGroup({ id: "g1", assignmentId: "l1" });
   state.rosters["g1-slug"] = [];
   const add = await app.request(
     "/api/classes/c1/groups/g1/members/bob",
@@ -573,8 +585,8 @@ test("a teacher adds and removes ANY member", async () => {
 // --- teacher delete ---
 
 test("students cannot delete groups", async () => {
-  await seedLab("l1");
-  await seedGroup({ id: "g1", labId: "l1" });
+  await seedAssignment("l1");
+  await seedGroup({ id: "g1", assignmentId: "l1" });
   const res = await app.request(
     "/api/classes/c1/groups/g1",
     { method: "DELETE" },
@@ -586,8 +598,8 @@ test("students cannot delete groups", async () => {
 
 test("a teacher deletes the group: team + row", async () => {
   state.membership = { state: "active", role: "admin" };
-  await seedLab("l1");
-  await seedGroup({ id: "g1", labId: "l1" });
+  await seedAssignment("l1");
+  await seedGroup({ id: "g1", assignmentId: "l1" });
   state.rosters["g1-slug"] = [];
   const res = await app.request(
     "/api/classes/c1/groups/g1",
@@ -605,8 +617,8 @@ test("a group whose work repo exists is deleted like any other", async () => {
   // itself survives in the org, and re-attaches by name if the group comes
   // back.
   state.membership = { state: "active", role: "admin" };
-  await seedLab("l1");
-  await seedGroup({ id: "g1", labId: "l1", repo: true });
+  await seedAssignment("l1");
+  await seedGroup({ id: "g1", assignmentId: "l1", repo: true });
   const res = await app.request(
     "/api/classes/c1/groups/g1",
     { method: "DELETE" },
@@ -618,8 +630,8 @@ test("a group whose work repo exists is deleted like any other", async () => {
 
 test("deleting a group whose team is already gone still drops the row", async () => {
   state.membership = { state: "active", role: "admin" };
-  await seedLab("l1");
-  await seedGroup({ id: "g1", labId: "l1" }); // g1-slug not in rosters → 404
+  await seedAssignment("l1");
+  await seedGroup({ id: "g1", assignmentId: "l1" }); // g1-slug not in rosters → 404
   const res = await app.request(
     "/api/classes/c1/groups/g1",
     { method: "DELETE" },
@@ -640,22 +652,22 @@ function unlinkRepo(groupId = "g1", classId = "c1") {
 }
 
 test("unlink-repo is teacher-only", async () => {
-  await seedLab("l1");
-  await seedGroup({ id: "g1", labId: "l1", repo: true });
+  await seedAssignment("l1");
+  await seedGroup({ id: "g1", assignmentId: "l1", repo: true });
   expect((await unlinkRepo()).status).toBe(404);
 });
 
 test("unlink-repo 404s when the group has no repo linked", async () => {
   state.membership = { state: "active", role: "admin" };
-  await seedLab("l1");
-  await seedGroup({ id: "g1", labId: "l1" });
+  await seedAssignment("l1");
+  await seedGroup({ id: "g1", assignmentId: "l1" });
   expect((await unlinkRepo()).status).toBe(404);
 });
 
 test("unlink-repo refuses when the repo still resolves on GitHub — re-verified live, not trusted from the client", async () => {
   state.membership = { state: "active", role: "admin" };
-  await seedLab("l1");
-  await seedGroup({ id: "g1", labId: "l1", repo: true });
+  await seedAssignment("l1");
+  await seedGroup({ id: "g1", assignmentId: "l1", repo: true });
   state.orgRepoVisible["l1-g1"] = true; // group.slug, not ghRepoFullName
   const res = await unlinkRepo();
   expect(res.status).toBe(409);
@@ -666,8 +678,8 @@ test("unlink-repo refuses when the repo still resolves on GitHub — re-verified
 
 test("unlink-repo clears the link once GitHub confirms 404", async () => {
   state.membership = { state: "active", role: "admin" };
-  await seedLab("l1");
-  await seedGroup({ id: "g1", labId: "l1", repo: true });
+  await seedAssignment("l1");
+  await seedGroup({ id: "g1", assignmentId: "l1", repo: true });
   // "l1-g1" absent from orgRepoVisible → getOrgRepo 404s.
   const res = await unlinkRepo();
   expect(res.status).toBe(200);
@@ -678,8 +690,8 @@ test("unlink-repo clears the link once GitHub confirms 404", async () => {
 
 test("unlink-repo unlocks deletion: the group can then be deleted", async () => {
   state.membership = { state: "active", role: "admin" };
-  await seedLab("l1");
-  await seedGroup({ id: "g1", labId: "l1", repo: true });
+  await seedAssignment("l1");
+  await seedGroup({ id: "g1", assignmentId: "l1", repo: true });
   state.rosters["g1-slug"] = [];
   expect((await unlinkRepo()).status).toBe(200);
   const del = await app.request(
@@ -691,19 +703,19 @@ test("unlink-repo unlocks deletion: the group can then be deleted", async () => 
   expect(await db.select().from(groups)).toHaveLength(0);
 });
 
-// --- the start gate (membership frozen before the lab opens) ---
+// --- the start gate (membership frozen before the assignment opens) ---
 
-test("join is refused before the lab starts", async () => {
-  await seedLab("l1", { startAt: new Date("2098-01-01T08:00:00Z") });
-  await seedGroup({ id: "g1", labId: "l1" });
+test("join is refused before the assignment starts", async () => {
+  await seedAssignment("l1", { startAt: new Date("2098-01-01T08:00:00Z") });
+  await seedGroup({ id: "g1", assignmentId: "l1" });
   const res = await join();
   expect(res.status).toBe(409);
   expect(await res.json()).toEqual({ error: "not_started" });
 });
 
-test("leave is refused before the lab starts", async () => {
-  await seedLab("l1", { startAt: new Date("2098-01-01T08:00:00Z") });
-  await seedGroup({ id: "g1", labId: "l1", members: [alice] });
+test("leave is refused before the assignment starts", async () => {
+  await seedAssignment("l1", { startAt: new Date("2098-01-01T08:00:00Z") });
+  await seedGroup({ id: "g1", assignmentId: "l1", members: [alice] });
   const res = await app.request(
     "/api/classes/c1/groups/g1/membership",
     { method: "DELETE" },

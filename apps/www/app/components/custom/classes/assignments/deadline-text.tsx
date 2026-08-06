@@ -6,7 +6,7 @@ const MINS_PER_DAY = 60 * 24;
 const WEEK_MS = 7 * 24 * 60 * MINUTE;
 
 /** Milliseconds until the deadline, negative once it has passed. Read to the
- *  minute: a lab closes the moment its time is reached, not at the next
+ *  minute: an assignment closes the moment its time is reached, not at the next
  *  midnight. */
 function msUntil(deadline: Date) {
   return deadline.getTime() - Date.now();
@@ -14,7 +14,7 @@ function msUntil(deadline: Date) {
 
 /**
  * Urgent = a teacher may still have to act: due within the next 7 days.
- * A passed deadline is NOT urgent; the lab is closed.
+ * A passed deadline is NOT urgent; the assignment is closed.
  */
 export function isDeadlineUrgent(deadline: Date) {
   const ms = msUntil(deadline);

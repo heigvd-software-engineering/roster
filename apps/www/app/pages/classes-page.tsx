@@ -33,7 +33,7 @@ function semesterSpanLabel(group: Entry[]) {
 }
 
 /** One hub entry: a class the caller teaches or one they're enrolled in.
- *  Both carry createdAt and labs, which is all grouping needs. */
+ *  Both carry createdAt and assignments, which is all grouping needs. */
 type Entry =
   | { kind: "teaching"; cls: ClassItem }
   | { kind: "enrolled"; cls: EnrolledClassItem };
@@ -142,9 +142,12 @@ export function ClassesPage() {
                     {label}
                     <span className="ml-2 font-normal text-base text-muted-foreground">
                       {`${semesterSpanLabel(group)} · ${count(group.length, "class", "classes")} · ${count(
-                        group.reduce((sum, e) => sum + e.cls.labs.length, 0),
-                        "lab",
-                        "labs",
+                        group.reduce(
+                          (sum, e) => sum + e.cls.assignments.length,
+                          0,
+                        ),
+                        "assignment",
+                        "assignments",
                       )}`}
                     </span>
                   </Text>

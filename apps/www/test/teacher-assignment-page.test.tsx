@@ -2,9 +2,9 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import type { PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useApi } from "~/lib/api";
-import { TeacherLabPage } from "~/pages/teacher-lab-page";
+import { TeacherAssignmentPage } from "~/pages/teacher-assignment-page";
 
-const params = vi.hoisted(() => ({ classId: "c1", labId: "l1" }));
+const params = vi.hoisted(() => ({ classId: "c1", assignmentId: "l1" }));
 const navigate = vi.hoisted(() => vi.fn());
 
 vi.mock("react-router", () => ({
@@ -35,10 +35,10 @@ vi.mock("~/lib/api", async (importOriginal) => {
   return { ...actual, useApi: vi.fn() };
 });
 
-const groupLab = {
+const groupAssignment = {
   id: "l1",
   classId: "c1",
-  title: "Lab 1 — Sockets",
+  title: "Assignment 1 — Sockets",
   deadline: "2099-08-01T23:59:00.000Z",
   groupMode: "group",
   minMembers: 2,
@@ -53,11 +53,11 @@ const bob = { id: 8, login: "bob", avatarUrl: null };
 const carol = { id: 9, login: "carol", avatarUrl: null };
 
 /** The page is one request: a single groups response (or its error). */
-function mockApi(labGroupsData: unknown, error?: unknown) {
+function mockApi(assignmentGroupsData: unknown, error?: unknown) {
   vi.mocked(useApi).mockImplementation(
     () =>
       ({
-        data: labGroupsData,
+        data: assignmentGroupsData,
         error,
         mutate: vi.fn(),
       }) as unknown as ReturnType<typeof useApi>,
@@ -78,7 +78,7 @@ const grp = (over: Record<string, unknown>) => ({
 
 const groupsData = {
   // The header data rides on the groups response (merged endpoint).
-  lab: groupLab,
+  assignment: groupAssignment,
   class: { name: "Acme", login: "acme" },
   role: "teacher",
   membershipState: "active",
@@ -93,19 +93,19 @@ const groupsData = {
 
 beforeEach(() => {
   params.classId = "c1";
-  params.labId = "l1";
+  params.assignmentId = "l1";
 });
 
-describe("TeacherLabPage", () => {
+describe("TeacherAssignmentPage", () => {
   it("shows the header, the without-a-group pool, and management", () => {
     mockApi(groupsData);
-    render(<TeacherLabPage />);
+    render(<TeacherAssignmentPage />);
 
-    expect(screen.getByText("Lab 1 — Sockets")).toBeInTheDocument();
+    expect(screen.getByText("Assignment 1 — Sockets")).toBeInTheDocument();
     expect(screen.getByText("teaching")).toBeInTheDocument();
-    // alice is in NO group of this lab → she's in the pool.
+    // alice is in NO group of this assignment → she's in the pool.
     expect(
-      screen.getByText(/Students without a group for this lab/),
+      screen.getByText(/Students without a group for this assignment/),
     ).toBeInTheDocument();
     // The pool collapses at every size; the names are one click away.
     // alice is GitHub-only here → named by her login, shown as a @handle.
@@ -114,7 +114,8 @@ describe("TeacherLabPage", () => {
     // The roster: Team Alpha with 1/2 members → under min.
     expect(screen.getByText("Team Alpha")).toBeInTheDocument();
     expect(screen.getByText("under min")).toBeInTheDocument();
-    // Toolbar: create a group for this lab (no attach: groups are per-lab).
+    // Toolbar: create a group for this assignment (no attach: groups are
+    // per-assignment).
     expect(
       screen.getByRole("button", { name: "New group" }),
     ).toBeInTheDocument();
@@ -150,7 +151,7 @@ describe("TeacherLabPage", () => {
         grp({ members: [alice, bob], repoFullName: "acme/lab1-team-alpha" }),
       ],
     });
-    render(<TeacherLabPage />);
+    render(<TeacherAssignmentPage />);
 
     // The repo exists → the row links it, and delete stays offered: no
     // deletion in this app is refused, the typed name is the whole gate.
@@ -187,7 +188,7 @@ describe("TeacherLabPage", () => {
         }),
       ],
     });
-    render(<TeacherLabPage />);
+    render(<TeacherAssignmentPage />);
 
     expect(screen.getByText("no pushes yet")).toBeInTheDocument();
     fireEvent.click(
@@ -218,7 +219,7 @@ describe("TeacherLabPage", () => {
         }),
       ],
     });
-    render(<TeacherLabPage />);
+    render(<TeacherAssignmentPage />);
 
     expect(screen.getByText("@alice · solve exercise 3")).toBeInTheDocument();
   });
@@ -234,7 +235,7 @@ describe("TeacherLabPage", () => {
         }),
       ],
     });
-    render(<TeacherLabPage />);
+    render(<TeacherAssignmentPage />);
 
     // The link still renders (the group still points at that name)...
     expect(
@@ -265,7 +266,7 @@ describe("TeacherLabPage", () => {
         }),
       ],
     });
-    render(<TeacherLabPage />);
+    render(<TeacherAssignmentPage />);
 
     expect(
       screen.queryByRole("button", {
@@ -286,7 +287,7 @@ describe("TeacherLabPage", () => {
         },
       ],
     });
-    render(<TeacherLabPage />);
+    render(<TeacherAssignmentPage />);
 
     // bob carries the info hint, alice doesn't.
     fireEvent.click(
@@ -316,7 +317,7 @@ describe("TeacherLabPage", () => {
         },
       ],
     });
-    render(<TeacherLabPage />);
+    render(<TeacherAssignmentPage />);
 
     // The strip counts only alice: a teacher is not a missing student.
     expect(
@@ -345,7 +346,7 @@ describe("TeacherLabPage", () => {
         },
       ],
     });
-    render(<TeacherLabPage />);
+    render(<TeacherAssignmentPage />);
 
     expect(screen.queryByText("alice@heig-vd.ch")).not.toBeInTheDocument();
     fireEvent.click(
@@ -357,7 +358,7 @@ describe("TeacherLabPage", () => {
   it("confirms the batch repo creation and says it locks the groups", () => {
     // Team Alpha is complete (2/2) with no repo → 1 missing repository.
     mockApi({ ...groupsData, groups: [grp({ members: [alice, bob] })] });
-    render(<TeacherLabPage />);
+    render(<TeacherAssignmentPage />);
 
     fireEvent.click(
       screen.getByRole("button", { name: "Create 1 missing repository" }),
@@ -371,7 +372,7 @@ describe("TeacherLabPage", () => {
   it("confirms the per-row repo creation and says it locks the group", () => {
     // Team Alpha is complete (2/2) with no repo → the row offers creation.
     mockApi({ ...groupsData, groups: [grp({ members: [alice, bob] })] });
-    render(<TeacherLabPage />);
+    render(<TeacherAssignmentPage />);
 
     fireEvent.click(screen.getByRole("button", { name: "Create repository" }));
     expect(screen.getByText("Create the work repository?")).toBeInTheDocument();
@@ -392,7 +393,7 @@ describe("TeacherLabPage", () => {
         },
       ],
     });
-    render(<TeacherLabPage />);
+    render(<TeacherAssignmentPage />);
     expect(
       screen.queryByText(/Students without a group/),
     ).not.toBeInTheDocument();
@@ -411,7 +412,7 @@ describe("TeacherLabPage", () => {
         grp({ id: "g2", name: "Team Beta", members: [alice] }),
       ],
     });
-    render(<TeacherLabPage />);
+    render(<TeacherAssignmentPage />);
 
     fireEvent.click(screen.getByRole("button", { name: /Clone/ }));
 
@@ -422,7 +423,7 @@ describe("TeacherLabPage", () => {
 
   it("disables the clone commands when no group has a repo", () => {
     mockApi(groupsData);
-    render(<TeacherLabPage />);
+    render(<TeacherAssignmentPage />);
 
     expect(screen.getByRole("button", { name: /Clone/ })).toBeDisabled();
   });
@@ -430,13 +431,13 @@ describe("TeacherLabPage", () => {
   it("redirects an enrolled STUDENT to the student page", () => {
     // The response's role decides the redirect, with no class list involved.
     mockApi({ ...groupsData, role: "student" });
-    render(<TeacherLabPage />);
+    render(<TeacherAssignmentPage />);
     expect(screen.getByTestId("navigate")).toHaveTextContent(
-      "/classes/c1/labs/l1",
+      "/classes/c1/assignments/l1",
     );
   });
 
-  it("disables the add-picker once the group is at the lab's max", () => {
+  it("disables the add-picker once the group is at the assignment's max", () => {
     // maxMembers: 3, and the group is at 3 → the pool has nowhere to go.
     mockApi({
       ...groupsData,
@@ -447,7 +448,7 @@ describe("TeacherLabPage", () => {
         { githubId: "10", login: "dave", avatarUrl: null, state: "active" },
       ],
     });
-    render(<TeacherLabPage />);
+    render(<TeacherAssignmentPage />);
 
     // A full group draws no open seat at all, so there is nowhere to add.
     expect(
@@ -475,7 +476,7 @@ describe("TeacherLabPage", () => {
         }),
       ],
     });
-    render(<TeacherLabPage />);
+    render(<TeacherAssignmentPage />);
 
     // The count reads "4/3" and spells itself out on hover.
     expect(screen.getByTitle("4 of 3 members")).toHaveTextContent("4/3");
@@ -484,15 +485,15 @@ describe("TeacherLabPage", () => {
     expect(screen.getByText("no repo")).toBeInTheDocument();
   });
 
-  it("shows no denominator for a lab with no maximum", () => {
-    // maxMembers: null on a group lab = uncapped; "2/Infinity members" is
-    // what a naive render produces here.
+  it("shows no denominator for an assignment with no maximum", () => {
+    // maxMembers: null on a group assignment = uncapped; "2/Infinity members"
+    // is what a naive render produces here.
     mockApi({
       ...groupsData,
-      lab: { ...groupLab, maxMembers: null },
+      assignment: { ...groupAssignment, maxMembers: null },
       groups: [grp({ members: [alice, bob] })],
     });
-    render(<TeacherLabPage />);
+    render(<TeacherAssignmentPage />);
 
     // No denominator anywhere: the count is a bare "2".
     expect(screen.getByTitle("2 members")).toHaveTextContent(/^2$/);
@@ -500,7 +501,7 @@ describe("TeacherLabPage", () => {
     expect(screen.queryByText(/over max/)).not.toBeInTheDocument();
   });
 
-  it("warns when the lab's max was lowered below the group's size", () => {
+  it("warns when the assignment's max was lowered below the group's size", () => {
     // 4 members against maxMembers: 3, so the shrink stranded this group.
     mockApi({
       ...groupsData,
@@ -515,27 +516,27 @@ describe("TeacherLabPage", () => {
         }),
       ],
     });
-    render(<TeacherLabPage />);
+    render(<TeacherAssignmentPage />);
 
     const warning = screen.getByRole("button", { name: "over max" });
     expect(warning).toBeInTheDocument();
     // The popover names the gap and the lever the teacher actually owns.
     fireEvent.click(warning);
     expect(
-      screen.getByText("This group has 4 members and the lab allows 3"),
+      screen.getByText("This group has 4 members and the assignment allows 3"),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/Remove 1 member to fit the lab/),
+      screen.getByText(/Remove 1 member to fit the assignment/),
     ).toBeInTheDocument();
   });
 
   it("shows the not-started status and warns before pre-start repo creation", () => {
     mockApi({
       ...groupsData,
-      lab: { ...groupLab, startAt: "2099-07-01T08:00:00.000Z" },
+      assignment: { ...groupAssignment, startAt: "2099-07-01T08:00:00.000Z" },
       groups: [grp({ members: [alice, bob] })],
     });
-    render(<TeacherLabPage />);
+    render(<TeacherAssignmentPage />);
 
     // The header's status word: the timeline's vocabulary, not a banner.
     expect(screen.getByText("Not started")).toBeInTheDocument();
@@ -545,13 +546,13 @@ describe("TeacherLabPage", () => {
     expect(screen.getByText(/before the start time/)).toBeInTheDocument();
   });
 
-  it("shows the in-progress status and no warning once the lab has started", () => {
+  it("shows the in-progress status and no warning once the assignment has started", () => {
     mockApi({
       ...groupsData,
-      lab: { ...groupLab, startAt: "2020-01-01T08:00:00.000Z" },
+      assignment: { ...groupAssignment, startAt: "2020-01-01T08:00:00.000Z" },
       groups: [grp({ members: [alice, bob] })],
     });
-    render(<TeacherLabPage />);
+    render(<TeacherAssignmentPage />);
 
     expect(screen.queryByText(/not started/i)).not.toBeInTheDocument();
     expect(screen.getByText("In progress")).toBeInTheDocument();
@@ -559,45 +560,52 @@ describe("TeacherLabPage", () => {
     expect(screen.queryByText(/before the start time/)).not.toBeInTheDocument();
   });
 
-  it("asks for the lab's title even when nothing has formed in it", () => {
-    // One rule, no branches: the empty lab is the cheap case to delete, not a
-    // cheaper gate. Copying the title out of the dialog is the whole cost.
+  it("asks for the assignment's title even when nothing has formed in it", () => {
+    // One rule, no branches: the empty assignment is the cheap case to delete,
+    // not a cheaper gate. Copying the title out of the dialog is the whole
+    // cost.
     mockApi({ ...groupsData, groups: [] });
-    render(<TeacherLabPage />);
+    render(<TeacherAssignmentPage />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Delete this lab" }));
-    expect(screen.getByText('Delete "Lab 1 — Sockets"?')).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Delete this assignment" }),
+    );
+    expect(
+      screen.getByText('Delete "Assignment 1 — Sockets"?'),
+    ).toBeInTheDocument();
     expect(screen.getByText(/No groups have formed/)).toBeInTheDocument();
 
-    const confirm = screen.getByRole("button", { name: "Delete lab" });
+    const confirm = screen.getByRole("button", { name: "Delete assignment" });
     expect(confirm).toBeDisabled();
     fireEvent.change(screen.getByRole("textbox"), {
-      target: { value: "Lab 1 — Sockets" },
+      target: { value: "Assignment 1 — Sockets" },
     });
     expect(confirm).not.toBeDisabled();
   });
 
-  it("names what a lab deletion takes and what survives it", () => {
+  it("names what an assignment deletion takes and what survives it", () => {
     mockApi({
       ...groupsData,
       groups: [
         grp({ members: [alice, bob], repoFullName: "acme/lab1-team-alpha" }),
       ],
     });
-    render(<TeacherLabPage />);
+    render(<TeacherAssignmentPage />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Delete this lab" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Delete this assignment" }),
+    );
     expect(screen.getByText(/1 group and their GitHub teams/)).toBeVisible();
-    expect(screen.getByText(/2 students lose this lab/)).toBeVisible();
+    expect(screen.getByText(/2 students lose this assignment/)).toBeVisible();
     // The one thing that doesn't go.
     expect(screen.getByText(/1 work repository stay/)).toBeVisible();
 
-    const confirm = screen.getByRole("button", { name: "Delete lab" });
+    const confirm = screen.getByRole("button", { name: "Delete assignment" });
     expect(confirm).toBeDisabled();
     const phrase = screen.getByRole("textbox");
-    fireEvent.change(phrase, { target: { value: "Lab 1" } });
+    fireEvent.change(phrase, { target: { value: "Assignment 1" } });
     expect(confirm).toBeDisabled();
-    fireEvent.change(phrase, { target: { value: "Lab 1 — Sockets" } });
+    fireEvent.change(phrase, { target: { value: "Assignment 1 — Sockets" } });
     expect(confirm).not.toBeDisabled();
   });
 
@@ -608,7 +616,7 @@ describe("TeacherLabPage", () => {
         grp({ members: [alice, bob], repoFullName: "acme/lab1-team-alpha" }),
       ],
     });
-    render(<TeacherLabPage />);
+    render(<TeacherAssignmentPage />);
 
     fireEvent.click(
       screen.getByRole("button", { name: "Actions for Team Alpha" }),
@@ -625,8 +633,8 @@ describe("TeacherLabPage", () => {
       screen.getByText(/GitHub sync offers to link that repository back/),
     ).toBeVisible();
 
-    // Same gate as the lab's: type the name. (The menu item that opened this
-    // is a menuitem, so the only button by this name is the confirm.)
+    // Same gate as the assignment's: type the name. (The menu item that opened
+    // this is a menuitem, so the only button by this name is the confirm.)
     const confirm = screen.getByRole("button", { name: "Delete group" });
     expect(confirm).toBeDisabled();
     fireEvent.change(screen.getByRole("textbox"), {
@@ -635,17 +643,18 @@ describe("TeacherLabPage", () => {
     expect(confirm).not.toBeDisabled();
   });
 
-  it("shows a not-found message for an unknown lab", () => {
-    // Unknown lab (or class, or no access) = a 404 from the one endpoint.
-    params.labId = "nope";
+  it("shows a not-found message for an unknown assignment", () => {
+    // Unknown assignment (or class, or no access) = a 404 from the one
+    // endpoint.
+    params.assignmentId = "nope";
     mockApi(
       undefined,
       Object.assign(new Error("GET /api/… failed (404)"), { status: 404 }),
     );
-    render(<TeacherLabPage />);
+    render(<TeacherAssignmentPage />);
     expect(
       screen.getByText(
-        "This lab doesn't exist (or you don't teach its class).",
+        "This assignment doesn't exist (or you don't teach its class).",
       ),
     ).toBeInTheDocument();
   });

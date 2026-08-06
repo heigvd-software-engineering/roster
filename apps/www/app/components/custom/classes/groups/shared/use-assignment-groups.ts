@@ -1,15 +1,15 @@
 import { useMessages } from "~/contexts/message-context";
 import {
   api,
+  assignmentGroupsApi,
   type GroupItem,
-  labGroupsApi,
   useAction,
   useApi,
 } from "~/lib/api";
 
 /**
- * A group's standing in one lab, ONE derivation for both role UIs (the
- * teacher's roster chips, the student's start-lab gate). Blocked states
+ * A group's standing in one assignment, ONE derivation for both role UIs (the
+ * teacher's roster chips, the student's start-assignment gate). Blocked states
  * first (under_min, no_repo), then push-based activity: on_track/on_time
  * (last push respects the deadline, open/closed), late (pushed after it),
  * no_pushes (repo untouched). "ready" = repo exists but activity unknown
@@ -22,7 +22,7 @@ import {
  *  group pushes again; the "no pushes yet" tooltip explains this. */
 export const CREATION_PUSH_GRACE_MS = 2 * 60_000;
 
-export type GroupLabStatus =
+export type GroupAssignmentStatus =
   | "under_min"
   | "no_repo"
   | "no_pushes"
@@ -31,32 +31,32 @@ export type GroupLabStatus =
   | "late"
   | "ready";
 
-/** The lab page's action failures, by the server's 409 `error` code. Every
+/** The assignment page's action failures, by the server's 409 `error` code. Every
  *  create/join/leave verb on this page routes its conflict through this one
  *  table, so a code can't drift to two different messages across the file. */
 // Named because the batch repo-create reuses them for its skip warnings: one
 // wording, whether the create was clicked alone or as "create all".
 const GROUP_INCOMPLETE_MESSAGE =
-  "This group needs more members before it can get its repository — check the lab's minimum size.";
+  "This group needs more members before it can get its repository — check the assignment's minimum size.";
 
 const CONFLICT_MESSAGE: Record<string, string> = {
   member_already_participating:
-    "You're already in another group for this lab — leave it first.",
+    "You're already in another group for this assignment — leave it first.",
   group_incomplete: GROUP_INCOMPLETE_MESSAGE,
   // Repo creation is CREATE-only, never adopting an existing repo even one
-  // labs could read back (see lib/groups.ts createWorkRepo), so a name
+  // assignments could read back (see lib/groups.ts createWorkRepo), so a name
   // collision always refuses. The collision is USUALLY the group's own work,
-  // waiting under its old name after the group (or its lab) was deleted, or
-  // after an interrupted create — so name that first. Retrying can't help and
-  // renaming abandons the work, but the GitHub sync links it back, which is
+  // waiting under its old name after the group (or its assignment) was deleted,
+  // or after an interrupted create — so name that first. Retrying can't help
+  // and renaming abandons the work, but the GitHub sync links it back, which is
   // why the create path can stay create-only: the teacher sees the repository
-  // there and approves it, where an automatic adoption would be blind.
-  // A student can't open that page, so this base wording sends them to
-  // someone who can (teachers get their own below).
+  // there and approves it, where an automatic adoption would be blind. A
+  // student can't open that page, so this base wording sends them to someone
+  // who can (teachers get their own below).
   repo_name_taken:
     "A repository already exists under this group's name — usually this group's own work from before. Ask your teacher to link it back from the class's GitHub sync.",
   template_error:
-    "The lab's starter-code template can't be used — it's likely empty or unavailable. Ask your teacher to add a file to it (or remove the template).",
+    "The assignment's starter-code template can't be used — it's likely empty or unavailable. Ask your teacher to add a file to it (or remove the template).",
   app_permissions:
     "roster can't create repositories yet — the GitHub App needs updated permissions (an administrator must approve them).",
   // Join and leave only: deletion is refused nowhere, so a locked group is
@@ -64,29 +64,29 @@ const CONFLICT_MESSAGE: Record<string, string> = {
   has_repo:
     "This group already has its work repository — only the teacher changes its roster now.",
   group_full: "That group is already full — pick another or start your own.",
-  name_taken: "A group with that name already exists in this lab.",
+  name_taken: "A group with that name already exists in this assignment.",
   // Students only: teachers bypass the start gate entirely.
   not_started:
-    "This lab hasn't started yet — groups and repositories open at the start time.",
+    "This assignment hasn't started yet — groups and repositories open at the start time.",
   // unlinkGroupRepo re-verifies live before clearing the link, so this means
   // someone recreated a repo under the same name between page load and click.
   still_exists:
     "That repository still exists on GitHub — refresh to see its current state.",
-  // The page thought this was an individual lab and the server disagrees:
-  // the teacher changed its mode while it was open. Reloading is the fix, so
-  // say that rather than describing the mismatch.
-  group_lab:
-    "This lab works in groups, not individually — reload the page to see its groups.",
-  // Accepting an individual lab, when the solo group already exists but its
-  // live GitHub team doesn't confirm it's the caller's. Three distinct causes,
-  // and the student can fix none of them, so each says who can rather than
-  // inviting a retry that will fail identically.
+  // The page thought this was an individual assignment and the server
+  // disagrees: the teacher changed its mode while it was open. Reloading is the
+  // fix, so say that rather than describing the mismatch.
+  group_assignment:
+    "This assignment works in groups, not individually — reload the page to see its groups.",
+  // Accepting an individual assignment, when the solo group already exists but
+  // its live GitHub team doesn't confirm it's the caller's. Three distinct
+  // causes, and the student can fix none of them, so each says who can rather
+  // than inviting a retry that will fail identically.
   solo_team_empty:
-    "Your group for this lab exists, but you're not in it on GitHub — either you were removed from the organization, or you were removed from the group. Ask your teacher to add you back.",
+    "Your group for this assignment exists, but you're not in it on GitHub — either you were removed from the organization, or you were removed from the group. Ask your teacher to add you back.",
   solo_team_missing:
-    "Your group for this lab has lost its team on GitHub. Ask your teacher to repair it from the class's GitHub sync.",
+    "Your group for this assignment has lost its team on GitHub. Ask your teacher to repair it from the class's GitHub sync.",
   solo_name_taken:
-    "A group named after your GitHub account already exists in this lab and belongs to someone else. Ask your teacher to sort it out.",
+    "A group named after your GitHub account already exists in this assignment and belongs to someone else. Ask your teacher to sort it out.",
 };
 
 /** For codes no table knows. Kept OUT of the table so an unknown code can
@@ -108,9 +108,9 @@ const REPO_SKIP_MESSAGE: Record<string, string> = {
 };
 
 /** One warning per group the batch repo-create SKIPPED. The 200 response
- *  carries them (`{created, skipped}`), and silence here is how a teacher
- *  ships a lab believing every repo exists. Named by group, since the id
- *  alone helps nobody, and reason-worded like the single-create conflicts. */
+ * carries them (`{created, skipped}`), and silence here is how a teacher ships
+ * an assignment believing every repo exists. Named by group, since the id alone
+ * helps nobody, and reason-worded like the single-create conflicts. */
 export function repoSkipMessages(
   skipped: Array<{ groupId: string; reason: string }>,
   groups: Array<{ id: string; name: string }>,
@@ -126,7 +126,7 @@ export function repoSkipMessages(
  *
  *  `group_full` reaches a teacher at all only because the size cap now binds
  *  addGroupMember too, and the student's remedy ("pick another") is not one a
- *  teacher has: the lab's maximum is theirs, so name the lever they own.
+ *  teacher has: the assignment's maximum is theirs, so name the lever they own.
  *
  *  `repo_name_taken` splits for the same reason: the GitHub sync that links
  *  the waiting repository back is a teacher-only page, so only they can be
@@ -134,25 +134,25 @@ export function repoSkipMessages(
  *  renaming, for the case where the repository really is someone else's. */
 const TEACHER_CONFLICT_MESSAGE: Record<string, string> = {
   group_full:
-    "That group is already at the lab's maximum size — raise the lab's maximum in the lab settings to add more members.",
+    "That group is already at the assignment's maximum size — raise the assignment's maximum in the assignment settings to add more members.",
   repo_name_taken:
-    "A repository already exists under this group's name — usually this group's own work, left behind when a group or lab was deleted. Open the class's GitHub sync to see which repository it is and link it back. Rename the group only if that repository belongs to someone else.",
+    "A repository already exists under this group's name — usually this group's own work, left behind when a group or assignment was deleted. Open the class's GitHub sync to see which repository it is and link it back. Rename the group only if that repository belongs to someone else.",
 };
 
 /**
- * The lab page's group data + actions (per-lab model, spec 2026-07-07):
- * groups belong to THIS lab, so the list IS the lab's groups, with no attach
- * and no cross-lab reach. Each group carries its live roster + work repo +
- * push activity, and the response carries the lab row, class identity, and
- * the caller's role, making it the page's ONE request. Shared by the teacher
- * and student sections; every action revalidates; failures surface on the
- * global message strip.
+ * The assignment page's group data + actions (per-assignment model, spec
+ * 2026-07-07): groups belong to THIS assignment, so the list IS the
+ * assignment's groups, with no attach and no cross-assignment reach. Each group
+ * carries its live roster + work repo + push activity, and the response carries
+ * the assignment row, class identity, and the caller's role, making it the
+ * page's ONE request. Shared by the teacher and student sections; every action
+ * revalidates; failures surface on the global message strip.
  */
-export function useLabGroups(classId: string, labId: string) {
-  const { data, isLoading, error, mutate } = useApi(labGroupsApi, {
-    param: { id: classId, labId },
+export function useAssignmentGroups(classId: string, assignmentId: string) {
+  const { data, isLoading, error, mutate } = useApi(assignmentGroupsApi, {
+    param: { id: classId, assignmentId },
   });
-  const lab = data?.lab;
+  const assignment = data?.assignment;
   const role = data?.role;
 
   const { push } = useMessages();
@@ -170,15 +170,20 @@ export function useLabGroups(classId: string, labId: string) {
   const repoFor = (groupId: string) =>
     groups.find((g) => g.id === groupId)?.repoFullName ?? null;
   const min =
-    !lab || lab.groupMode === "individual" ? 1 : (lab.minMembers ?? 1);
-  const statusFor = (group: GroupItem): GroupLabStatus => {
+    !assignment || assignment.groupMode === "individual"
+      ? 1
+      : (assignment.minMembers ?? 1);
+  const statusFor = (group: GroupItem): GroupAssignmentStatus => {
     // First: a group with no team has no meaningful size or activity.
     if (!group.repoFullName) {
       return group.members.length >= min ? "no_repo" : "under_min";
     }
-    // `lab` always accompanies `groups` in the response, so the !lab arm is
-    // for the type only.
-    if (!lab || (group.pushedAt === null && group.repoCreatedAt === null)) {
+    // `assignment` always accompanies `groups` in the response, so the
+    // !assignment arm is for the type only.
+    if (
+      !assignment ||
+      (group.pushedAt === null && group.repoCreatedAt === null)
+    ) {
       return "ready"; // repo exists, activity unknown
     }
     const pushedAt = group.pushedAt ? Date.parse(group.pushedAt) : null;
@@ -189,12 +194,12 @@ export function useLabGroups(classId: string, labId: string) {
       pushedAt !== null &&
       (createdAt === null || pushedAt - createdAt > CREATION_PUSH_GRACE_MS);
     if (!hasPushes) return "no_pushes";
-    const deadline = Date.parse(lab.deadline);
+    const deadline = Date.parse(assignment.deadline);
     if ((pushedAt as number) > deadline) return "late";
     return Date.now() > deadline ? "on_time" : "on_track";
   };
   // Everyone placeable (class_members display cache: active students AND
-  // teachers) who is in NO group of this lab. The pool strip narrows to
+  // teachers) who is in NO group of this assignment. The pool strip narrows to
   // students, since a teacher is not a missing student, but the add-picker
   // offers all of them, or removing a teacher would make them unaddable.
   const inGroup = new Set(
@@ -206,8 +211,8 @@ export function useLabGroups(classId: string, labId: string) {
   const unassignedStudents = unplaced.filter((s) => s.state === "active");
 
   const groupParam = (groupId: string) => ({ param: { id: classId, groupId } });
-  const labGroupParam = (groupId: string) => ({
-    param: { id: classId, labId, groupId },
+  const assignmentGroupParam = (groupId: string) => ({
+    param: { id: classId, assignmentId, groupId },
   });
   const classGroupsApi = api.api.classes[":id"].groups;
 
@@ -217,8 +222,8 @@ export function useLabGroups(classId: string, labId: string) {
     busy,
     act,
     revalidate: mutate,
-    /** The lab row, riding on the response, present once loaded. */
-    lab,
+    /** The assignment row, riding on the response, present once loaded. */
+    assignment,
     /** The caller's role in this class (drives the page redirects). */
     role,
     /** Live org membership. "pending" renders the accept-invitation prompt. */
@@ -230,13 +235,15 @@ export function useLabGroups(classId: string, labId: string) {
     unassignedStudents,
     /** The add-picker's candidate source: unplaced students + teachers. */
     unplaced,
-    /** Students in SOME group of this lab (the pool's complement). */
+    /** Students in SOME group of this assignment (the pool's complement). */
     placedCount: inGroup.size,
     repoFor,
     statusFor,
     min,
     max:
-      !lab || lab.groupMode === "individual" ? 1 : (lab.maxMembers ?? Infinity),
+      !assignment || assignment.groupMode === "individual"
+        ? 1
+        : (assignment.maxMembers ?? Infinity),
     join: (groupId: string) =>
       act(() =>
         classGroupsApi[":groupId"].membership.$put(groupParam(groupId)),
@@ -265,15 +272,19 @@ export function useLabGroups(classId: string, labId: string) {
       act(() => classGroupsApi[":groupId"].repo.$delete(groupParam(groupId))),
     /** The explicit accept-completion step: create the group's repo. */
     createRepo: (groupId: string) =>
-      act(() => labGroupsApi[":groupId"].repo.$post(labGroupParam(groupId))),
+      act(() =>
+        assignmentGroupsApi[":groupId"].repo.$post(
+          assignmentGroupParam(groupId),
+        ),
+      ),
     /** Teacher toolbar: every missing repo in ONE request (one refetch).
      *  A 200 can still SKIP groups (name taken, under min, team gone), so
      *  surface each one, or the teacher reads silence as "all created". */
     createMissingRepos: () =>
       act(
         () =>
-          api.api.classes[":id"].labs[":labId"].repos.$post({
-            param: { id: classId, labId },
+          api.api.classes[":id"].assignments[":assignmentId"].repos.$post({
+            param: { id: classId, assignmentId },
           }),
         async (res) => {
           const { skipped } = (await res.json()) as {
@@ -286,8 +297,8 @@ export function useLabGroups(classId: string, labId: string) {
       ),
     acceptIndividual: () =>
       act(() =>
-        api.api.classes[":id"].labs[":labId"].accept.$post({
-          param: { id: classId, labId },
+        api.api.classes[":id"].assignments[":assignmentId"].accept.$post({
+          param: { id: classId, assignmentId },
         }),
       ),
   };

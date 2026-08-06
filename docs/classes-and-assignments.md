@@ -1,8 +1,9 @@
-# Classes and labs
+# Classes and assignments
 
-A class is a GitHub organization, a lab is an assignment in it, a group is a GitHub
-Team, and a work repo is a private repository the team holds push on. GitHub owns
-every fact that grants access; roster stores pointers and display caches. See also
+A class is a GitHub organization, an assignment is one piece of graded work in it, a
+group is a GitHub Team, and a work repo is a private repository the team holds push
+on. GitHub owns every fact that grants access; roster stores pointers and display
+caches. See also
 [data model](./data-model.md), [identity](./identity.md), [reconcile](./reconcile.md)
 and [nomenclature](./nomenclature.md).
 
@@ -75,21 +76,21 @@ already_invited`, an existing admin `409 already_teacher`, an active member is
 promoted in place and teaches instantly, and a non-member gets an Owner invitation
 cached as `pending_teacher`, so an invited teacher never lists among the students.
 
-## Labs
+## Assignments
 
-A lab (`apps/api/src/handlers/labs.ts`, teacher-only) carries a title, a `deadline`,
+An assignment (`apps/api/src/handlers/assignments.ts`, teacher-only) carries a title, a `deadline`,
 an optional `startAt`, a `groupMode` of `individual` or `group`, `minMembers` and
-`maxMembers` for group labs, and an optional template repo. Group labs need
-`minMembers <= maxMembers`; individual labs take neither, being groups of one. A
-duplicate title in the class is `409 title_taken`, because two labs with one title
+`maxMembers` for group assignments, and an optional template repo. Group assignments need
+`minMembers <= maxMembers`; individual assignments take neither, being groups of one. A
+duplicate title in the class is `409 title_taken`, because two assignments with one title
 would share a repo namespace: a group's work repo is named
-`slugify(lab.title)-slugify(group.name)`. A `startAt` at or after the `deadline` is
-`409 start_after_deadline`, the only date rule; lab ranges overlap freely.
+`slugify(assignment.title)-slugify(group.name)`. A `startAt` at or after the `deadline` is
+`409 start_after_deadline`, the only date rule; assignment ranges overlap freely.
 
-`DELETE /api/classes/:id/labs/:labId` (`deleteLab`) removes the lab, every group in it,
+`DELETE /api/classes/:id/assignments/:assignmentId` (`deleteAssignment`) removes the assignment, every group in it,
 their GitHub Teams and the cached rosters that cascade off them. Both it and
 `deleteGroup` hand the groups to `deleteGroupsWithTeams` (`apps/api/src/lib/groups.ts`),
-the counterpart of `createGroupInLab` and the one place that knows the order: teams
+the counterpart of `createGroupInAssignment` and the one place that knows the order: teams
 before rows, so a GitHub failure leaves rows the `group-teams` reconciler already knows
 how to clear rather than teams nothing can name again. The work repositories survive in
 the org, orphaned; nothing in this codebase deletes a GitHub repository.
@@ -100,58 +101,58 @@ goes, names what survives, and asks for the thing's own name to be typed out; it
 `STAKES` sentences are the single wording every call site composes. There is no gentler
 variant and no second gate behind it, because "did you mean it" is a fact about a person
 that no handler can check. `deleteGroup` used to answer `409 has_repo` on a group whose
-work repo existed, which read as a guarantee it never was, since deleting the lab above
+work repo existed, which read as a guarantee it never was, since deleting the assignment above
 it took that same group anyway; the block is gone and only join and leave still speak
 `has_repo`.
 
 The ceremony is affordable because the loss is bounded, but the way back is the
 reconciler, NOT the create path. The orphaned repo waits under its old name; recreate a
-group with the same lab title and group name and the row becomes the `work-repos`
+group with the same assignment title and group name and the row becomes the `work-repos`
 reconciler's UNRECORDED case, which the teacher adopts from the class's GitHub sync.
 Clicking "create repository" on that group instead answers `repo_name_taken` —
 `createWorkRepo` is create-only and never adopts (see its doc).
 
-`startAt` is the start gate. `labStarted` (`apps/api/src/lib/groups.ts`) is `startAt
-=== null || startAt <= now`, derived per request, so a lab opens on time, with no
+`startAt` is the start gate. `assignmentStarted` (`apps/api/src/lib/groups.ts`) is `startAt
+=== null || startAt <= now`, derived per request, so an assignment opens on time, with no
 draft state. Before the start every student action answers `409 not_started`: creating
-a group, joining or leaving one, creating the work repo, accepting an individual lab.
+a group, joining or leaving one, creating the work repo, accepting an individual assignment.
 Teachers pass every gate, the deliberate escape hatch, and the gate precedes even the
 idempotent repo return, so a pre-created repo stays shut.
 
 What the gate hides matters as much as what it blocks. A pre-start student calling
-`listLabGroups` gets the lab and class identity with empty `groups`, `users` and
+`listAssignmentGroups` gets the assignment and class identity with empty `groups`, `users` and
 `students`, so pre-formed rosters stay invisible and a direct URL renders a "starts on
-..." page, not a 404. The class card's labs table hides the starter-code note from
-students on a locked lab (`apps/www/app/components/custom/classes/labs/labs-table.tsx`),
+..." page, not a 404. The class card's assignments table hides the starter-code note from
+students on a locked assignment (`apps/www/app/components/custom/classes/assignments/assignments-table.tsx`),
 because the template repository's name, something like `lab1-solution`, is itself the
 leak. `GET /api/classes/:id/templates` lists the org repos flagged `is_template`, the
-only ones `/generate` accepts. Lab lists run in course order, by `coalesce(startAt,
+only ones `/generate` accepts. Assignment lists run in course order, by `coalesce(startAt,
 createdAt)`.
 
 ## Groups
 
-A group belongs to exactly one lab and owns its GitHub Team; "reuse a group" copies a
+A group belongs to exactly one assignment and owns its GitHub Team; "reuse a group" copies a
 roster forward into a fresh one rather than sharing. The invariant is therefore local:
-at most one group per student within a lab, none across labs. Of the three identifiers
-only `name` ("Team Alpha") is human-facing, unique per lab; `slug` is
-`slugify(labTitle)-slugify(name)`, org-unique and handed to GitHub as the team's name;
+at most one group per student within an assignment, none across assignments. Of the three identifiers
+only `name` ("Team Alpha") is human-facing, unique per assignment; `slug` is
+`slugify(assignmentTitle)-slugify(name)`, org-unique and handed to GitHub as the team's name;
 `ghTeamSlug` is what GitHub returned.
 
-Any active member may create a group, `POST /api/classes/:id/labs/:labId/groups`
-(`createGroupInLab`, `apps/api/src/lib/groups.ts`); a duplicate display name is
+Any active member may create a group, `POST /api/classes/:id/assignments/:assignmentId/groups`
+(`createGroupInAssignment`, `apps/api/src/lib/groups.ts`); a duplicate display name is
 `name_taken`. The team is `secret`, so nobody discovers it out of band, and members
 are always role `member`, so only roster and org Owners manage rosters. A creating
 student auto-joins; a teacher stays out, and `copyFromGroupId` seeds the roster from a
-group in another lab, all or nothing.
+group in another assignment, all or nothing.
 
 Join and leave are `PUT` and `DELETE /api/classes/:id/groups/:groupId/membership`,
 where the caller only ever acts on themselves (`apps/api/src/handlers/groups.ts`);
 teachers use `.../members/:login` to move anyone. Every refusal is a 409:
-`not_started` before the lab opens, `has_repo` once the work repo exists,
-`member_already_participating` when the student already has a group in this lab,
-`group_full` at the lab's max (1 for individual, unlimited when `maxMembers` is null),
-and `group_incomplete` when repo creation finds the group under the lab's min
-(`labMin`, 1 for individual labs and `minMembers ?? 1` otherwise). A later size change
+`not_started` before the assignment opens, `has_repo` once the work repo exists,
+`member_already_participating` when the student already has a group in this assignment,
+`group_full` at the assignment's max (1 for individual, unlimited when `maxMembers` is null),
+and `group_incomplete` when repo creation finds the group under the assignment's min
+(`assignmentMin`, 1 for individual assignments and `minMembers ?? 1` otherwise). A later size change
 evicts nobody.
 
 The lock is the group's freeze moment: once `groups.ghRepoId` is set the group is a
@@ -171,11 +172,11 @@ teacher-only and drops the team and the row, or the row alone if the team is gon
 
 ## Work repositories
 
-A work repo is created once a group meets the lab's min, by any member of the group or
-by a teacher: `POST /api/classes/:id/labs/:labId/groups/:groupId/repo`. The
+A work repo is created once a group meets the assignment's min, by any member of the group or
+by a teacher: `POST /api/classes/:id/assignments/:assignmentId/groups/:groupId/repo`. The
 completeness check reads the live team roster, never the cache, because it gates an
 irreversible create. The repo is named by the group's `slug`, private, generated from
-the lab's template or empty and auto-initialized; `grantTeamRepo` gives the team
+the assignment's template or empty and auto-initialized; `grantTeamRepo` gives the team
 `push`. Repos belong to the class org, not to students.
 
 Creation is create-only and never adoption. Students pick group names, so a group
@@ -185,12 +186,12 @@ every path, and an interrupted create is recovered on the audit page (see
 [reconcile](./reconcile.md)). The group row is written after creation and before the
 grant, so a request that dies mid-flight leaves a recorded repo with a missing grant,
 re-asserted by the next accept click (`regrantWorkRepo`). The teacher's `POST
-/api/classes/:id/labs/:labId/repos` creates every missing repo in the lab,
+/api/classes/:id/assignments/:assignmentId/repos` creates every missing repo in the assignment,
 sequentially because creation bursts trip GitHub's abuse limits, skipping blockers.
-For individual labs `POST /api/classes/:id/labs/:labId/accept` finds or creates the
+For individual assignments `POST /api/classes/:id/assignments/:assignmentId/accept` finds or creates the
 caller's solo group, named after their login, and creates the repo in one click.
 
-Missing repos are detected for free. `listLabGroups` already pages the org's repos for
+Missing repos are detected for free. `listAssignmentGroups` already pages the org's repos for
 push activity, so a linked repo absent from that listing is a suspect, not proof: a
 rename drops the old full name exactly as a deletion does. Each suspect costs one
 `getOrgRepo` by the group's original slug, which follows GitHub's rename redirect, so
@@ -203,8 +204,8 @@ and answers `409 still_exists` when the repo came back.
 ## Access scoping
 
 Every class-scoped route first resolves a scope (`apps/api/src/lib/class-scope.ts`)
-and works inside it. `findGroupInClass` and `findLabInClass` keep child lookups inside
-the same boundary, so a valid group or lab id from another class resolves to nothing.
+and works inside it. `findGroupInClass` and `findAssignmentInClass` keep child lookups inside
+the same boundary, so a valid group or assignment id from another class resolves to nothing.
 
 `resolveClassAsMember` serves routes where the caller acts as themselves, returning
 the class row, the org and caller logins, `isTeacher`, the live membership state, and

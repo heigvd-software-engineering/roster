@@ -3,10 +3,10 @@ import type { Env, RateLimitBindings } from "../../env";
 
 /**
  * Per-IP rate limit on one of the Cloudflare rate-limiter bindings (declared in
- * `src/env.ts`, configured under `ratelimits` in wrangler.jsonc). The binding is
- * optional, and an absent one means no limit: `wrangler dev` and the test pool
- * both run without it, and a limiter that only exists in production must not be
- * the difference between booting and crashing.
+ * `src/env.ts`, configured under `ratelimits` in wrangler.jsonc). The binding
+ * is optional, and an absent one means no limit: `wrangler dev` and the test
+ * pool both run without it, and a limiter that only exists in production must
+ * not be the difference between booting and crashing.
  *
  * Applied per route module, beside the path it protects, rather than from a
  * list in `index.ts`, so renaming a route carries its ceiling along. Which

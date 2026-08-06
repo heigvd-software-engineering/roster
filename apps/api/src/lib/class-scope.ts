@@ -1,11 +1,11 @@
 import {
+  assignments,
   type Class,
   classes,
   classMembers,
   type Group,
   getDb,
   groups,
-  labs,
 } from "@roster/db";
 import { and, eq } from "drizzle-orm";
 import type { Context } from "hono";
@@ -27,10 +27,10 @@ import { githubIdsForUser } from "./identity";
 /**
  * Turn "a request about class X" into a scope: the class row, its org, who the
  * caller is to it, and the pre-bound Team API, having first proven against live
- * GitHub that they may be there at all. Every class-scoped route starts with one
- * of these and works inside what it returns; `findGroupInClass` and
- * `findLabInClass` keep child lookups inside the same boundary, so a valid group
- * id from another class still resolves to nothing.
+ * GitHub that they may be there at all. Every class-scoped route starts with
+ * one of these and works inside what it returns; `findGroupInClass` and
+ * `findAssignmentInClass` keep child lookups inside the same boundary, so a
+ * valid group id from another class still resolves to nothing.
  *
  * The one home for "who is the caller to this class" (it used to sit in three
  * handler files). The two variants, `resolveClassAsMember` and
@@ -39,8 +39,8 @@ import { githubIdsForUser } from "./identity";
  *
  * Both read the org's login from the class row's identity cache
  * (`classes.login`, kept true by setup.ts and the identity reconciler) and fall
- * back to a live `orgLogin` when it is unfilled or proven stale, so the hot path
- * costs one GitHub call: the authorization itself.
+ * back to a live `orgLogin` when it is unfilled or proven stale, so the hot
+ * path costs one GitHub call: the authorization itself.
  *
  * Both deny with null and routes answer 404, never confirming to an outsider
  * that a class exists. Authorization is always live GitHub state, never the
@@ -54,10 +54,10 @@ type Db = ReturnType<typeof getDb>;
  *  `(env, cls.installationId, org, …)` through every call.
  *
  *  `roster` is the live team. Display reads take the `group_members` cache
- *  (`lib/group-members.ts`), which is the whole point of the cache. Use `roster`
- *  only where the answer authorizes or gates an irreversible write: "is the
- *  caller in this group", "does this team still exist", "is the group complete
- *  enough to get a repo". A cache may never decide those. */
+ *  (`lib/group-members.ts`), which is the whole point of the cache. Use
+ *  `roster` only where the answer authorizes or gates an irreversible write:
+ *  "is the caller in this group", "does this team still exist", "is the group
+ *  complete enough to get a repo". A cache may never decide those. */
 type ClassTeam = {
   roster: (slug: string) => ReturnType<typeof teamMembers>;
   add: (slug: string, login: string) => Promise<void>;
@@ -111,7 +111,7 @@ function classTeam(
 
 /**
  * Resolve the caller as a member of the class, the entry point for routes where
- * they act as themselves (join a group, leave a group, view their lab).
+ * they act as themselves (join a group, leave a group, view their assignment).
  *
  * Returns what such a route needs and nothing more: the class row, the org
  * login, the caller's own GitHub login (what team writes act on), whether they
@@ -219,7 +219,7 @@ export async function resolveClassAsMember(
 
 /**
  * Resolve the caller as a teacher of the class, the gate on every route that
- * manages the class itself (create labs, invite teachers, reconcile).
+ * manages the class itself (create assignments, invite teachers, reconcile).
  *
  * A different mechanism from `resolveClassAsMember`, not a stricter version of
  * it: this asks the org, through the installation token, whether the caller's
@@ -274,26 +274,30 @@ export async function resolveClassAsTeacher(
 }
 
 /** The group row, only if it belongs to the class. The class is derived via the
- *  group's lab (per-lab model: groups belong to a lab, not to a class). */
+ * group's assignment (per-assignment model: groups belong to an assignment, not
+ * to a class). */
 export async function findGroupInClass(
   scope: { db: Db; cls: Class },
   groupId: string | undefined,
 ) {
   if (!groupId) return null;
   const [row] = await scope.db
-    .select({ group: groups, labClassId: labs.classId })
+    .select({ group: groups, assignmentClassId: assignments.classId })
     .from(groups)
-    .innerJoin(labs, eq(groups.labId, labs.id))
+    .innerJoin(assignments, eq(groups.assignmentId, assignments.id))
     .where(eq(groups.id, groupId));
-  return row && row.labClassId === scope.cls.id ? row.group : null;
+  return row && row.assignmentClassId === scope.cls.id ? row.group : null;
 }
 
-/** The lab row, only if it belongs to the class. */
-export async function findLabInClass(
+/** The assignment row, only if it belongs to the class. */
+export async function findAssignmentInClass(
   scope: { db: Db; cls: Class },
-  labId: string | undefined,
+  assignmentId: string | undefined,
 ) {
-  if (!labId) return null;
-  const [row] = await scope.db.select().from(labs).where(eq(labs.id, labId));
+  if (!assignmentId) return null;
+  const [row] = await scope.db
+    .select()
+    .from(assignments)
+    .where(eq(assignments.id, assignmentId));
   return row && row.classId === scope.cls.id ? row : null;
 }

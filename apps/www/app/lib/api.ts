@@ -21,40 +21,43 @@ export type ClassItem = InferResponseType<
   typeof api.api.classes.$get,
   200
 >["classes"][number];
-/** A lab as the hub serves it; the timeline types against this. */
-export type HubLabItem = ClassItem["labs"][number];
+/** An assignment as the hub serves it; the timeline types against this. */
+export type HubAssignmentItem = ClassItem["assignments"][number];
 /** A class the caller is enrolled in (student side), served from the DB
  *  caches: no join token, people, or teacher-only fields. */
 export type EnrolledClassItem = InferResponseType<
   typeof api.api.classes.$get,
   200
 >["enrolled"][number];
-/** The lab page's one groups endpoint: all class groups with live rosters,
- *  linked users, and which groups participate in this lab. */
-export const labGroupsApi = api.api.classes[":id"].labs[":labId"].groups;
-/** The lab row alone, as the lab page receives it: the shape every
- *  lab-scoped component types against (a HubLabItem satisfies it too). */
-export type LabItem = InferResponseType<
-  (typeof labGroupsApi)["$get"],
+/** The assignment page's one groups endpoint: all class groups with live rosters,
+ *  linked users, and which groups participate in this assignment. */
+export const assignmentGroupsApi =
+  api.api.classes[":id"].assignments[":assignmentId"].groups;
+/** The assignment row alone, as the assignment page receives it: the shape every
+ * assignment-scoped component types against (a HubAssignmentItem satisfies it
+ * too). */
+export type AssignmentItem = InferResponseType<
+  (typeof assignmentGroupsApi)["$get"],
   200
->["lab"];
-/** The caller's groups in other labs: copy-forward sources for "reuse". */
-export const reusableGroupsApi = api.api.classes[":id"].labs[":labId"].reusable;
+>["assignment"];
+/** The caller's groups in other assignments: copy-forward sources for "reuse". */
+export const reusableGroupsApi =
+  api.api.classes[":id"].assignments[":assignmentId"].reusable;
 export type ReusableGroup = InferResponseType<
   (typeof reusableGroupsApi)["$get"],
   200
 >["groups"][number];
 /** A group with its live team roster (F7). */
 export type GroupItem = InferResponseType<
-  (typeof labGroupsApi)["$get"],
+  (typeof assignmentGroupsApi)["$get"],
   200
 >["groups"][number];
 /** The 404-vs-transient discriminator for `useApi` errors. */
 export const errorStatus = (error: unknown) =>
   (error as { status?: number } | null | undefined)?.status;
-/** An enrolled student as the lab pages see them (class_members cache). */
-export type LabStudent = InferResponseType<
-  (typeof labGroupsApi)["$get"],
+/** An enrolled student as the assignment pages see them (class_members cache). */
+export type AssignmentStudent = InferResponseType<
+  (typeof assignmentGroupsApi)["$get"],
   200
 >["students"][number];
 

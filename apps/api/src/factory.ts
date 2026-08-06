@@ -7,7 +7,8 @@ import type { AuthedEnv } from "./lib/auth/require-auth";
  *
  * `routes/` holds route tables only (paths, middleware, handler refs), so each
  * resource's API surface reads on one screen. Implementations live in
- * `handlers/` and are spread into the chain: `.post("/path", ...createLab)`.
+ * `handlers/` and are spread into the chain: `.post("/path",
+ * ...createAssignment)`.
  *
  * Extracting a bare `async (c) => …` would lose all of `c`'s inference (env,
  * path params, validated input). `createHandlers` is Hono's documented escape

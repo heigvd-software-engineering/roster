@@ -1,5 +1,5 @@
 import { env } from "cloudflare:test";
-import { classes, getDb, groups, labs, user } from "@roster/db";
+import { assignments, classes, getDb, groups, user } from "@roster/db";
 import { eq } from "drizzle-orm";
 import { beforeEach, expect, test, vi } from "vitest";
 import type { AuthEnv } from "../src/lib/auth/config";
@@ -79,7 +79,7 @@ beforeEach(async () => {
   vi.mocked(orgPeople).mockClear();
 
   await db.delete(groups);
-  await db.delete(labs);
+  await db.delete(assignments);
   await db.delete(classes);
   await db.delete(user);
   await db.insert(user).values({ id: "u1", name: "Prof", email: "prof@x.ch" });
@@ -120,24 +120,24 @@ test("a failing source rejects every caller, and is retried on a fresh context",
   expect(orgPeople).toHaveBeenCalledTimes(1); // the rejection is memoized too
 });
 
-test("groups: traverses groups -> labs -> classes, returning only this class's groups", async () => {
+test("groups: traverses groups -> assignments -> classes, returning only this class's groups", async () => {
   const cls = await seedClass("cls", 100);
   const otherCls = await seedClass("other-cls", 101);
 
-  await db.insert(labs).values([
+  await db.insert(assignments).values([
     {
-      id: "lab-mine",
+      id: "assignment-mine",
       classId: cls.id,
-      title: "Lab mine",
+      title: "Assignment mine",
       deadline: now,
       createdByUserId: "u1",
       createdAt: now,
       updatedAt: now,
     },
     {
-      id: "lab-other",
+      id: "assignment-other",
       classId: otherCls.id,
-      title: "Lab other",
+      title: "Assignment other",
       deadline: now,
       createdByUserId: "u1",
       createdAt: now,
@@ -147,7 +147,7 @@ test("groups: traverses groups -> labs -> classes, returning only this class's g
   await db.insert(groups).values([
     {
       id: "group-mine",
-      labId: "lab-mine",
+      assignmentId: "assignment-mine",
       ghTeamId: 1,
       ghTeamSlug: "mine",
       slug: "mine",
@@ -158,7 +158,7 @@ test("groups: traverses groups -> labs -> classes, returning only this class's g
     },
     {
       id: "group-other",
-      labId: "lab-other",
+      assignmentId: "assignment-other",
       ghTeamId: 2,
       ghTeamSlug: "other",
       slug: "other",

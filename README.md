@@ -12,8 +12,8 @@ GitHub can't express:
 | Class | Organization (connected via the roster GitHub App) |
 | Teacher | Organization **Owner** |
 | Student | Organization **Member** (self-enrolls via the class join link) |
-| Group | Team (per lab, holds the roster and the work-repo grant) |
-| Student lab repo | Repository created when a lab is accepted |
+| Group | Team (per assignment, holds the roster and the work-repo grant) |
+| Work repo | Repository created when an assignment is accepted |
 
 Users sign in with **SWITCH edu-ID** and must **link their GitHub account**:
 edu-ID is THE identity inside the app, GitHub the execution surface. On
@@ -113,8 +113,9 @@ Production is the top-level config in `apps/api/wrangler.jsonc`:
 | `roster-app` | `roster-db` | [`roster.y-software.ch`](https://roster.y-software.ch) |
 
 A second target, `apps/api/wrangler.demo.jsonc`, ships the `roster` Worker to
-its workers.dev URL against the older `labs` database:
-`pnpm --filter @roster/api run deploy:demo`.
+its workers.dev URL against the older `labs` D1 — that name is the product's
+own former name, not the assignment concept, and the binding is by
+`database_id` anyway: `pnpm --filter @roster/api run deploy:demo`.
 
 If migrations were added since the last deploy, apply them to the deployed D1
 first:
@@ -136,7 +137,7 @@ How the system works, in `docs/`:
 | [`architecture.md`](docs/architecture.md) | Monorepo, the single Worker, middleware, the type chain |
 | [`data-model.md`](docs/data-model.md) | The D1 schema and the invariants it can't express |
 | [`identity.md`](docs/identity.md) | edu-ID sign-in, GitHub linking, roles, super admins |
-| [`classes-and-labs.md`](docs/classes-and-labs.md) | Connecting a class, enrollment, labs, groups, work repos |
+| [`classes-and-assignments.md`](docs/classes-and-assignments.md) | Connecting a class, enrollment, assignments, groups, work repos |
 | [`reconcile.md`](docs/reconcile.md) | The drift audit and what each reconciler repairs |
 | [`nomenclature.md`](docs/nomenclature.md) | Vocabulary, and how it maps to GitHub's |
 

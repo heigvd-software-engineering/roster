@@ -32,7 +32,7 @@ const MAPPING = [
   {
     term: "Student work",
     detail:
-      "One repository per student or group, created when a lab is accepted.",
+      "One repository per student or group, created when an assignment is accepted.",
   },
 ];
 
@@ -79,8 +79,9 @@ export function NewClassDialog({
         <DialogHeader>
           <DialogTitle>Create a new class</DialogTitle>
           <DialogDescription>
-            A class is a GitHub organization you own. Its people, its labs, and
-            every student repository all live inside that organization.
+            A class is a GitHub organization you own. Its people, its
+            assignments, and every student repository all live inside that
+            organization.
           </DialogDescription>
         </DialogHeader>
         <Stack gap="lg">
@@ -112,15 +113,15 @@ export function NewClassDialog({
               Who can see and do what
             </Text>
             <Text variant="body2">
-              On connect, labs sets the organization's base permission to{" "}
+              On connect, assignments sets the organization's base permission to{" "}
               <strong>No access</strong> — membership grants nothing on its own.
-              Each student reaches only their own lab repo, never another
+              Each student reaches only their own assignment repo, never another
               student's, and never your private repositories. roster also turns
               off <strong>member repository creation</strong>, so students can't
               create repos in the organization themselves — every student
-              repository is born through labs. Only <strong>public</strong>{" "}
-              repos stay visible, to anyone on the internet, so keep
-              confidential material private.
+              repository is born through assignments. Only{" "}
+              <strong>public</strong> repos stay visible, to anyone on the
+              internet, so keep confidential material private.
             </Text>
           </Stack>
         </Stack>

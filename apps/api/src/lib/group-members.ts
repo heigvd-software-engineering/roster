@@ -10,9 +10,9 @@ type Db = ReturnType<typeof getDb>;
  * Writers and readers for the `group_members` roster display cache.
  *
  * GitHub's Team is the authority: it holds the roster and it grants push on the
- * work repo. This table mirrors it, so rendering a lab costs zero GitHub calls
- * and "is this student already in a group of this lab?" is a query rather than
- * one team-roster fetch per group.
+ * work repo. This table mirrors it, so rendering an assignment costs zero
+ * GitHub calls and "is this student already in a group of this assignment?" is
+ * a query rather than one team-roster fetch per group.
  *
  * Invariant, same as `class_members`: nothing authorizes against this table.
  * Push comes from the team.
@@ -24,11 +24,11 @@ type Db = ReturnType<typeof getDb>;
 
 /** Mirror a roster we already hold into `group_members`, replacing what's there.
  *
- *  Scoped to one group, so a failure can never reach another group's rows. Split
- *  out of `syncGroupMembers` because several write paths fetch the live roster
- *  for their own reasons (the solo-group guard, the "is this group complete
- *  enough for a repo" gate) and mirror what they read rather than pay for a
- *  second call. Anywhere a write path holds the truth, it writes it. */
+ * Scoped to one group, so a failure can never reach another group's rows. Split
+ * out of `syncGroupMembers` because several write paths fetch the live roster
+ * for their own reasons (the solo-group guard, the "is this group complete
+ * enough for a repo" gate) and mirror what they read rather than pay for a
+ * second call. Anywhere a write path holds the truth, it writes it. */
 export async function replaceGroupMembers(
   db: Db,
   groupId: string,

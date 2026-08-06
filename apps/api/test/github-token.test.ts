@@ -5,10 +5,10 @@ import type { AuthEnv } from "../src/lib/auth/config";
 import { githubAccessToken } from "../src/lib/auth/github-token";
 
 // Real better-auth and real D1: these tests exercise the actual
-// `auth.api.getAccessToken` refresh path with only GitHub's token endpoint faked
-// through a global fetch stub, since the pool has no fetchMock. Everything but
-// the DB is a dummy value; the refresh flow reads GITHUB_CLIENT_ID/SECRET and
-// nothing else.
+// `auth.api.getAccessToken` refresh path with only GitHub's token endpoint
+// faked through a global fetch stub, since the pool has no fetchMock.
+// Everything but the DB is a dummy value; the refresh flow reads
+// GITHUB_CLIENT_ID/SECRET and nothing else.
 const authEnv = {
   ...env,
   BETTER_AUTH_URL: "http://localhost:8787",

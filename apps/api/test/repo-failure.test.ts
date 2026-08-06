@@ -5,8 +5,8 @@ import { isSameRepo } from "../src/lib/groups";
 /**
  * The real 422 GitHub returns when an org repo name is taken. The summary sits
  * in `response.data.message`, the reason in `data.errors[]`. Octokit flattens
- * both into `message` (see @octokit/request's toErrorMessage), the field the old
- * classifier never reached because `??` stopped at the always-present
+ * both into `message` (see @octokit/request's toErrorMessage), the field the
+ * old classifier never reached because `??` stopped at the always-present
  * `data.message`.
  */
 const nameTaken = {
@@ -53,9 +53,10 @@ describe("classifyRepoFailure", () => {
     expect(classifyRepoFailure(badTemplate, true)).toBe("template_error");
   });
 
-  it("refuses to blame a template the lab doesn't have", () => {
-    // A template-less lab calls POST /orgs/{org}/repos, so a template error is
-    // impossible by construction. We do not know what this is, so rethrow.
+  it("refuses to blame a template the assignment doesn't have", () => {
+    // A template-less assignment calls POST /orgs/{org}/repos, so a template
+    // error is impossible by construction. We do not know what this is, so
+    // rethrow.
     expect(classifyRepoFailure(badTemplate, false)).toBeNull();
   });
 
@@ -73,10 +74,10 @@ describe("classifyRepoFailure", () => {
 describe("isSameRepo", () => {
   it("compares full names case-insensitively (GitHub does)", () => {
     expect(isSameRepo("Acme/Starter", "acme/starter")).toBe(true);
-    expect(isSameRepo("acme/starter", "acme/lab-1-alice")).toBe(false);
+    expect(isSameRepo("acme/starter", "acme/assignment-1-alice")).toBe(false);
   });
 
-  it("never matches a lab with no template", () => {
-    expect(isSameRepo(null, "acme/lab-1-alice")).toBe(false);
+  it("never matches an assignment with no template", () => {
+    expect(isSameRepo(null, "acme/assignment-1-alice")).toBe(false);
   });
 });

@@ -6,11 +6,11 @@ import { RulePhase } from "~/components/custom/rules/rule-phase";
 import { Text } from "~/components/custom/typography/text";
 
 /**
- * /rules: the laws of lab orchestration, on one page, identical for
- * students and teachers: students learn their boundaries, teachers see
- * their powers spelled out next to them. Axioms first (the overview), then
- * the phases of a lab's life as a timeline. The server enforces every rule
- * here that can be refused (the named 409s in the group handlers); this page
+ * /rules: the laws of assignment orchestration, on one page, identical for
+ * students and teachers: students learn their boundaries, teachers see their
+ * powers spelled out next to them. Axioms first (the overview), then the phases
+ * of an assignment's life as a timeline. The server enforces every rule here
+ * that can be refused (the named 409s in the group handlers); this page
  * documents, it doesn't decide.
  *
  * The one exception is A4, and it has to be: "did you mean it" is a statement
@@ -39,11 +39,14 @@ export function RulesPage() {
           <Axiom marker="A2" name="Time binds students, never the teacher">
             Before the start and once a repository exists, students are
             restricted — the teacher never is. Structural rules — sizes, one
-            group per lab — bind everyone.
+            group per assignment — bind everyone.
           </Axiom>
-          <Axiom marker="A3" name="Exceptions change the lab, not the group">
-            Need a bigger group? The lab's limit changes — for every group,
-            visibly. No group quietly becomes special.
+          <Axiom
+            marker="A3"
+            name="Exceptions change the assignment, not the group"
+          >
+            Need a bigger group? The assignment's limit changes — for every
+            group, visibly. No group quietly becomes special.
           </Axiom>
           <Axiom marker="A4" name="Deleting is confirmed, never refused">
             One rule for every deletion: read what it takes, type the thing's
@@ -62,21 +65,21 @@ export function RulesPage() {
           <RulePhase
             step="01"
             title="Before the start"
-            tagline="A lab is visible from the moment it's created — but quiet until its start date."
+            tagline="An assignment is visible from the moment it's created — but quiet until its start date."
           >
             <RuleItem who="students">
-              You can see the lab and its dates, but nothing can be done yet —
-              no groups, no repository.
+              You can see the assignment and its dates, but nothing can be done
+              yet — no groups, no repository.
             </RuleItem>
             <RuleItem who="teacher">
               The teacher can prepare at any time: create groups and place
-              people before the lab starts.
+              people before the assignment starts.
             </RuleItem>
             <RuleItem who="teacher">
               The teacher can even create the repositories ahead of the start. A
               group that begins with its repository is frozen from day one —
-              this is how a lab with teacher-chosen groups is run: students
-              arrive, everything is already set.
+              this is how an assignment with teacher-chosen groups is run:
+              students arrive, everything is already set.
             </RuleItem>
           </RulePhase>
 
@@ -90,20 +93,20 @@ export function RulesPage() {
               always for yourself, never for someone else.
             </RuleItem>
             <RuleItem who="everyone">
-              One group per person per lab. No exceptions — the rule binds the
-              teacher's placements too.
+              One group per person per assignment. No exceptions — the rule
+              binds the teacher's placements too.
             </RuleItem>
             <RuleItem who="everyone">
-              Group size is the lab's rule: nobody can overfill a group, the
-              teacher included. Limits change on the lab, for all groups at
-              once.
+              Group size is the assignment's rule: nobody can overfill a group,
+              the teacher included. Limits change on the assignment, for all
+              groups at once.
             </RuleItem>
             <RuleItem who="teacher">
-              The teacher can delete a group, or the whole lab, by typing its
-              name to confirm.
+              The teacher can delete a group, or the whole assignment, by typing
+              its name to confirm.
             </RuleItem>
             <RuleItem who="students">
-              In an individual lab there is nothing to form: accepting it
+              In an individual assignment there is nothing to form: accepting it
               creates your solo group and its repository in one click.
             </RuleItem>
           </RulePhase>
@@ -114,9 +117,9 @@ export function RulesPage() {
             tagline="The point of no return: the repository turns a group into a deliverable."
           >
             <RuleItem who="students">
-              The repository can be created once the group reaches the lab's
-              minimum size. You confirm explicitly — creating it freezes the
-              group.
+              The repository can be created once the group reaches the
+              assignment's minimum size. You confirm explicitly — creating it
+              freezes the group.
             </RuleItem>
             <RuleItem who="students">
               From that moment the group is frozen for students: no joining, no
@@ -129,10 +132,11 @@ export function RulesPage() {
             </RuleItem>
             <RuleItem who="everyone">
               A repository is never deleted, by anyone, ever. Not when the group
-              goes, not when the lab goes — the work stays in the organization.
+              goes, not when the assignment goes — the work stays in the
+              organization.
             </RuleItem>
             <RuleItem who="teacher">
-              The teacher can still delete the group, or its lab, and the
+              The teacher can still delete the group, or its assignment, and the
               confirmation says what that costs: the students lose their access
               along with the team. Recreate a group under the same name and the
               class's GitHub sync offers to link its repository back.
@@ -157,12 +161,12 @@ export function RulesPage() {
           <RulePhase
             step="∞"
             title="At every moment"
-            tagline="True through a lab's whole life."
+            tagline="True through an assignment's whole life."
           >
             <RuleItem who="everyone">
               GitHub is the ground truth: groups are teams, work lives in
-              repositories named after the lab and the group, all in the class
-              organization.
+              repositories named after the assignment and the group, all in the
+              class organization.
             </RuleItem>
           </RulePhase>
         </Stack>

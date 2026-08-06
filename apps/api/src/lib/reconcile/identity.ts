@@ -1,6 +1,6 @@
 // The cheapest, least destructive reconciler: the org's login/name/avatar,
-// cached on the class row so the student hub is a pure DB read. Orgs get renamed
-// and avatars change, so this is what keeps the cache fresh.
+// cached on the class row so the student hub is a pure DB read. Orgs get
+// renamed and avatars change, so this is what keeps the cache fresh.
 import { classes } from "@roster/db";
 import { eq } from "drizzle-orm";
 import type { Reconciler } from "./types";

@@ -47,7 +47,7 @@ bare `async (c) => …` would drop `c`'s inference; `createHandlers` keeps it, l
 zod validator sit beside its handler, and carries both into `AppType`. Shared rules go
 to `src/lib/`, every GitHub call through `src/lib/github/`, and `src/env.ts` alone
 types the bindings. The routes themselves are
-[`classes-and-labs.md`](./classes-and-labs.md) and [`reconcile.md`](./reconcile.md).
+[`classes-and-assignments.md`](./classes-and-assignments.md) and [`reconcile.md`](./reconcile.md).
 
 `apiSecurityHeaders` runs Hono's `secureHeaders` with `X-Frame-Options: DENY`,
 `Referrer-Policy: no-referrer`, and a `default-src 'none'` CSP, then adds

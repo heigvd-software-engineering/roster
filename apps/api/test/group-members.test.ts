@@ -1,5 +1,12 @@
 import { env } from "cloudflare:test";
-import { classes, getDb, groupMembers, groups, labs, user } from "@roster/db";
+import {
+  assignments,
+  classes,
+  getDb,
+  groupMembers,
+  groups,
+  user,
+} from "@roster/db";
 import { eq } from "drizzle-orm";
 import { beforeEach, expect, test, vi } from "vitest";
 import type { AuthEnv } from "../src/lib/auth/config";
@@ -36,7 +43,7 @@ let nextTeamId = 1;
 async function seedGroup(id: string, slug: string) {
   await db.insert(groups).values({
     id,
-    labId: "l1",
+    assignmentId: "l1",
     // groups.ghTeamId is globally unique, so this counts up instead of hashing
     // `id`.
     ghTeamId: nextTeamId++,
@@ -72,7 +79,7 @@ beforeEach(async () => {
   nextTeamId = 1;
   await db.delete(groupMembers);
   await db.delete(groups);
-  await db.delete(labs);
+  await db.delete(assignments);
   await db.delete(classes);
   await db.delete(user);
   await db.insert(user).values({ id: "u1", name: "Prof", email: "p@x.ch" });
@@ -86,10 +93,10 @@ beforeEach(async () => {
     createdAt: now,
     updatedAt: now,
   });
-  await db.insert(labs).values({
+  await db.insert(assignments).values({
     id: "l1",
     classId: "c1",
-    title: "Lab One",
+    title: "Assignment One",
     deadline: now,
     createdByUserId: "u1",
     createdAt: now,

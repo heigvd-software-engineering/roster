@@ -1,5 +1,5 @@
+import { AssignmentsTable } from "~/components/custom/classes/assignments/assignments-table";
 import { PeopleChip } from "~/components/custom/classes/hub/people-chip";
-import { LabsTable } from "~/components/custom/classes/labs/labs-table";
 import { RoleChip } from "~/components/custom/classes/role-marker";
 import { Hint } from "~/components/custom/hint";
 import { OrgIdentity } from "~/components/custom/identity/org-identity";
@@ -15,8 +15,8 @@ import type { EnrolledClassItem } from "~/lib/api";
  * Pending is not a decoration: it is the student one step short of everything
  * the class is for, and the remaining step is on GitHub, not here. Stating the
  * status alone leaves them to discover the consequences by hitting them (the
- * lab page shows no groups, joining one 404s), so this says what they cannot
- * do yet, and hands them the link that fixes it.
+ * assignment page shows no groups, joining one 404s), so this says what they
+ * cannot do yet, and hands them the link that fixes it.
  *
  * Warning rather than info: nothing is broken, but they are blocked and only
  * they can unblock it.
@@ -30,8 +30,8 @@ function PendingInvitationWarning({ orgLogin }: { orgLogin: string | null }) {
           organisation invitation yet — so you aren't a member of it.
         </span>
         <span>
-          Until you do, you can open the class and its labs, but you can't join
-          a group or get your lab repository.
+          Until you do, you can open the class and its assignments, but you
+          can't join a group or get your assignment repository.
         </span>
         {/* Absent only until a teacher path refreshes the org identity cache.
             Better to drop the link than to build one around "unknown". */}
@@ -57,9 +57,9 @@ function PendingInvitationWarning({ orgLogin }: { orgLogin: string | null }) {
 /**
  * A class the caller is ENROLLED in (student side): the same flat surface as
  * the teacher's ClassCard, read-only. Org identity + a quiet enrollment state
- * instead of people stats and actions, and inert lab rows (the student lab
- * flow arrives with accept, F8). Org identity comes from the DB cache, so it
- * can be momentarily null until any teacher path refreshes it.
+ * instead of people stats and actions, and inert assignment rows (the student
+ * assignment flow arrives with accept, F8). Org identity comes from the DB
+ * cache, so it can be momentarily null until any teacher path refreshes it.
  */
 export function EnrolledClassCard({ cls }: { cls: EnrolledClassItem }) {
   const name = cls.name ?? cls.login ?? "Class";
@@ -110,12 +110,12 @@ export function EnrolledClassCard({ cls }: { cls: EnrolledClassItem }) {
       </Row>
 
       <div className="w-full border-border border-t">
-        {cls.labs.length === 0 ? (
+        {cls.assignments.length === 0 ? (
           <Text variant="body2" className="px-5 py-3">
-            No labs yet.
+            No assignments yet.
           </Text>
         ) : (
-          <LabsTable labs={cls.labs} />
+          <AssignmentsTable assignments={cls.assignments} />
         )}
       </div>
     </Card>

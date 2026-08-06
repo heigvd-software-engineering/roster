@@ -34,7 +34,8 @@ const db = getDb(env.DB);
 const now = new Date(0);
 
 // GitHub calls are mocked above, so only the DB is really read. The rest is
-// dummy filler for the AuthEnv shape (same pattern as reconcile-context.test.ts).
+// dummy filler for the AuthEnv shape (same pattern as
+// reconcile-context.test.ts).
 const authEnv = {
   ...env,
   BETTER_AUTH_URL: "http://localhost:8787",

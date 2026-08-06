@@ -134,7 +134,7 @@ And deliberately can NOT:
 
 - make anyone a super admin. The role lives ONLY in this config var, is
   never stored in the database, and no UI grants it;
-- see or touch anyone's classes, labs, groups, or repos. Class-scoped
+- see or touch anyone's classes, assignments, groups, or repos. Class-scoped
   teacher rights come from GitHub org ownership, exactly as before;
 - change anything retroactively: revoking stops FUTURE class creation
   only; existing classes, and the repair path of an already-connected
@@ -214,7 +214,7 @@ Walk, in order:
    and the App JWT (private key format).
 5. Confirm page → "Set up & continue" → proves org Administration
    permission (base permission PATCH).
-6. Create a lab, accept it from a student test account via the join link →
+6. Create an assignment, accept it from a student test account via the join link →
    proves Members + Repository permissions end to end.
 
 ## Redeploys

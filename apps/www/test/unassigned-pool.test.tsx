@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { UnassignedPool } from "~/components/custom/classes/groups/shared/unassigned-pool";
 import type { ClassItem } from "~/lib/api";
 
-/** A pool student as the lab-groups response carries them. */
+/** A pool student as the assignment-groups response carries them. */
 const student = (n: number) => ({
   githubId: String(n),
   login: `s${n}`,
@@ -34,7 +34,7 @@ describe("UnassignedPool", () => {
     render(<UnassignedPool students={pool(12)} />);
 
     expect(
-      screen.getByText(/Students without a group for this lab · 12/),
+      screen.getByText(/Students without a group for this assignment · 12/),
     ).toBeInTheDocument();
     expect(screen.queryByText("@s1")).not.toBeInTheDocument();
     expect(
@@ -56,7 +56,7 @@ describe("UnassignedPool", () => {
 
     expect(document.querySelectorAll('[data-slot="avatar"]')).toHaveLength(0);
     expect(
-      screen.getByText(/Students without a group for this lab · 12/),
+      screen.getByText(/Students without a group for this assignment · 12/),
     ).toBeInTheDocument();
   });
 

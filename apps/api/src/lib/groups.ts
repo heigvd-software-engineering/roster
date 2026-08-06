@@ -1,9 +1,9 @@
 import {
+  type Assignment,
   type Class,
   type Group,
   type getDb,
   groups,
-  type Lab,
 } from "@roster/db";
 import { and, eq, inArray, ne } from "drizzle-orm";
 import type { AuthEnv } from "./auth/config";
@@ -23,51 +23,52 @@ import { cachedRosters, syncGroupMembers } from "./group-members";
 type Db = ReturnType<typeof getDb>;
 
 /**
- * Group mechanics (per-lab model, spec 2026-07-07): a group belongs to one lab
- * and owns its GitHub Team. The one place that knows how a group is born (the
- * row plus a team named by the lab-scoped slug), how its within-lab uniqueness
- * is checked, and how a roster list is assembled and reconciled.
+ * Group mechanics (per-assignment model, spec 2026-07-07): a group belongs to
+ * one assignment and owns its GitHub Team. The one place that knows how a group
+ * is born (the row plus a team named by the assignment-scoped slug), how its
+ * within-assignment uniqueness is checked, and how a roster list is assembled
+ * and reconciled.
  */
 
-/** The lab's maximum group size (an individual lab means a group of one). */
-export const labMax = (lab: Lab) =>
-  lab.groupMode === "individual"
+/** The assignment's maximum group size (an individual assignment means a group of one). */
+export const assignmentMax = (assignment: Assignment) =>
+  assignment.groupMode === "individual"
     ? 1
-    : (lab.maxMembers ?? Number.POSITIVE_INFINITY);
+    : (assignment.maxMembers ?? Number.POSITIVE_INFINITY);
 
-/** Whether the lab is open to students: an unset start means "starts at
+/** Whether the assignment is open to students: an unset start means "starts at
  *  creation". Teachers bypass every gate built on this, the deliberate escape
  *  hatch; the UI warns them, never blocks them. */
-export const labStarted = (lab: Pick<Lab, "startAt">) =>
-  lab.startAt === null || lab.startAt.getTime() <= Date.now();
+export const assignmentStarted = (assignment: Pick<Assignment, "startAt">) =>
+  assignment.startAt === null || assignment.startAt.getTime() <= Date.now();
 
 /**
- * Why a source group can't be copied into `lab`, or null when it can. Reuse is
- * all or nothing: "reuse this group" means the same team on this lab, so one
- * blocked member blocks the whole group and a partial copy never happens. One
- * rule, two consumers: the reusable list annotates rows with it (the dialog
- * greys them out) and createLabGroup refuses on it (the backstop, same pattern
- * as joinGroup's group_full).
+ * Why a source group can't be copied into `assignment`, or null when it can.
+ * Reuse is all or nothing: "reuse this group" means the same team on this
+ * assignment, so one blocked member blocks the whole group and a partial copy
+ * never happens. One rule, two consumers: the reusable list annotates rows with
+ * it (the dialog greys them out) and createAssignmentGroup refuses on it (the
+ * backstop, same pattern as joinGroup's group_full).
  */
 export type ReuseBlocker =
   | { reason: "source_empty" }
   // `max` rides along for the UI's reason text; it is finite whenever this
-  // blocker fires, since an unlimited lab can't be exceeded.
+  // blocker fires, since an unlimited assignment can't be exceeded.
   | { reason: "group_too_large"; max: number }
   | { reason: "member_already_placed"; logins: string[] }
   | { reason: "member_not_in_class"; logins: string[] };
 
 export function reuseBlocker(
-  lab: Lab,
+  assignment: Assignment,
   members: { login: string }[],
-  /** Logins already in a group of this lab (the one-group-per-lab invariant). */
+  /** Logins already in a group of this assignment (the one-group-per-assignment invariant). */
   placedLogins: ReadonlySet<string>,
   /** Logins with a live class membership (active students and teachers). */
   classLogins: ReadonlySet<string>,
 ): ReuseBlocker | null {
   if (members.length === 0) return { reason: "source_empty" };
-  if (members.length > labMax(lab)) {
-    return { reason: "group_too_large", max: labMax(lab) };
+  if (members.length > assignmentMax(assignment)) {
+    return { reason: "group_too_large", max: assignmentMax(assignment) };
   }
   const placed = members
     .filter((m) => placedLogins.has(m.login))
@@ -94,31 +95,33 @@ function slugify(text: string) {
 }
 
 /**
- * Create a group in a lab: the row plus its backing secret team. The lab-scoped
- * `slug` (`labSlug-groupSlug`) names the GitHub team, so it stays org-unique
- * even when the friendly `name` repeats across labs; `name` is display-only and
- * never sent to GitHub. `autoJoin` adds the creating student, `copyFromLogins`
- * seeds the roster (copy-forward). Returns "name_taken" when the display name
- * already exists in this lab (checked before touching GitHub, so no orphan
- * team) or when GitHub rejects the team.
+ * Create a group in an assignment: the row plus its backing secret team. The
+ * assignment-scoped `slug` (`assignmentSlug-groupSlug`) names the GitHub team,
+ * so it stays org-unique even when the friendly `name` repeats across
+ * assignments; `name` is display-only and never sent to GitHub. `autoJoin` adds
+ * the creating student, `copyFromLogins` seeds the roster (copy-forward).
+ * Returns "name_taken" when the display name already exists in this assignment
+ * (checked before touching GitHub, so no orphan team) or when GitHub rejects
+ * the team.
  */
-export async function createGroupInLab(
+export async function createGroupInAssignment(
   env: AuthEnv,
   scope: { db: Db; cls: Class; org: string; callerLogin: string },
-  lab: Lab,
+  assignment: Assignment,
   name: string,
   creatorUserId: string,
   opts: { autoJoin: boolean; copyFromLogins?: string[] },
 ): Promise<Group | "name_taken"> {
-  // Display-name uniqueness within the lab, checked first so a name clash never
-  // orphans a GitHub team (the (labId, name) index is the backstop).
+  // Display-name uniqueness within the assignment, checked first so a name
+  // clash never orphans a GitHub team (the (assignmentId, name) index is the
+  // backstop).
   const [existing] = await scope.db
     .select({ id: groups.id })
     .from(groups)
-    .where(and(eq(groups.labId, lab.id), eq(groups.name, name)));
+    .where(and(eq(groups.assignmentId, assignment.id), eq(groups.name, name)));
   if (existing) return "name_taken";
 
-  const slug = `${slugify(lab.title)}-${slugify(name)}`;
+  const slug = `${slugify(assignment.title)}-${slugify(name)}`;
   let team: Awaited<ReturnType<typeof createTeam>>;
   try {
     team = await createTeam(env, scope.cls.installationId, scope.org, slug);
@@ -145,7 +148,7 @@ export async function createGroupInLab(
     .insert(groups)
     .values({
       id: crypto.randomUUID(),
-      labId: lab.id,
+      assignmentId: assignment.id,
       ghTeamId: team.id,
       ghTeamSlug: team.slug,
       slug,
@@ -170,9 +173,9 @@ export async function createGroupInLab(
 
 /**
  * Take groups down: each GitHub Team first, then every row in one statement.
- * The counterpart of `createGroupInLab`, and the ONE place that knows the
- * order, because both callers (`deleteGroup`, `deleteLab`) get it wrong the
- * same way if either drifts.
+ * The counterpart of `createGroupInAssignment`, and the ONE place that knows
+ * the order, because both callers (`deleteGroup`, `deleteAssignment`) get it
+ * wrong the same way if either drifts.
  *
  * Teams before rows, never the reverse. A team delete that throws leaves rows
  * pointing at a team that is already gone, exactly the drift the `group-teams`
@@ -181,8 +184,9 @@ export async function createGroupInLab(
  * app can name again.
  *
  * Sequential like every other mutating GitHub loop here (see
- * `createMissingLabRepos`): bursts of writes on one installation are what trip
- * GitHub's secondary rate limit, and `WorkersOctokit` carries no retry plugin.
+ * `createMissingAssignmentRepos`): bursts of writes on one installation are
+ * what trip GitHub's secondary rate limit, and `WorkersOctokit` carries no
+ * retry plugin.
  *
  * `group_members` rows go with their group (FK ON DELETE cascade). The work
  * repos do NOT: nothing in this codebase deletes a GitHub repository.
@@ -209,29 +213,32 @@ export async function deleteGroupsWithTeams(
 }
 
 /**
- * The one-group-per-student-per-lab invariant, checked within a single lab
- * (per-lab model, no cross-lab reach): is `login` already in another group of
- * `labId`? `exceptGroupId` skips the group being joined.
+ * The one-group-per-student-per-assignment invariant, checked within a single
+ * assignment (per-assignment model, no cross-assignment reach): is `login`
+ * already in another group of `assignmentId`? `exceptGroupId` skips the group
+ * being joined.
  *
  * Reads the `group_members` cache in one query, where this used to be one
- * GitHub team-roster call per group in the lab. The cache is display state and
- * this is no authorization check: it enforces a product rule, and the join it
- * guards is itself idempotent on GitHub. Drift here can at worst let a student
- * double-book until the next reconcile.
+ * GitHub team-roster call per group in the assignment. The cache is display
+ * state and this is no authorization check: it enforces a product rule, and the
+ * join it guards is itself idempotent on GitHub. Drift here can at worst let a
+ * student double-book until the next reconcile.
  */
-export async function alreadyInLabGroup(
+export async function alreadyInAssignmentGroup(
   access: ClassScope,
-  labId: string,
+  assignmentId: string,
   login: string,
   exceptGroupId: string,
 ): Promise<boolean> {
-  const labGroups = await access.db
+  const assignmentGroups = await access.db
     .select({ id: groups.id })
     .from(groups)
-    .where(and(eq(groups.labId, labId), ne(groups.id, exceptGroupId)));
+    .where(
+      and(eq(groups.assignmentId, assignmentId), ne(groups.id, exceptGroupId)),
+    );
   const rosters = await cachedRosters(
     access.db,
-    labGroups.map((g) => g.id),
+    assignmentGroups.map((g) => g.id),
   );
   for (const members of rosters.values()) {
     if (members.some((m) => m.login === login)) return true;
@@ -245,13 +252,14 @@ export function isSameRepo(a: string | null, b: string | null): boolean {
 }
 
 /**
- * Create the group's work repo: named by the group's lab-scoped `slug` (already
- * unique, no lab prefix to re-add), private, from the lab's template when set
- * (else empty auto-init), recorded on the group row, team granted push.
+ * Create the group's work repo: named by the group's assignment-scoped `slug`
+ * (already unique, no assignment prefix to re-add), private, from the
+ * assignment's template when set (else empty auto-init), recorded on the group
+ * row, team granted push.
  *
- * Create only, never adopt. The slug is unique among the lab's groups, not
- * among the org's repos, and students pick group names, so a colliding name can
- * be anyone's repo: a group named to collide with the teacher's private
+ * Create only, never adopt. The slug is unique among the assignment's groups,
+ * not among the org's repos, and students pick group names, so a colliding name
+ * can be anyone's repo: a group named to collide with the teacher's private
  * `lab1-solution` would, under adoption, end in grantTeamRepo handing the
  * students push on the solution. A collision always refuses with `name_taken`;
  * a genuine interrupted create is recovered on the audit page, where the
@@ -269,23 +277,26 @@ export function isSameRepo(a: string | null, b: string | null): boolean {
 export async function createWorkRepo(
   env: AuthEnv,
   scope: { db: Db; cls: Class; org: string },
-  lab: Lab,
+  assignment: Assignment,
   group: Group,
 ): Promise<CreatedRepo | RepoFailure> {
   const name = group.slug;
   let repo: CreatedRepo;
   try {
-    repo = lab.templateRepoFullName
+    repo = assignment.templateRepoFullName
       ? await generateFromTemplate(
           env,
           scope.cls.installationId,
-          lab.templateRepoFullName,
+          assignment.templateRepoFullName,
           scope.org,
           name,
         )
       : await createOrgRepo(env, scope.cls.installationId, scope.org, name);
   } catch (err) {
-    const failure = classifyRepoFailure(err, Boolean(lab.templateRepoFullName));
+    const failure = classifyRepoFailure(
+      err,
+      Boolean(assignment.templateRepoFullName),
+    );
     if (failure) return failure;
     throw err; // unrecognized: don't invent a reason for it
   }
@@ -361,7 +372,7 @@ export async function checkRepoExists(
 }
 
 /**
- * Per-group repo status for the lab page's live org listing
+ * Per-group repo status for the assignment page's live org listing
  * (`orgRepoActivity`): a `ghRepoFullName` absent from that listing is a
  * suspect, not proof, because a rename also drops a repo's old full name from a
  * by-name listing, same as a deletion would. Only suspects (rare, zero in the

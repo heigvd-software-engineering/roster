@@ -1,5 +1,12 @@
 import { env } from "cloudflare:test";
-import { account, classes, classMembers, getDb, labs, user } from "@roster/db";
+import {
+  account,
+  assignments,
+  classes,
+  classMembers,
+  getDb,
+  user,
+} from "@roster/db";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { beforeEach, expect, test, vi } from "vitest";
@@ -109,8 +116,8 @@ const db = getDb(env.DB);
 
 const now = new Date(0);
 
-// HES-SO audience: affiliations come from `user.email`, since the identity email
-// is the professional address. Nothing decodes an id_token anymore.
+// HES-SO audience: affiliations come from `user.email`, since the identity
+// email is the professional address. Nothing decodes an id_token anymore.
 
 async function seedClass(args?: {
   id?: string;
@@ -178,7 +185,7 @@ beforeEach(async () => {
   userInstallationsByOrgIdMock.mockClear();
   userOrgMembershipsMock.mockClear();
 
-  await db.delete(labs);
+  await db.delete(assignments);
   await db.delete(classMembers);
   await db.delete(classes);
   await db.delete(account);
@@ -230,7 +237,8 @@ test("lists classes with people + linked users, from live installation data", as
   expect(body.classes[0]).toMatchObject({
     id: "c1",
     orgId: 42,
-    // login + avatarUrl ride on the /user/installations payload, already fetched.
+    // login + avatarUrl ride on the /user/installations payload, already
+    // fetched.
     login: "acme",
     avatarUrl: "http://a",
     // `name` is not on that payload; it comes from the cached row.
@@ -239,7 +247,7 @@ test("lists classes with people + linked users, from live installation data", as
     teachers: state.people.teachers,
     students: state.people.students,
     pending: state.people.pending,
-    labs: [],
+    assignments: [],
   });
   // Only the teacher's GitHub account (111) is linked to a roster user here.
   expect(body.classes[0]?.users).toHaveLength(1);
@@ -255,9 +263,9 @@ test("lists classes with people + linked users, from live installation data", as
     },
   });
 
-  // Not reconciled: the stored pointer stays 100 even though the live id is 200.
-  // A GET returns what it sees; repairing it is the `installation` reconciler's
-  // job, and the teacher's decision.
+  // Not reconciled: the stored pointer stays 100 even though the live id is
+  // 200. A GET returns what it sees; repairing it is the `installation`
+  // reconciler's job, and the teacher's decision.
   const [row] = await db.select().from(classes).where(eq(classes.id, "c1"));
   expect(row?.installationId).toBe(100);
 });
@@ -342,9 +350,9 @@ test("returns a class connected by someone else when the caller is an org owner"
 });
 
 test("skips a class when the caller has installation access but is NOT an org owner (F8 guard)", async () => {
-  // /user/installations lists installations the caller can access, not ones they
-  // own: a student with push on a work repo appears there. Only the live Owner
-  // check grants the class, and a cached `teacher` row never could.
+  // /user/installations lists installations the caller can access, not ones
+  // they own: a student with push on a work repo appears there. Only the live
+  // Owner check grants the class, and a cached `teacher` row never could.
   await seedClass();
   await seedMembers();
   state.orgMemberships = { acme: { role: "member", state: "active" } };
@@ -408,24 +416,24 @@ test("returns [] when the GitHub token is dead and unrefreshable", async () => {
   expect(userInstallationsByOrgIdMock).not.toHaveBeenCalled();
 });
 
-test("orders a class's labs by effective start (startAt, else createdAt), first worked on first", async () => {
+test("orders a class's assignments by effective start (startAt, else createdAt), first worked on first", async () => {
   await seedClass();
   // Deadlines deliberately contradict the expected order: the sort key is the
   // effective start, not the deadline.
-  await db.insert(labs).values([
+  await db.insert(assignments).values([
     {
-      id: "lab-old",
+      id: "assignment-old",
       classId: "c1",
-      title: "Old lab",
+      title: "Old assignment",
       deadline: new Date("2099-12-15T23:59:00Z"),
       createdByUserId: "u1",
       createdAt: new Date("2099-01-01T00:00:00Z"),
       updatedAt: now,
     },
     {
-      id: "lab-scheduled",
+      id: "assignment-scheduled",
       classId: "c1",
-      title: "Scheduled lab",
+      title: "Scheduled assignment",
       deadline: new Date("2099-07-15T23:59:00Z"),
       startAt: new Date("2099-06-01T08:00:00Z"),
       createdByUserId: "u1",
@@ -433,9 +441,9 @@ test("orders a class's labs by effective start (startAt, else createdAt), first 
       updatedAt: now,
     },
     {
-      id: "lab-new",
+      id: "assignment-new",
       classId: "c1",
-      title: "New lab",
+      title: "New assignment",
       deadline: new Date("2099-03-15T23:59:00Z"),
       createdByUserId: "u1",
       createdAt: new Date("2099-05-01T00:00:00Z"),
@@ -444,12 +452,12 @@ test("orders a class's labs by effective start (startAt, else createdAt), first 
   ]);
   const res = await app.request("/api/classes", {}, env);
   const body = (await res.json()) as {
-    classes: Array<{ labs: Array<{ id: string }> }>;
+    classes: Array<{ assignments: Array<{ id: string }> }>;
   };
-  expect(body.classes[0]?.labs.map((l) => l.id)).toEqual([
-    "lab-old", //       effective 2099-01-01 (createdAt), latest deadline
-    "lab-new", //       effective 2099-05-01 (createdAt)
-    "lab-scheduled", // effective 2099-06-01 (startAt)
+  expect(body.classes[0]?.assignments.map((l) => l.id)).toEqual([
+    "assignment-old", //       effective 2099-01-01 (createdAt), latest deadline
+    "assignment-new", //       effective 2099-05-01 (createdAt)
+    "assignment-scheduled", // effective 2099-06-01 (startAt)
   ]);
 });
 
@@ -477,8 +485,8 @@ test("orders classes by creation date, newest first", async () => {
 // --- class_members enrollment display cache + the student class list ---
 
 test("the hub never writes the classes row", async () => {
-  // A GET returns what it sees. The installation pointer belongs to setup.ts and
-  // the `installation` reconciler; the org identity cache to the `identity`
+  // A GET returns what it sees. The installation pointer belongs to setup.ts
+  // and the `installation` reconciler; the org identity cache to the `identity`
   // reconciler. Both are behind the teacher's explicit Reconcile action.
   await seedClass({ installationId: 999, login: "stale", name: "Stale" });
 
@@ -509,7 +517,7 @@ test("a stale class still renders correctly", async () => {
   });
 });
 
-test("returns the caller's enrolled classes (with labs) from the cache alone", async () => {
+test("returns the caller's enrolled classes (with assignments) from the cache alone", async () => {
   await seedClass(); // teaching c1 (org 42, in installations)
   // c2: a class the caller is enrolled in but does not teach. Its org is not
   // among the caller's installations, so only the cache can surface it.
@@ -526,10 +534,10 @@ test("returns the caller's enrolled classes (with labs) from the cache alone", a
     createdAt: new Date(500),
     updatedAt: new Date(500),
   });
-  await db.insert(labs).values({
+  await db.insert(assignments).values({
     id: "l1",
     classId: "c2",
-    title: "Lab 1",
+    title: "Assignment 1",
     deadline: new Date("2099-01-01T23:59:00Z"),
     createdByUserId: "someone-else",
     createdAt: now,
@@ -557,7 +565,7 @@ test("returns the caller's enrolled classes (with labs) from the cache alone", a
       name: "Beta",
       avatarUrl: "http://b",
       state: "active",
-      labs: [{ id: "l1", title: "Lab 1" }],
+      assignments: [{ id: "l1", title: "Assignment 1" }],
     },
   ]);
   // The join token must never leak to enrollees.
@@ -647,10 +655,10 @@ test("an enrolled class's teachers carry their professional identity email", asy
     createdAt: new Date(500),
     updatedAt: new Date(500),
   });
-  // The caller (u1/111) is enrolled; a teacher (500) runs the class. The teacher
-  // signed in to roster with a SWITCH-linked GitHub account, so the caller, a
-  // student, sees their name and professional email (user.email, HES-SO
-  // audience) and nothing more.
+  // The caller (u1/111) is enrolled; a teacher (500) runs the class. The
+  // teacher signed in to roster with a SWITCH-linked GitHub account, so the
+  // caller, a student, sees their name and professional email (user.email,
+  // HES-SO audience) and nothing more.
   await db.insert(classMembers).values([
     {
       id: "m1",

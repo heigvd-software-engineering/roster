@@ -146,10 +146,10 @@ export const roster: Reconciler = {
 
   async audit(ctx) {
     const live = liveStates(await ctx.people());
-    // Each cached row goes in the id space GitHub currently uses for it, so both
-    // sides of the diff speak the same language. A row in neither space (no ids
-    // at all) cannot be named by a finding, so it cannot be repaired, and
-    // `observeMember` refuses to create one.
+    // Each cached row goes in the id space GitHub currently uses for it, so
+    // both sides of the diff speak the same language. A row in neither space
+    // (no ids at all) cannot be named by a finding, so it cannot be repaired,
+    // and `observeMember` refuses to create one.
     const cached = new Map(
       (await ctx.members()).flatMap((m) => {
         const subject = cachedSubject(m, live);

@@ -84,7 +84,7 @@ export async function removeTeamMember(
   );
 }
 
-/** Delete the team (labs' teacher-only path; the group row goes with it). */
+/** Delete the team (assignments' teacher-only path; the group row goes with it). */
 export async function deleteTeam(
   env: AuthEnv,
   installationId: number,

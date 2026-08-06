@@ -18,8 +18,8 @@ import type {
 import { workRepos } from "./work-repos";
 
 // `installation` is listed first because it must run first: every other GitHub
-// reconciler depends on the pointer being right, and the teacher must fix a dead
-// one before anything else on the page can succeed.
+// reconciler depends on the pointer being right, and the teacher must fix a
+// dead one before anything else on the page can succeed.
 export const RECONCILERS: readonly Reconciler[] = [
   installation,
   identity,
@@ -61,10 +61,10 @@ export async function runAudit(
 ): Promise<Finding[]> {
   const results = await Promise.all(
     // try/catch around the call, not `.catch()` on its result: a reconciler
-    // declared without `async` that throws outright returns no promise to attach
-    // a handler to, and would reject runAudit, breaking the one invariant this
-    // function exists to hold. `never` is assignable to Promise<Finding[]>, so
-    // the compiler will not stop the next author.
+    // declared without `async` that throws outright returns no promise to
+    // attach a handler to, and would reject runAudit, breaking the one
+    // invariant this function exists to hold. `never` is assignable to
+    // Promise<Finding[]>, so the compiler will not stop the next author.
     reconcilers.map(async (r) => {
       try {
         return await r.audit(ctx);

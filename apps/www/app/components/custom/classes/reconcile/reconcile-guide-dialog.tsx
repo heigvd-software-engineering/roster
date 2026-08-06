@@ -31,7 +31,7 @@ const GUIDE: {
       {
         what: "The class points at an old GitHub App installation",
         handled:
-          "Reinstalling the App mints a new id. Reconcile repoints the class at the current one, so students and lab pages can reach it again.",
+          "Reinstalling the App mints a new id. Reconcile repoints the class at the current one, so students and assignment pages can reach it again.",
       },
       {
         what: "The organization was renamed, or its name or avatar changed",
@@ -69,17 +69,17 @@ const GUIDE: {
       {
         what: "A group's GitHub Team was deleted",
         handled:
-          "The group is dropped from its lab. Its work repository is kept and re-attaches on its own if you recreate the group with the same name.",
+          "The group is dropped from its assignment. Its work repository is kept and re-attaches on its own if you recreate the group with the same name.",
       },
       {
-        what: "A group's team roster was edited outside labs, or never recorded",
+        what: "A group's team roster was edited outside assignments, or never recorded",
         handled:
           "Reconcile copies the GitHub team roster into the group. The team — the real membership and repo access — is never touched.",
       },
       {
         what: "A work repository exists but was never linked to its group",
         handled:
-          "If accepting a lab is interrupted after GitHub makes the repo but before roster records it. Re-accepting the lab already self-heals; reconcile is the backstop — it links the repo and re-grants the team its push access.",
+          "If accepting an assignment is interrupted after GitHub makes the repo but before roster records it. Re-accepting the assignment already self-heals; reconcile is the backstop — it links the repo and re-grants the team its push access.",
       },
     ],
   },

@@ -10,8 +10,8 @@ type Db = ReturnType<typeof getDb>;
 type ClassMember = typeof classMembers.$inferSelect;
 
 /** Stable and derived from content, not a counter. Two audits of the same drift
- *  produce the same key; a changed drift is a different finding. The segment
- *  before the first ":" is the reconciler name `applyFindings` dispatches on. */
+ * produce the same key; a changed drift is a different finding. The segment
+ * before the first ":" is the reconciler name `applyFindings` dispatches on. */
 export type FindingKey = string; // "roster:remove:user=9"
 
 export type Severity = "broken" | "drift" | "info";
@@ -47,9 +47,9 @@ export type Reconciler = {
 
 /**
  * Everything a reconciler may read: GitHub truth plus this class's own rows,
- * fetched lazily and memoized once per audit (see `buildContext` in context.ts).
- * `org` and `installationId` are the live values, resolved once before any
- * reconciler runs, never `cls.installationId`, which is a cache that
+ * fetched lazily and memoized once per audit (see `buildContext` in
+ * context.ts). `org` and `installationId` are the live values, resolved once
+ * before any reconciler runs, never `cls.installationId`, which is a cache that
  * reconciliation itself exists to correct.
  */
 export type ClassContext = {

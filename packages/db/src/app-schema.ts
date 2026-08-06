@@ -39,8 +39,8 @@ export const classes = sqliteTable("classes", {
 /** An assignment: deadline and group settings (F6). Students see it on
  *  creation; the deadline controls timing. Accept (F8) consumes the template
  *  columns. */
-export const labs = sqliteTable(
-  "labs",
+export const assignments = sqliteTable(
+  "assignments",
   {
     id: text("id").primaryKey(),
     classId: text("class_id")
@@ -52,9 +52,9 @@ export const labs = sqliteTable(
     templateRepoId: integer("template_repo_id"),
     templateRepoFullName: text("template_repo_full_name"),
     deadline: integer("deadline", { mode: "timestamp" }).notNull(),
-    // Start gate: before this moment students see the lab but cannot act on
-    // it, so no groups, no repos, no starter code. Null starts it at creation.
-    // Ranges of different labs may overlap.
+    // Start gate: before this moment students see the assignment but cannot act
+    // on it, so no groups, no repos, no starter code. Null starts it at
+    // creation. Ranges of different assignments may overlap.
     startAt: integer("start_at", { mode: "timestamp" }),
     // `individual` = a group of one (min=max=1); `group` uses min/maxMembers.
     groupMode: text("group_mode", { enum: ["individual", "group"] })
@@ -69,41 +69,42 @@ export const labs = sqliteTable(
     updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },
   // A group's slug, and therefore its work repo name, is
-  // slugify(lab.title)-slugify(group.name). Without this constraint two labs in
-  // one class share a repo namespace: their groups compute the same repo name
-  // in the same org, so the work-repos reconciler could adopt one lab's student
-  // work into another lab's group.
+  // slugify(assignment.title)-slugify(group.name). Without this constraint two
+  // assignments in one class share a repo namespace: their groups compute the
+  // same repo name in the same org, so the work-repos reconciler could adopt
+  // one assignment's student work into another assignment's group.
   (t) => [unique().on(t.classId, t.title)],
 );
 
 /**
- * A student group: a GitHub Team owning exactly one lab. Groups are copied
- * per lab, never shared across them (see spec
- * `2026-07-07-per-lab-groups-design.md`). Three identifiers, deliberately
- * distinct:
+ * A student group: a GitHub Team owning exactly one assignment. Groups are
+ * copied per assignment, never shared across them. Three identifiers,
+ * deliberately distinct:
  *   - `name`       display label ("Team Alpha"), never sent to GitHub. Unique
- *                  per (labId, name), so friendly names reuse across labs.
- *   - `slug`       `labSlug-groupSlug`, org-unique by construction; this is
- *                  what we hand GitHub as the team's name.
+ *                  per (assignmentId, name), so friendly names reuse across
+ *                  assignments.
+ *   - `slug`       `assignmentSlug-groupSlug`, org-unique by construction;
+ *                  this is what we hand GitHub as the team's name.
  *   - `ghTeamSlug` GitHub's returned slug, the source of truth for API paths
  *                  and the repo name; equals `slug` unless GitHub deduped.
- * The work repo folds in here, since one lab per group makes the group the
- * participation. The roster stays the team's live member list.
- * `creatorUserId` records provenance only. The class comes from labs.classId.
+ * The work repo folds in here, since one assignment per group makes the group
+ * the participation. The roster stays the team's live member list.
+ * `creatorUserId` records provenance only. The class comes from
+ * assignments.classId.
  */
 export const groups = sqliteTable(
   "groups",
   {
     id: text("id").primaryKey(),
-    labId: text("lab_id")
+    assignmentId: text("assignment_id")
       .notNull()
-      .references(() => labs.id),
+      .references(() => assignments.id),
     // The real key: slugs change on rename.
     ghTeamId: integer("gh_team_id").notNull().unique(),
     ghTeamSlug: text("gh_team_slug").notNull(),
     slug: text("slug").notNull(),
     name: text("name").notNull(),
-    // Created once the group meets the lab's min size; null while still
+    // Created once the group meets the assignment's min size; null while still
     // forming. The team gets push on it.
     ghRepoId: integer("gh_repo_id").unique(),
     ghRepoFullName: text("gh_repo_full_name"),
@@ -113,7 +114,10 @@ export const groups = sqliteTable(
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },
-  (t) => [unique().on(t.labId, t.name), unique().on(t.labId, t.slug)],
+  (t) => [
+    unique().on(t.assignmentId, t.name),
+    unique().on(t.assignmentId, t.slug),
+  ],
 );
 
 /**

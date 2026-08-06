@@ -1,5 +1,12 @@
 import { zValidator } from "@hono/zod-validator";
-import { account, classes, classMembers, getDb, labs, user } from "@roster/db";
+import {
+  account,
+  assignments,
+  classes,
+  classMembers,
+  getDb,
+  user,
+} from "@roster/db";
 import { and, asc, desc, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import { z } from "zod";
 import { authedFactory } from "../factory";
@@ -268,27 +275,29 @@ async function visibleTeachingClasses(
 }
 
 /** The teaching side of the hub: decide visibility
- *  (`visibleTeachingClasses`), then dress each visible class with its labs,
- *  cached people, and linked SWITCH users. The cache reads are scoped to
- *  visible classes by construction. */
+ * (`visibleTeachingClasses`), then dress each visible class with its
+ * assignments, cached people, and linked SWITCH users. The cache reads are
+ * scoped to visible classes by construction. */
 async function teachingClasses(db: Db, token: string, from: Date | null) {
   const { visible, hasOlder } = await visibleTeachingClasses(db, token, from);
   const visibleIds = visible.map((v) => v.cls.id);
 
-  // One query for every visible class's labs; emitted per class below.
-  const labRows =
+  // One query for every visible class's assignments; emitted per class below.
+  const assignmentRows =
     visibleIds.length === 0
       ? []
       : await db
           .select()
-          .from(labs)
-          .where(inArray(labs.classId, visibleIds))
+          .from(assignments)
+          .where(inArray(assignments.classId, visibleIds))
           // Course order: effective start (startAt, else createdAt)
           // ascending, the same order the timeline draws. Deadline breaks
           // same-instant ties. The per-class filter below keeps this order.
           .orderBy(
-            asc(sql`coalesce(${labs.startAt}, ${labs.createdAt})`),
-            asc(labs.deadline),
+            asc(
+              sql`coalesce(${assignments.startAt}, ${assignments.createdAt})`,
+            ),
+            asc(assignments.deadline),
           );
 
   // The people, from the enrollment display cache: one query for every
@@ -335,16 +344,16 @@ async function teachingClasses(db: Db, token: string, from: Date | null) {
         .filter((m) => m.state === "pending_teacher")
         .map(person),
       users: allLinked.filter((u) => memberIds.has(u.githubId)),
-      labs: labRows.filter((l) => l.classId === cls.id),
+      assignments: assignmentRows.filter((l) => l.classId === cls.id),
     };
   });
   return { teaching, hasOlder };
 }
 
 /** The enrolled side of the hub: the caller's own enrollments, plus this
- *  side's paging answer (`hasOlder`). Pure DB read (enrollment display cache
- *  ⋈ org identity cache ⋈ labs), zero GitHub calls, and no dependency on the
- *  teaching side; the handler owns "teaching wins" de-duplication.
+ *  side's paging answer (`hasOlder`). Pure DB read (enrollment display cache ⋈
+ *  org identity cache ⋈ assignments), zero GitHub calls, and no dependency on
+ *  the teaching side; the handler owns "teaching wins" de-duplication.
  *
  *  A cached `teacher` state is not an enrollment, and `pending_teacher` stays
  *  out on purpose: someone invited to teach is enrolled in nothing, and
@@ -370,17 +379,19 @@ async function enrolledClasses(
     )
     .orderBy(desc(classes.createdAt));
   const enrolledIds = memberships.map((m) => m.cls.id);
-  const enrolledLabs =
+  const enrolledAssignments =
     enrolledIds.length === 0
       ? []
       : await db
           .select()
-          .from(labs)
-          .where(inArray(labs.classId, enrolledIds))
+          .from(assignments)
+          .where(inArray(assignments.classId, enrolledIds))
           // Same course order as the teaching hub above.
           .orderBy(
-            asc(sql`coalesce(${labs.startAt}, ${labs.createdAt})`),
-            asc(labs.deadline),
+            asc(
+              sql`coalesce(${assignments.startAt}, ${assignments.createdAt})`,
+            ),
+            asc(assignments.deadline),
           );
   // The classes' teachers from the same cache, with linked SWITCH identity,
   // for the card's people popover. Left join, so a teacher who never signed in
@@ -441,7 +452,7 @@ async function enrolledClasses(
     avatarUrl: m.cls.avatarUrl,
     state: m.state,
     teachers: enrolledTeachers.filter((t) => t.classId === m.cls.id),
-    labs: enrolledLabs.filter((l) => l.classId === m.cls.id),
+    assignments: enrolledAssignments.filter((l) => l.classId === m.cls.id),
   }));
 
   // This side's paging: any enrollment older than the window? Same shape as
@@ -468,9 +479,9 @@ async function enrolledClasses(
 }
 
 /** The teacher hub's data: the caller's classes (live org Owner check), each
- *  with live people, linked roster users, and its labs. `?from=<iso>` windows
- *  the list by class creation date before any live GitHub work, so the hub
- *  loads the current semester and pages older ones on demand; each side
+ *  with live people, linked roster users, and its assignments. `?from=<iso>`
+ *  windows the list by class creation date before any live GitHub work, so the
+ *  hub loads the current semester and pages older ones on demand; each side
  *  reports its own `hasOlder` (pure DB), OR-ed here for "Load more".
  *
  *  This handler parses, resolves identity, and composes

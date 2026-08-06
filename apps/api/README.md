@@ -36,7 +36,7 @@ has this Worker serve the built SPA on `:3000`, no proxy.
 No wrangler environments, so no `--env` flag: production is the top-level
 config in `wrangler.jsonc`, deployed to `roster.y-software.ch`. A second target,
 `wrangler.demo.jsonc` (`pnpm run deploy:demo`), ships the `roster` Worker to its
-workers.dev URL against the pre-rename `labs` database. `wrangler dev` runs the
+workers.dev URL against the pre-rename `assignments` database. `wrangler dev` runs the
 production config locally and reads `.dev.vars`, which overrides the two
 dev-only vars.
 

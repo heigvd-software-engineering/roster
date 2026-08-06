@@ -17,7 +17,8 @@ import type { Env } from "../../env";
  * per-caller, so no shared cache may hold one.
  */
 const headers = secureHeaders({
-  // SAMEORIGIN is the default; an API response has no reason to be framed at all.
+  // SAMEORIGIN is the default; an API response has no reason to be framed at
+  // all.
   xFrameOptions: "DENY",
   referrerPolicy: "no-referrer",
   // Not the SPA's policy: this one forbids everything, because a JSON body has

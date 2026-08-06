@@ -154,8 +154,8 @@ test("GET: no usable GitHub token → 403 github_not_linked", async () => {
 test("GET: a valid token whose class is unreachable needs a reconcile, not a new link", async () => {
   // The token resolved to a class, so it is proven valid: a healthy class
   // returns its name and avatar to anyone holding it. Saying "invalid link"
-  // would blame the student for a perfect link and hide the one thing that fixes
-  // it. An unknown token still reads as 404 invalid_link.
+  // would blame the student for a perfect link and hide the one thing that
+  // fixes it. An unknown token still reads as 404 invalid_link.
   state.orgLoginFails = true;
   const res = await app.request("/api/join/tok123", {}, env);
   expect(res.status).toBe(409);
@@ -245,8 +245,8 @@ test("POST: a fresh invite records a pending enrollment", async () => {
 });
 
 test("GET: the preview writes nothing", async () => {
-  // A GET returns what it sees. Recording the acceptance is POST /confirm's job,
-  // and the org identity cache belongs to the `identity` reconciler.
+  // A GET returns what it sees. Recording the acceptance is POST /confirm's
+  // job, and the org identity cache belongs to the `identity` reconciler.
   state.membership = { state: "active", role: "member" };
 
   await app.request("/api/join/tok123", {}, env);

@@ -34,8 +34,8 @@ export function OnboardingGitHubPage() {
     <Stack gap="lg" align="start" justify="center" className="flex-1">
       <Text variant="title">Connect GitHub</Text>
       <Text variant="subtitle" className="max-w-md">
-        roster runs your classes and labs on your own GitHub account. Link it to
-        continue.
+        roster runs your classes and assignments on your own GitHub account.
+        Link it to continue.
       </Text>
       {failed ? (
         <Text variant="error" className="max-w-md">

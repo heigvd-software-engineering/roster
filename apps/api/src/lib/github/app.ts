@@ -1,5 +1,5 @@
-// App-JWT operations: reads about the App itself and its installations.
-// One GitHub call plus narrowing per function; no orchestration (see README.md).
+// App-JWT operations: reads about the App itself and its installations. One
+// GitHub call plus narrowing per function; no orchestration (see README.md).
 import type { AuthEnv } from "../auth/config";
 import { appJwtOctokit } from "./clients";
 

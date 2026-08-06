@@ -1,14 +1,18 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { LabDialog } from "~/components/custom/classes/labs/lab-dialog";
+import { AssignmentDialog } from "~/components/custom/classes/assignments/assignment-dialog";
 
-const labsPost = vi.fn();
+const assignmentsPost = vi.fn();
 
 vi.mock("~/lib/api", () => ({
   api: {
     api: {
       classes: {
-        ":id": { labs: { $post: (...args: unknown[]) => labsPost(...args) } },
+        ":id": {
+          assignments: {
+            $post: (...args: unknown[]) => assignmentsPost(...args),
+          },
+        },
       },
     },
   },
@@ -20,19 +24,19 @@ vi.mock("~/lib/api", () => ({
 const onSaved = vi.fn();
 
 beforeEach(() => {
-  labsPost.mockReset();
+  assignmentsPost.mockReset();
   onSaved.mockReset();
 });
 
 function openDialog() {
-  render(<LabDialog classId="c1" onSaved={onSaved} />);
-  fireEvent.click(screen.getByRole("button", { name: "New lab" }));
+  render(<AssignmentDialog classId="c1" onSaved={onSaved} />);
+  fireEvent.click(screen.getByRole("button", { name: "New assignment" }));
 }
 
-const existingLab = {
+const existingAssignment = {
   id: "l1",
   classId: "c1",
-  title: "Lab 1",
+  title: "Assignment 1",
   deadline: "2099-08-01T23:59:00.000Z",
   groupMode: "group",
   minMembers: 2,
@@ -42,16 +46,22 @@ const existingLab = {
   createdByUserId: "u1",
   createdAt: "2026-03-10T00:00:00.000Z",
   updatedAt: "2026-03-10T00:00:00.000Z",
-} as Parameters<typeof LabDialog>[0]["lab"];
+} as Parameters<typeof AssignmentDialog>[0]["assignment"];
 
-describe("LabDialog", () => {
+describe("AssignmentDialog", () => {
   it("warns in edit mode that formed groups aren't reshaped", async () => {
-    render(<LabDialog classId="c1" lab={existingLab} onSaved={onSaved} />);
-    fireEvent.click(screen.getByRole("button", { name: "Edit Lab 1" }));
+    render(
+      <AssignmentDialog
+        classId="c1"
+        assignment={existingAssignment}
+        onSaved={onSaved}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Edit Assignment 1" }));
 
     fireEvent.click(
       await screen.findByRole("button", {
-        name: "Warning about editing a live lab",
+        name: "Warning about editing a live assignment",
       }),
     );
     expect(
@@ -61,21 +71,23 @@ describe("LabDialog", () => {
 
   it("shows no edit warning when creating", async () => {
     openDialog();
-    await screen.findByRole("button", { name: "Create lab" });
+    await screen.findByRole("button", { name: "Create assignment" });
     expect(
       screen.queryByRole("button", {
-        name: "Warning about editing a live lab",
+        name: "Warning about editing a live assignment",
       }),
     ).not.toBeInTheDocument();
   });
 
   it("disables Create until title and deadline are set", async () => {
     openDialog();
-    const create = await screen.findByRole("button", { name: "Create lab" });
+    const create = await screen.findByRole("button", {
+      name: "Create assignment",
+    });
     expect(create).toBeDisabled();
 
     fireEvent.change(screen.getByLabelText("Title"), {
-      target: { value: "Lab 1" },
+      target: { value: "Assignment 1" },
     });
     fireEvent.change(screen.getByLabelText("Deadline"), {
       target: { value: "2099-08-01T23:59" },
@@ -84,10 +96,10 @@ describe("LabDialog", () => {
   });
 
   it("reveals min/max for group mode and posts the full payload", async () => {
-    labsPost.mockResolvedValue({ ok: true, status: 200 });
+    assignmentsPost.mockResolvedValue({ ok: true, status: 200 });
     openDialog();
     fireEvent.change(await screen.findByLabelText("Title"), {
-      target: { value: "Lab 2" },
+      target: { value: "Assignment 2" },
     });
     fireEvent.change(screen.getByLabelText("Deadline"), {
       target: { value: "2099-08-01T23:59" },
@@ -97,16 +109,16 @@ describe("LabDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: "Group" }));
     expect(screen.getByLabelText("Min members")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Create lab" }));
-    await waitFor(() => expect(labsPost).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole("button", { name: "Create assignment" }));
+    await waitFor(() => expect(assignmentsPost).toHaveBeenCalled());
 
-    const call = labsPost.mock.calls[0]?.[0] as {
+    const call = assignmentsPost.mock.calls[0]?.[0] as {
       param: { id: string };
       json: { deadline?: unknown } & Record<string, unknown>;
     };
     expect(call.param).toEqual({ id: "c1" });
     expect(call.json).toMatchObject({
-      title: "Lab 2",
+      title: "Assignment 2",
       groupMode: "group",
       minMembers: 2,
       maxMembers: 3,
@@ -118,7 +130,7 @@ describe("LabDialog", () => {
   it("posts the start date and explains what it gates", async () => {
     openDialog();
     fireEvent.change(screen.getByLabelText("Title"), {
-      target: { value: "Lab 2" },
+      target: { value: "Assignment 2" },
     });
     fireEvent.change(screen.getByLabelText("Deadline"), {
       target: { value: "2099-08-01T23:59" },
@@ -129,25 +141,27 @@ describe("LabDialog", () => {
     expect(
       screen.getByText(/no access to the starter code/),
     ).toBeInTheDocument();
-    labsPost.mockResolvedValue({ ok: true });
-    fireEvent.click(screen.getByRole("button", { name: "Create lab" }));
-    await waitFor(() => expect(labsPost).toHaveBeenCalled());
-    const arg = labsPost.mock.calls[0]?.[0] as { json: { startAt?: string } };
+    assignmentsPost.mockResolvedValue({ ok: true });
+    fireEvent.click(screen.getByRole("button", { name: "Create assignment" }));
+    await waitFor(() => expect(assignmentsPost).toHaveBeenCalled());
+    const arg = assignmentsPost.mock.calls[0]?.[0] as {
+      json: { startAt?: string };
+    };
     expect(arg.json.startAt).toBe(new Date("2099-07-01T08:00").toISOString());
   });
 
   it("omits startAt entirely when the field stays empty", async () => {
     openDialog();
     fireEvent.change(screen.getByLabelText("Title"), {
-      target: { value: "Lab 2" },
+      target: { value: "Assignment 2" },
     });
     fireEvent.change(screen.getByLabelText("Deadline"), {
       target: { value: "2099-08-01T23:59" },
     });
-    labsPost.mockResolvedValue({ ok: true });
-    fireEvent.click(screen.getByRole("button", { name: "Create lab" }));
-    await waitFor(() => expect(labsPost).toHaveBeenCalled());
-    const arg = labsPost.mock.calls[0]?.[0] as {
+    assignmentsPost.mockResolvedValue({ ok: true });
+    fireEvent.click(screen.getByRole("button", { name: "Create assignment" }));
+    await waitFor(() => expect(assignmentsPost).toHaveBeenCalled());
+    const arg = assignmentsPost.mock.calls[0]?.[0] as {
       json: Record<string, unknown>;
     };
     expect("startAt" in arg.json).toBe(false);
@@ -156,7 +170,7 @@ describe("LabDialog", () => {
   it("disables Create when the start is not before the deadline", async () => {
     openDialog();
     fireEvent.change(screen.getByLabelText("Title"), {
-      target: { value: "Lab 2" },
+      target: { value: "Assignment 2" },
     });
     fireEvent.change(screen.getByLabelText("Deadline"), {
       target: { value: "2099-08-01T23:59" },
@@ -164,23 +178,25 @@ describe("LabDialog", () => {
     fireEvent.change(screen.getByLabelText("Start (optional)"), {
       target: { value: "2099-09-01T08:00" },
     });
-    expect(screen.getByRole("button", { name: "Create lab" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Create assignment" }),
+    ).toBeDisabled();
   });
 
   it("shows an error when the API refuses", async () => {
-    labsPost.mockResolvedValue({ ok: false, status: 400 });
+    assignmentsPost.mockResolvedValue({ ok: false, status: 400 });
     openDialog();
     fireEvent.change(await screen.findByLabelText("Title"), {
-      target: { value: "Lab 3" },
+      target: { value: "Assignment 3" },
     });
     fireEvent.change(screen.getByLabelText("Deadline"), {
       target: { value: "2099-08-01T23:59" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Create lab" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create assignment" }));
 
     expect(
       await screen.findByText(
-        "Couldn't create the lab — check the fields and try again.",
+        "Couldn't create the assignment — check the fields and try again.",
       ),
     ).toBeInTheDocument();
     expect(onSaved).not.toHaveBeenCalled();

@@ -82,17 +82,17 @@ it obvious what gets regenerated and what is ours to edit.
 - Ours: `~/components/custom/<group>/<name>` (e.g. `~/components/custom/classes/hub/class-card`)
 
 Large groups split further by use case: `classes/` holds `hub/` (the classes
-page cards + dialogs), `labs/` (`labs-table`, `lab-header`, `lab-status`,
-`deadline-text`, and the create/edit `lab-dialog`), `reconcile/` (the
+page cards + dialogs), `assignments/` (`assignments-table`, `assignment-header`, `assignment-status`,
+`deadline-text`, and the create/edit `assignment-dialog`), `reconcile/` (the
 drift-audit explainer dialog), and
-`groups/` (everything both lab pages compose), itself split by role:
+`groups/` (everything both assignment pages compose), itself split by role:
 
-- `groups/shared/`: used by both roles, the `use-lab-groups` hook plus the
+- `groups/shared/`: used by both roles, the `use-assignment-groups` hook plus the
   shared `group-card` / `unassigned-pool` / `new-group-dialog` / `seats` /
   `work-repo`.
-- `groups/teacher/`: the teacher's assignment roster: `teacher-lab-groups`
-  + its `group-status` / `lab-stats` / `clone-all-dialog` bits.
-- `groups/student/`: the student's view: `student-lab-groups` +
-  `start-lab-card`.
+- `groups/teacher/`: the teacher's assignment roster: `teacher-assignment-groups`
+  + its `group-status` / `assignment-stats` / `clone-all-dialog` bits.
+- `groups/student/`: the student's view: `student-assignment-groups` +
+  `start-assignment-card`.
 
 Cross-cutting pieces (`role-marker`) stay at the `classes/` root.

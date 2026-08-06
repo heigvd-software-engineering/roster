@@ -5,10 +5,10 @@ import { GithubUnavailableError } from "./lib/github/user";
 
 /**
  * The app's one error translator (registered in index.ts; a test that mounts a
- * route module must attach it itself). "GitHub can't answer" is a transient upstream
- * fault, so it answers 503 and the client can retry, never a 404 or 500 that
- * blames the user's link, their join token, or the class. Everything else
- * stays a 500: that's a bug, and a friendlier answer would hide it.
+ * route module must attach it itself). "GitHub can't answer" is a transient
+ * upstream fault, so it answers 503 and the client can retry, never a 404 or
+ * 500 that blames the user's link, their join token, or the class. Everything
+ * else stays a 500: that's a bug, and a friendlier answer would hide it.
  */
 export const apiOnError: ErrorHandler<Env> = (err, c) => {
   if (err instanceof GithubUnavailableError) {

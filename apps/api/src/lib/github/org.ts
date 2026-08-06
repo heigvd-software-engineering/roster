@@ -21,9 +21,9 @@ export async function orgInfo(
 
 /** The two org settings roster enforces, its "org policy". */
 export type OrgPolicy = {
-  /** Base repository permission (labs wants "none"). */
+  /** Base repository permission (assignments wants "none"). */
   basePermission: string;
-  /** Whether plain Members may create repositories (labs wants false). */
+  /** Whether plain Members may create repositories (assignments wants false). */
   membersCanCreateRepos: boolean;
 };
 
@@ -44,10 +44,10 @@ export async function orgPolicy(
 }
 
 /** Lock the org to roster's policy in one PATCH: base repository permission
- *  "none", so membership grants nothing on its own and students see only repos
- *  they were granted, and no member repository creation, since work repos are
- *  born through labs and a repo a student creates on GitHub would sit outside
- *  every gate. Callers re-read to verify. */
+ * "none", so membership grants nothing on its own and students see only repos
+ * they were granted, and no member repository creation, since work repos are
+ * born through assignments and a repo a student creates on GitHub would sit
+ * outside every gate. Callers re-read to verify. */
 export async function enforceOrgPolicy(
   env: AuthEnv,
   installationId: number,

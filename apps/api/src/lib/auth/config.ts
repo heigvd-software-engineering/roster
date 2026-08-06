@@ -129,7 +129,8 @@ export function createAuth(env: AuthEnv) {
               "email",
               "https://eduid.ch/scope/userinfo.read",
             ],
-            // SWITCH edu-ID advertises code_challenge_methods_supported: ["S256"].
+            // SWITCH edu-ID advertises code_challenge_methods_supported:
+            // ["S256"].
             pkce: true,
             // Ask SWITCH to release the identity claims into the id_token too.
             authorizationUrlParams: {

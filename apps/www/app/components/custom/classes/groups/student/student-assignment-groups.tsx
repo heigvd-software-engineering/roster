@@ -9,42 +9,44 @@ import {
   SeatSlot,
 } from "~/components/custom/classes/groups/shared/seats";
 import { UnassignedPool } from "~/components/custom/classes/groups/shared/unassigned-pool";
-import { useLabGroups } from "~/components/custom/classes/groups/shared/use-lab-groups";
-import { StartLabCard } from "~/components/custom/classes/groups/student/start-lab-card";
+import { useAssignmentGroups } from "~/components/custom/classes/groups/shared/use-assignment-groups";
+import { StartAssignmentCard } from "~/components/custom/classes/groups/student/start-assignment-card";
 import { DisabledReason } from "~/components/custom/disabled-reason";
 import { Stack } from "~/components/custom/layout/stack";
 import { Text } from "~/components/custom/typography/text";
 import { Button } from "~/components/ui/button";
 import { useAuth } from "~/contexts/auth-context";
-import type { LabItem } from "~/lib/api";
+import type { AssignmentItem } from "~/lib/api";
 import { cn } from "~/lib/utils";
 
 /**
- * The STUDENT's lab surface, BOTH modes: one structure, mode-specific copy.
+ * The STUDENT's assignment surface, BOTH modes: one structure, mode-specific
+ * copy.
  *
  * INDIVIDUAL: your solo card (1/3, a ghost until accepted) beside the
- * start-lab card (2/3), whose accept state creates group + repo in one click.
+ * start-assignment card (2/3), whose accept state creates group + repo in one
+ * click.
  *
  * GROUP, BROWSE (not in a group yet): the same GROUP WALL the teacher sees,
  * without the management verbs. Every group's full roster, and an OPEN SEAT
  * is the join affordance, because taking a seat is what joining is. A seat
  * still needed to reach the minimum says so. Plus "new group", a fresh group
- * for THIS lab that you auto-join.
+ * for THIS assignment that you auto-join.
  *
- * GROUP, YOURS: the others disappear, and your group card (1/3) sits beside
- * the same start-lab card (2/3) that owns the work repo. Your open seats are
+ * GROUP, YOURS: the others disappear, and your group card (1/3) sits beside the
+ * same start-assignment card (2/3) that owns the work repo. Your open seats are
  * placeholders, not verbs: classmates seat themselves.
  */
-export function StudentLabGroups({
+export function StudentAssignmentGroups({
   classId,
-  lab,
+  assignment,
 }: {
   classId: string;
-  lab: LabItem;
+  assignment: AssignmentItem;
 }) {
   const { github } = useAuth();
   const me = github?.login;
-  const g = useLabGroups(classId, lab.id);
+  const g = useAssignmentGroups(classId, assignment.id);
 
   const mine = g.groups.find((group) =>
     group.members.some((m) => m.login === me),
@@ -59,7 +61,7 @@ export function StudentLabGroups({
     return <Text variant="body2">Loading groups…</Text>;
   }
 
-  if (lab.groupMode === "individual") {
+  if (assignment.groupMode === "individual") {
     // The server models an individual acceptance as a SOLO GROUP named after
     // the student, so render exactly that in the group flow's own skeleton.
     // Before accepting, the card is a GHOST of the same shape (dimmed you),
@@ -80,7 +82,7 @@ export function StudentLabGroups({
     const repo = mine ? g.repoFor(mine.id) : null;
     return (
       <Stack gap="md" className="w-full">
-        <Text variant="heading">Your lab</Text>
+        <Text variant="heading">Your assignment</Text>
         <div className="grid w-full grid-cols-1 gap-4 lg:grid-cols-3">
           <GroupCard
             group={solo}
@@ -91,12 +93,14 @@ export function StudentLabGroups({
             memberClassName={mine ? undefined : "opacity-55"}
             notes={
               <MineNote active={mine !== undefined}>
-                {mine ? "your solo lab" : "your solo lab — not accepted yet"}
+                {mine
+                  ? "your solo assignment"
+                  : "your solo assignment — not accepted yet"}
               </MineNote>
             }
           />
           <div className="lg:col-span-2">
-            <StartLabCard
+            <StartAssignmentCard
               mode="individual"
               accepted={mine !== undefined}
               repoFullName={repo}
@@ -152,12 +156,12 @@ export function StudentLabGroups({
                 locked ? <LockedSeat /> : <VacantSeat required={required} />
               }
             />
-            {/* The lab starts here once the group reaches the minimum size,
+            {/* The assignment starts here once the group reaches the minimum size,
                 and STAYS once the repo exists: a locked group can drop below
                 min via the teacher, and the survivors still need their repo. */}
             {mine.members.length >= g.min || locked ? (
               <div className="lg:col-span-2">
-                <StartLabCard
+                <StartAssignmentCard
                   repoFullName={g.repoFor(mine.id)}
                   repoStatus={mine.repoStatus}
                   busy={g.busy}
@@ -175,10 +179,10 @@ export function StudentLabGroups({
     <>
       <UnassignedPool students={g.unassignedStudents} users={g.users} />
       <Stack gap="md" className="w-full">
-        <Text variant="heading">Groups in this lab</Text>
+        <Text variant="heading">Groups in this assignment</Text>
         {g.groups.length === 0 ? (
           <Text variant="body2">
-            No groups in this lab yet — start one below.
+            No groups in this assignment yet — start one below.
           </Text>
         ) : null}
         <div className={GROUP_WALL}>
@@ -213,7 +217,7 @@ export function StudentLabGroups({
           })}
           <NewGroupDialog
             classId={classId}
-            labId={lab.id}
+            assignmentId={assignment.id}
             autoJoins
             triggerLabel="New group"
             onCreated={g.revalidate}
@@ -252,7 +256,7 @@ function JoinSeat({
   return (
     <SeatButton
       required={required}
-      title="Join this group for the lab"
+      title="Join this group for the assignment"
       {...props}
     >
       {required ? "Join — needed to form" : "Join this group"}
@@ -266,7 +270,7 @@ function VacantSeat({ required = false }: { required?: boolean }) {
   return (
     <SeatSlot
       required={required}
-      title="Classmates join from their own lab page — tell them your group's name"
+      title="Classmates join from their own assignment page — tell them your group's name"
     >
       {required ? "Needs a member to form" : "Open seat"}
     </SeatSlot>

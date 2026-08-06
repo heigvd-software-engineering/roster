@@ -6,8 +6,11 @@ export default [
   route("rules", "routes/rules.tsx"),
   route("classes/connect-failed", "routes/connect-failed.tsx"),
   route("admin", "routes/admin.tsx"),
-  route("classes/:classId/labs/:labId", "routes/lab.tsx"),
-  route("classes/:classId/labs/:labId/manage", "routes/lab-manage.tsx"),
+  route("classes/:classId/assignments/:assignmentId", "routes/assignment.tsx"),
+  route(
+    "classes/:classId/assignments/:assignmentId/manage",
+    "routes/assignment-manage.tsx",
+  ),
   route("onboarding/github", "routes/onboarding.tsx"),
   route("classes/:id/confirm", "routes/class-confirm.tsx"),
   route("classes/:id/reconcile", "routes/reconcile.tsx"),

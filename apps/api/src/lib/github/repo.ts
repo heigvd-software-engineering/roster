@@ -85,9 +85,9 @@ export async function grantTeamRepo(
 }
 
 /**
- * Push and creation timestamps for all the org's repos, keyed by full name.
- * One list call covers every work repo of a lab, since the org listing already
- * carries `pushed_at`, instead of a GET per repo. The creation commit
+ * Push and creation timestamps for all the org's repos, keyed by full name. One
+ * list call covers every work repo of an assignment, since the org listing
+ * already carries `pushed_at`, instead of a GET per repo. The creation commit
  * (auto-init or template generation) also bumps `pushed_at`, so "has the group
  * pushed" must compare it against `created_at`.
  */
@@ -147,10 +147,10 @@ type LastCommitAlias = {
 /**
  * The last commit on each repo's default branch (author identity, headline,
  * date) plus that branch's total commit count. One GraphQL request, one alias
- * per repo, covers all of a lab's work repos instead of a commits GET per repo.
- * Repos GraphQL can't resolve (deleted, renamed, still empty) are absent from
- * the map. Default branch only: `pushed_at` (any branch) stays the activity
- * signal, and this is the byline.
+ * per repo, covers all of an assignment's work repos instead of a commits GET
+ * per repo. Repos GraphQL can't resolve (deleted, renamed, still empty) are
+ * absent from the map. Default branch only: `pushed_at` (any branch) stays the
+ * activity signal, and this is the byline.
  */
 export async function reposLastCommit(
   env: AuthEnv,
@@ -202,7 +202,7 @@ export async function reposLastCommit(
   return out;
 }
 
-/** The org's template repos, the lab dialog's starter-code choices. */
+/** The org's template repos, the assignment dialog's starter-code choices. */
 export async function orgTemplateRepos(
   env: AuthEnv,
   installationId: number,
@@ -221,8 +221,8 @@ export async function orgTemplateRepos(
 /**
  * Why a work repo couldn't be created. "name_taken": the repo exists but we
  * can't read it back. "template_error": the /generate call refused (the
- * template repo is empty or gone), returned only when the lab has a template.
- * "app_permissions": the App lacks Repository write.
+ * template repo is empty or gone), returned only when the assignment has a
+ * template. "app_permissions": the App lacks Repository write.
  */
 export type RepoFailure = "name_taken" | "template_error" | "app_permissions";
 
@@ -248,8 +248,8 @@ function githubErrorText(err: unknown): string {
 /**
  * Turn a GitHub repo-creation error into one of our sentinels, or `null` when
  * we don't recognize it (the caller rethrows: a 500 with the real error beats a
- * friendly lie). `usedTemplate` matters because a lab with no template calls
- * `POST /orgs/{org}/repos`, where a template error is impossible by
+ * friendly lie). `usedTemplate` matters because an assignment with no template
+ * calls `POST /orgs/{org}/repos`, where a template error is impossible by
  * construction, so we must never blame one.
  */
 export function classifyRepoFailure(
@@ -260,9 +260,10 @@ export function classifyRepoFailure(
   // "Resource not accessible by integration": the App installation lacks
   // Repository Administration or Contents write, an admin problem to surface.
   if (status === 403) return "app_permissions";
-  // A template lab's /generate 404s when the template was deleted or renamed
-  // since the lab was created, the same teacher-must-fix answer as an empty
-  // one. A 404 on the plain create path stays unrecognized (rethrown).
+  // A template assignment's /generate 404s when the template was deleted or
+  // renamed since the assignment was created, the same teacher-must-fix answer
+  // as an empty one. A 404 on the plain create path stays unrecognized
+  // (rethrown).
   if (status === 404) return usedTemplate ? "template_error" : null;
   if (status !== 422) return null;
   if (/already exists/i.test(githubErrorText(err))) return "name_taken";

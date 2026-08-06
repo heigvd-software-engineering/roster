@@ -24,7 +24,7 @@ import {
   SelectValue,
 } from "~/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "~/components/ui/toggle-group";
-import { api, type LabItem, useApi } from "~/lib/api";
+import { type AssignmentItem, api, useApi } from "~/lib/api";
 
 const NO_TEMPLATE = "No template — empty repository";
 
@@ -41,11 +41,11 @@ function saveErrorMessage(
     return "The start must be before the deadline.";
   }
   if (status === 409) {
-    return "A lab with that title already exists in this class.";
+    return "An assignment with that title already exists in this class.";
   }
   return editing
-    ? "Couldn't save the lab — check the fields and try again."
-    : "Couldn't create the lab — check the fields and try again.";
+    ? "Couldn't save the assignment — check the fields and try again."
+    : "Couldn't create the assignment — check the fields and try again.";
 }
 
 /** `datetime-local` wants "YYYY-MM-DDTHH:mm" in LOCAL time. */
@@ -56,19 +56,19 @@ function toDatetimeLocal(iso: string) {
 }
 
 /**
- * The lab dialog (F6): title + deadline + mode (group reveals min/max).
- * CREATE mode (no `lab`) triggers from the class toolbar. EDIT mode (`lab`
- * given) triggers from the pencil on the lab's row and prefills from it: same
- * form, same validation, PUT instead of POST. On success the classes list
- * revalidates and the dialog closes.
+ * The assignment dialog (F6): title + deadline + mode (group reveals min/max).
+ * CREATE mode (no `assignment`) triggers from the class toolbar. EDIT mode
+ * (`assignment` given) triggers from the pencil on the assignment's row and
+ * prefills from it: same form, same validation, PUT instead of POST. On success
+ * the classes list revalidates and the dialog closes.
  */
-export function LabDialog({
+export function AssignmentDialog({
   classId,
-  lab,
+  assignment,
   onSaved,
 }: {
   classId: string;
-  lab?: LabItem | undefined;
+  assignment?: AssignmentItem | undefined;
   /** The OWNER of the classes data revalidates, so the dialog never guesses
    *  cache keys (the hub's key carries its semester window). */
   onSaved: () => unknown;
@@ -92,17 +92,22 @@ export function LabDialog({
   function openChange(next: boolean) {
     setOpen(next);
     if (next) {
-      // (Re-)seed the form on every open, from the lab when editing and fresh
-      // otherwise, so a cancelled edit doesn't leak into the next one.
-      setTitle(lab?.title ?? "");
-      setDeadline(lab ? toDatetimeLocal(lab.deadline) : "");
-      setStartAt(lab?.startAt ? toDatetimeLocal(lab.startAt) : "");
-      setGroupMode(lab?.groupMode ?? "individual");
-      setMinMembers(String(lab?.minMembers ?? 2));
-      setMaxMembers(String(lab?.maxMembers ?? 3));
+      // (Re-)seed the form on every open, from the assignment when editing and
+      // fresh otherwise, so a cancelled edit doesn't leak into the next one.
+      setTitle(assignment?.title ?? "");
+      setDeadline(assignment ? toDatetimeLocal(assignment.deadline) : "");
+      setStartAt(
+        assignment?.startAt ? toDatetimeLocal(assignment.startAt) : "",
+      );
+      setGroupMode(assignment?.groupMode ?? "individual");
+      setMinMembers(String(assignment?.minMembers ?? 2));
+      setMaxMembers(String(assignment?.maxMembers ?? 3));
       setTemplate(
-        lab?.templateRepoId && lab.templateRepoFullName
-          ? { id: lab.templateRepoId, fullName: lab.templateRepoFullName }
+        assignment?.templateRepoId && assignment.templateRepoFullName
+          ? {
+              id: assignment.templateRepoId,
+              fullName: assignment.templateRepoFullName,
+            }
           : null,
       );
       setError(null);
@@ -137,12 +142,12 @@ export function LabDialog({
         : {}),
     };
     try {
-      const res = lab
-        ? await api.api.classes[":id"].labs[":labId"].$put({
-            param: { id: classId, labId: lab.id },
+      const res = assignment
+        ? await api.api.classes[":id"].assignments[":assignmentId"].$put({
+            param: { id: classId, assignmentId: assignment.id },
             json,
           })
-        : await api.api.classes[":id"].labs.$post({
+        : await api.api.classes[":id"].assignments.$post({
             param: { id: classId },
             json,
           });
@@ -151,7 +156,7 @@ export function LabDialog({
           res.status === 409
             ? ((await res.json().catch(() => ({}))) as { error?: string }).error
             : undefined;
-        setError(saveErrorMessage(res.status, code, lab !== undefined));
+        setError(saveErrorMessage(res.status, code, assignment !== undefined));
         return;
       }
       await onSaved();
@@ -168,15 +173,15 @@ export function LabDialog({
     // unfocus a field, and that must not eat a half-filled form. Cancel, the
     // X, and Escape remain the deliberate ways out.
     <Dialog open={open} onOpenChange={openChange} disablePointerDismissal>
-      {lab ? (
+      {assignment ? (
         <DialogTrigger
           render={
             <Button
               variant="ghost"
               size="icon-sm"
               type="button"
-              aria-label={`Edit ${lab.title}`}
-              title="Edit lab"
+              aria-label={`Edit ${assignment.title}`}
+              title="Edit assignment"
             />
           }
         >
@@ -189,24 +194,24 @@ export function LabDialog({
               variant="ghost"
               size="sm"
               type="button"
-              title="Create a new lab in this class"
+              title="Create a new assignment in this class"
             />
           }
         >
           <Plus className="text-muted-foreground" />
-          New lab
+          New assignment
         </DialogTrigger>
       )}
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-1">
-            {lab ? "Edit lab" : "New lab"}
-            {lab ? (
+            {assignment ? "Edit assignment" : "New assignment"}
+            {assignment ? (
               // Edits never reshape what already exists, so say so up front
               // instead of confirm-gating every save.
               <Hint
                 variant="warning"
-                label="Warning about editing a live lab"
+                label="Warning about editing a live assignment"
                 title="Groups already formed aren't reshaped"
               >
                 Shrinking the size range can strand formed groups below the new
@@ -217,39 +222,39 @@ export function LabDialog({
             ) : null}
           </DialogTitle>
           <DialogDescription>
-            {lab
+            {assignment
               ? "Changes are visible to students immediately."
-              : "The lab is visible to students as soon as it is created; a start date keeps them from beginning — and from the starter code — before it."}
+              : "The assignment is visible to students as soon as it is created; a start date keeps them from beginning — and from the starter code — before it."}
           </DialogDescription>
         </DialogHeader>
         <Stack gap="md">
           <Stack gap="sm">
-            <Label htmlFor="lab-title">Title</Label>
+            <Label htmlFor="assignment-title">Title</Label>
             <Input
-              id="lab-title"
+              id="assignment-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Lab 1 — TCP sockets"
             />
           </Stack>
           <Stack gap="sm">
-            <Label htmlFor="lab-start">Start (optional)</Label>
+            <Label htmlFor="assignment-start">Start (optional)</Label>
             <Input
-              id="lab-start"
+              id="assignment-start"
               type="datetime-local"
               value={startAt}
               onChange={(e) => setStartAt(e.target.value)}
             />
             <Text variant="caption">
-              Students see the lab but cannot start it — no groups, no
+              Students see the assignment but cannot start it — no groups, no
               repositories, and no access to the starter code — until this time.
-              Leave empty to open the lab immediately.
+              Leave empty to open the assignment immediately.
             </Text>
           </Stack>
           <Stack gap="sm">
-            <Label htmlFor="lab-deadline">Deadline</Label>
+            <Label htmlFor="assignment-deadline">Deadline</Label>
             <Input
-              id="lab-deadline"
+              id="assignment-deadline"
               type="datetime-local"
               value={deadline}
               onChange={(e) => setDeadline(e.target.value)}
@@ -273,9 +278,9 @@ export function LabDialog({
           {groupMode === "group" ? (
             <Row gap="md">
               <Stack gap="sm">
-                <Label htmlFor="lab-min">Min members</Label>
+                <Label htmlFor="assignment-min">Min members</Label>
                 <Input
-                  id="lab-min"
+                  id="assignment-min"
                   type="number"
                   min={1}
                   value={minMembers}
@@ -283,9 +288,9 @@ export function LabDialog({
                 />
               </Stack>
               <Stack gap="sm">
-                <Label htmlFor="lab-max">Max members</Label>
+                <Label htmlFor="assignment-max">Max members</Label>
                 <Input
-                  id="lab-max"
+                  id="assignment-max"
                   type="number"
                   min={1}
                   value={maxMembers}
@@ -312,13 +317,13 @@ export function LabDialog({
           <Button
             disabled={!valid || submitting}
             title={
-              lab
+              assignment
                 ? "Save — changes are visible to students immediately"
-                : "Create — the lab is visible to students right away"
+                : "Create — the assignment is visible to students right away"
             }
             onClick={submit}
           >
-            {lab ? "Save changes" : "Create lab"}
+            {assignment ? "Save changes" : "Create assignment"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -348,7 +353,7 @@ function TemplatePicker({
 
   return (
     <Stack gap="sm">
-      <Label htmlFor="lab-template">Starter code</Label>
+      <Label htmlFor="assignment-template">Starter code</Label>
       {/* Design-system Select, not a native <select>: the OS paints native
           option popups by its own scheme, unstylable and broken in dark mode. */}
       <Select
@@ -367,7 +372,7 @@ function TemplatePicker({
         }}
       >
         <SelectTrigger
-          id="lab-template"
+          id="assignment-template"
           className="h-9 w-full"
           title="The template repository new work repos are generated from"
         >

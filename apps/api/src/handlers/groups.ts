@@ -1,14 +1,14 @@
-import { type Group, type getDb, groups, labs } from "@roster/db";
+import { assignments, type Group, type getDb, groups } from "@roster/db";
 import { eq } from "drizzle-orm";
 import { authedFactory } from "../factory";
 import { findGroupInClass, resolveClassAsMember } from "../lib/class-scope";
 import { cachedRoster } from "../lib/group-members";
 import {
-  alreadyInLabGroup,
+  alreadyInAssignmentGroup,
+  assignmentMax,
+  assignmentStarted,
   checkRepoExists,
   deleteGroupsWithTeams,
-  labMax,
-  labStarted,
 } from "../lib/groups";
 
 type Db = ReturnType<typeof getDb>;
@@ -32,13 +32,14 @@ async function lockedNow(db: Db, groupId: string): Promise<boolean> {
 }
 
 /**
- * Group membership and lifecycle (per-lab model, spec 2026-07-07). A group is
- * a GitHub Team (secret, students always role `member`) belonging to one lab,
- * and the team owns the roster. Permissions: any live active org member joins
- * or leaves themselves; only a live org Owner (teacher) manages other members
- * or deletes groups. Creating a group is lab-scoped (handlers/lab-groups.ts).
- * `groupId` is globally unique, so these stay class-scoped by id; the group
- * carries its own `labId` for the invariant.
+ * Group membership and lifecycle (per-assignment model, spec 2026-07-07). A
+ * group is a GitHub Team (secret, students always role `member`) belonging to
+ * one assignment, and the team owns the roster. Permissions: any live active
+ * org member joins or leaves themselves; only a live org Owner (teacher)
+ * manages other members or deletes groups. Creating a group is
+ * assignment-scoped (handlers/assignment-groups.ts). `groupId` is globally
+ * unique, so these stay class-scoped by id; the group carries its own
+ * `assignmentId` for the invariant.
  *
  * Every mutation here ends in `team.syncMembers(group)`: GitHub accepted the
  * change, so we re-read that one team and mirror it into `group_members`, and
@@ -47,7 +48,7 @@ async function lockedNow(db: Db, groupId: string): Promise<boolean> {
  */
 
 /** Join the group; the caller only ever adds themselves. Refused when it would
- *  put them in two groups of the same lab, or when the group's work repo
+ *  put them in two groups of the same assignment, or when the group's work repo
  *  exists: a locked group changes only through the teacher. */
 export const joinGroup = authedFactory.createHandlers(async (c) => {
   const access = await resolveClassAsMember(c, c.req.param("id"));
@@ -55,14 +56,14 @@ export const joinGroup = authedFactory.createHandlers(async (c) => {
   const group = await findGroupInClass(access, c.req.param("groupId"));
   if (!group) return c.json({ error: "not_found" }, 404);
 
-  const [lab] = await access.db
+  const [assignment] = await access.db
     .select()
-    .from(labs)
-    .where(eq(labs.id, group.labId));
-  // The start gate comes first: before the lab opens, membership is frozen
-  // for students. A teacher may pre-form groups (escape hatch), and students
-  // must not reshape them early.
-  if (lab && !access.isTeacher && !labStarted(lab)) {
+    .from(assignments)
+    .where(eq(assignments.id, group.assignmentId));
+  // The start gate comes first: before the assignment opens, membership is
+  // frozen for students. A teacher may pre-form groups (escape hatch), and
+  // students must not reshape them early.
+  if (assignment && !access.isTeacher && !assignmentStarted(assignment)) {
     return c.json({ error: "not_started" }, 409);
   }
   // The repo lock (same vocabulary as delete): joining a team means push on
@@ -71,13 +72,22 @@ export const joinGroup = authedFactory.createHandlers(async (c) => {
     return c.json({ error: "has_repo" }, 409);
   }
   if (
-    await alreadyInLabGroup(access, group.labId, access.callerLogin, group.id)
+    await alreadyInAssignmentGroup(
+      access,
+      group.assignmentId,
+      access.callerLogin,
+      group.id,
+    )
   ) {
     return c.json({ error: "member_already_participating" }, 409);
   }
   // The size cap: the UI hides Join on full groups, but the API is the
   // boundary, and a direct request must not oversize the group either.
-  if (lab && (await cachedRoster(access.db, group.id)).length >= labMax(lab)) {
+  if (
+    assignment &&
+    (await cachedRoster(access.db, group.id)).length >=
+      assignmentMax(assignment)
+  ) {
     return c.json({ error: "group_full" }, 409);
   }
   await access.team.add(group.ghTeamSlug, access.callerLogin);
@@ -101,12 +111,12 @@ export const leaveGroup = authedFactory.createHandlers(async (c) => {
   const group = await findGroupInClass(access, c.req.param("groupId"));
   if (!group) return c.json({ error: "not_found" }, 404);
 
-  // Same start gate as join: membership is frozen until the lab opens.
-  const [lab] = await access.db
+  // Same start gate as join: membership is frozen until the assignment opens.
+  const [assignment] = await access.db
     .select()
-    .from(labs)
-    .where(eq(labs.id, group.labId));
-  if (lab && !access.isTeacher && !labStarted(lab)) {
+    .from(assignments)
+    .where(eq(assignments.id, group.assignmentId));
+  if (assignment && !access.isTeacher && !assignmentStarted(assignment)) {
     return c.json({ error: "not_started" }, 409);
   }
   if (isLocked(group)) {
@@ -125,7 +135,7 @@ export const leaveGroup = authedFactory.createHandlers(async (c) => {
   return c.json({ ok: true });
 });
 
-/** Teacher-only: put any org user into the group, under the same within-lab
+/** Teacher-only: put any org user into the group, under the same within-assignment
  *  double-booking guard and size cap as self-join. */
 export const addGroupMember = authedFactory.createHandlers(async (c) => {
   const access = await resolveClassAsMember(c, c.req.param("id"));
@@ -134,18 +144,25 @@ export const addGroupMember = authedFactory.createHandlers(async (c) => {
   const login = c.req.param("login");
   if (!group || !login) return c.json({ error: "not_found" }, 404);
 
-  if (await alreadyInLabGroup(access, group.labId, login, group.id)) {
+  if (
+    await alreadyInAssignmentGroup(access, group.assignmentId, login, group.id)
+  ) {
     return c.json({ error: "member_already_participating" }, 409);
   }
-  // The size cap binds the teacher too: the lab's max is the lab's rule, not
-  // a default the roster may drift past one add at a time. A bigger group is
-  // a decision about the lab, so raise maxMembers there and every group gets
-  // it visibly, instead of one group quietly becoming special.
-  const [lab] = await access.db
+  // The size cap binds the teacher too: the assignment's max is the
+  // assignment's rule, not a default the roster may drift past one add at a
+  // time. A bigger group is a decision about the assignment, so raise
+  // maxMembers there and every group gets it visibly, instead of one group
+  // quietly becoming special.
+  const [assignment] = await access.db
     .select()
-    .from(labs)
-    .where(eq(labs.id, group.labId));
-  if (lab && (await cachedRoster(access.db, group.id)).length >= labMax(lab)) {
+    .from(assignments)
+    .where(eq(assignments.id, group.assignmentId));
+  if (
+    assignment &&
+    (await cachedRoster(access.db, group.id)).length >=
+      assignmentMax(assignment)
+  ) {
     return c.json({ error: "group_full" }, 409);
   }
   await access.team.add(group.ghTeamSlug, login);
@@ -171,9 +188,9 @@ export const removeGroupMember = authedFactory.createHandlers(async (c) => {
  *
  * Refuses nothing, including a group whose work repo exists — the app has one
  * deletion rule and it is the typed name in the client's dialog (see
- * `docs/classes-and-labs.md`). A repo-bearing group was refused here once,
- * which read as a guarantee it never was: deleting the lab above it took the
- * same group anyway.
+ * `docs/classes-and-assignments.md`). A repo-bearing group was refused here
+ * once, which read as a guarantee it never was: deleting the assignment above
+ * it took the same group anyway.
  *
  * Losing the group costs the students push, not their work: the repo stays in
  * the org, and the teacher's GitHub sync offers to link it to a group recreated
@@ -189,13 +206,13 @@ export const deleteGroup = authedFactory.createHandlers(async (c) => {
   return c.json({ ok: true });
 });
 
-/** Teacher-only: clear a repo link the lab page flagged as missing
- *  (`repoStatus: "missing"`, `listLabGroups` / `resolveRepoStatuses`). The
- *  repo was deleted directly on GitHub, which otherwise leaves the group
- *  locked forever (`isLocked` reads `ghRepoId`, with no path back to null).
- *  Re-verifies live rather than trusting a possibly stale client flag: if the
- *  repo reappeared (recreated with the same name after the page loaded),
- *  refuse rather than rip out a working link. */
+/** Teacher-only: clear a repo link the assignment page flagged as missing
+ * (`repoStatus: "missing"`, `listAssignmentGroups` / `resolveRepoStatuses`).
+ * The repo was deleted directly on GitHub, which otherwise leaves the group
+ * locked forever (`isLocked` reads `ghRepoId`, with no path back to null).
+ * Re-verifies live rather than trusting a possibly stale client flag: if the
+ * repo reappeared (recreated with the same name after the page loaded), refuse
+ * rather than rip out a working link. */
 export const unlinkGroupRepo = authedFactory.createHandlers(async (c) => {
   const access = await resolveClassAsMember(c, c.req.param("id"));
   if (!access?.isTeacher) return c.json({ error: "not_found" }, 404);

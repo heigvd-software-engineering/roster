@@ -10,9 +10,9 @@ import { count } from "~/lib/format";
  *
  * There is deliberately no second, gentler variant and no server-side refusal
  * behind it. Deleting a group used to be refused once its work repository
- * existed, which read as a guarantee it never was, since deleting the lab
- * above it took the same group anyway. One rule the teacher can state from
- * memory beats two that disagree.
+ * existed, which read as a guarantee it never was, since deleting the
+ * assignment above it took the same group anyway. One rule the teacher can
+ * state from memory beats two that disagree.
  *
  * The ceremony is affordable because the loss is bounded: nothing in roster
  * ever deletes a GitHub repository. Build `stakes` from the sentences below
@@ -33,7 +33,7 @@ export function DeleteDialog({
   trigger?: ReactElement | undefined;
   open?: boolean | undefined;
   onOpenChange?: ((open: boolean) => void) | undefined;
-  /** The noun, for the confirm button: "lab", "group". */
+  /** The noun, for the confirm button: "assignment", "group". */
   what: string;
   /** The thing's own name, shown in the question and typed to confirm. */
   name: string;
@@ -76,8 +76,9 @@ export const STAKES = {
   reposSurvive: (subject: string, plural = false) =>
     `${subject} ${plural ? "stay" : "stays"} in the organisation — roster never deletes student work — but the students lose their access along with the team.`,
   /** How the work is reached again. NOT automatic, and not the create button:
-   *  `createWorkRepo` never adopts an existing repo (it answers `name_taken`),
-   *  so the route back is the `work-repos` reconciler on the GitHub sync page. */
+   * `createWorkRepo` never adopts an existing repo (it answers `name_taken`),
+   * so the route back is the `work-repos` reconciler on the GitHub sync page.
+   * */
   reposReturn:
     "Recreate a group under the same name here and the class's GitHub sync offers to link that repository back to it.",
 } as const;

@@ -1,20 +1,23 @@
 import { zValidator } from "@hono/zod-validator";
-import { groups, labs } from "@roster/db";
+import { assignments, groups } from "@roster/db";
 import { and, eq, ne } from "drizzle-orm";
 import { z } from "zod";
 import { authedFactory } from "../factory";
-import { findLabInClass, resolveClassAsTeacher } from "../lib/class-scope";
+import {
+  findAssignmentInClass,
+  resolveClassAsTeacher,
+} from "../lib/class-scope";
 import { orgTemplateRepos } from "../lib/github/repo";
 import { deleteGroupsWithTeams } from "../lib/groups";
 
 /**
- * Lab input, shared by create and update. `deadline` arrives as an ISO string
- * (JSON) and is coerced to a Date. Group labs must carry a sane min/max;
- * individual labs carry none (individual means a group of one, min=max=1).
- * The optional template (starter code) comes as the id+fullName pair from the
- * templates endpoint, both or neither.
+ * Assignment input, shared by create and update. `deadline` arrives as an ISO
+ * string (JSON) and is coerced to a Date. Group assignments must carry a sane
+ * min/max; individual assignments carry none (individual means a group of one,
+ * min=max=1). The optional template (starter code) comes as the id+fullName
+ * pair from the templates endpoint, both or neither.
  */
-const labInput = z
+const assignmentInput = z
   .object({
     title: z.string().trim().min(1).max(200),
     deadline: z.coerce.date(),
@@ -34,7 +37,7 @@ const labInput = z
         : v.minMembers === undefined && v.maxMembers === undefined,
     {
       message:
-        "group labs need minMembers <= maxMembers; individual labs take neither",
+        "group assignments need minMembers <= maxMembers; individual assignments take neither",
     },
   )
   .refine(
@@ -44,9 +47,9 @@ const labInput = z
     { message: "template id and full name come together" },
   );
 
-/** Teacher-only: create a lab in the class (visible to students on create). */
-export const createLab = authedFactory.createHandlers(
-  zValidator("json", labInput),
+/** Teacher-only: create an assignment in the class (visible to students on create). */
+export const createAssignment = authedFactory.createHandlers(
+  zValidator("json", assignmentInput),
   async (c) => {
     const access = await resolveClassAsTeacher(c, c.req.param("id"));
     if (!access) return c.json({ error: "not_found" }, 404);
@@ -54,24 +57,30 @@ export const createLab = authedFactory.createHandlers(
 
     const input = c.req.valid("json");
     // The group slug, and so the work repo name, is
-    // slugify(lab.title)-slugify(group.name), so two labs sharing a title
-    // share a repo namespace. The unique index is the backstop; this is the
-    // clean answer.
+    // slugify(assignment.title)-slugify(group.name), so two assignments sharing
+    // a title share a repo namespace. The unique index is the backstop; this is
+    // the clean answer.
     const [clash] = await db
-      .select({ id: labs.id })
-      .from(labs)
-      .where(and(eq(labs.classId, cls.id), eq(labs.title, input.title)));
+      .select({ id: assignments.id })
+      .from(assignments)
+      .where(
+        and(
+          eq(assignments.classId, cls.id),
+          eq(assignments.title, input.title),
+        ),
+      );
     if (clash) return c.json({ error: "title_taken" }, 409);
 
-    // The one date rule: a set start must precede the deadline. Different labs
-    // may overlap freely; lab 2 can open while lab 1 runs.
+    // The one date rule: a set start must precede the deadline. Different
+    // assignments may overlap freely; assignment 2 can open while assignment 1
+    // runs.
     if (input.startAt && input.startAt >= input.deadline) {
       return c.json({ error: "start_after_deadline" }, 409);
     }
 
     const now = new Date();
-    const [lab] = await db
-      .insert(labs)
+    const [assignment] = await db
+      .insert(assignments)
       .values({
         id: crypto.randomUUID(),
         classId: cls.id,
@@ -88,39 +97,42 @@ export const createLab = authedFactory.createHandlers(
         updatedAt: now,
       })
       .returning();
-    if (!lab) {
-      throw new Error("lab insert returned no row");
+    if (!assignment) {
+      throw new Error("assignment insert returned no row");
     }
-    return c.json({ lab });
+    return c.json({ assignment });
   },
 );
 
-/** Teacher-only: update a lab (same input shape as create, since the edit
+/** Teacher-only: update an assignment (same input shape as create, since the edit
  *  dialog is the create dialog). Attached groups are untouched; a size change
- *  that strands one shows as "needs N more" on the lab page. */
-export const updateLab = authedFactory.createHandlers(
-  zValidator("json", labInput),
+ *  that strands one shows as "needs N more" on the assignment page. */
+export const updateAssignment = authedFactory.createHandlers(
+  zValidator("json", assignmentInput),
   async (c) => {
     const access = await resolveClassAsTeacher(c, c.req.param("id"));
     if (!access) return c.json({ error: "not_found" }, 404);
     const { db } = access;
 
-    const existing = await findLabInClass(access, c.req.param("labId"));
+    const existing = await findAssignmentInClass(
+      access,
+      c.req.param("assignmentId"),
+    );
     if (!existing) {
       return c.json({ error: "not_found" }, 404);
     }
 
     const input = c.req.valid("json");
-    // Same guard as createLab, excluding the lab being edited: keeping your
-    // own title must not read as a clash with yourself.
+    // Same guard as createAssignment, excluding the assignment being edited:
+    // keeping your own title must not read as a clash with yourself.
     const [clash] = await db
-      .select({ id: labs.id })
-      .from(labs)
+      .select({ id: assignments.id })
+      .from(assignments)
       .where(
         and(
-          eq(labs.classId, access.cls.id),
-          eq(labs.title, input.title),
-          ne(labs.id, existing.id),
+          eq(assignments.classId, access.cls.id),
+          eq(assignments.title, input.title),
+          ne(assignments.id, existing.id),
         ),
       );
     if (clash) return c.json({ error: "title_taken" }, 409);
@@ -129,8 +141,8 @@ export const updateLab = authedFactory.createHandlers(
       return c.json({ error: "start_after_deadline" }, 409);
     }
 
-    const [lab] = await db
-      .update(labs)
+    const [assignment] = await db
+      .update(assignments)
       .set({
         title: input.title,
         deadline: input.deadline,
@@ -144,46 +156,51 @@ export const updateLab = authedFactory.createHandlers(
         templateRepoFullName: input.templateRepoFullName ?? null,
         updatedAt: new Date(),
       })
-      .where(eq(labs.id, existing.id))
+      .where(eq(assignments.id, existing.id))
       .returning();
-    if (!lab) {
-      throw new Error("lab update returned no row");
+    if (!assignment) {
+      throw new Error("assignment update returned no row");
     }
-    return c.json({ lab });
+    return c.json({ assignment });
   },
 );
 
 /**
- * Teacher-only: delete the lab, every group in it, and their GitHub Teams.
+ * Teacher-only: delete the assignment, every group in it, and their GitHub
+ * Teams.
  *
  * Refuses nothing, like `deleteGroup`: the app has one deletion rule and it is
- * the typed name in the client's dialog (see `docs/classes-and-labs.md`). A lab
- * a teacher wants gone is usually one they mistyped minutes ago, and a rule
- * that refused forever once a student clicked "start" would leave the mistake
- * on the class page all semester.
+ * the typed name in the client's dialog (see
+ * `docs/classes-and-assignments.md`). An assignment a teacher wants gone is
+ * usually one they mistyped minutes ago, and a rule that refused forever once a
+ * student clicked "start" would leave the mistake on the class page all
+ * semester.
  *
- * `groups.labId` carries no cascade of its own, so the groups go through
+ * `groups.assignmentId` carries no cascade of its own, so the groups go through
  * `deleteGroupsWithTeams` (which owns the teams-before-rows ordering) and the
- * lab row goes last.
+ * assignment row goes last.
  */
-export const deleteLab = authedFactory.createHandlers(async (c) => {
+export const deleteAssignment = authedFactory.createHandlers(async (c) => {
   const access = await resolveClassAsTeacher(c, c.req.param("id"));
   if (!access) return c.json({ error: "not_found" }, 404);
 
-  const lab = await findLabInClass(access, c.req.param("labId"));
-  if (!lab) return c.json({ error: "not_found" }, 404);
+  const assignment = await findAssignmentInClass(
+    access,
+    c.req.param("assignmentId"),
+  );
+  if (!assignment) return c.json({ error: "not_found" }, 404);
 
   const rows = await access.db
     .select({ id: groups.id, ghTeamSlug: groups.ghTeamSlug })
     .from(groups)
-    .where(eq(groups.labId, lab.id));
+    .where(eq(groups.assignmentId, assignment.id));
 
   await deleteGroupsWithTeams(access, rows);
-  await access.db.delete(labs).where(eq(labs.id, lab.id));
+  await access.db.delete(assignments).where(eq(assignments.id, assignment.id));
   return c.json({ ok: true });
 });
 
-/** Teacher-only: the org's template repos, the lab dialog's starter-code
+/** Teacher-only: the org's template repos, the assignment dialog's starter-code
  *  choices (only repos flagged `is_template` on GitHub can /generate). */
 export const listTemplateRepos = authedFactory.createHandlers(async (c) => {
   const access = await resolveClassAsTeacher(c, c.req.param("id"));

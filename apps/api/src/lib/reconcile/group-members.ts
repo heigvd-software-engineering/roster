@@ -1,15 +1,15 @@
 // The live GitHub Team roster vs the `group_members` display cache.
 //
 // The team owns the roster: it grants push on the work repo. Every app mutation
-// re-derives the cache from GitHub right after the change, so drift appears only
-// when someone edits a team outside the app, or when the cache is new and still
-// empty, which is why this reconciler doubles as the backfill.
+// re-derives the cache from GitHub right after the change, so drift appears
+// only when someone edits a team outside the app, or when the cache is new and
+// still empty, which is why this reconciler doubles as the backfill.
 //
 // A team GitHub 404s is not reported here. That is `group-teams`' finding, and
 // it alone decides a vanished team's fate. A missing roster means "unknowable",
-// and a diff against nothing would propose emptying a group whose team we merely
-// failed to read.
-import { labs } from "@roster/db";
+// and a diff against nothing would propose emptying a group whose team we
+// merely failed to read.
+import { assignments } from "@roster/db";
 import { inArray } from "drizzle-orm";
 import type { OrgPerson } from "../github/org";
 import { teamMembers } from "../github/team";
@@ -28,18 +28,19 @@ const logins = (people: OrgPerson[]) => new Set(people.map((p) => p.login));
 const list = (names: Iterable<string>) =>
   [...names].map((l) => `@${l}`).join(", ");
 
-/** Lab titles, so a finding can name the group unambiguously. A group's `name`
- *  is unique only within its lab, and in an individual lab it is the student's
- *  own login, so `"Ovich" has a different roster` reads as nonsense alone. */
-async function labTitles(
+/** Assignment titles, so a finding can name the group unambiguously. A group's `name`
+ * is unique only within its assignment, and in an individual assignment it is
+ * the student's own login, so `"Ovich" has a different roster` reads as
+ * nonsense alone. */
+async function assignmentTitles(
   ctx: Parameters<Reconciler["audit"]>[0],
-  labIds: string[],
+  assignmentIds: string[],
 ): Promise<Map<string, string>> {
-  if (labIds.length === 0) return new Map();
+  if (assignmentIds.length === 0) return new Map();
   const rows = await ctx.db
-    .select({ id: labs.id, title: labs.title })
-    .from(labs)
-    .where(inArray(labs.id, labIds));
+    .select({ id: assignments.id, title: assignments.title })
+    .from(assignments)
+    .where(inArray(assignments.id, assignmentIds));
   return new Map(rows.map((r) => [r.id, r.title]));
 }
 
@@ -47,8 +48,8 @@ async function labTitles(
  * How the two differ, and what to call it.
  *
  * An audit compares two snapshots. It never witnessed a change, so it may not
- * name one: "@x joined on GitHub" asserts an event, an actor, and a direction we
- * did not observe, when the row could equally have been dropped on our side.
+ * name one: "@x joined on GitHub" asserts an event, an actor, and a direction
+ * we did not observe, when the row could equally have been dropped on our side.
  * Every string below states what is, and lets the teacher infer why.
  *
  * Two genuinely different situations:
@@ -116,9 +117,9 @@ export const groupMembersReconciler: Reconciler = {
         ctx.db,
         rows.map((g) => g.id),
       ),
-      labTitles(
+      assignmentTitles(
         ctx,
-        rows.map((g) => g.labId),
+        rows.map((g) => g.assignmentId),
       ),
     ]);
 
@@ -128,8 +129,10 @@ export const groupMembersReconciler: Reconciler = {
       if (team === undefined || team === null) return; // gone → group-teams' finding
       const changed = diff(team, cached.get(group.id) ?? []);
       if (!changed) return;
-      const lab = titles.get(group.labId);
-      const named = lab ? `"${group.name}" in ${lab}` : `"${group.name}"`;
+      const assignment = titles.get(group.assignmentId);
+      const named = assignment
+        ? `"${group.name}" in ${assignment}`
+        : `"${group.name}"`;
       findings.push({
         key: `group-members:sync:groupId=${group.id}`,
         reconciler: "group-members",

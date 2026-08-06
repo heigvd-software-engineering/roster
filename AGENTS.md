@@ -14,7 +14,7 @@ The one escape hatch: when a rule is genuinely unreasonable for a specific piece
 ## Rules
 
 1. **MUST NOT create a `packages/types` package or any shared hand-written type layer.** We use Drizzle inference end-to-end.
-2. **MUST derive DB-row types from Drizzle, never hand-write them.** Use `typeof <table>.$inferSelect` / `.$inferInsert`, or the named aliases exported from `@roster/db` (`Class`, `Lab`, `Group`, `User`, `Account`). Add a new alias there when a table is used widely.
+2. **MUST derive DB-row types from Drizzle, never hand-write them.** Use `typeof <table>.$inferSelect` / `.$inferInsert`, or the named aliases exported from `@roster/db` (`Class`, `Assignment`, `Group`, `User`, `Account`). Add a new alias there when a table is used widely.
 3. **API response shapes MUST stay inferred.** Build handler responses as object literals projected from Drizzle query rows; do not annotate them with a hand-written response interface. The frontend gets the shape for free through the Hono RPC client.
 4. **Frontend MUST consume API types via the RPC client**, not by re-declaring them. Derive from `InferResponseType<typeof api.…$get, 200>` (see `apps/www/app/lib/api.ts`). `apps/www` must not depend on `@roster/db` directly.
 5. **Hand-written `type`/`interface` is only allowed when it does NOT duplicate a DB row**: external-API shapes (GitHub), config/env bindings, control-flow result unions, and UI-only view-models / component props. When in doubt, ask whether Drizzle already knows the shape; if yes, derive it.

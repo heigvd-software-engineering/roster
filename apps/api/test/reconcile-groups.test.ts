@@ -1,5 +1,5 @@
 import { env } from "cloudflare:test";
-import { classes, getDb, groups, labs, user } from "@roster/db";
+import { assignments, classes, getDb, groups, user } from "@roster/db";
 import { eq } from "drizzle-orm";
 import { beforeEach, expect, test, vi } from "vitest";
 import type { AuthEnv } from "../src/lib/auth/config";
@@ -83,8 +83,12 @@ async function ctx() {
   });
 }
 
-async function seedLab(id: string, title: string, template: string | null) {
-  await db.insert(labs).values({
+async function seedAssignment(
+  id: string,
+  title: string,
+  template: string | null,
+) {
+  await db.insert(assignments).values({
     id,
     classId: "cls",
     title,
@@ -98,13 +102,13 @@ async function seedLab(id: string, title: string, template: string | null) {
 
 async function seedGroup(
   id: string,
-  labId: string,
+  assignmentId: string,
   slug: string,
   repo: string | null,
 ) {
   await db.insert(groups).values({
     id,
-    labId,
+    assignmentId,
     ghTeamId: Math.abs(
       id.split("").reduce((a, c) => a * 31 + c.charCodeAt(0), 7),
     ),
@@ -130,7 +134,7 @@ beforeEach(async () => {
   vi.mocked(grantTeamRepo).mockClear();
 
   await db.delete(groups);
-  await db.delete(labs);
+  await db.delete(assignments);
   await db.delete(classes);
   await db.delete(user);
   await db.insert(user).values({ id: "u1", name: "Prof", email: "prof@x.ch" });
@@ -144,18 +148,23 @@ beforeEach(async () => {
     createdAt: now,
     updatedAt: now,
   });
-  await seedLab("lab", "Lab One", null);
+  await seedAssignment("assignment", "Assignment One", null);
 });
 
 test("group-teams audit: a live team produces no finding", async () => {
-  state.liveTeams.add("lab-one-alpha");
-  await seedGroup("alpha", "lab", "lab-one-alpha", null);
+  state.liveTeams.add("assignment-one-alpha");
+  await seedGroup("alpha", "assignment", "assignment-one-alpha", null);
 
   expect(await groupTeams.audit(await ctx())).toEqual([]);
 });
 
 test("group-teams audit: a deleted team proposes a group delete", async () => {
-  await seedGroup("alpha", "lab", "lab-one-alpha", "acme/lab-one-alpha");
+  await seedGroup(
+    "alpha",
+    "assignment",
+    "assignment-one-alpha",
+    "acme/assignment-one-alpha",
+  );
 
   const [f, ...rest] = await groupTeams.audit(await ctx());
   expect(rest).toEqual([]);
@@ -166,14 +175,14 @@ test("group-teams audit: a deleted team proposes a group delete", async () => {
   });
   // The teacher must be told the repo survives; that is what makes the delete
   // safe.
-  expect(f?.detail).toContain("acme/lab-one-alpha");
+  expect(f?.detail).toContain("acme/assignment-one-alpha");
 });
 
 test("group-teams apply deletes ONLY the named group", async () => {
-  state.liveTeams.add("lab-one-beta");
-  await seedGroup("alpha", "lab", "lab-one-alpha", null);
-  await seedGroup("beta", "lab", "lab-one-beta", null);
-  await seedGroup("gamma", "lab", "lab-one-gamma", null);
+  state.liveTeams.add("assignment-one-beta");
+  await seedGroup("alpha", "assignment", "assignment-one-alpha", null);
+  await seedGroup("beta", "assignment", "assignment-one-beta", null);
+  await seedGroup("gamma", "assignment", "assignment-one-gamma", null);
 
   // alpha and gamma both have dead teams; the teacher checked only alpha.
   const results = await groupTeams.apply(await ctx(), [
@@ -187,7 +196,7 @@ test("group-teams apply deletes ONLY the named group", async () => {
 });
 
 test("group-teams apply: a row already gone is a success (replay)", async () => {
-  await seedGroup("alpha", "lab", "lab-one-alpha", null);
+  await seedGroup("alpha", "assignment", "assignment-one-alpha", null);
   const key = "group-teams:delete:groupId=alpha";
 
   expect(await groupTeams.apply(await ctx(), [key])).toEqual([
@@ -200,8 +209,8 @@ test("group-teams apply: a row already gone is a success (replay)", async () => 
 });
 
 test("work-repos audit: an unrecorded repo is proposed for adoption", async () => {
-  state.orgRepos.add("acme/lab-one-alpha");
-  await seedGroup("alpha", "lab", "lab-one-alpha", null);
+  state.orgRepos.add("acme/assignment-one-alpha");
+  await seedGroup("alpha", "assignment", "assignment-one-alpha", null);
 
   const [f] = await workRepos.audit(await ctx());
   expect(f).toMatchObject({
@@ -210,25 +219,34 @@ test("work-repos audit: an unrecorded repo is proposed for adoption", async () =
 });
 
 test("work-repos audit: a group that already has its repo is left alone", async () => {
-  state.orgRepos.add("acme/lab-one-alpha");
-  await seedGroup("alpha", "lab", "lab-one-alpha", "acme/lab-one-alpha");
+  state.orgRepos.add("acme/assignment-one-alpha");
+  await seedGroup(
+    "alpha",
+    "assignment",
+    "assignment-one-alpha",
+    "acme/assignment-one-alpha",
+  );
 
   expect(await workRepos.audit(await ctx())).toEqual([]);
 });
 
-test("work-repos audit: a lab's own TEMPLATE is never adopted", async () => {
+test("work-repos audit: an assignment's own TEMPLATE is never adopted", async () => {
   // Adoption ends in grantTeamRepo, so adopting the template would hand
   // students push on the starter code.
-  await seedLab("lab-t", "Lab Two", "acme/lab-two-starter");
-  state.orgRepos.add("acme/lab-two-starter");
-  await seedGroup("starter", "lab-t", "lab-two-starter", null);
+  await seedAssignment(
+    "assignment-t",
+    "Assignment Two",
+    "acme/assignment-two-starter",
+  );
+  state.orgRepos.add("acme/assignment-two-starter");
+  await seedGroup("starter", "assignment-t", "assignment-two-starter", null);
 
   expect(await workRepos.audit(await ctx())).toEqual([]);
 });
 
 test("work-repos apply links the repo and re-grants the team", async () => {
-  state.orgRepos.add("acme/lab-one-alpha");
-  await seedGroup("alpha", "lab", "lab-one-alpha", null);
+  state.orgRepos.add("acme/assignment-one-alpha");
+  await seedGroup("alpha", "assignment", "assignment-one-alpha", null);
 
   const results = await workRepos.apply(await ctx(), [
     "work-repos:adopt:groupId=alpha",
@@ -241,18 +259,23 @@ test("work-repos apply links the repo and re-grants the team", async () => {
     expect.anything(),
     200,
     "acme",
-    "lab-one-alpha",
-    "acme/lab-one-alpha",
+    "assignment-one-alpha",
+    "acme/assignment-one-alpha",
   );
   const [row] = await db.select().from(groups);
   expect(row).toMatchObject({
     ghRepoId: 777,
-    ghRepoFullName: "acme/lab-one-alpha",
+    ghRepoFullName: "acme/assignment-one-alpha",
   });
 });
 
 test("work-repos apply: a group linked between audit and apply is a no-op success", async () => {
-  await seedGroup("alpha", "lab", "lab-one-alpha", "acme/lab-one-alpha");
+  await seedGroup(
+    "alpha",
+    "assignment",
+    "assignment-one-alpha",
+    "acme/assignment-one-alpha",
+  );
 
   const results = await workRepos.apply(await ctx(), [
     "work-repos:adopt:groupId=alpha",
@@ -265,7 +288,7 @@ test("work-repos apply: a group linked between audit and apply is a no-op succes
 });
 
 test("work-repos apply: a repo deleted since the audit fails as one op, writing nothing", async () => {
-  await seedGroup("alpha", "lab", "lab-one-alpha", null);
+  await seedGroup("alpha", "assignment", "assignment-one-alpha", null);
   state.getOrgRepoThrows = true;
 
   const [result] = await workRepos.apply(await ctx(), [

@@ -4,11 +4,11 @@ import { Hono } from "hono";
 import { beforeEach, expect, test, vi } from "vitest";
 
 /**
- * /api/me's `githubState` contract (unavailability fix, 2026-07-09):
- * "linked" = the profile was read with a working token; "unlinked" = no token,
- * or GitHub answered 401, the one proven-dead re-link signal; "unknown" = GitHub
- * could not answer. /api/me is the SPA's boot fetch, so an outage must still be
- * a 200 carrying "unknown", never "unlinked".
+ * /api/me's `githubState` contract (unavailability fix, 2026-07-09): "linked" =
+ * the profile was read with a working token; "unlinked" = no token, or GitHub
+ * answered 401, the one proven-dead re-link signal; "unknown" = GitHub could
+ * not answer. /api/me is the SPA's boot fetch, so an outage must still be a 200
+ * carrying "unknown", never "unlinked".
  */
 
 const state = vi.hoisted(() => ({

@@ -1,21 +1,21 @@
 // A group row whose backing GitHub Team no longer exists.
 //
 // GitHub is the authority for what exists. As far as GitHub is concerned the
-// team is the group: it holds the roster, and the work-repo grant is made to it.
-// Delete the team and the group is gone. The students have lost push, the roster
-// is unrecoverable because it only ever lived in the team, and no app-side data
-// brings either back. So we follow GitHub and drop the row rather than resurrect
-// an empty team the teacher never asked for.
+// team is the group: it holds the roster, and the work-repo grant is made to
+// it. Delete the team and the group is gone. The students have lost push, the
+// roster is unrecoverable because it only ever lived in the team, and no
+// app-side data brings either back. So we follow GitHub and drop the row rather
+// than resurrect an empty team the teacher never asked for.
 //
 // The work repo stays. Nothing in this codebase ever deletes a GitHub
 // repository, because student work outlives the group that made it. The repo
 // becomes an orphan, and the way back is the `work-repos` reconciler, not the
-// create path: a group recreated with the same lab title and group name
+// create path: a group recreated with the same assignment title and group name
 // computes the same slug, and the next audit offers to adopt the repo waiting
 // under it. `createWorkRepo` would answer `name_taken` — it never adopts.
 //
 // Teams that exist on GitHub with no group row are not our business. We cannot
-// know which lab they belong to, and an org has teams roster never made.
+// know which assignment they belong to, and an org has teams roster never made.
 import { groups } from "@roster/db";
 import { eq } from "drizzle-orm";
 import { teamMembers } from "../github/team";
@@ -54,9 +54,9 @@ export const groupTeams: Reconciler = {
         detail: group.ghRepoFullName
           ? `Its team was deleted, so its members and their access to ${group.ghRepoFullName} are gone. The repository is kept — recreating a group with the same name re-attaches it.`
           : "Its team was deleted, so the group has no members and cannot be worked in.",
-        fix: "Remove the group from this lab",
+        fix: "Remove the group from this assignment",
         change: {
-          from: "In this lab",
+          from: "In this assignment",
           to: group.ghRepoFullName ? "Removed (repository kept)" : "Removed",
         },
       });

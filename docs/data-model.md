@@ -25,20 +25,20 @@ See [identity.md](./identity.md).
 | Table | Holds | Points at |
 |---|---|---|
 | `classes` | A connected class: the anchor row for one GitHub org App installation. `orgId` unique, `installationId` refreshed on reinstall, `joinToken` unique, `status` `active`/`archived`, and a `login`/`name`/`avatarUrl` identity cache so the student class list costs zero GitHub calls. | `connectedByUserId` → `user.id` |
-| `labs` | An assignment: `title`, `deadline`, optional `startAt` gate, `groupMode` (`individual`/`group`) with `minMembers`/`maxMembers`, and the optional template repo (`templateRepoId`, `templateRepoFullName`) that work repos are generated from. | `classId` → `classes.id`, `createdByUserId` → `user.id` |
-| `groups` | A student group owning exactly one lab, backed by one GitHub Team, plus that group's work repo (`ghRepoId`, `ghRepoFullName`, both null until the repo exists). | `labId` → `labs.id`, `creatorUserId` → `user.id` |
+| `assignments` | An assignment: `title`, `deadline`, optional `startAt` gate, `groupMode` (`individual`/`group`) with `minMembers`/`maxMembers`, and the optional template repo (`templateRepoId`, `templateRepoFullName`) that work repos are generated from. | `classId` → `classes.id`, `createdByUserId` → `user.id` |
+| `groups` | A student group owning exactly one assignment, backed by one GitHub Team, plus that group's work repo (`ghRepoId`, `ghRepoFullName`, both null until the repo exists). | `assignmentId` → `assignments.id`, `creatorUserId` → `user.id` |
 | `group_members` | Display cache of a team's roster: `githubId`, `login`, `avatarUrl`. | `groupId` → `groups.id`, `ON DELETE CASCADE` |
 | `class_members` | Display cache of org membership: `state` (`pending`, `pending_teacher`, `active`, `teacher`), `githubId`, `invitationId`, `login`, `avatarUrl`. | `classId` → `classes.id` |
 | `class_creators` | The class-creation grant. The row's presence is the grant, so no boolean can drift. | `userId` → `user.id`, primary key |
 
-The shape is a chain: a class has labs, a lab has groups, a group has cached
-members. A group reaches its class through `lab.classId` and stores no `classId`
+The shape is a chain: a class has assignments, an assignment has groups, a group has cached
+members. A group reaches its class through `assignment.classId` and stores no `classId`
 of its own, so there is nothing to keep in sync. Only the last link cascades:
-`groups.labId` carries no `ON DELETE` clause, so `deleteLab` deletes the groups
+`groups.assignmentId` carries no `ON DELETE` clause, so `deleteAssignment` deletes the groups
 itself, in order, after deleting their GitHub Teams. `class_creators` says who may
 create a class, never who may grant that; super admins are config, not a table.
 `index.ts` exports `getDb(d1)` and the row types `User`, `Account`, `Class`,
-`Lab`, `Group`, `ClassCreator`.
+`Assignment`, `Group`, `ClassCreator`.
 
 ## Ids are keys, names are display
 
@@ -50,8 +50,8 @@ transfer changes a repo's full name. Login, name and avatar are cache: correct
 enough to render, never load-bearing.
 
 Groups carry three identifiers on purpose: `name` ("Team Alpha") is the display
-label, unique per `(labId, name)` and never sent to GitHub; `slug` is
-`slugify(lab.title)-slugify(name)`, org-unique by construction, and names both
+label, unique per `(assignmentId, name)` and never sent to GitHub; `slug` is
+`slugify(assignment.title)-slugify(name)`, org-unique by construction, and names both
 the team and the work repo; `ghTeamSlug` is what GitHub returned, the truth for
 API paths, equal to `slug` unless GitHub deduped.
 
@@ -92,11 +92,11 @@ that made it.
 |---|---|
 | `classes.org_id` | Two class rows anchored to the same GitHub org. |
 | `classes.join_token` | Two classes reachable through one join link. |
-| `labs (class_id, title)` | Two labs in one class sharing a repo namespace. Group slugs derive from the lab title, so identical titles make two labs' groups compute the same repo name in the same org, and the work-repo reconciler could adopt one lab's student work into another lab's group. |
+| `assignments (class_id, title)` | Two assignments in one class sharing a repo namespace. Group slugs derive from the assignment title, so identical titles make two assignments' groups compute the same repo name in the same org, and the work-repo reconciler could adopt one assignment's student work into another assignment's group. |
 | `groups.gh_team_id` | Two group rows claiming one GitHub Team. |
 | `groups.gh_repo_id` | Two groups claiming one work repo. |
-| `groups (lab_id, name)` | Duplicate friendly names inside a lab, caught with a readable error and no GitHub round-trip. Names still reuse freely across labs. |
-| `groups (lab_id, slug)` | Two groups in a lab computing the same team and repo name. |
+| `groups (assignment_id, name)` | Duplicate friendly names inside an assignment, caught with a readable error and no GitHub round-trip. Names still reuse freely across assignments. |
+| `groups (assignment_id, slug)` | Two groups in an assignment computing the same team and repo name. |
 | `group_members (group_id, github_id)` | A person listed twice on one roster. |
 | `class_members (class_id, github_id)` | A person enrolled twice in one class. |
 | `class_members (class_id, invitation_id)` | One open invitation tracked by two rows. |
@@ -115,19 +115,19 @@ cannot serve it.
 
 ## Why there is no participations table
 
-An earlier model had reusable class-scoped groups joined to labs through a
-`student_lab_repos` pairing table, one row per group-lab pair holding that pair's
+An earlier model had reusable class-scoped groups joined to assignments through a
+`student_lab_repos` pairing table, one row per group-assignment pair holding that pair's
 repo. The many-to-many relation it expressed was the bug: one team's roster was
-atomic across every lab it touched, so a student could not have different
-groupmates on different labs without abandoning a group elsewhere.
+atomic across every assignment it touched, so a student could not have different
+groupmates on different assignments without abandoning a group elsewhere.
 
-Groups are now per-lab, each owning its own team, which leaves the pairing table
+Groups are now per-assignment, each owning its own team, which leaves the pairing table
 1:1 with the group and therefore pure overhead. The repo columns moved onto
-`groups` and migration 0010 dropped the table. With one lab per group, the group
-IS the participation: it holds the roster (in the team), the repo, and the lab
-link. "At most one group per student per lab, no restriction across labs" becomes
-a lookup inside one lab's groups instead of a cross-lab collection walk. Reusing
-a group means copying its roster into a fresh group for this lab, and drift
+`groups` and migration 0010 dropped the table. With one assignment per group, the group
+IS the participation: it holds the roster (in the team), the repo, and the assignment
+link. "At most one group per student per assignment, no restriction across assignments" becomes
+a lookup inside one assignment's groups instead of a cross-assignment collection walk. Reusing
+a group means copying its roster into a fresh group for this assignment, and drift
 between the copies is the point.
 
 ## Migrations, and what this package is not
@@ -152,5 +152,5 @@ without a constant default, so the SQLite column is nullable and existing rows
 were backfilled with random hex. Every insert path must therefore mint a token
 itself, since the database will not catch a missing one.
 
-Related: [classes-and-labs.md](./classes-and-labs.md) for the flows that write
+Related: [classes-and-assignments.md](./classes-and-assignments.md) for the flows that write
 these tables, [nomenclature.md](./nomenclature.md) for the vocabulary.

@@ -23,9 +23,9 @@ const EDU_ID_SIGN_IN = "/sign-in/oauth2";
  *
  * Written as an allowlist rather than "refuse GitHub", because what is
  * protected is the claim "sign-in is edu-ID only", not one provider's name.
- * Better Auth ships `/sign-in/email`, `/sign-in/magic-link`, `/sign-in/username`
- * and more behind plugins; a denylist would let any of them through the day
- * someone enables one, silently, and no test could notice.
+ * Better Auth ships `/sign-in/email`, `/sign-in/magic-link`,
+ * `/sign-in/username` and more behind plugins; a denylist would let any of them
+ * through the day someone enables one, silently, and no test could notice.
  *
  * Linking is unaffected: `linkSocial` posts to `/link-social` (session
  * required) and its callback returns from the `link` branch before the sign-in

@@ -29,7 +29,7 @@ const CAUSES: { key: string; title: string; detail: string }[] = [
     key: "not_your_installation",
     title: "Installed with a different GitHub account",
     detail:
-      "The installation was made by a GitHub account other than the one linked to labs. Redo it while signed in to GitHub as the account you linked.",
+      "The installation was made by a GitHub account other than the one linked to assignments. Redo it while signed in to GitHub as the account you linked.",
   },
   {
     key: "github_not_linked",

@@ -3,10 +3,10 @@ import { account, getDb, user } from "@roster/db";
 import { beforeEach, expect, test, vi } from "vitest";
 import type { AuthEnv } from "../src/lib/auth/config";
 
-// What every session read does. accepted-invitation-heal.test.ts covers the heal
-// itself; what matters here is the wiring: reading a session triggers it, and
-// the onboarding flag is right. Without this, deleting the heal call would leave
-// the whole suite green.
+// What every session read does. accepted-invitation-heal.test.ts covers the
+// heal itself; what matters here is the wiring: reading a session triggers it,
+// and the onboarding flag is right. Without this, deleting the heal call would
+// leave the whole suite green.
 
 const state = vi.hoisted(() => ({ healedFor: [] as string[] }));
 

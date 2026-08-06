@@ -7,9 +7,9 @@ The **schema layer**, and nothing more.
 | File | Ownership | Contents |
 |---|---|---|
 | `src/auth-schema.ts` | **CLI-generated**, never edit | Better Auth tables (`user`, `session`, `account`, `verification`). Regenerate: `pnpm --filter @roster/api run auth:schema` |
-| `src/app-schema.ts` | hand-owned | App-domain tables (`classes`, `labs`, `groups`, `group_members`, `class_members`) |
+| `src/app-schema.ts` | hand-owned | App-domain tables (`classes`, `assignments`, `groups`, `group_members`, `class_members`) |
 | `src/schema.ts` | hand-owned | Barrel combining both (what `getDb` registers and drizzle-kit reads) |
-| `src/index.ts` | hand-owned | `getDb(d1)` + inferred entity types (`User`, `Account`, `Class`, `Lab`, `Group`) |
+| `src/index.ts` | hand-owned | `getDb(d1)` + inferred entity types (`User`, `Account`, `Class`, `Assignment`, `Group`) |
 | `migrations/` | drizzle-kit generated (hand-adjusted when SQLite limits require it) | Applied via `wrangler d1 migrations apply roster-db --local` (or `--remote`) |
 
 ## What does NOT live here

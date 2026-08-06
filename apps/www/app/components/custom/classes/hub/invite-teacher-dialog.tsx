@@ -33,7 +33,7 @@ export function InviteTeacherDialog({
   /** The class's GitHub org: links the caller to the invitation they must
    *  cancel THERE, since only GitHub can withdraw one. */
   orgLogin: string;
-  /** The OWNER of the classes data revalidates, as in LabDialog. */
+  /** The OWNER of the classes data revalidates, as in AssignmentDialog. */
   onDone: () => unknown;
 }) {
   const [open, setOpen] = useState(false);

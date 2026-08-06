@@ -25,11 +25,11 @@ export const GROUP_WALL =
 
 /**
  * Which open seats a group's card shows, as required-to-form flags. A capped
- * lab renders the group at its full capacity: filled members plus one slot
- * per remaining seat, the first `min - size` of them required. An uncapped
- * lab has no capacity to draw, so it renders the required seats while
- * forming, then a single optional slot, since the add affordance must
- * survive completion. A group OVER the cap renders no open seats.
+ * assignment renders the group at its full capacity: filled members plus one
+ * slot per remaining seat, the first `min - size` of them required. An uncapped
+ * assignment has no capacity to draw, so it renders the required seats while
+ * forming, then a single optional slot, since the add affordance must survive
+ * completion. A group OVER the cap renders no open seats.
  */
 function openSeatsFor(size: number, min: number, max: number): boolean[] {
   const required = Math.max(0, min - size);
@@ -40,10 +40,10 @@ function openSeatsFor(size: number, min: number, max: number): boolean[] {
 }
 
 /** The count beside the name: destructive whenever the SIZE is the problem
- *  (short of the min, past the max), muted otherwise. An uncapped lab has no
- *  denominator to show, since `max` is Infinity and renders literally. The
- *  needs-N-more / over-max wording lives in the seats and hints; here it's
- *  the numbers alone. */
+ * (short of the min, past the max), muted otherwise. An uncapped assignment has
+ * no denominator to show, since `max` is Infinity and renders literally. The
+ * needs-N-more / over-max wording lives in the seats and hints; here it's the
+ * numbers alone. */
 function SizeCount({
   size,
   min,

@@ -4,12 +4,12 @@
 // so it must run once, not once per reconciler. A reconciler that never asks
 // for `orgRepos()` never pays for it.
 import {
+  assignments,
   type Class,
   classMembers,
   type Group,
   type getDb,
   groups,
-  labs,
 } from "@roster/db";
 import { eq } from "drizzle-orm";
 import type { AuthEnv } from "../auth/config";
@@ -26,14 +26,15 @@ function once<T>(fn: () => Promise<T>): () => Promise<T> {
   return () => (p ??= fn());
 }
 
-/** Every group of every lab of this class. Groups belong to a lab and labs to a
- *  class; there is no groups.classId column, so this joins through labs. */
+/** Every group of every assignment of this class. Groups belong to an assignment and assignments to a
+ * class; there is no groups.classId column, so this joins through assignments.
+ * */
 async function groupsOfClass(db: Db, classId: string): Promise<Group[]> {
   const rows = await db
     .select({ group: groups })
     .from(groups)
-    .innerJoin(labs, eq(groups.labId, labs.id))
-    .where(eq(labs.classId, classId));
+    .innerJoin(assignments, eq(groups.assignmentId, assignments.id))
+    .where(eq(assignments.classId, classId));
   return rows.map((r) => r.group);
 }
 

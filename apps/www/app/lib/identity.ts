@@ -32,10 +32,10 @@ export type PersonIdentity = {
 /**
  * The rule for showing a person: the avatar belongs to the identity that names
  * them. A person named by their edu-ID (SWITCH) wears initials, since edu-ID
- * carries no picture; one named by their GitHub login wears its photo. The second
- * line states the link status in words, so a teacher scanning the roster sees
- * exactly who still has to link (and the login is never printed twice, nor a
- * missing login leaked as "@unknown").
+ * carries no picture; one named by their GitHub login wears its photo. The
+ * second line states the link status in words, so a teacher scanning the roster
+ * sees exactly who still has to link (and the login is never printed twice, nor
+ * a missing login leaked as "@unknown").
  */
 export function personIdentity(
   person: { login: string | null; avatarUrl: string | null },

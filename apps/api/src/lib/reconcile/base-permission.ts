@@ -4,7 +4,7 @@
 //     org, before any team grant. Must be "none", or every student reads other
 //     groups' work repos and the solutions template.
 //   - member repository creation: whether a plain Member can create repos. Must
-//     be off. Work repos are born through labs, and a repo a student creates
+//     be off. Work repos are born through assignments, and a repo a student creates
 //     directly on GitHub sits outside every gate.
 //
 // `confirmClass` enforces and verifies both once, at class creation; its only

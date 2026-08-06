@@ -58,10 +58,12 @@ export function ClassConfirmPage() {
           <Text variant="subtitle" className="max-w-md">
             roster will apply two settings to this organization: the base
             repository permission becomes <strong>No access</strong>, so
-            students only see repos they're granted — their own lab repos, never
-            other students' work or the organization's private repos — and{" "}
+            students only see repos they're granted — their own assignment
+            repos, never other students' work or the organization's private
+            repos — and{" "}
             <strong>member repository creation is turned off</strong>, so every
-            student repository is born through labs, never directly on GitHub.
+            student repository is born through assignments, never directly on
+            GitHub.
           </Text>
           <Button
             size="lg"

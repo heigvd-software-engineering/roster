@@ -18,7 +18,7 @@ const profUser = {
   email: "b.prof@heig-vd.ch",
 };
 
-const lab = {
+const assignment = {
   id: "l1",
   classId: "c1",
   title: "Lab 1 — TCP sockets",
@@ -50,7 +50,7 @@ function renderCard() {
         pending={[{ id: 900, login: "bob", avatarUrl: null }]}
         pendingTeachers={[{ id: 901, login: "carol", avatarUrl: null }]}
         users={[{ githubId: "1", user: profUser }]}
-        labs={[lab]}
+        assignments={[assignment]}
         onChanged={() => {}}
       />
     </MemoryRouter>,
@@ -87,9 +87,9 @@ describe("ClassCard student invitation link", () => {
     renderCard();
     fireEvent.click(screen.getByRole("button", { name: "Invite students" }));
     // The one thing a teacher gets wrong: thinking they invite students to a
-    // lab. The popover has to say the link is per class.
+    // assignment. The popover has to say the link is per class.
     expect(
-      screen.getByText(/One link per class, not per lab/),
+      screen.getByText(/One link per class, not per assignment/),
     ).toBeInTheDocument();
   });
 
@@ -113,21 +113,23 @@ describe("ClassCard student invitation link", () => {
   });
 });
 
-describe("ClassCard labs (F6)", () => {
-  it("renders real lab rows with their mode", () => {
+describe("ClassCard assignments (F6)", () => {
+  it("renders real assignment rows with their mode", () => {
     renderCard();
     expect(screen.getByText("Lab 1 — TCP sockets")).toBeInTheDocument();
     expect(screen.getByText("group 2–3")).toBeInTheDocument();
     // The Progress column was dropped (user-decided 2026-07-07): standing
-    // lives on the lab pages, the hub stays lean.
+    // lives on the assignment pages, the hub stays lean.
     expect(screen.queryByText("Progress")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "New lab" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "New assignment" }),
+    ).toBeInTheDocument();
   });
 
-  it("shows the lab's date range and its status word", () => {
+  it("shows the assignment's date range and its status word", () => {
     renderCard();
     // The timeline's meta line (start → deadline) and the one status slot.
-    const range = `${formatDay(new Date(lab.startAt))} → ${formatDay(new Date(lab.deadline))}`;
+    const range = `${formatDay(new Date(assignment.startAt))} → ${formatDay(new Date(assignment.deadline))}`;
     expect(screen.getByText(new RegExp(range))).toBeInTheDocument();
     expect(screen.getByText("Not started")).toBeInTheDocument();
   });

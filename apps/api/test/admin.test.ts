@@ -4,10 +4,10 @@ import { Hono } from "hono";
 import { beforeEach, expect, test, vi } from "vitest";
 
 /**
- * /api/admin, the super-admin zone. Config decides the guard: SUPER_ADMIN_EMAILS
- * matched against the session email. The grant it manages is the
- * `class_creators` row, the one condition class creation checks, and it works
- * the same for admins and everyone else.
+ * /api/admin, the super-admin zone. Config decides the guard:
+ * SUPER_ADMIN_EMAILS matched against the session email. The grant it manages is
+ * the `class_creators` row, the one condition class creation checks, and it
+ * works the same for admins and everyone else.
  */
 
 const state = vi.hoisted(() => ({

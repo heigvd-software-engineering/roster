@@ -4,8 +4,8 @@ import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { beforeEach, expect, test, vi } from "vitest";
 
-// POST /classes/:id/join-token retires the class's invitation link. The token is
-// the enrollment gate (handlers/join.ts), so a leaked link is standing
+// POST /classes/:id/join-token retires the class's invitation link. The token
+// is the enrollment gate (handlers/join.ts), so a leaked link is standing
 // permission to be invited into the org, and until this endpoint existed there
 // was no way to take that back.
 

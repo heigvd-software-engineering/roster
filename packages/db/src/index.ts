@@ -11,7 +11,7 @@ export * from "./schema";
 export type User = typeof schema.user.$inferSelect;
 export type Account = typeof schema.account.$inferSelect;
 export type Class = typeof schema.classes.$inferSelect;
-export type Lab = typeof schema.labs.$inferSelect;
+export type Assignment = typeof schema.assignments.$inferSelect;
 export type Group = typeof schema.groups.$inferSelect;
 export type ClassCreator = typeof schema.classCreators.$inferSelect;
 

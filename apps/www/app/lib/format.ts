@@ -20,11 +20,15 @@ const THIS_YEAR = new Intl.DateTimeFormat("en-GB", {
   minute: "2-digit",
 });
 
-/** Whether the lab is open to students. Mirrors the API's `labStarted`
+/** Whether the assignment is open to students. Mirrors the API's `assignmentStarted`
  *  (apps/api/src/lib/groups.ts); the server verdict is authoritative, this
  *  only drives rendering. No start date = open since creation. */
-export function labStarted(lab: { startAt?: string | null }): boolean {
-  return !lab.startAt || new Date(lab.startAt).getTime() <= Date.now();
+export function assignmentStarted(assignment: {
+  startAt?: string | null;
+}): boolean {
+  return (
+    !assignment.startAt || new Date(assignment.startAt).getTime() <= Date.now()
+  );
 }
 
 const DAY_MONTH = new Intl.DateTimeFormat("en-GB", {
@@ -53,15 +57,15 @@ export function count(
   return `${n} ${n === 1 ? singular : plural}`;
 }
 
-/** One spelling of a lab's mode: "individual" or "group 2–3". */
-export function labModeLabel(lab: {
+/** One spelling of an assignment's mode: "individual" or "group 2–3". */
+export function assignmentModeLabel(assignment: {
   groupMode: "individual" | "group";
   minMembers: number | null;
   maxMembers: number | null;
 }): string {
-  return lab.groupMode === "individual"
+  return assignment.groupMode === "individual"
     ? "individual"
-    : `group ${lab.minMembers}–${lab.maxMembers}`;
+    : `group ${assignment.minMembers}–${assignment.maxMembers}`;
 }
 
 /** A SWITCH user's display name: real first + last when present (the

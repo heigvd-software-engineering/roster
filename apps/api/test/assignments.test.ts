@@ -1,11 +1,11 @@
 import { env } from "cloudflare:test";
 import {
   account,
+  assignments,
   classes,
   getDb,
   groupMembers,
   groups,
-  labs,
   user,
 } from "@roster/db";
 import { Hono } from "hono";
@@ -55,15 +55,15 @@ vi.mock("../src/lib/github/team", () => ({
   },
 }));
 
-const { labsRoutes } = await import("../src/routes/labs");
+const { assignmentsRoutes } = await import("../src/routes/assignments");
 
-const app = new Hono().route("/api", labsRoutes);
+const app = new Hono().route("/api", assignmentsRoutes);
 const db = getDb(env.DB);
 const now = new Date(0);
 
 function post(body: unknown, classId = "c1") {
   return app.request(
-    `/api/classes/${classId}/labs`,
+    `/api/classes/${classId}/assignments`,
     {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -73,7 +73,7 @@ function post(body: unknown, classId = "c1") {
   );
 }
 
-const validLab = {
+const validAssignment = {
   title: "Lab 1 — TCP sockets",
   deadline: "2026-08-01T23:59:00.000Z",
   groupMode: "individual",
@@ -86,7 +86,7 @@ beforeEach(async () => {
   state.teamDeleteStatus = null;
   await db.delete(groupMembers);
   await db.delete(groups);
-  await db.delete(labs);
+  await db.delete(assignments);
   await db.delete(classes);
   await db.delete(account);
   await db.delete(user);
@@ -111,11 +111,11 @@ beforeEach(async () => {
   });
 });
 
-test("creates an individual lab and returns the row", async () => {
-  const res = await post(validLab);
+test("creates an individual assignment and returns the row", async () => {
+  const res = await post(validAssignment);
   expect(res.status).toBe(200);
-  const body = (await res.json()) as { lab: Record<string, unknown> };
-  expect(body.lab).toMatchObject({
+  const body = (await res.json()) as { assignment: Record<string, unknown> };
+  expect(body.assignment).toMatchObject({
     classId: "c1",
     title: "Lab 1 — TCP sockets",
     groupMode: "individual",
@@ -124,21 +124,21 @@ test("creates an individual lab and returns the row", async () => {
     createdByUserId: "u1",
   });
 
-  const rows = await db.select().from(labs);
+  const rows = await db.select().from(assignments);
   expect(rows).toHaveLength(1);
   expect(rows[0]?.deadline).toEqual(new Date("2026-08-01T23:59:00.000Z"));
 });
 
-test("creates a group lab with min/max members", async () => {
+test("creates a group assignment with min/max members", async () => {
   const res = await post({
-    ...validLab,
+    ...validAssignment,
     groupMode: "group",
     minMembers: 2,
     maxMembers: 3,
   });
   expect(res.status).toBe(200);
-  const body = (await res.json()) as { lab: Record<string, unknown> };
-  expect(body.lab).toMatchObject({
+  const body = (await res.json()) as { assignment: Record<string, unknown> };
+  expect(body.assignment).toMatchObject({
     groupMode: "group",
     minMembers: 2,
     maxMembers: 3,
@@ -147,64 +147,73 @@ test("creates a group lab with min/max members", async () => {
 
 test("rejects invalid inputs with 400 and writes nothing", async () => {
   const cases: unknown[] = [
-    { ...validLab, title: "  " },
-    { ...validLab, deadline: "not-a-date" },
-    { ...validLab, groupMode: "group" }, // group without min/max
-    { ...validLab, groupMode: "group", minMembers: 3, maxMembers: 2 },
-    { ...validLab, minMembers: 2 }, // individual with members
+    { ...validAssignment, title: "  " },
+    { ...validAssignment, deadline: "not-a-date" },
+    { ...validAssignment, groupMode: "group" }, // group without min/max
+    { ...validAssignment, groupMode: "group", minMembers: 3, maxMembers: 2 },
+    { ...validAssignment, minMembers: 2 }, // individual with members
   ];
   for (const body of cases) {
     const res = await post(body);
     expect(res.status).toBe(400);
   }
-  expect(await db.select().from(labs)).toHaveLength(0);
+  expect(await db.select().from(assignments)).toHaveLength(0);
 });
 
 test("unknown class returns 404", async () => {
-  const res = await post(validLab, "nope");
+  const res = await post(validAssignment, "nope");
   expect(res.status).toBe(404);
 });
 
 test("non-admin gets 404 and writes nothing", async () => {
   state.admins = [{ id: 999 }];
-  const res = await post(validLab);
+  const res = await post(validAssignment);
   expect(res.status).toBe(404);
-  expect(await db.select().from(labs)).toHaveLength(0);
+  expect(await db.select().from(assignments)).toHaveLength(0);
 });
 
 test("unauthenticated gets 401", async () => {
   state.session = null;
-  const res = await post(validLab);
+  const res = await post(validAssignment);
   expect(res.status).toBe(401);
 });
 
 // --- the start gate's data model (spec 2026-07-23) ---
 
 test("create persists an explicit start date", async () => {
-  const res = await post({ ...validLab, startAt: "2026-07-01T08:00:00.000Z" });
+  const res = await post({
+    ...validAssignment,
+    startAt: "2026-07-01T08:00:00.000Z",
+  });
   expect(res.status).toBe(200);
-  const [row] = await db.select().from(labs);
+  const [row] = await db.select().from(assignments);
   expect(row?.startAt?.toISOString()).toBe("2026-07-01T08:00:00.000Z");
 });
 
 test("create without a start leaves it null (starts immediately)", async () => {
-  const res = await post(validLab);
+  const res = await post(validAssignment);
   expect(res.status).toBe(200);
-  const [row] = await db.select().from(labs);
+  const [row] = await db.select().from(assignments);
   expect(row?.startAt).toBeNull();
 });
 
 test("a start at or after the deadline is refused", async () => {
-  const res = await post({ ...validLab, startAt: validLab.deadline });
+  const res = await post({
+    ...validAssignment,
+    startAt: validAssignment.deadline,
+  });
   expect(res.status).toBe(409);
   expect(await res.json()).toEqual({ error: "start_after_deadline" });
 });
 
-test("two labs with overlapping start–deadline ranges both succeed", async () => {
-  const a = await post({ ...validLab, startAt: "2026-07-01T08:00:00.000Z" });
+test("two assignments with overlapping start–deadline ranges both succeed", async () => {
+  const a = await post({
+    ...validAssignment,
+    startAt: "2026-07-01T08:00:00.000Z",
+  });
   const b = await post({
-    ...validLab,
-    title: "Lab 2 — overlapping",
+    ...validAssignment,
+    title: "Assignment 2 — overlapping",
     startAt: "2026-07-15T08:00:00.000Z",
   });
   expect(a.status).toBe(200);
@@ -212,11 +221,11 @@ test("two labs with overlapping start–deadline ranges both succeed", async () 
 });
 
 test("update sets and then clears the start date", async () => {
-  await post(validLab);
-  const [created] = await db.select().from(labs);
+  await post(validAssignment);
+  const [created] = await db.select().from(assignments);
   const put = (body: unknown) =>
     app.request(
-      `/api/classes/c1/labs/${created?.id}`,
+      `/api/classes/c1/assignments/${created?.id}`,
       {
         method: "PUT",
         headers: { "content-type": "application/json" },
@@ -224,33 +233,36 @@ test("update sets and then clears the start date", async () => {
       },
       env,
     );
-  const set = await put({ ...validLab, startAt: "2026-07-01T08:00:00.000Z" });
+  const set = await put({
+    ...validAssignment,
+    startAt: "2026-07-01T08:00:00.000Z",
+  });
   expect(set.status).toBe(200);
-  let [row] = await db.select().from(labs);
+  let [row] = await db.select().from(assignments);
   expect(row?.startAt?.toISOString()).toBe("2026-07-01T08:00:00.000Z");
-  const cleared = await put(validLab);
+  const cleared = await put(validAssignment);
   expect(cleared.status).toBe(200);
-  [row] = await db.select().from(labs);
+  [row] = await db.select().from(assignments);
   expect(row?.startAt).toBeNull();
 });
 
 // --- delete ---
 
-function del(labId: string, classId = "c1") {
+function del(assignmentId: string, classId = "c1") {
   return app.request(
-    `/api/classes/${classId}/labs/${labId}`,
+    `/api/classes/${classId}/assignments/${assignmentId}`,
     { method: "DELETE" },
     env,
   );
 }
 
-/** A lab with one group, that group's cached roster, and (optionally) a work
+/** An assignment with one group, that group's cached roster, and (optionally) a work
  *  repo already linked to it: the state every delete case starts from. */
-async function seedLab({ withRepo = false } = {}) {
-  await db.insert(labs).values({
+async function seedAssignment({ withRepo = false } = {}) {
+  await db.insert(assignments).values({
     id: "l1",
     classId: "c1",
-    title: "Lab 1",
+    title: "Assignment 1",
     deadline: new Date("2026-08-01T23:59:00.000Z"),
     groupMode: "individual",
     createdByUserId: "u1",
@@ -259,13 +271,13 @@ async function seedLab({ withRepo = false } = {}) {
   });
   await db.insert(groups).values({
     id: "g1",
-    labId: "l1",
+    assignmentId: "l1",
     ghTeamId: 900,
-    ghTeamSlug: "lab-1-team-alpha",
-    slug: "lab-1-team-alpha",
+    ghTeamSlug: "assignment-1-team-alpha",
+    slug: "assignment-1-team-alpha",
     name: "Team Alpha",
     ghRepoId: withRepo ? 555 : null,
-    ghRepoFullName: withRepo ? "acme/lab-1-team-alpha" : null,
+    ghRepoFullName: withRepo ? "acme/assignment-1-team-alpha" : null,
     creatorUserId: "u1",
     createdAt: now,
     updatedAt: now,
@@ -280,21 +292,21 @@ async function seedLab({ withRepo = false } = {}) {
   });
 }
 
-test("deletes a lab that has no groups", async () => {
-  await post(validLab);
-  const [created] = await db.select().from(labs);
+test("deletes an assignment that has no groups", async () => {
+  await post(validAssignment);
+  const [created] = await db.select().from(assignments);
   const res = await del(created?.id ?? "");
   expect(res.status).toBe(200);
-  expect(await db.select().from(labs)).toHaveLength(0);
+  expect(await db.select().from(assignments)).toHaveLength(0);
   expect(state.deletedTeams).toEqual([]);
 });
 
-test("delete takes the lab's groups, their teams and cached rosters", async () => {
-  await seedLab();
+test("delete takes the assignment's groups, their teams and cached rosters", async () => {
+  await seedAssignment();
   const res = await del("l1");
   expect(res.status).toBe(200);
-  expect(state.deletedTeams).toEqual(["lab-1-team-alpha"]);
-  expect(await db.select().from(labs)).toHaveLength(0);
+  expect(state.deletedTeams).toEqual(["assignment-1-team-alpha"]);
+  expect(await db.select().from(assignments)).toHaveLength(0);
   expect(await db.select().from(groups)).toHaveLength(0);
   // FK ON DELETE cascade, not a delete of our own.
   expect(await db.select().from(groupMembers)).toHaveLength(0);
@@ -303,51 +315,51 @@ test("delete takes the lab's groups, their teams and cached rosters", async () =
 test("delete goes through even once a group has its work repo", async () => {
   // No `has_repo` guard here, unlike deleteGroup: the confirm dialog is the
   // gate. The repo itself survives in the org, orphaned.
-  await seedLab({ withRepo: true });
+  await seedAssignment({ withRepo: true });
   const res = await del("l1");
   expect(res.status).toBe(200);
-  expect(await db.select().from(labs)).toHaveLength(0);
+  expect(await db.select().from(assignments)).toHaveLength(0);
   expect(await db.select().from(groups)).toHaveLength(0);
 });
 
 test("a team already gone on GitHub still drops the rows", async () => {
-  await seedLab();
+  await seedAssignment();
   state.teamDeleteStatus = 404;
   const res = await del("l1");
   expect(res.status).toBe(200);
-  expect(await db.select().from(labs)).toHaveLength(0);
+  expect(await db.select().from(assignments)).toHaveLength(0);
   expect(await db.select().from(groups)).toHaveLength(0);
 });
 
 test("a team delete GitHub refuses leaves every row in place", async () => {
-  await seedLab();
+  await seedAssignment();
   state.teamDeleteStatus = 500;
   const res = await del("l1");
   expect(res.status).toBe(500);
-  expect(await db.select().from(labs)).toHaveLength(1);
+  expect(await db.select().from(assignments)).toHaveLength(1);
   expect(await db.select().from(groups)).toHaveLength(1);
 });
 
-test("delete of an unknown lab, or one in another class, returns 404", async () => {
-  await seedLab();
+test("delete of an unknown assignment, or one in another class, returns 404", async () => {
+  await seedAssignment();
   expect((await del("nope")).status).toBe(404);
   expect((await del("l1", "c2")).status).toBe(404);
-  expect(await db.select().from(labs)).toHaveLength(1);
+  expect(await db.select().from(assignments)).toHaveLength(1);
 });
 
 test("non-admin cannot delete", async () => {
-  await seedLab();
+  await seedAssignment();
   state.admins = [{ id: 999 }];
   const res = await del("l1");
   expect(res.status).toBe(404);
-  expect(await db.select().from(labs)).toHaveLength(1);
+  expect(await db.select().from(assignments)).toHaveLength(1);
   expect(state.deletedTeams).toEqual([]);
 });
 
 test("unauthenticated cannot delete", async () => {
-  await seedLab();
+  await seedAssignment();
   state.session = null;
   const res = await del("l1");
   expect(res.status).toBe(401);
-  expect(await db.select().from(labs)).toHaveLength(1);
+  expect(await db.select().from(assignments)).toHaveLength(1);
 });

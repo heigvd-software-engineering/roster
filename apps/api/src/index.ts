@@ -7,13 +7,13 @@ import { apiOnError } from "./on-error";
 export type { Auth } from "./lib/auth/config";
 
 import { adminRoutes } from "./routes/admin";
+import { assignmentGroupsRoutes } from "./routes/assignment-groups";
+import { assignmentsRoutes } from "./routes/assignments";
 import { authRoutes } from "./routes/auth";
 import { classesRoutes } from "./routes/classes";
 import { groupsRoutes } from "./routes/groups";
 import { healthRoutes } from "./routes/health";
 import { joinRoutes } from "./routes/join";
-import { labGroupsRoutes } from "./routes/lab-groups";
-import { labsRoutes } from "./routes/labs";
 import { meRoutes } from "./routes/me";
 import { setupRoutes } from "./routes/setup";
 
@@ -36,8 +36,8 @@ const app = new Hono<Env>()
   .route("/api", setupRoutes)
   .route("/api", classesRoutes)
   .route("/api", groupsRoutes)
-  .route("/api", labGroupsRoutes)
-  .route("/api", labsRoutes)
+  .route("/api", assignmentGroupsRoutes)
+  .route("/api", assignmentsRoutes)
   .route("/api", joinRoutes)
   // Registered last, so it catches only paths no module above matched.
   .all("/api/*", (c) => c.json({ error: "Not found" }, 404))

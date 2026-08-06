@@ -3,7 +3,7 @@
 The words roster uses, and what each one is on GitHub. One concept, one word: the
 code, the UI and these docs use these terms and no synonyms. For how the pieces
 fit together, see [architecture](./architecture.md). The terms missing from the
-table below (lab, join link, drift, finding) have no GitHub counterpart.
+table below (assignment, join link, drift, finding) have no GitHub counterpart.
 
 ## roster to GitHub
 
@@ -12,7 +12,7 @@ table below (lab, join link, drift, finding) have no GitHub counterpart.
 | Class | Organization with the roster GitHub App installed on it |
 | Teacher | Organization Owner (`admin` in the API) |
 | Student | Organization Member |
-| Group | Team, created secret, one per lab |
+| Group | Team, created secret, one per assignment |
 | Work repo | Private repository the group's team holds push on |
 | Starter code | Template repository in the class org |
 | Enrollment | Organization membership, invited or active |
@@ -28,13 +28,13 @@ Roles are per class and live on GitHub: the same person teaches one class and st
 - **Super admin** An email listed in `SUPER_ADMIN_EMAILS`. Config, never data. It opens the admin zone, where super admins hand out class creation.
 - **Class creator** A user with a `class_creators` row, the one condition for creating a class. Super admins hold no implicit grant and toggle their own.
 
-## Classes and labs
+## Classes and assignments
 
-- **Class** A connected GitHub org, the teaching unit and top container. Everything else hangs off it. See [classes and labs](./classes-and-labs.md).
-- **Lab** An assignment: a deadline, an optional start date, optional starter code, and a group mode (`individual` for a group of one, `group` with a min and max size).
-- **Group** A team of students within one lab. Groups belong to a lab and are never shared across labs; copy-forward seeds a new group with an earlier one's members.
-- **Work repo** The private repo a group gets once it reaches the lab's minimum size, generated from the starter code or empty. roster creates it and never adopts an existing repo.
-- **Starter code** The UI's word for a template repository in the class org, recorded on `labs.templateRepoFullName`.
+- **Class** A connected GitHub org, the teaching unit and top container. Everything else hangs off it. See [classes and assignments](./classes-and-assignments.md).
+- **Assignment** One piece of graded work in a class: a deadline, an optional start date, optional starter code, and a group mode (`individual` for a group of one, `group` with a min and max size). The app knows one kind, so lab, project, homework and exam are all assignments; "lab" is something a teacher may *title* an assignment, never a type roster stores.
+- **Group** A team of students within one assignment. Groups belong to an assignment and are never shared across assignments; copy-forward seeds a new group with an earlier one's members.
+- **Work repo** The private repo a group gets once it reaches the assignment's minimum size, generated from the starter code or empty. roster creates it and never adopts an existing repo.
+- **Starter code** The UI's word for a template repository in the class org, recorded on `assignments.templateRepoFullName`.
 - **Join link**, **join token** `/join/:token`, carrying `classes.joinToken`: 128 random bits in hex, kept apart from the class id so a leaked link can be regenerated. Holding the link is the whole enrollment gate.
 - **Enrollment** A student's org membership, obtained through the join link. `class_members` caches it for display and authorizes nothing.
 
@@ -43,7 +43,7 @@ Roles are per class and live on GitHub: the same person teaches one class and st
 - **Connect** Install the GitHub App on an org and confirm, which creates the class.
 - **Link** Attach a GitHub account to a signed-in edu-ID user.
 - **Join** Open a class join link, get an org invitation, accept it on GitHub.
-- **Accept** Take on a lab: join or create a group, then get the work repo.
+- **Accept** Take on an assignment: join or create a group, then get the work repo.
 - **Reconcile** Compare the class against live GitHub and apply the fixes the teacher checks off. See [reconcile](./reconcile.md).
 
 ## Reconcile vocabulary
@@ -57,8 +57,8 @@ Roles are per class and live on GitHub: the same person teaches one class and st
 
 | Column | What it holds |
 |---|---|
-| `name` | Display label ("Team Alpha"), unique per lab, never sent to GitHub |
-| `slug` | `slugify(lab.title)-slugify(group.name)`, the name roster asks GitHub to give the team, and the work repo's name |
+| `name` | Display label ("Team Alpha"), unique per assignment, never sent to GitHub |
+| `slug` | `slugify(assignment.title)-slugify(group.name)`, the name roster asks GitHub to give the team, and the work repo's name |
 | `ghTeamSlug` | The slug GitHub returned, source of truth for API paths. Equals `slug` unless GitHub deduped it |
 | `ghTeamId` | The team's numeric id, the real key, since slugs change on rename |
 

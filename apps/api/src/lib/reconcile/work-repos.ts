@@ -6,16 +6,16 @@
 //   UNRECORDED  group row exists, ghRepoFullName NULL, repo exists on GitHub
 //               -> a partial createWorkRepo. This reconciler adopts it.
 //   ORPHANED    no group row at all, repo exists
-//               -> deleting a group, or the lab above it, leaves one behind:
+//               -> deleting a group, or the assignment above it, leaves one behind:
 //                  the row and the team go, the repo never does. Nothing in
 //                  apps/api ever deletes a GitHub repo. This reconciler cannot
 //                  see them (it audits group rows, and there is none), so an
-//                  orphan waits: recreate a group under the same lab title and
+//                  orphan waits: recreate a group under the same assignment title and
 //                  group name and it becomes UNRECORDED above, which the next
 //                  audit offers to adopt. Note the teacher must come THROUGH
 //                  here — clicking "create repository" on that group instead
 //                  fails `name_taken`, since `createWorkRepo` never adopts.
-import { groups, type Lab, labs } from "@roster/db";
+import { type Assignment, assignments, groups } from "@roster/db";
 import { eq, inArray } from "drizzle-orm";
 import { getOrgRepo, grantTeamRepo } from "../github/repo";
 import { isSameRepo } from "../groups";
@@ -29,16 +29,16 @@ import type {
 
 const subjectOf = (key: FindingKey) => key.split("groupId=")[1] ?? "";
 
-/** The template of the lab each group belongs to, so we never adopt it. */
-async function templatesByLabId(
+/** The template of the assignment each group belongs to, so we never adopt it. */
+async function templatesByAssignmentId(
   ctx: Parameters<Reconciler["audit"]>[0],
-  labIds: string[],
-): Promise<Map<string, Lab["templateRepoFullName"]>> {
-  if (labIds.length === 0) return new Map();
+  assignmentIds: string[],
+): Promise<Map<string, Assignment["templateRepoFullName"]>> {
+  if (assignmentIds.length === 0) return new Map();
   const rows = await ctx.db
-    .select({ id: labs.id, template: labs.templateRepoFullName })
-    .from(labs)
-    .where(inArray(labs.id, labIds));
+    .select({ id: assignments.id, template: assignments.templateRepoFullName })
+    .from(assignments)
+    .where(inArray(assignments.id, assignmentIds));
   return new Map(rows.map((r) => [r.id, r.template]));
 }
 
@@ -50,9 +50,9 @@ export const workRepos: Reconciler = {
     if (rows.length === 0) return [];
 
     const repos = await ctx.orgRepos();
-    const templates = await templatesByLabId(
+    const templates = await templatesByAssignmentId(
       ctx,
-      rows.map((g) => g.labId),
+      rows.map((g) => g.assignmentId),
     );
 
     const findings: Finding[] = [];
@@ -60,11 +60,12 @@ export const workRepos: Reconciler = {
       const fullName = `${ctx.org}/${group.slug}`;
       if (!repos.has(fullName)) continue; // nothing to adopt
 
-      // Never the lab's own template. Adoption ends in grantTeamRepo, so a group
-      // slug colliding with the template's name would hand students push on the
-      // starter code. `labs: unique(classId, title)` makes that collision nearly
-      // unreachable; this makes it impossible.
-      if (isSameRepo(templates.get(group.labId) ?? null, fullName)) continue;
+      // Never the assignment's own template. Adoption ends in grantTeamRepo, so
+      // a group slug colliding with the template's name would hand students
+      // push on the starter code. `assignments: unique(classId, title)` makes
+      // that collision nearly unreachable; this makes it impossible.
+      if (isSameRepo(templates.get(group.assignmentId) ?? null, fullName))
+        continue;
 
       findings.push({
         key: `work-repos:adopt:groupId=${group.id}`,

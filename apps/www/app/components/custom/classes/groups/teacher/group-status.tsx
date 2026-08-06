@@ -1,16 +1,16 @@
 import {
   CREATION_PUSH_GRACE_MS,
-  type GroupLabStatus,
-} from "~/components/custom/classes/groups/shared/use-lab-groups";
+  type GroupAssignmentStatus,
+} from "~/components/custom/classes/groups/shared/use-assignment-groups";
 import { Hint } from "~/components/custom/hint";
 import { Badge } from "~/components/ui/badge";
 import { formatDeadline } from "~/lib/format";
 
-/** The group's lab status as a shadcn Badge. "late" is the one state a
+/** The group's assignment status as a shadcn Badge. "late" is the one state a
  *  teacher must act on, so it is the only one that takes the destructive
  *  variant; settled states are secondary, unsettled ones outline. */
 const CHIP: Record<
-  GroupLabStatus,
+  GroupAssignmentStatus,
   { label: string; variant: "secondary" | "destructive" | "outline" }
 > = {
   on_track: { label: "on track", variant: "secondary" },
@@ -22,7 +22,7 @@ const CHIP: Record<
   under_min: { label: "under min", variant: "outline" },
 };
 
-export function StatusChip({ status }: { status: GroupLabStatus }) {
+export function StatusChip({ status }: { status: GroupAssignmentStatus }) {
   const chip = CHIP[status];
   return <Badge variant={chip.variant}>{chip.label}</Badge>;
 }
@@ -68,7 +68,7 @@ export function LastPush({
   lastCommit,
 }: {
   pushedAt: string | null;
-  status: GroupLabStatus;
+  status: GroupAssignmentStatus;
   deadline: string;
   lastCommit?: LastCommitInfo | null;
 }) {

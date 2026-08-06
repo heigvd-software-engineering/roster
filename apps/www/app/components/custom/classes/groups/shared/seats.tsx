@@ -7,9 +7,9 @@ import { cn } from "~/lib/utils";
  * AddMemberSeat; the student's JoinSeat / VacantSeat / LockedSeat), so a
  * nature's copy lives next to its one consumer.
  *
- * The rule across the app: SeatButton = clicking this seat acts; SeatSlot =
- * the seat exists but the verb belongs to someone else. `required` (still
- * short of the lab's minimum) reads at full strength; an optional seat stays
+ * The rule across the app: SeatButton = clicking this seat acts; SeatSlot = the
+ * seat exists but the verb belongs to someone else. `required` (still short of
+ * the assignment's minimum) reads at full strength; an optional seat stays
  * muted.
  */
 

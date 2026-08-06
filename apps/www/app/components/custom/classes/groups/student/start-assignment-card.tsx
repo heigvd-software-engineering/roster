@@ -12,17 +12,17 @@ import { Card } from "~/components/ui/card";
 import { cn } from "~/lib/utils";
 
 /**
- * The student's "start the lab" surface: ONE card for both lab modes, so the
- * two flows differ in copy, never in structure. Three states:
+ * The student's "start the assignment" surface: ONE card for both assignment
+ * modes, so the two flows differ in copy, never in structure. Three states:
  *
  *   accept  individual and not accepted, the one-click accept CTA;
  *   create  the work repo doesn't exist yet, so offer to create it (on
- *           individual labs that means the accept's repo step failed);
+ *           individual assignments that means the accept's repo step failed);
  *   clone   the repo link and the git commands to get working locally, or,
  *           when `repoStatus` is "missing", a destructive-styled notice with
  *           no link and no clone commands for a repo that's gone.
  */
-export function StartLabCard({
+export function StartAssignmentCard({
   mode = "group",
   accepted = true,
   repoFullName,
@@ -41,7 +41,7 @@ export function StartLabCard({
   repoStatus?: "ok" | "missing" | undefined;
   busy: boolean;
   onCreate: () => void;
-  /** The individual lab's one-click accept (group + repo in one step). */
+  /** The individual assignment's one-click accept (group + repo in one step). */
   onAccept?: () => void;
 }) {
   const created = repoFullName !== null;
@@ -50,8 +50,8 @@ export function StartLabCard({
   const title =
     mode === "individual"
       ? created
-        ? "Your lab is ready"
-        : "This lab is individual"
+        ? "Your assignment is ready"
+        : "This assignment is individual"
       : "Your group is ready";
   return (
     <Card
@@ -78,7 +78,7 @@ export function StartLabCard({
               : state === "create"
                 ? mode === "individual"
                   ? "one step left"
-                  : "you can start the lab"
+                  : "you can start the assignment"
                 : missing
                   ? "repository deleted on GitHub"
                   : "repository created — off you go"}
@@ -95,10 +95,10 @@ export function StartLabCard({
               type="button"
               className="self-start"
               disabled={busy}
-              title="Accept this lab — creates your personal work repository"
+              title="Accept this assignment — creates your personal work repository"
               onClick={onAccept}
             >
-              Accept lab
+              Accept assignment
             </Button>
           </>
         ) : state === "create" ? (
@@ -173,7 +173,7 @@ export function StartLabCard({
 }
 
 /** The clone-and-enter snippet as a copyable code block, shared by the group
- *  start-lab card and the individual lab's accepted state. */
+ *  start-assignment card and the individual assignment's accepted state. */
 function CloneCommands({
   fullName,
   className,

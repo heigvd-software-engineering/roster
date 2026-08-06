@@ -5,15 +5,15 @@ import { UserIdentity } from "~/components/custom/identity/user-identity";
 import { Row } from "~/components/custom/layout/row";
 import { Stack } from "~/components/custom/layout/stack";
 import { Text } from "~/components/custom/typography/text";
-import type { ClassItem, LabStudent } from "~/lib/api";
+import type { AssignmentStudent, ClassItem } from "~/lib/api";
 import { usersByGithubId } from "~/lib/format";
 import { personIdentity } from "~/lib/identity";
 
 /**
- * The "students without a group for this lab" pool, shared by BOTH lab pages:
- * the teacher's radar, and the students' organizing aid (who still needs a
- * team). Sourced from the class_members display cache riding on the
- * lab-groups response, and hidden once everyone is placed.
+ * The "students without a group for this assignment" pool, shared by BOTH
+ * assignment pages: the teacher's radar, and the students' organizing aid (who
+ * still needs a team). Sourced from the class_members display cache riding on
+ * the assignment-groups response, and hidden once everyone is placed.
  *
  * It has to read the same at 1 student and at 30, so it is ALWAYS the summary
  * line, the label and the count and nothing else, with the names one chevron
@@ -26,7 +26,7 @@ export function UnassignedPool({
   users,
 }: {
   /** Already filtered to students in NO participating group. */
-  students: LabStudent[];
+  students: AssignmentStudent[];
   users?: ClassItem["users"] | undefined;
 }) {
   const listId = useId();
@@ -53,7 +53,7 @@ export function UnassignedPool({
     >
       <Row gap="sm" justify="between" className="w-full">
         <Text variant="label" as="span" className="font-medium">
-          Students without a group for this lab · {sorted.length}
+          Students without a group for this assignment · {sorted.length}
         </Text>
         <DisclosureToggle
           expanded={open}

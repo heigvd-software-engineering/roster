@@ -1,12 +1,12 @@
 import { env } from "cloudflare:test";
 import {
   account,
+  assignments,
   classes,
   classMembers,
   getDb,
   groupMembers,
   groups,
-  labs,
   user,
 } from "@roster/db";
 import { eq } from "drizzle-orm";
@@ -50,10 +50,12 @@ const state = vi.hoisted(() => ({
   // Repo names already in the org; creating them 422s. `visible` says whether
   // the App installation can then read the repo back for adoption.
   orgRepos: {} as Record<string, { visible: boolean }>,
-  // The lab's template repo was deleted or renamed since, so /generate 404s.
+  // The assignment's template repo was deleted or renamed since, so /generate
+  // 404s.
   templateGone: false,
   // Every team-push grant made, in order, plus a switch to make the next grant
-  // blow up (simulating a create that dies between the row write and the grant).
+  // blow up (simulating a create that dies between the row write and the
+  // grant).
   grants: [] as Array<{ team: string; repo: string }>,
   grantFails: false,
   // Call counters: the cached-identity hot path must not spend these.
@@ -213,9 +215,11 @@ vi.mock("../src/lib/github/team", () => ({
   },
 }));
 
-const { labGroupsRoutes } = await import("../src/routes/lab-groups");
+const { assignmentGroupsRoutes } = await import(
+  "../src/routes/assignment-groups"
+);
 
-const app = new Hono().route("/api", labGroupsRoutes);
+const app = new Hono().route("/api", assignmentGroupsRoutes);
 const db = getDb(env.DB);
 const now = new Date(0);
 
@@ -228,7 +232,7 @@ type RepoResp = { repo: { fullName: string } };
 const asGroup = (r: Response) => r.json() as Promise<GroupResp>;
 const asRepo = (r: Response) => r.json() as Promise<RepoResp>;
 
-async function seedLab(args?: {
+async function seedAssignment(args?: {
   id?: string;
   groupMode?: "individual" | "group";
   minMembers?: number | null;
@@ -237,10 +241,10 @@ async function seedLab(args?: {
   startAt?: Date;
 }) {
   const id = args?.id ?? "l1";
-  await db.insert(labs).values({
+  await db.insert(assignments).values({
     id,
     classId: "c1",
-    title: `Lab ${id}`, // distinct titles → distinct lab slugs
+    title: `Assignment ${id}`, // distinct titles → distinct assignment slugs
     deadline: new Date("2099-01-01"),
     startAt: args?.startAt ?? null,
     groupMode: args?.groupMode ?? "group",
@@ -258,17 +262,17 @@ async function seedLab(args?: {
  *  keeps the two in sync, which is what every non-drift test wants. */
 async function seedGroup(args: {
   id: string;
-  labId: string;
+  assignmentId: string;
   name?: string;
   repo?: boolean;
   members?: { id: number; login: string; avatarUrl: string | null }[];
 }) {
   await db.insert(groups).values({
     id: args.id,
-    labId: args.labId,
+    assignmentId: args.assignmentId,
     ghTeamId: Math.floor(Math.random() * 1e6),
     ghTeamSlug: `${args.id}-slug`,
-    slug: `${args.labId}-${args.id}`,
+    slug: `${args.assignmentId}-${args.id}`,
     name: args.name ?? `Group ${args.id}`,
     ghRepoId: args.repo ? Math.floor(Math.random() * 1e6) : null,
     ghRepoFullName: args.repo ? `acme/${args.id}` : null,
@@ -316,9 +320,9 @@ async function seedClassMember(
   });
 }
 
-function createGroup(labId: string, body: object) {
+function createGroup(assignmentId: string, body: object) {
   return app.request(
-    `/api/classes/c1/labs/${labId}/groups`,
+    `/api/classes/c1/assignments/${assignmentId}/groups`,
     {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -327,16 +331,24 @@ function createGroup(labId: string, body: object) {
     env,
   );
 }
-const repo = (labId: string, groupId: string) =>
+const repo = (assignmentId: string, groupId: string) =>
   app.request(
-    `/api/classes/c1/labs/${labId}/groups/${groupId}/repo`,
+    `/api/classes/c1/assignments/${assignmentId}/groups/${groupId}/repo`,
     { method: "POST" },
     env,
   );
-const batch = (labId: string) =>
-  app.request(`/api/classes/c1/labs/${labId}/repos`, { method: "POST" }, env);
-const accept = (labId: string) =>
-  app.request(`/api/classes/c1/labs/${labId}/accept`, { method: "POST" }, env);
+const batch = (assignmentId: string) =>
+  app.request(
+    `/api/classes/c1/assignments/${assignmentId}/repos`,
+    { method: "POST" },
+    env,
+  );
+const accept = (assignmentId: string) =>
+  app.request(
+    `/api/classes/c1/assignments/${assignmentId}/accept`,
+    { method: "POST" },
+    env,
+  );
 
 beforeEach(async () => {
   state.session = { user: { id: "u1" } };
@@ -355,7 +367,7 @@ beforeEach(async () => {
 
   await db.delete(groupMembers);
   await db.delete(groups);
-  await db.delete(labs);
+  await db.delete(assignments);
   await db.delete(classMembers);
   await db.delete(classes);
   await db.delete(account);
@@ -382,57 +394,58 @@ beforeEach(async () => {
   });
 });
 
-// --- create (lab-scoped) ---
+// --- create (assignment-scoped) ---
 
-test("a student creates a group in the lab and auto-joins it", async () => {
-  await seedLab();
+test("a student creates a group in the assignment and auto-joins it", async () => {
+  await seedAssignment();
   const res = await createGroup("l1", { name: "Alpha" });
   expect(res.status).toBe(200);
   expect((await asGroup(res)).group).toMatchObject({
     name: "Alpha",
-    slug: "lab-l1-alpha",
+    slug: "assignment-l1-alpha",
   });
   const rows = await db.select().from(groups);
   expect(rows).toMatchObject([
-    { labId: "l1", name: "Alpha", slug: "lab-l1-alpha" },
+    { assignmentId: "l1", name: "Alpha", slug: "assignment-l1-alpha" },
   ]);
-  // The GitHub team is named by the lab-scoped slug; the creator auto-joins.
-  expect(state.rosters["lab-l1-alpha"]).toEqual([alice]);
+  // The GitHub team is named by the assignment-scoped slug; the creator
+  // auto-joins.
+  expect(state.rosters["assignment-l1-alpha"]).toEqual([alice]);
 });
 
 test("a teacher creates a group without joining it", async () => {
   state.membership = { state: "active", role: "admin" };
-  await seedLab();
+  await seedAssignment();
   await createGroup("l1", { name: "Alpha" });
-  expect(state.rosters["lab-l1-alpha"]).toBeUndefined();
+  expect(state.rosters["assignment-l1-alpha"]).toBeUndefined();
 });
 
-test("a duplicate display name in the SAME lab is 409 name_taken", async () => {
-  await seedLab();
-  await seedGroup({ id: "g1", labId: "l1", name: "Alpha" });
+test("a duplicate display name in the SAME assignment is 409 name_taken", async () => {
+  await seedAssignment();
+  await seedGroup({ id: "g1", assignmentId: "l1", name: "Alpha" });
   const res = await createGroup("l1", { name: "Alpha" });
   expect(res.status).toBe(409);
   expect(await res.json()).toEqual({ error: "name_taken" });
 });
 
-test("the same name reuses freely across labs (per-lab uniqueness)", async () => {
-  await seedLab({ id: "l1" });
-  await seedLab({ id: "l2" });
-  await seedGroup({ id: "g1", labId: "l1", name: "Alpha" });
+test("the same name reuses freely across assignments (per-assignment uniqueness)", async () => {
+  await seedAssignment({ id: "l1" });
+  await seedAssignment({ id: "l2" });
+  await seedGroup({ id: "g1", assignmentId: "l1", name: "Alpha" });
   const res = await createGroup("l2", { name: "Alpha" });
   expect(res.status).toBe(200);
-  expect((await asGroup(res)).group.slug).toBe("lab-l2-alpha");
+  expect((await asGroup(res)).group.slug).toBe("assignment-l2-alpha");
 });
 
 test("copy-forward copies the WHOLE team when nothing blocks it", async () => {
   state.membership = { state: "active", role: "admin" };
-  await seedLab({ id: "l1" });
-  await seedLab({ id: "l2" });
+  await seedAssignment({ id: "l1" });
+  await seedAssignment({ id: "l2" });
   await seedClassMember(alice);
   await seedClassMember(bob);
   await seedGroup({
     id: "src",
-    labId: "l2",
+    assignmentId: "l2",
     name: "Team",
     members: [alice, bob],
   });
@@ -440,43 +453,48 @@ test("copy-forward copies the WHOLE team when nothing blocks it", async () => {
   const res = await createGroup("l1", { name: "Team", copyFromGroupId: "src" });
   expect(res.status).toBe(200);
   expect(
-    (state.rosters["lab-l1-team"] ?? []).map((m) => m.login).sort(),
+    (state.rosters["assignment-l1-team"] ?? []).map((m) => m.login).sort(),
   ).toEqual(["alice", "bob"]);
 });
 
-test("copy-forward refuses when a member is already placed in this lab", async () => {
+test("copy-forward refuses when a member is already placed in this assignment", async () => {
   state.membership = { state: "active", role: "admin" };
-  await seedLab({ id: "l1" });
-  await seedLab({ id: "l2" });
+  await seedAssignment({ id: "l1" });
+  await seedAssignment({ id: "l2" });
   await seedClassMember(alice);
   await seedClassMember(bob);
   await seedGroup({
     id: "src",
-    labId: "l2",
+    assignmentId: "l2",
     name: "Team",
     members: [alice, bob],
   });
-  // bob is already placed in a group of this lab (l1), so all-or-nothing: the
-  // whole copy is refused, never a partial team.
-  await seedGroup({ id: "here", labId: "l1", name: "Here", members: [bob] });
+  // bob is already placed in a group of this assignment (l1), so
+  // all-or-nothing: the whole copy is refused, never a partial team.
+  await seedGroup({
+    id: "here",
+    assignmentId: "l1",
+    name: "Here",
+    members: [bob],
+  });
 
   const res = await createGroup("l1", { name: "Team", copyFromGroupId: "src" });
   expect(res.status).toBe(409);
   expect(await res.json()).toEqual({ error: "member_already_placed" });
   // No team was created on GitHub.
-  expect(state.rosters["lab-l1-team"]).toBeUndefined();
+  expect(state.rosters["assignment-l1-team"]).toBeUndefined();
 });
 
-test("copy-forward refuses a source larger than the lab's max", async () => {
+test("copy-forward refuses a source larger than the assignment's max", async () => {
   state.membership = { state: "active", role: "admin" };
-  await seedLab({ id: "l1", maxMembers: 2 });
-  await seedLab({ id: "l2" });
+  await seedAssignment({ id: "l1", maxMembers: 2 });
+  await seedAssignment({ id: "l2" });
   await seedClassMember(alice);
   await seedClassMember(bob);
   await seedClassMember(carol);
   await seedGroup({
     id: "src",
-    labId: "l2",
+    assignmentId: "l2",
     name: "Team",
     members: [alice, bob, carol],
   });
@@ -488,13 +506,13 @@ test("copy-forward refuses a source larger than the lab's max", async () => {
 
 test("copy-forward refuses when a member is no longer in the class", async () => {
   state.membership = { state: "active", role: "admin" };
-  await seedLab({ id: "l1" });
-  await seedLab({ id: "l2" });
+  await seedAssignment({ id: "l1" });
+  await seedAssignment({ id: "l2" });
   // alice is enrolled; bob has no class_members row (left the org).
   await seedClassMember(alice);
   await seedGroup({
     id: "src",
-    labId: "l2",
+    assignmentId: "l2",
     name: "Team",
     members: [alice, bob],
   });
@@ -506,9 +524,9 @@ test("copy-forward refuses when a member is no longer in the class", async () =>
 
 test("copy-forward refuses an empty source", async () => {
   state.membership = { state: "active", role: "admin" };
-  await seedLab({ id: "l1" });
-  await seedLab({ id: "l2" });
-  await seedGroup({ id: "src", labId: "l2", name: "Team", members: [] });
+  await seedAssignment({ id: "l1" });
+  await seedAssignment({ id: "l2" });
+  await seedGroup({ id: "src", assignmentId: "l2", name: "Team", members: [] });
 
   const res = await createGroup("l1", { name: "Team", copyFromGroupId: "src" });
   expect(res.status).toBe(409);
@@ -518,75 +536,99 @@ test("copy-forward refuses an empty source", async () => {
 test("a student cannot copy a group they're not in", async () => {
   // Caller is alice (a plain member). The reusable list never shows her
   // bob+carol's group; posting its id directly is the backstop this covers.
-  await seedLab({ id: "l1" });
-  await seedLab({ id: "l2" });
+  await seedAssignment({ id: "l1" });
+  await seedAssignment({ id: "l2" });
   await seedClassMember(alice);
   await seedClassMember(bob);
   await seedClassMember(carol);
   await seedGroup({
     id: "src",
-    labId: "l2",
+    assignmentId: "l2",
     name: "Team",
     members: [bob, carol],
   });
 
   const res = await createGroup("l1", { name: "Team", copyFromGroupId: "src" });
   expect(res.status).toBe(404);
-  expect(state.rosters["lab-l1-team"]).toBeUndefined();
+  expect(state.rosters["assignment-l1-team"]).toBeUndefined();
 });
 
-test("reusable lists the caller's groups from OTHER labs only", async () => {
-  await seedLab({ id: "l1" });
-  await seedLab({ id: "l2" });
+test("reusable lists the caller's groups from OTHER assignments only", async () => {
+  await seedAssignment({ id: "l1" });
+  await seedAssignment({ id: "l2" });
   await seedGroup({
     id: "mine",
-    labId: "l2",
+    assignmentId: "l2",
     name: "Team Alpha",
     members: [alice, bob],
   });
   // alice not in it
   await seedGroup({
     id: "theirs",
-    labId: "l2",
+    assignmentId: "l2",
     name: "Team Beta",
     members: [carol],
   });
-  // current lab → excluded
-  await seedGroup({ id: "here", labId: "l1", name: "Here", members: [alice] });
+  // current assignment → excluded
+  await seedGroup({
+    id: "here",
+    assignmentId: "l1",
+    name: "Here",
+    members: [alice],
+  });
 
-  const res = await app.request("/api/classes/c1/labs/l1/reusable", {}, env);
+  const res = await app.request(
+    "/api/classes/c1/assignments/l1/reusable",
+    {},
+    env,
+  );
   const body = (await res.json()) as {
-    groups: Array<{ id: string; name: string; labTitle: string }>;
+    groups: Array<{ id: string; name: string; assignmentTitle: string }>;
   };
-  // Only alice's group from another lab (l2); not theirs, not the current lab.
+  // Only alice's group from another assignment (l2); not theirs, not the
+  // current assignment.
   expect(body.groups).toMatchObject([
-    { id: "mine", name: "Team Alpha", labTitle: "Lab l2" },
+    { id: "mine", name: "Team Alpha", assignmentTitle: "Assignment l2" },
   ]);
 });
 
 test("reusable annotates each source with its blocker", async () => {
-  await seedLab({ id: "l1" });
-  await seedLab({ id: "l2" });
+  await seedAssignment({ id: "l1" });
+  await seedAssignment({ id: "l2" });
   await seedClassMember(alice);
   await seedClassMember(bob);
   // carol has no live membership: she left the class.
   await seedGroup({
     id: "fine",
-    labId: "l2",
+    assignmentId: "l2",
     name: "Fine",
     members: [alice, bob],
   });
   await seedGroup({
     id: "gone",
-    labId: "l2",
+    assignmentId: "l2",
     name: "Gone",
     members: [alice, carol],
   });
-  await seedGroup({ id: "solo", labId: "l2", name: "Solo", members: [alice] });
-  // bob is already placed in a group of the current lab.
-  await seedGroup({ id: "here", labId: "l1", name: "Here", members: [bob] });
+  await seedGroup({
+    id: "solo",
+    assignmentId: "l2",
+    name: "Solo",
+    members: [alice],
+  });
+  // bob is already placed in a group of the current assignment.
+  await seedGroup({
+    id: "here",
+    assignmentId: "l1",
+    name: "Here",
+    members: [bob],
+  });
 
-  const res = await app.request("/api/classes/c1/labs/l1/reusable", {}, env);
+  const res = await app.request(
+    "/api/classes/c1/assignments/l1/reusable",
+    {},
+    env,
+  );
   const body = (await res.json()) as {
     groups: Array<{ id: string; blocker: { reason: string } | null }>;
   };
@@ -602,48 +644,63 @@ test("reusable annotates each source with its blocker", async () => {
   });
 });
 
-test("reusable lists ALL other-lab groups for a teacher, not just their own", async () => {
+test("reusable lists ALL other-assignment groups for a teacher, not just their own", async () => {
   state.membership = { state: "active", role: "admin" };
-  await seedLab({ id: "l1" });
-  await seedLab({ id: "l2" });
+  await seedAssignment({ id: "l1" });
+  await seedAssignment({ id: "l2" });
   // The teacher is a member of neither of these.
   await seedGroup({
     id: "alpha",
-    labId: "l2",
+    assignmentId: "l2",
     name: "Team Alpha",
     members: [alice, bob],
   });
   await seedGroup({
     id: "beta",
-    labId: "l2",
+    assignmentId: "l2",
     name: "Team Beta",
     members: [carol],
   });
-  // current lab → still excluded, even for a teacher
-  await seedGroup({ id: "here", labId: "l1", name: "Here", members: [alice] });
+  // current assignment → still excluded, even for a teacher
+  await seedGroup({
+    id: "here",
+    assignmentId: "l1",
+    name: "Here",
+    members: [alice],
+  });
 
-  const res = await app.request("/api/classes/c1/labs/l1/reusable", {}, env);
+  const res = await app.request(
+    "/api/classes/c1/assignments/l1/reusable",
+    {},
+    env,
+  );
   const body = (await res.json()) as {
     groups: Array<{ id: string; name: string }>;
   };
-  // Both other-lab groups are reusable; the current lab's group is not.
+  // Both other-assignment groups are reusable; the current assignment's group
+  // is not.
   expect(body.groups.map((g) => g.id).sort()).toEqual(["alpha", "beta"]);
 });
 
 // --- list ---
 
-test("lists only THIS lab's groups, with roster + repo + activity", async () => {
-  await seedLab({ id: "l1" });
-  await seedLab({ id: "l2" });
+test("lists only THIS assignment's groups, with roster + repo + activity", async () => {
+  await seedAssignment({ id: "l1" });
+  await seedAssignment({ id: "l2" });
   await seedGroup({
     id: "g1",
-    labId: "l1",
+    assignmentId: "l1",
     name: "A",
     repo: true,
     members: [alice, bob],
   });
-  // other lab
-  await seedGroup({ id: "g2", labId: "l2", name: "B", members: [carol] });
+  // other assignment
+  await seedGroup({
+    id: "g2",
+    assignmentId: "l2",
+    name: "B",
+    members: [carol],
+  });
   state.activity["acme/g1"] = {
     pushedAt: "2099-02-01T00:00:00Z",
     createdAt: "2099-01-15T00:00:00Z",
@@ -657,7 +714,11 @@ test("lists only THIS lab's groups, with roster + repo + activity", async () => 
     commitCount: 4,
   };
 
-  const res = await app.request("/api/classes/c1/labs/l1/groups", {}, env);
+  const res = await app.request(
+    "/api/classes/c1/assignments/l1/groups",
+    {},
+    env,
+  );
   const body = (await res.json()) as {
     groups: Array<{
       id: string;
@@ -681,15 +742,19 @@ test("lists only THIS lab's groups, with roster + repo + activity", async () => 
 });
 
 test("a failing byline batch degrades to lastCommit: null — the wall survives", async () => {
-  await seedLab({ id: "l1" });
-  await seedGroup({ id: "g1", labId: "l1", name: "A", repo: true });
+  await seedAssignment({ id: "l1" });
+  await seedGroup({ id: "g1", assignmentId: "l1", name: "A", repo: true });
   state.activity["acme/g1"] = {
     pushedAt: "2099-02-01T00:00:00Z",
     createdAt: "2099-01-15T00:00:00Z",
   };
   state.lastCommitsFails = true;
 
-  const res = await app.request("/api/classes/c1/labs/l1/groups", {}, env);
+  const res = await app.request(
+    "/api/classes/c1/assignments/l1/groups",
+    {},
+    env,
+  );
   expect(res.status).toBe(200);
   const body = (await res.json()) as {
     groups: Array<{ pushedAt: string | null; lastCommit: unknown }>;
@@ -701,12 +766,16 @@ test("a failing byline batch degrades to lastCommit: null — the wall survives"
 });
 
 test("a repo absent from the org listing AND a confirmed 404 is reported missing", async () => {
-  await seedLab({ id: "l1" });
-  await seedGroup({ id: "g1", labId: "l1", name: "A", repo: true });
+  await seedAssignment({ id: "l1" });
+  await seedGroup({ id: "g1", assignmentId: "l1", name: "A", repo: true });
   // Not in state.activity (absent from the bulk listing) and not in
   // state.orgRepos either → getOrgRepo's confirm call 404s.
 
-  const res = await app.request("/api/classes/c1/labs/l1/groups", {}, env);
+  const res = await app.request(
+    "/api/classes/c1/assignments/l1/groups",
+    {},
+    env,
+  );
   const body = (await res.json()) as {
     groups: Array<{ repoFullName: string | null; repoStatus: string }>;
   };
@@ -719,13 +788,17 @@ test("a repo absent from the org listing AND a confirmed 404 is reported missing
 });
 
 test("a repo absent from the listing but found under a NEW name (renamed) heals silently", async () => {
-  await seedLab({ id: "l1" });
-  await seedGroup({ id: "g1", labId: "l1", name: "A", repo: true }); // ghRepoFullName: acme/g1
+  await seedAssignment({ id: "l1" });
+  await seedGroup({ id: "g1", assignmentId: "l1", name: "A", repo: true }); // ghRepoFullName: acme/g1
   // Not in state.activity, but the confirm call (by group.slug, "l1-g1") finds
   // it under a different full name than the stored one.
   state.orgRepos["l1-g1"] = { visible: true };
 
-  const res = await app.request("/api/classes/c1/labs/l1/groups", {}, env);
+  const res = await app.request(
+    "/api/classes/c1/assignments/l1/groups",
+    {},
+    env,
+  );
   const body = (await res.json()) as {
     groups: Array<{ repoFullName: string | null; repoStatus: string }>;
   };
@@ -738,11 +811,15 @@ test("a repo absent from the listing but found under a NEW name (renamed) heals 
 });
 
 test("a failed org-listing fetch never reports a repo as missing", async () => {
-  await seedLab({ id: "l1" });
-  await seedGroup({ id: "g1", labId: "l1", name: "A", repo: true });
+  await seedAssignment({ id: "l1" });
+  await seedGroup({ id: "g1", assignmentId: "l1", name: "A", repo: true });
   state.activityFails = true;
 
-  const res = await app.request("/api/classes/c1/labs/l1/groups", {}, env);
+  const res = await app.request(
+    "/api/classes/c1/assignments/l1/groups",
+    {},
+    env,
+  );
   const body = (await res.json()) as {
     groups: Array<{ repoFullName: string | null; repoStatus: string }>;
   };
@@ -754,14 +831,18 @@ test("a failed org-listing fetch never reports a repo as missing", async () => {
   expect(row?.ghRepoFullName).toBe("acme/g1"); // never touched
 });
 
-// --- the merged head (lab + class + role + membership state) ---
+// --- the merged head (assignment + class + role + membership state) ---
 
-test("the list carries the lab, class identity, role, and membership state", async () => {
-  await seedLab();
-  const res = await app.request("/api/classes/c1/labs/l1/groups", {}, env);
+test("the list carries the assignment, class identity, role, and membership state", async () => {
+  await seedAssignment();
+  const res = await app.request(
+    "/api/classes/c1/assignments/l1/groups",
+    {},
+    env,
+  );
   expect(res.status).toBe(200);
   expect(await res.json()).toMatchObject({
-    lab: { id: "l1", title: "Lab l1", groupMode: "group" },
+    assignment: { id: "l1", title: "Assignment l1", groupMode: "group" },
     class: { name: null, login: "acme" },
     role: "student",
     membershipState: "active",
@@ -769,19 +850,27 @@ test("the list carries the lab, class identity, role, and membership state", asy
 
   // A live org Owner reads as the teacher.
   state.membership = { state: "active", role: "admin" };
-  const asAdmin = await app.request("/api/classes/c1/labs/l1/groups", {}, env);
+  const asAdmin = await app.request(
+    "/api/classes/c1/assignments/l1/groups",
+    {},
+    env,
+  );
   expect(await asAdmin.json()).toMatchObject({ role: "teacher" });
 });
 
 test("a PENDING invitee gets the header data and an empty roster, not a 404", async () => {
-  await seedLab();
-  await seedGroup({ id: "g1", labId: "l1", name: "A", members: [bob] });
+  await seedAssignment();
+  await seedGroup({ id: "g1", assignmentId: "l1", name: "A", members: [bob] });
   state.membership = { state: "pending", role: "member" };
 
-  const res = await app.request("/api/classes/c1/labs/l1/groups", {}, env);
+  const res = await app.request(
+    "/api/classes/c1/assignments/l1/groups",
+    {},
+    env,
+  );
   expect(res.status).toBe(200);
   expect(await res.json()).toMatchObject({
-    lab: { id: "l1" },
+    assignment: { id: "l1" },
     membershipState: "pending",
     groups: [],
     students: [],
@@ -792,7 +881,7 @@ test("a PENDING invitee gets the header data and an empty roster, not a 404", as
 });
 
 test("the people list carries active students AND teachers, never pending", async () => {
-  await seedLab();
+  await seedAssignment();
   await db.insert(classMembers).values([
     {
       id: "cm-s",
@@ -826,7 +915,11 @@ test("the people list carries active students AND teachers, never pending", asyn
     },
   ]);
 
-  const res = await app.request("/api/classes/c1/labs/l1/groups", {}, env);
+  const res = await app.request(
+    "/api/classes/c1/assignments/l1/groups",
+    {},
+    env,
+  );
   expect(res.status).toBe(200);
   const body = (await res.json()) as {
     students: Array<{ githubId: string }>;
@@ -855,9 +948,13 @@ test("cached logins answer the hot path — no profile fetch, no installation lo
     createdAt: now,
     updatedAt: now,
   });
-  await seedLab();
+  await seedAssignment();
 
-  const res = await app.request("/api/classes/c1/labs/l1/groups", {}, env);
+  const res = await app.request(
+    "/api/classes/c1/assignments/l1/groups",
+    {},
+    env,
+  );
   expect(res.status).toBe(200);
   expect(state.profileCalls).toBe(0);
   expect(state.orgLoginCalls).toBe(0);
@@ -865,8 +962,12 @@ test("cached logins answer the hot path — no profile fetch, no installation lo
 
 test("without cached identities the resolution falls back to the live lookups", async () => {
   // beforeEach seeds no classMembers row and no classes.login.
-  await seedLab();
-  const res = await app.request("/api/classes/c1/labs/l1/groups", {}, env);
+  await seedAssignment();
+  const res = await app.request(
+    "/api/classes/c1/assignments/l1/groups",
+    {},
+    env,
+  );
   expect(res.status).toBe(200);
   expect(state.profileCalls).toBe(1);
   expect(state.orgLoginCalls).toBe(1);
@@ -874,9 +975,9 @@ test("without cached identities the resolution falls back to the live lookups", 
 
 // --- repo creation ---
 
-test("create repo enforces the lab min, then names the repo by group slug", async () => {
-  await seedLab({ minMembers: 2, maxMembers: 3 });
-  await seedGroup({ id: "g1", labId: "l1", name: "A" });
+test("create repo enforces the assignment min, then names the repo by group slug", async () => {
+  await seedAssignment({ minMembers: 2, maxMembers: 3 });
+  await seedGroup({ id: "g1", assignmentId: "l1", name: "A" });
 
   state.rosters["g1-slug"] = [alice]; // under min
   const under = await repo("l1", "g1");
@@ -893,10 +994,10 @@ test("create repo enforces the lab min, then names the repo by group slug", asyn
   expect((await asRepo(again)).repo.fullName).toBe("acme/l1-g1");
 });
 
-test("a repo can't be created for a group of ANOTHER lab", async () => {
-  await seedLab({ id: "l1" });
-  await seedLab({ id: "l2" });
-  await seedGroup({ id: "g1", labId: "l2", name: "A" });
+test("a repo can't be created for a group of ANOTHER assignment", async () => {
+  await seedAssignment({ id: "l1" });
+  await seedAssignment({ id: "l2" });
+  await seedGroup({ id: "g1", assignmentId: "l2", name: "A" });
   state.rosters["g1-slug"] = [alice];
   expect((await repo("l1", "g1")).status).toBe(404);
 });
@@ -904,12 +1005,12 @@ test("a repo can't be created for a group of ANOTHER lab", async () => {
 // --- batch missing repos ---
 
 test("batch is teacher-only and skips under-min groups", async () => {
-  await seedLab({ minMembers: 2 });
+  await seedAssignment({ minMembers: 2 });
   expect((await batch("l1")).status).toBe(404); // member
 
   state.membership = { state: "active", role: "admin" };
-  await seedGroup({ id: "g1", labId: "l1", name: "A" }); // complete
-  await seedGroup({ id: "g2", labId: "l1", name: "B" }); // under min
+  await seedGroup({ id: "g1", assignmentId: "l1", name: "A" }); // complete
+  await seedGroup({ id: "g2", assignmentId: "l1", name: "B" }); // under min
   state.rosters["g1-slug"] = [alice, bob];
   state.rosters["g2-slug"] = [carol];
 
@@ -925,7 +1026,7 @@ test("batch is teacher-only and skips under-min groups", async () => {
 // --- individual accept ---
 
 test("accept creates the solo group + repo and reuses on replay", async () => {
-  await seedLab({
+  await seedAssignment({
     id: "l2",
     groupMode: "individual",
     minMembers: null,
@@ -933,21 +1034,21 @@ test("accept creates the solo group + repo and reuses on replay", async () => {
   });
   const res = await accept("l2");
   expect(res.status).toBe(200);
-  expect((await asRepo(res)).repo.fullName).toBe("acme/lab-l2-alice");
+  expect((await asRepo(res)).repo.fullName).toBe("acme/assignment-l2-alice");
   expect(await db.select().from(groups)).toMatchObject([
-    { labId: "l2", name: "alice", slug: "lab-l2-alice" },
+    { assignmentId: "l2", name: "alice", slug: "assignment-l2-alice" },
   ]);
 
   const again = await accept("l2");
-  expect((await asRepo(again)).repo.fullName).toBe("acme/lab-l2-alice");
+  expect((await asRepo(again)).repo.fullName).toBe("acme/assignment-l2-alice");
   expect(await db.select().from(groups)).toHaveLength(1);
 });
 
 test("accept on an EXISTING solo group mirrors its roster into the cache", async () => {
   // The student's own page finds their group by looking for themselves in its
   // roster. An accept that answers 200 while `group_members` stays empty is a
-  // no-op on screen, observed live on lab-6-inidividual-tigoes44.
-  await seedLab({
+  // no-op on screen, observed live on assignment-6-inidividual-tigoes44.
+  await seedAssignment({
     id: "l2",
     groupMode: "individual",
     minMembers: null,
@@ -955,7 +1056,7 @@ test("accept on an EXISTING solo group mirrors its roster into the cache", async
   });
   // A solo group whose team exists on GitHub but has no cached roster, made
   // before the cache existed.
-  await seedGroup({ id: "solo", labId: "l2", name: "alice" });
+  await seedGroup({ id: "solo", assignmentId: "l2", name: "alice" });
   state.rosters["solo-slug"] = [alice];
 
   const res = await accept("l2");
@@ -971,14 +1072,14 @@ test("accept NEVER adopts an existing repo — collisions refuse", async () => {
   // named to collide with the teacher's private solution would capture it.
   // Collisions now always refuse; a genuinely interrupted create is recovered
   // on the audit page, where the teacher approves the link explicitly.
-  await seedLab({
+  await seedAssignment({
     id: "l2",
     groupMode: "individual",
     minMembers: null,
     maxMembers: null,
   });
   // Readable by the App or not, it makes no difference anymore.
-  state.orgRepos["lab-l2-alice"] = { visible: true };
+  state.orgRepos["assignment-l2-alice"] = { visible: true };
 
   const res = await accept("l2");
 
@@ -986,7 +1087,7 @@ test("accept NEVER adopts an existing repo — collisions refuse", async () => {
   expect(await res.json()).toEqual({ error: "repo_name_taken" });
   // Nothing recorded, nothing granted.
   expect(await db.select().from(groups)).toMatchObject([
-    { labId: "l2", ghRepoFullName: null },
+    { assignmentId: "l2", ghRepoFullName: null },
   ]);
   expect(state.grants).toEqual([]);
 });
@@ -995,8 +1096,8 @@ test("a create that dies before the grant is healed by the next click", async ()
   // createWorkRepo persists the row before granting: a grant failure leaves a
   // recorded repo whose team has no push. The next create request hits the
   // repo-already-recorded branch and re-asserts the grant (regrantWorkRepo).
-  await seedLab();
-  await seedGroup({ id: "g1", labId: "l1", members: [alice] });
+  await seedAssignment();
+  await seedGroup({ id: "g1", assignmentId: "l1", members: [alice] });
   state.grantFails = true;
 
   const first = await repo("l1", "g1");
@@ -1013,15 +1114,15 @@ test("a create that dies before the grant is healed by the next click", async ()
   expect(state.grants).toEqual([{ team: "g1-slug", repo: "acme/l1-g1" }]);
 });
 
-test("accept reports a name collision it cannot read, and never blames a template the lab lacks", async () => {
-  await seedLab({
+test("accept reports a name collision it cannot read, and never blames a template the assignment lacks", async () => {
+  await seedAssignment({
     id: "l2",
     groupMode: "individual",
     minMembers: null,
     maxMembers: null,
   });
   // The name is taken by a repo the App cannot see, so adoption is impossible.
-  state.orgRepos["lab-l2-alice"] = { visible: false };
+  state.orgRepos["assignment-l2-alice"] = { visible: false };
 
   const res = await accept("l2");
 
@@ -1029,12 +1130,17 @@ test("accept reports a name collision it cannot read, and never blames a templat
   expect(await res.json()).toEqual({ error: "repo_name_taken" });
 });
 
-test("a template deleted since the lab was created answers template_error", async () => {
-  // The lab points at starter code that no longer exists, deleted or renamed on
-  // GitHub, so /generate 404s. The student must get the same "ask your teacher"
-  // answer as for an empty template, never a raw 500.
-  await seedLab({ templateRepoFullName: "acme/starter-gone" });
-  await seedGroup({ id: "g1", labId: "l1", name: "A", members: [alice] });
+test("a template deleted since the assignment was created answers template_error", async () => {
+  // The assignment points at starter code that no longer exists, deleted or
+  // renamed on GitHub, so /generate 404s. The student must get the same "ask
+  // your teacher" answer as for an empty template, never a raw 500.
+  await seedAssignment({ templateRepoFullName: "acme/starter-gone" });
+  await seedGroup({
+    id: "g1",
+    assignmentId: "l1",
+    name: "A",
+    members: [alice],
+  });
   state.templateGone = true;
 
   const res = await repo("l1", "g1");
@@ -1043,17 +1149,17 @@ test("a template deleted since the lab was created answers template_error", asyn
   expect(await res.json()).toEqual({ error: "template_error" });
 });
 
-test("accept never adopts the lab's own template repo", async () => {
+test("accept never adopts the assignment's own template repo", async () => {
   // A slug that collides with the template's name, template in the same org.
   // Adopting it would grant the student team push on the starter code.
-  await seedLab({
+  await seedAssignment({
     id: "l2",
     groupMode: "individual",
     minMembers: null,
     maxMembers: null,
-    templateRepoFullName: "acme/lab-l2-alice",
+    templateRepoFullName: "acme/assignment-l2-alice",
   });
-  state.orgRepos["lab-l2-alice"] = { visible: true };
+  state.orgRepos["assignment-l2-alice"] = { visible: true };
 
   const res = await accept("l2");
 
@@ -1061,20 +1167,20 @@ test("accept never adopts the lab's own template repo", async () => {
   expect(await res.json()).toEqual({ error: "repo_name_taken" });
   // Nothing was recorded, and no grant was made against the template.
   expect(await db.select().from(groups)).toMatchObject([
-    { labId: "l2", ghRepoFullName: null },
+    { assignmentId: "l2", ghRepoFullName: null },
   ]);
 });
 
-test("accept refuses group labs", async () => {
-  await seedLab(); // group mode
+test("accept refuses group assignments", async () => {
+  await seedAssignment(); // group mode
   const res = await accept("l1");
   expect(res.status).toBe(409);
-  expect(await res.json()).toEqual({ error: "group_lab" });
+  expect(await res.json()).toEqual({ error: "group_assignment" });
 });
 
 // --- scoping ---
 
-test("a lab from another class is unreachable", async () => {
+test("an assignment from another class is unreachable", async () => {
   await db.insert(classes).values({
     id: "c2",
     orgId: 43,
@@ -1085,7 +1191,7 @@ test("a lab from another class is unreachable", async () => {
     createdAt: now,
     updatedAt: now,
   });
-  await db.insert(labs).values({
+  await db.insert(assignments).values({
     id: "l9",
     classId: "c2",
     title: "Other",
@@ -1097,14 +1203,14 @@ test("a lab from another class is unreachable", async () => {
   expect((await createGroup("l9", { name: "X" })).status).toBe(404);
 });
 
-// --- the start gate (spec 2026-07-23: students act only once the lab opens) ---
+// --- the start gate (spec 2026-07-23: students act only once the assignment opens) ---
 
 const FUTURE_START = new Date("2098-01-01T08:00:00Z"); // < the 2099 deadline
 
-test("a student cannot create a group before the lab starts", async () => {
-  await seedLab({ id: "l1", startAt: FUTURE_START });
+test("a student cannot create a group before the assignment starts", async () => {
+  await seedAssignment({ id: "l1", startAt: FUTURE_START });
   const res = await app.request(
-    "/api/classes/c1/labs/l1/groups",
+    "/api/classes/c1/assignments/l1/groups",
     {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -1118,9 +1224,9 @@ test("a student cannot create a group before the lab starts", async () => {
 
 test("a teacher creates groups before the start (the escape hatch)", async () => {
   state.membership = { state: "active", role: "admin" };
-  await seedLab({ id: "l1", startAt: FUTURE_START });
+  await seedAssignment({ id: "l1", startAt: FUTURE_START });
   const res = await app.request(
-    "/api/classes/c1/labs/l1/groups",
+    "/api/classes/c1/assignments/l1/groups",
     {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -1132,10 +1238,15 @@ test("a teacher creates groups before the start (the escape hatch)", async () =>
 });
 
 test("a student cannot reach the repo before the start — even one a teacher pre-created", async () => {
-  await seedLab({ id: "l1", startAt: FUTURE_START });
-  await seedGroup({ id: "g1", labId: "l1", repo: true, members: [alice] });
+  await seedAssignment({ id: "l1", startAt: FUTURE_START });
+  await seedGroup({
+    id: "g1",
+    assignmentId: "l1",
+    repo: true,
+    members: [alice],
+  });
   const res = await app.request(
-    "/api/classes/c1/labs/l1/groups/g1/repo",
+    "/api/classes/c1/assignments/l1/groups/g1/repo",
     { method: "POST" },
     env,
   );
@@ -1143,10 +1254,14 @@ test("a student cannot reach the repo before the start — even one a teacher pr
   expect(await res.json()).toEqual({ error: "not_started" });
 });
 
-test("accept refuses an individual lab before the start", async () => {
-  await seedLab({ id: "l1", groupMode: "individual", startAt: FUTURE_START });
+test("accept refuses an individual assignment before the start", async () => {
+  await seedAssignment({
+    id: "l1",
+    groupMode: "individual",
+    startAt: FUTURE_START,
+  });
   const res = await app.request(
-    "/api/classes/c1/labs/l1/accept",
+    "/api/classes/c1/assignments/l1/accept",
     { method: "POST" },
     env,
   );
@@ -1155,9 +1270,9 @@ test("accept refuses an individual lab before the start", async () => {
 });
 
 test("a past start behaves exactly like no start", async () => {
-  await seedLab({ id: "l1", startAt: new Date("2000-01-01T00:00:00Z") });
+  await seedAssignment({ id: "l1", startAt: new Date("2000-01-01T00:00:00Z") });
   const res = await app.request(
-    "/api/classes/c1/labs/l1/groups",
+    "/api/classes/c1/assignments/l1/groups",
     {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -1169,22 +1284,35 @@ test("a past start behaves exactly like no start", async () => {
 });
 
 test("a student's list is head-only before the start; the teacher's is full", async () => {
-  await seedLab({ id: "l1", startAt: FUTURE_START });
-  await seedGroup({ id: "g1", labId: "l1", name: "A", members: [alice] });
+  await seedAssignment({ id: "l1", startAt: FUTURE_START });
+  await seedGroup({
+    id: "g1",
+    assignmentId: "l1",
+    name: "A",
+    members: [alice],
+  });
 
-  const student = await app.request("/api/classes/c1/labs/l1/groups", {}, env);
+  const student = await app.request(
+    "/api/classes/c1/assignments/l1/groups",
+    {},
+    env,
+  );
   expect(student.status).toBe(200);
   const sBody = (await student.json()) as {
-    lab: { startAt: string | null };
+    assignment: { startAt: string | null };
     groups: unknown[];
     students: unknown[];
   };
   expect(sBody.groups).toEqual([]);
   expect(sBody.students).toEqual([]);
-  expect(sBody.lab.startAt).toBe("2098-01-01T08:00:00.000Z");
+  expect(sBody.assignment.startAt).toBe("2098-01-01T08:00:00.000Z");
 
   state.membership = { state: "active", role: "admin" };
-  const teacher = await app.request("/api/classes/c1/labs/l1/groups", {}, env);
+  const teacher = await app.request(
+    "/api/classes/c1/assignments/l1/groups",
+    {},
+    env,
+  );
   const tBody = (await teacher.json()) as { groups: unknown[] };
   expect(tBody.groups).toHaveLength(1);
 });

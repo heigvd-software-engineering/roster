@@ -66,7 +66,7 @@ describe("ClassesPage", () => {
             pending: [],
             pendingTeachers: [],
             users: [],
-            labs: [],
+            assignments: [],
           },
         ],
       },
@@ -82,7 +82,7 @@ describe("ClassesPage", () => {
       screen.getByRole("heading", { name: /Spring 2026/ }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("1 Feb → 30 Jun · 1 class · 0 labs"),
+      screen.getByText("1 Feb → 30 Jun · 1 class · 0 assignments"),
     ).toBeInTheDocument();
   });
 
@@ -107,11 +107,11 @@ describe("ClassesPage", () => {
                 user: null,
               },
             ],
-            labs: [
+            assignments: [
               {
                 id: "l1",
                 classId: "c2",
-                title: "Lab 1 — Sockets",
+                title: "Assignment 1 — Sockets",
                 deadline: "2099-08-01T23:59:00.000Z",
                 groupMode: "individual",
                 minMembers: null,
@@ -136,20 +136,20 @@ describe("ClassesPage", () => {
       screen.getByRole("heading", { name: /Spring 2026/ }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("1 Feb → 30 Jun · 1 class · 1 lab"),
+      screen.getByText("1 Feb → 30 Jun · 1 class · 1 assignment"),
     ).toBeInTheDocument();
-    expect(screen.getByText("Lab 1 — Sockets")).toBeInTheDocument();
-    // Read-only: no teacher actions. Lab rows still link, because students
-    // accept their labs on the lab page.
+    expect(screen.getByText("Assignment 1 — Sockets")).toBeInTheDocument();
+    // Read-only: no teacher actions. Assignment rows still link, because
+    // students accept their assignments on the assignment page.
     expect(
       screen.queryByRole("button", { name: "Copy join link" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "+ New lab" }),
+      screen.queryByRole("button", { name: "+ New assignment" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: /Lab 1 — Sockets/ }),
-    ).toHaveAttribute("href", "/classes/c2/labs/l1");
+      screen.getByRole("link", { name: /Assignment 1 — Sockets/ }),
+    ).toHaveAttribute("href", "/classes/c2/assignments/l1");
   });
 
   it("marks a pending invitation distinctly", () => {
@@ -165,7 +165,7 @@ describe("ClassesPage", () => {
             avatarUrl: null,
             state: "pending",
             teachers: [],
-            labs: [],
+            assignments: [],
           },
         ],
       },
@@ -174,7 +174,7 @@ describe("ClassesPage", () => {
     render(<ClassesPage />);
 
     expect(screen.getByText("invitation pending")).toBeInTheDocument();
-    expect(screen.getByText("No labs yet.")).toBeInTheDocument();
+    expect(screen.getByText("No assignments yet.")).toBeInTheDocument();
   });
 
   it("shows the empty state when nothing exists in any semester", () => {
@@ -213,7 +213,7 @@ describe("ClassesPage", () => {
             avatarUrl: null,
             state: "active",
             teachers: [],
-            labs: [],
+            assignments: [],
           },
         ],
         hasOlder: false,
