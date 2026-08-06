@@ -13,6 +13,7 @@ import { Text } from "~/components/custom/typography/text";
 import { Button } from "~/components/ui/button";
 import { useAuth } from "~/contexts/auth-context";
 import { api } from "~/lib/api";
+import { useDocumentTitle } from "~/lib/title";
 
 const MEMBERSHIPS = ["none", "pending", "active"] as const;
 type Membership = (typeof MEMBERSHIPS)[number];
@@ -324,8 +325,11 @@ export function JoinPage() {
   );
 }
 
-/** The hero layout shared by all join-page states (login/confirm family). */
+/** The hero layout shared by all join-page states (login/confirm family). It
+ *  owns the tab title too: the heading is the only thing that tells these
+ *  states apart, and a token in the URL tells a student nothing. */
 function Shell({ title, children }: { title: string; children: ReactNode }) {
+  useDocumentTitle(title);
   return (
     <Stack gap="lg" align="start" justify="center" className="flex-1">
       <Text variant="title">{title}</Text>

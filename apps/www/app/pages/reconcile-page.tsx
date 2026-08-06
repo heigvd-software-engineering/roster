@@ -13,6 +13,7 @@ import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
 import { api, useApi } from "~/lib/api";
+import { useDocumentTitle } from "~/lib/title";
 import { cn } from "~/lib/utils";
 
 /** Inferred from the audit endpoint (the server's `lib/reconcile/types.ts` is
@@ -84,6 +85,9 @@ export function ReconcilePage() {
     { param: { id } },
   );
   const cls = data?.class;
+  // One sentence for the heading and the tab: which class is being reconciled.
+  const heading = `Reconcile ${cls?.name ?? cls?.login ?? "this class"}`;
+  useDocumentTitle(heading);
 
   const findings = data?.findings ?? [];
   const [selected, setSelected] = useState<Set<string> | null>(null);
@@ -155,9 +159,7 @@ export function ReconcilePage() {
       <Link to="/classes" className="text-sm underline">
         ‹ Back to classes
       </Link>
-      <Text variant="title">
-        {`Reconcile ${cls?.name ?? cls?.login ?? "this class"}`}
-      </Text>
+      <Text variant="title">{heading}</Text>
       <Text variant="subtitle" className="max-w-2xl">
         GitHub is the authority. Anything below has drifted from it. Nothing
         changes until you apply it.

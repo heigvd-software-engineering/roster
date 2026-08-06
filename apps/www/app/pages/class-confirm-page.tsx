@@ -5,6 +5,7 @@ import { Loading } from "~/components/custom/loading";
 import { Text } from "~/components/custom/typography/text";
 import { Button } from "~/components/ui/button";
 import { api, useApi } from "~/lib/api";
+import { useDocumentTitle } from "~/lib/title";
 
 /** /classes/:id/confirm: locks the org to roster's policy, base repo
  *  permission No access and no member repository creation. */
@@ -14,6 +15,10 @@ export function ClassConfirmPage() {
   const { data, isLoading, error } = useApi(api.api.classes);
   const cls = data?.classes.find((c) => c.id === id);
   const orgName = cls?.name ?? cls?.login ?? "this organization";
+  // One sentence for the heading and the tab: which organization is being
+  // connected.
+  const heading = `Connect ${orgName}`;
+  useDocumentTitle(heading);
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -54,7 +59,7 @@ export function ClassConfirmPage() {
         </Stack>
       ) : (
         <Stack gap="lg" align="start" justify="center" className="flex-1">
-          <Text variant="title">{`Connect ${orgName}`}</Text>
+          <Text variant="title">{heading}</Text>
           <Text variant="subtitle" className="max-w-md">
             roster applies two settings to this organization. The base
             repository permission becomes <strong>No access</strong>, so

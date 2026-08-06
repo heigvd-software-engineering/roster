@@ -16,6 +16,7 @@ import {
   useAction,
 } from "~/lib/api";
 import { count } from "~/lib/format";
+import { useDocumentTitle } from "~/lib/title";
 
 /**
  * /classes/:classId/assignments/:assignmentId/manage: the teacher's assignment
@@ -30,6 +31,9 @@ import { count } from "~/lib/format";
 export function TeacherAssignmentPage() {
   const { classId = "", assignmentId = "" } = useParams();
   const g = useAssignmentGroups(classId, assignmentId);
+  // The header's own words: a teacher keeps several of these open at once, so
+  // the tab has to say WHICH assignment, and of which class.
+  useDocumentTitle(g.assignment?.title ?? "Assignment", g.className);
 
   // 404 = the class/assignment doesn't exist or the caller isn't in it,
   // distinct from a transient failure, which gets the refresh message.

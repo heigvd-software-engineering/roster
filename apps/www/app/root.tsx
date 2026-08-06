@@ -14,8 +14,26 @@ import { Text } from "~/components/custom/typography/text";
 import { AuthProvider } from "~/contexts/auth-context";
 import { MessageProvider } from "~/contexts/message-context";
 import { ThemeProvider } from "~/contexts/theme-context";
+import { pageTitle } from "~/lib/title";
 import type { Route } from "./+types/root";
 import "./app.css";
+
+/* The tab title every page falls back to, and the one the prerendered shell
+   ships with; without it a browser labels the tab with the whole URL. A route
+   that knows better exports its own `meta` (app/routes/*.tsx), and a page whose
+   subject only exists once fetched sets it with `useDocumentTitle`. The error
+   arm covers the boundary below, which no route module gets to name. */
+export const meta: Route.MetaFunction = ({ error }) => [
+  {
+    title: error
+      ? pageTitle(
+          isRouteErrorResponse(error) && error.status === 404
+            ? "Page not found"
+            : "Error",
+        )
+      : pageTitle(),
+  },
+];
 
 /* The tab icon: the same lucide ClipboardList the header wears. The SVG carries
    its own prefers-color-scheme rule so the glyph stays visible on light and dark

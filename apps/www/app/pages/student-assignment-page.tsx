@@ -7,6 +7,7 @@ import { Loading } from "~/components/custom/loading";
 import { Text } from "~/components/custom/typography/text";
 import { errorStatus } from "~/lib/api";
 import { assignmentStarted, formatDeadline } from "~/lib/format";
+import { useDocumentTitle } from "~/lib/title";
 
 /**
  * /classes/:classId/assignments/:assignmentId: the student's assignment page,
@@ -23,6 +24,8 @@ import { assignmentStarted, formatDeadline } from "~/lib/format";
 export function StudentAssignmentPage() {
   const { classId = "", assignmentId = "" } = useParams();
   const g = useAssignmentGroups(classId, assignmentId);
+  // The header's own words, so a tab left open says which assignment it holds.
+  useDocumentTitle(g.assignment?.title ?? "Assignment", g.className);
 
   const notFound = errorStatus(g.error) === 404;
   const pending = g.membershipState === "pending";
