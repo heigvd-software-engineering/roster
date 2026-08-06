@@ -76,7 +76,7 @@ export const workRepos: Reconciler = {
         // that died before the row write, or a group recreated over work its
         // deleted predecessor left behind. Naming both means the page answers
         // the question that sent them ("where did my repository go?").
-        detail: `${fullName} exists in the organization but is not linked to the group — either its creation was interrupted, or the group was recreated over work left by an earlier one.`,
+        detail: `${fullName} exists in the organization but is not linked to the group. Either its creation was interrupted, or the group was recreated over work left by an earlier one.`,
         fix: "Link it to the group and re-grant the team",
         change: { from: "No repository linked", to: fullName },
       });

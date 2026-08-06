@@ -38,7 +38,7 @@ export function StudentAssignmentPage() {
         <Page>
           <Text variant="error">
             {!notFound && g.error
-              ? "Couldn't load this assignment — refresh to retry."
+              ? "Couldn't load this assignment. Refresh to retry."
               : "This assignment doesn't exist (or you're not in its class)."}
           </Text>
           <Link to="/classes" className="text-sm underline">
@@ -54,7 +54,7 @@ export function StudentAssignmentPage() {
           />
           {pending ? (
             <Text variant="body2">
-              Accept your invitation on GitHub first — then you can accept this
+              Accept your invitation on GitHub first. Then you can accept this
               assignment.
             </Text>
           ) : g.assignment.startAt && !assignmentStarted(g.assignment) ? (
@@ -62,8 +62,8 @@ export function StudentAssignmentPage() {
             // matching face: what's next and when, nothing to act on yet.
             <Text variant="body2">
               This assignment starts{" "}
-              {formatDeadline(new Date(g.assignment.startAt))} — you'll be able
-              to form groups and get the starter code then.
+              {formatDeadline(new Date(g.assignment.startAt))}. You can form
+              groups and get the starter code then.
             </Text>
           ) : (
             <StudentAssignmentGroups

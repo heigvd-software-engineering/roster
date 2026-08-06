@@ -294,7 +294,7 @@ describe("TeacherAssignmentPage", () => {
       screen.getByRole("button", { name: "@bob hasn't signed in yet" }),
     );
     expect(
-      screen.getByText(/their real name appears here automatically/),
+      screen.getByText(/their real name appears here/),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", {
@@ -325,7 +325,7 @@ describe("TeacherAssignmentPage", () => {
     ).toBeInTheDocument();
     // But the picker can (re)place the teacher, tagged as one. Both open
     // seats anchor the same picker; the required one names itself.
-    fireEvent.click(screen.getByText("Add member — required to form"));
+    fireEvent.click(screen.getByText("Add member (required to form)"));
     expect(screen.getByText("@teach")).toBeInTheDocument();
     expect(screen.getByText("teacher")).toBeInTheDocument();
   });
@@ -625,7 +625,7 @@ describe("TeacherAssignmentPage", () => {
     expect(screen.getByText('Delete "Team Alpha"?')).toBeInTheDocument();
     // The repo survives, and the way back to it is spelled out.
     expect(
-      screen.getByText(/acme\/lab1-team-alpha stays in the organisation/),
+      screen.getByText(/acme\/lab1-team-alpha stays in the organization/),
     ).toBeVisible();
     // The route back is the GitHub sync, not the create button: createWorkRepo
     // never adopts an existing repo.

@@ -82,7 +82,7 @@ function diff(
 
   if (cached.length === 0) {
     return {
-      title: "— no roster recorded",
+      title: "has no roster recorded",
       detail: `On GitHub: ${list(now)}.`,
       fix: "Record the GitHub roster",
       change,
@@ -93,7 +93,7 @@ function diff(
   if (added.length > 0) parts.push(`On GitHub only: ${list(added)}.`);
   if (removed.length > 0) parts.push(`Here only: ${list(removed)}.`);
   return {
-    title: "— roster differs from GitHub",
+    title: "has a roster that differs from GitHub",
     detail: parts.join(" "),
     fix: "Copy the GitHub roster",
     change,

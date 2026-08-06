@@ -40,19 +40,18 @@ export function OnboardingGitHubPage() {
       {failed ? (
         <Text variant="error" className="max-w-md">
           {cause === "access_denied" ? (
-            <>You declined the authorization on GitHub — link it to continue.</>
+            <>You declined the authorization on GitHub. Link it to continue.</>
           ) : profileWithheld ? (
             <>
               GitHub didn't share your profile
-              {cause ? <> ({cause})</> : null}. If the account is brand new,
-              verify its email address on GitHub first — then try again. If it
-              keeps happening, report it — the problem may be on our side.
+              {cause ? <> ({cause})</> : null}. If the account is new, verify
+              its email address on GitHub, then try again. If it keeps
+              happening, report it: the problem may be on our side.
             </>
           ) : (
             <>
               Linking failed with an internal error ({cause}). Your GitHub
-              account is fine — try again, and report this if it keeps
-              happening.
+              account is fine. Try again, and report this if it keeps happening.
             </>
           )}
         </Text>

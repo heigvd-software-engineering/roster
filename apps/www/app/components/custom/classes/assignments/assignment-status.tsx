@@ -61,10 +61,10 @@ function assignmentStateDetail(
     return `The deadline passed on ${formatDeadline(new Date(assignment.deadline))}.`;
   }
   if (state === "running") {
-    return `Open for students — due ${formatDeadline(new Date(assignment.deadline))}.`;
+    return `Open for students, due ${formatDeadline(new Date(assignment.deadline))}.`;
   }
   return (
-    `Opens for students on ${assignment.startAt ? formatDeadline(new Date(assignment.startAt)) : "—"}. ` +
+    `Opens for students on ${assignment.startAt ? formatDeadline(new Date(assignment.startAt)) : "–"}. ` +
     "Until then students see the assignment in their list but cannot form groups or create repositories."
   );
 }

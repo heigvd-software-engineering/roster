@@ -26,7 +26,7 @@ import {
 import { ToggleGroup, ToggleGroupItem } from "~/components/ui/toggle-group";
 import { type AssignmentItem, api, useApi } from "~/lib/api";
 
-const NO_TEMPLATE = "No template — empty repository";
+const NO_TEMPLATE = "No template (empty repository)";
 
 /** The words for a failed save. The 409s the teacher can act on get specific
  *  messages: a start that doesn't precede the deadline, or a duplicate title
@@ -44,8 +44,8 @@ function saveErrorMessage(
     return "An assignment with that title already exists in this class.";
   }
   return editing
-    ? "Couldn't save the assignment — check the fields and try again."
-    : "Couldn't create the assignment — check the fields and try again.";
+    ? "Couldn't save the assignment. Check the fields and try again."
+    : "Couldn't create the assignment. Check the fields and try again.";
 }
 
 /** `datetime-local` wants "YYYY-MM-DDTHH:mm" in LOCAL time. */
@@ -162,7 +162,7 @@ export function AssignmentDialog({
       await onSaved();
       setOpen(false);
     } catch {
-      setError("Something went wrong — check your connection and try again.");
+      setError("Something went wrong. Check your connection and try again.");
     } finally {
       setSubmitting(false);
     }
@@ -223,8 +223,8 @@ export function AssignmentDialog({
           </DialogTitle>
           <DialogDescription>
             {assignment
-              ? "Changes are visible to students immediately."
-              : "The assignment is visible to students as soon as it is created; a start date keeps them from beginning — and from the starter code — before it."}
+              ? "Students see your changes immediately."
+              : "Students see the assignment as soon as you create it. A start date keeps them from beginning, and from the starter code, until then."}
           </DialogDescription>
         </DialogHeader>
         <Stack gap="md">
@@ -234,7 +234,7 @@ export function AssignmentDialog({
               id="assignment-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Lab 1 — TCP sockets"
+              placeholder="Lab 1: TCP sockets"
             />
           </Stack>
           <Stack gap="sm">
@@ -246,9 +246,9 @@ export function AssignmentDialog({
               onChange={(e) => setStartAt(e.target.value)}
             />
             <Text variant="caption">
-              Students see the assignment but cannot start it — no groups, no
-              repositories, and no access to the starter code — until this time.
-              Leave empty to open the assignment immediately.
+              Until this time, students see the assignment but cannot start it:
+              no groups, no repositories, no starter code. Leave it empty to
+              open the assignment immediately.
             </Text>
           </Stack>
           <Stack gap="sm">
@@ -318,8 +318,8 @@ export function AssignmentDialog({
             disabled={!valid || submitting}
             title={
               assignment
-                ? "Save — changes are visible to students immediately"
-                : "Create — the assignment is visible to students right away"
+                ? "Save: students see the changes immediately"
+                : "Create: students see the assignment right away"
             }
             onClick={submit}
           >
@@ -374,7 +374,7 @@ function TemplatePicker({
         <SelectTrigger
           id="assignment-template"
           className="h-9 w-full"
-          title="The template repository new work repos are generated from"
+          title="New work repositories start from this template"
         >
           <SelectValue />
         </SelectTrigger>
@@ -388,14 +388,16 @@ function TemplatePicker({
         </SelectContent>
       </Select>
       {error ? (
-        <Text variant="caption">Couldn't load the org's templates.</Text>
+        <Text variant="caption">
+          Couldn't load the organization's templates.
+        </Text>
       ) : isLoading ? (
         <Text variant="caption">Loading templates…</Text>
       ) : (
         <Text variant="caption">
           {templates.length === 0
-            ? "No templates found yet. Starter code must be a repository in this class's organization, marked as a template on GitHub (repo Settings → Template repository) — it can stay private."
-            : "Starter code comes from this class's organization: any repository marked as a template on GitHub (repo Settings → Template repository) — private ones work too."}
+            ? "No templates yet. Starter code must be a repository in this class's organization, marked as a template on GitHub (repo Settings → Template repository). It can stay private."
+            : "Starter code comes from this class's organization: any repository marked as a template on GitHub (repo Settings → Template repository). Private ones work too."}
         </Text>
       )}
     </Stack>

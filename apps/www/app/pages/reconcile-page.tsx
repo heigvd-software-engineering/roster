@@ -113,7 +113,7 @@ export function ReconcilePage() {
         json: { keys: [...checked] },
       });
       if (!res.ok) {
-        setResult("Couldn't apply those fixes — refresh and try again.");
+        setResult("Couldn't apply those fixes. Refresh and try again.");
         return;
       }
       const body = await res.json();
@@ -133,8 +133,8 @@ export function ReconcilePage() {
     return (
       <Page>
         <Text variant="error">
-          Couldn't audit this class — you may not teach it, or the GitHub App
-          may have been removed from its organization.
+          Couldn't audit this class. Either you don't teach it, or the GitHub
+          App is no longer installed in its organization.
         </Text>
         <Link to="/classes" className="text-sm underline">
           ‹ Back to classes
@@ -159,8 +159,8 @@ export function ReconcilePage() {
         {`Reconcile ${cls?.name ?? cls?.login ?? "this class"}`}
       </Text>
       <Text variant="subtitle" className="max-w-2xl">
-        GitHub is the authority. Anything below has drifted from it. Nothing is
-        repaired until you apply it.
+        GitHub is the authority. Anything below has drifted from it. Nothing
+        changes until you apply it.
       </Text>
       <ReconcileGuideDialog />
 
@@ -274,7 +274,7 @@ function FindingRow({
           </Row>
           <Text variant="caption">{detail}</Text>
           <Text variant="caption" className="mt-1 text-muted-foreground italic">
-            Nothing to apply — this one needs you.
+            Nothing to apply: this one needs you.
           </Text>
         </Stack>
       </Row>

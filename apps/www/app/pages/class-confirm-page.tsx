@@ -33,11 +33,11 @@ export function ClassConfirmPage() {
         }
       }
       setSubmitError(
-        "Couldn't apply the organization settings — check the App has Administration access.",
+        "Couldn't apply the organization settings. Check that the App has Administration access.",
       );
     } catch {
       setSubmitError(
-        "Something went wrong — check your connection and try again.",
+        "Something went wrong. Check your connection and try again.",
       );
     } finally {
       setSubmitting(false);
@@ -49,20 +49,20 @@ export function ClassConfirmPage() {
       {error ? (
         <Stack gap="lg" align="start" justify="center" className="flex-1">
           <Text variant="error">
-            Couldn't load this class — refresh to retry.
+            Couldn't load this class. Refresh to retry.
           </Text>
         </Stack>
       ) : (
         <Stack gap="lg" align="start" justify="center" className="flex-1">
           <Text variant="title">{`Connect ${orgName}`}</Text>
           <Text variant="subtitle" className="max-w-md">
-            roster will apply two settings to this organization: the base
+            roster applies two settings to this organization. The base
             repository permission becomes <strong>No access</strong>, so
-            students only see repos they're granted — their own assignment
-            repos, never other students' work or the organization's private
-            repos — and{" "}
+            students see only the repositories they're granted: their own
+            assignment repositories, never other students' work and never the
+            organization's private repositories. And{" "}
             <strong>member repository creation is turned off</strong>, so every
-            student repository is born through assignments, never directly on
+            student repository is created through roster, never directly on
             GitHub.
           </Text>
           <Button

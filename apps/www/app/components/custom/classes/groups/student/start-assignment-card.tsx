@@ -81,21 +81,21 @@ export function StartAssignmentCard({
                   : "you can start the assignment"
                 : missing
                   ? "repository deleted on GitHub"
-                  : "repository created — off you go"}
+                  : "repository created, off you go"}
           </span>
         </Stack>
         {state === "accept" ? (
           <>
             <Text variant="body2">
-              Accepting creates your personal work repository — no group to
-              form.
+              Accepting creates your personal work repository. There's no group
+              to form.
             </Text>
             <Button
               size="lg"
               type="button"
               className="self-start"
               disabled={busy}
-              title="Accept this assignment — creates your personal work repository"
+              title="Accept this assignment and create your personal work repository"
               onClick={onAccept}
             >
               Accept assignment
@@ -105,7 +105,7 @@ export function StartAssignmentCard({
           <>
             <Text variant="body2">
               {mode === "individual"
-                ? "Your repository couldn't be created yet — try again."
+                ? "Your repository couldn't be created yet. Try again."
                 : "Create your group's work repository to begin."}
             </Text>
             {mode === "individual" ? (
@@ -124,7 +124,7 @@ export function StartAssignmentCard({
               // join/leave), so make the point of no return explicit.
               <ConfirmDialog
                 title="Create the work repository?"
-                description="This locks the group: once the repository exists, nobody can join or leave on their own — only your teacher can change the group. Make sure everyone is in before you continue."
+                description="This locks the group: once the repository exists, nobody can join or leave on their own, and only your teacher can change it. Make sure everyone is in before you continue."
                 confirmLabel="Create repository"
                 onConfirm={onCreate}
                 trigger={
@@ -133,7 +133,7 @@ export function StartAssignmentCard({
                     type="button"
                     className="self-start"
                     disabled={busy}
-                    title="Create your group's work repository — this locks the group"
+                    title="Create your group's work repository, which locks the group"
                   >
                     Create repository
                   </Button>
@@ -154,8 +154,8 @@ export function StartAssignmentCard({
                 <MissingRepoBadge />
               </Row>
               <Text variant="body2">
-                {repoFullName} was deleted directly on GitHub — ask your teacher
-                to unlink it so the group can get a new one. Cloning won't work
+                {repoFullName} was deleted directly on GitHub. Your teacher can
+                unlink it so the group can get a new one. Cloning won't work
                 until then.
               </Text>
             </Stack>

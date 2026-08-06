@@ -61,7 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const githubState = data?.githubState ?? "unlinked";
   useEffect(() => {
     if (githubState === "unknown") {
-      push("GitHub is unreachable right now — some data may be missing.", {
+      push("GitHub is unreachable right now, so some data may be missing.", {
         variant: "warning",
       });
     }
@@ -95,7 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // silent dead button reads as "app is broken".
           if (error) throw new Error(error.message ?? "sign-in failed");
         } catch {
-          push("Sign-in is unavailable right now — try again in a moment.", {
+          push("Sign-in is unavailable right now. Try again in a moment.", {
             variant: "error",
           });
         }

@@ -74,7 +74,7 @@ export const STAKES = {
   /** The one thing a deletion never takes. `subject` names it: a repo's full
    *  name when there is one, "N work repositories" when counting. */
   reposSurvive: (subject: string, plural = false) =>
-    `${subject} ${plural ? "stay" : "stays"} in the organisation — roster never deletes student work — but the students lose their access along with the team.`,
+    `${subject} ${plural ? "stay" : "stays"} in the organization, because roster never deletes student work, but the students lose their access along with the team.`,
   /** How the work is reached again. NOT automatic, and not the create button:
    * `createWorkRepo` never adopts an existing repo (it answers `name_taken`),
    * so the route back is the `work-repos` reconciler on the GitHub sync page.
@@ -91,7 +91,7 @@ function Stakes({ lines }: { lines: string[] }) {
         <Text
           key={line}
           variant="body2"
-          className="before:mr-1.5 before:content-['—']"
+          className="before:mr-1.5 before:content-['•']"
         >
           {line}
         </Text>

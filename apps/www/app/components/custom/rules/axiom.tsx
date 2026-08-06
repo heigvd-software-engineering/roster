@@ -29,7 +29,7 @@ export function Axiom({ marker, name, children }: AxiomProps) {
   return (
     <Stack gap="xs">
       <Text variant="label" className="font-semibold">
-        {marker} — {name}
+        {marker} · {name}
       </Text>
       <Text variant="body2">{children}</Text>
     </Stack>

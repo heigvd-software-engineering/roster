@@ -39,10 +39,10 @@ export function CloneAllDialog({
         <DialogHeader>
           <DialogTitle>Clone every repository</DialogTitle>
           <DialogDescription>
-            {repos.length} {repos.length === 1 ? "repository" : "repositories"}{" "}
-            — run these from the folder where you want the clones. Each lands in
-            a directory named after its group. Re-running is safe: git refuses
-            to overwrite a repository you already cloned, and clones the rest.
+            {repos.length} {repos.length === 1 ? "repository" : "repositories"}.
+            Run these from the folder where you want the clones. Each lands in a
+            directory named after its group. Re-running is safe: git refuses to
+            overwrite a repository you already cloned and clones the rest.
           </DialogDescription>
         </DialogHeader>
         <CommandBlock commands={commands} label="Copy every clone command" />

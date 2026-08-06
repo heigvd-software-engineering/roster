@@ -17,7 +17,7 @@ const changed = (
   if (field === "avatar") {
     return { field, was: "previous avatar", now: "new avatar" };
   }
-  return { field, was: was ?? "—", now: now ?? "—" };
+  return { field, was: was ?? "–", now: now ?? "–" };
 };
 
 export const identity: Reconciler = {

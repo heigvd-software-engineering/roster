@@ -118,7 +118,7 @@ export function ClassesPage() {
         <Stack gap="lg" className="w-full">
           {error ? (
             <Text variant="error">
-              Couldn't load your classes — refresh to retry.
+              Couldn't load your classes. Refresh to retry.
             </Text>
           ) : (
             <>
@@ -131,8 +131,8 @@ export function ClassesPage() {
                   <Text variant="body2">No classes yet.</Text>
                   <Text variant="caption">
                     {canCreateClasses
-                      ? 'Teaching? Use "New class" above — it walks you through how a class maps onto GitHub. A student? There\'s nothing to create: open the class link your teacher shared and your class appears here.'
-                      : "A student? There's nothing to create: open the class link your teacher shared and your class appears here."}
+                      ? 'Teaching? Use "New class" above: it walks you through how a class maps onto GitHub. A student? There\'s nothing to create. Open the class link your teacher shared and your class appears here.'
+                      : "A student? There's nothing to create. Open the class link your teacher shared and your class appears here."}
                   </Text>
                 </Stack>
               ) : null}

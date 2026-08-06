@@ -10,7 +10,7 @@ export function LoginPage() {
     <Stack gap="lg" align="start" justify="center" className="flex-1">
       <Text variant="title">roster</Text>
       <Text variant="subtitle" className="max-w-md">
-        Course assignments, on your own GitHub. HEIG-VD — Software Engineering.
+        Course assignments, on your own GitHub. HEIG-VD Software Engineering.
       </Text>
       <Button
         size="lg"

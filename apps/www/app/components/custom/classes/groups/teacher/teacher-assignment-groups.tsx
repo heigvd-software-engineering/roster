@@ -123,7 +123,7 @@ export function TeacherAssignmentGroups({
 
   if (g.error) {
     return (
-      <Text variant="error">Couldn't load the groups — refresh to retry.</Text>
+      <Text variant="error">Couldn't load the groups. Refresh to retry.</Text>
     );
   }
   if (g.isLoading) {
@@ -170,7 +170,7 @@ export function TeacherAssignmentGroups({
 
         {rows.length === 0 ? (
           <Text variant="body2">
-            No groups in this assignment yet — create one above.
+            No groups in this assignment yet. Create one above.
           </Text>
         ) : (
           <div className={GROUP_WALL}>
@@ -390,10 +390,10 @@ function TeacherGroupCard({
                 text="repo exists"
                 title="This group already has its work repository"
               >
-                Membership changes here still work — only student self-service
-                is locked. A student you add immediately sees everything the
-                group has pushed; a student you remove loses access but keeps
-                whatever they already cloned.
+                Membership changes here still work; only student self-service is
+                locked. A student you add immediately sees everything the group
+                has pushed. A student you remove loses access but keeps whatever
+                they already cloned.
               </Hint>
             ) : null}
             {over ? (
@@ -407,9 +407,9 @@ function TeacherGroupCard({
                 text="over max"
                 title={`This group has ${size} members and the assignment allows ${g.max}`}
               >
-                The assignment's maximum was lowered after this group formed —
-                nobody was removed, and the group keeps working. Remove{" "}
-                {size - g.max} member
+                The assignment's maximum dropped after this group formed. Nobody
+                was removed, and the group keeps working. Remove {size - g.max}{" "}
+                member
                 {size - g.max > 1 ? "s" : ""} to fit the assignment, or raise
                 the assignment's maximum in its settings if the size is fine.
               </Hint>
@@ -428,9 +428,9 @@ function TeacherGroupCard({
                 title="No SWITCH identity yet"
               >
                 This GitHub account isn't connected to a SWITCH edu-ID sign-in
-                yet, so only the login can be shown. Once the student signs in
-                to the app with SWITCH and connects this GitHub account, their
-                real name appears here automatically.
+                yet, so only the login shows. Once the student signs in with
+                SWITCH and connects this GitHub account, their real name appears
+                here.
               </Hint>
             )}
             <Button
@@ -444,7 +444,7 @@ function TeacherGroupCard({
               // the consequence instead of a confirm on every click.
               title={
                 repo !== null
-                  ? `Remove @${member.login} from this group — they lose access to the repository but keep whatever they already cloned`
+                  ? `Remove @${member.login} from this group: they lose access to the repository but keep whatever they already cloned`
                   : `Remove @${member.login} from this group`
               }
               onClick={() => g.removeMember(group.id, member.login)}
@@ -504,7 +504,7 @@ function AddMemberSeat({
 }: ComponentProps<typeof SeatButton>) {
   return (
     <SeatButton required={required} {...props}>
-      {required ? "Add member — required to form" : "Add member"}
+      {required ? "Add member (required to form)" : "Add member"}
     </SeatButton>
   );
 }
@@ -619,7 +619,9 @@ function CardFooter({
       />
     );
   }
-  return <Text variant="caption">Repo forms when the group is complete</Text>;
+  return (
+    <Text variant="caption">Repository forms when the group is complete</Text>
+  );
 }
 
 /** An open seat that IS the "add from the pool" picker: the seat anchors a
@@ -651,7 +653,7 @@ function AddFromPool({
             aria-label={`Add a member to ${groupName}`}
             title={
               candidates.length === 0
-                ? "Everyone is placed — nobody is without a group"
+                ? "Everyone is already in a group"
                 : "Add a student without a group to this group"
             }
           />

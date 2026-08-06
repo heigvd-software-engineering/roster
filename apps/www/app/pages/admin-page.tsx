@@ -48,7 +48,7 @@ export function AdminPage() {
         <Stack gap="none">
           <Text variant="heading">Super admin</Text>
           <Text variant="subtitle">
-            Who may create classes. Everything else is unaffected.
+            Who may create classes. Nothing else changes.
           </Text>
         </Stack>
         <Input

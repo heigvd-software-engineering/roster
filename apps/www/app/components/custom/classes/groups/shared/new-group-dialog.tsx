@@ -111,9 +111,9 @@ const handles = (logins: string[]) => logins.map((l) => `@${l}`).join(", ");
 function blockerReason(blocker: Blocker, memberCount: number): string {
   switch (blocker.reason) {
     case "source_empty":
-      return "no members to copy — start empty instead";
+      return "no members to copy; start empty instead";
     case "group_too_large":
-      return `${count(memberCount, "member")} — this assignment takes at most ${blocker.max}`;
+      return `${count(memberCount, "member")}, and this assignment takes at most ${blocker.max}`;
     case "member_already_placed":
       return `${handles(blocker.logins)} ${
         blocker.logins.length === 1 ? "is" : "are"
@@ -131,15 +131,15 @@ function conflictMessage(code: string | undefined): string {
     case "name_taken":
       return "A group with that name already exists in this assignment.";
     case "member_already_placed":
-      return "Someone in that group has already joined a group of this assignment — it can't be reused anymore.";
+      return "Someone in that group has already joined a group of this assignment, so it can't be reused.";
     case "member_not_in_class":
-      return "Someone in that group is no longer in the class — it can't be reused anymore.";
+      return "Someone in that group has left the class, so it can't be reused.";
     case "group_too_large":
       return "That group no longer fits this assignment's size limit.";
     case "source_empty":
-      return "That group has no members to copy — start from an empty group.";
+      return "That group has no members to copy. Start from an empty group.";
     default:
-      return "Couldn't create the group — try again.";
+      return "Couldn't create the group. Try again.";
   }
 }
 
@@ -225,13 +225,13 @@ function NewGroupForm({
         return;
       }
       if (!res.ok) {
-        setError("Couldn't create the group — try again.");
+        setError("Couldn't create the group. Try again.");
         return;
       }
       await onCreated();
       onClose();
     } catch {
-      setError("Something went wrong — check your connection and try again.");
+      setError("Something went wrong. Check your connection and try again.");
     } finally {
       setSubmitting(false);
     }
@@ -272,7 +272,7 @@ function NewGroupForm({
               label="Reuse a group"
               description={
                 nothingToReuse
-                  ? "No groups from other assignments yet — once another assignment has groups, you can copy one forward."
+                  ? "No groups from other assignments yet. Once another assignment has groups, you can copy one forward."
                   : "Copy the same members forward from an earlier assignment."
               }
               onPick={() =>
@@ -310,8 +310,8 @@ function NewGroupForm({
           />
           <Text variant="caption">
             {source
-              ? `Copied from ${source.name} — rename freely.`
-              : "Pick any name — it becomes the group's private GitHub team."}
+              ? `Copied from ${source.name}. Rename it freely.`
+              : "Pick any name: it becomes the group's private GitHub team."}
           </Text>
           {error ? <Text variant="error">{error}</Text> : null}
         </Stack>
@@ -324,7 +324,7 @@ function NewGroupForm({
             ? `Copies ${count(source.members.length, "member")} into a fresh group for this assignment.`
             : startFrom.kind === "reuse"
               ? "Pick a group above to copy its members forward."
-              : "Creates an empty group — members join after."}
+              : "Creates an empty group. Members join afterwards."}
         </Text>
         <Button
           variant="outline"

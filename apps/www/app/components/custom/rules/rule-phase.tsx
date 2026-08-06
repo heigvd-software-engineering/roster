@@ -24,7 +24,7 @@ export function RulePhase({ step, title, tagline, children }: RulePhaseProps) {
     <Card className="w-full">
       <CardHeader>
         <CardTitle>
-          {step} — {title}
+          {step} · {title}
         </CardTitle>
         <CardDescription>{tagline}</CardDescription>
       </CardHeader>

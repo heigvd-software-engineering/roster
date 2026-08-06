@@ -37,11 +37,11 @@ export type GroupAssignmentStatus =
 // Named because the batch repo-create reuses them for its skip warnings: one
 // wording, whether the create was clicked alone or as "create all".
 const GROUP_INCOMPLETE_MESSAGE =
-  "This group needs more members before it can get its repository — check the assignment's minimum size.";
+  "This group needs more members before it can get its repository. Check the assignment's minimum size.";
 
 const CONFLICT_MESSAGE: Record<string, string> = {
   member_already_participating:
-    "You're already in another group for this assignment — leave it first.",
+    "You're already in another group for this assignment. Leave it first.",
   group_incomplete: GROUP_INCOMPLETE_MESSAGE,
   // Repo creation is CREATE-only, never adopting an existing repo even one
   // assignments could read back (see lib/groups.ts createWorkRepo), so a name
@@ -54,35 +54,35 @@ const CONFLICT_MESSAGE: Record<string, string> = {
   // student can't open that page, so this base wording sends them to someone
   // who can (teachers get their own below).
   repo_name_taken:
-    "A repository already exists under this group's name — usually this group's own work from before. Ask your teacher to link it back from the class's GitHub sync.",
+    "A repository already exists under this group's name, usually this group's own work from before. Ask your teacher to link it back from the class's GitHub sync.",
   template_error:
-    "The assignment's starter-code template can't be used — it's likely empty or unavailable. Ask your teacher to add a file to it (or remove the template).",
+    "The assignment's starter-code template can't be used: it is probably empty or unavailable. Ask your teacher to add a file to it, or to remove the template.",
   app_permissions:
-    "roster can't create repositories yet — the GitHub App needs updated permissions (an administrator must approve them).",
+    "roster can't create repositories yet: the GitHub App needs updated permissions, and an administrator must approve them.",
   // Join and leave only: deletion is refused nowhere, so a locked group is
   // one you can't move in or out of, not one that's permanent.
   has_repo:
-    "This group already has its work repository — only the teacher changes its roster now.",
-  group_full: "That group is already full — pick another or start your own.",
+    "This group already has its work repository, so only the teacher can change its roster now.",
+  group_full: "That group is full. Pick another or start your own.",
   name_taken: "A group with that name already exists in this assignment.",
   // Students only: teachers bypass the start gate entirely.
   not_started:
-    "This assignment hasn't started yet — groups and repositories open at the start time.",
+    "This assignment hasn't started yet. Groups and repositories open at the start time.",
   // unlinkGroupRepo re-verifies live before clearing the link, so this means
   // someone recreated a repo under the same name between page load and click.
   still_exists:
-    "That repository still exists on GitHub — refresh to see its current state.",
+    "That repository still exists on GitHub. Refresh to see its current state.",
   // The page thought this was an individual assignment and the server
   // disagrees: the teacher changed its mode while it was open. Reloading is the
   // fix, so say that rather than describing the mismatch.
   group_assignment:
-    "This assignment works in groups, not individually — reload the page to see its groups.",
+    "This assignment works in groups, not individually. Reload the page to see its groups.",
   // Accepting an individual assignment, when the solo group already exists but
   // its live GitHub team doesn't confirm it's the caller's. Three distinct
   // causes, and the student can fix none of them, so each says who can rather
   // than inviting a retry that will fail identically.
   solo_team_empty:
-    "Your group for this assignment exists, but you're not in it on GitHub — either you were removed from the organization, or you were removed from the group. Ask your teacher to add you back.",
+    "Your group for this assignment exists, but you're not in it on GitHub: you were removed either from the organization or from the group. Ask your teacher to add you back.",
   solo_team_missing:
     "Your group for this assignment has lost its team on GitHub. Ask your teacher to repair it from the class's GitHub sync.",
   solo_name_taken:
@@ -92,7 +92,7 @@ const CONFLICT_MESSAGE: Record<string, string> = {
 /** For codes no table knows. Kept OUT of the table so an unknown code can
  *  never collide with a real one named "default". */
 const DEFAULT_CONFLICT_MESSAGE =
-  "That didn't go through — refresh and try again.";
+  "That didn't go through. Refresh and try again.";
 
 /** Why the batch skipped a group, in the batch's voice ("<name> was skipped:
  *  …"), so these read as clauses. `group_incomplete` reuses the single-create
@@ -101,10 +101,10 @@ const DEFAULT_CONFLICT_MESSAGE =
  *  (there the roster read failing 503s instead). */
 const REPO_SKIP_MESSAGE: Record<string, string> = {
   repo_name_taken:
-    "a repository already exists under its name, usually its own work from before — link it back from the class's GitHub sync, or rename the group if that repository belongs to someone else.",
+    "a repository already exists under its name, usually its own work from before. Link it back from the class's GitHub sync, or rename the group if that repository belongs to someone else.",
   group_incomplete: GROUP_INCOMPLETE_MESSAGE,
   group_gone:
-    "its GitHub team no longer exists — repair the class from its GitHub sync.",
+    "its GitHub team no longer exists. Repair the class from its GitHub sync.",
 };
 
 /** One warning per group the batch repo-create SKIPPED. The 200 response
@@ -134,9 +134,9 @@ export function repoSkipMessages(
  *  renaming, for the case where the repository really is someone else's. */
 const TEACHER_CONFLICT_MESSAGE: Record<string, string> = {
   group_full:
-    "That group is already at the assignment's maximum size — raise the assignment's maximum in the assignment settings to add more members.",
+    "That group is at the assignment's maximum size. Raise the maximum in the assignment settings to add more members.",
   repo_name_taken:
-    "A repository already exists under this group's name — usually this group's own work, left behind when a group or assignment was deleted. Open the class's GitHub sync to see which repository it is and link it back. Rename the group only if that repository belongs to someone else.",
+    "A repository already exists under this group's name, usually this group's own work, left behind when a group or assignment was deleted. Open the class's GitHub sync to see which repository it is and link it back. Rename the group only if that repository belongs to someone else.",
 };
 
 /**

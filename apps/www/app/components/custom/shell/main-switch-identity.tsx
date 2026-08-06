@@ -47,7 +47,7 @@ export function MainSwitchIdentity() {
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label="Account menu"
-        title="Account menu — GitHub link, theme, sign out"
+        title="Account menu: GitHub link, theme, sign out"
         className="rounded-md px-2 py-1 text-left outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
       >
         {/* edu-ID identity: always initials (no avatarUrl passed). */}

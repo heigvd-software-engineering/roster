@@ -46,7 +46,7 @@ export function TeacherAssignmentPage() {
         <Page>
           <Text variant="error">
             {!notFound && g.error
-              ? "Couldn't load this assignment — refresh to retry."
+              ? "Couldn't load this assignment. Refresh to retry."
               : "This assignment doesn't exist (or you don't teach its class)."}
           </Text>
           <Link to="/classes" className="text-sm underline">

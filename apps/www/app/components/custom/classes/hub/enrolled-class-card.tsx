@@ -27,7 +27,7 @@ function PendingInvitationWarning({ orgLogin }: { orgLogin: string | null }) {
       <Stack gap="sm">
         <span>
           You joined this class, but you haven't accepted the GitHub
-          organisation invitation yet — so you aren't a member of it.
+          organization invitation yet, so you aren't a member of it.
         </span>
         <span>
           Until you do, you can open the class and its assignments, but you

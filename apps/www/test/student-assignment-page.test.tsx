@@ -109,7 +109,7 @@ describe("StudentAssignmentPage — group assignment", () => {
     // 1/3 with a min of 2: the first open seat is the one still needed to
     // form, the second is merely available. Both are the join verb.
     expect(
-      screen.getByRole("button", { name: "Join — needed to form" }),
+      screen.getByRole("button", { name: "Join (required to form)" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Join this group" }),
@@ -167,7 +167,7 @@ describe("StudentAssignmentPage — group assignment", () => {
     render(<StudentAssignmentPage />);
 
     expect(
-      screen.getByText("repository created — off you go"),
+      screen.getByText("repository created, off you go"),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -209,7 +209,7 @@ describe("StudentAssignmentPage — group assignment", () => {
     fireEvent.focus(leave.parentElement as HTMLElement);
     expect(
       await screen.findByText(
-        "The group's work repository exists — ask your teacher to move you.",
+        "The group's work repository exists. Ask your teacher to move you.",
       ),
     ).toBeInTheDocument();
   });
@@ -297,11 +297,11 @@ describe("StudentAssignmentPage — group assignment", () => {
     expect(
       screen.queryByRole("button", { name: /^Join/ }),
     ).not.toBeInTheDocument();
-    const seats = screen.getAllByText("Locked seat — ask your professor");
+    const seats = screen.getAllByText("Locked seat: ask your teacher");
     expect(seats.length).toBeGreaterThan(0);
     expect(seats[0]).toHaveAttribute(
       "title",
-      "This group's repository exists — only your teacher can add members",
+      "This group's repository exists, so only your teacher can add members",
     );
   });
 });
@@ -317,7 +317,7 @@ describe("StudentAssignmentPage — individual assignment", () => {
     ).toBeInTheDocument();
     // The ghost tile: the accepted layout, dimmed, before the click.
     expect(
-      screen.getByText("your solo assignment — not accepted yet"),
+      screen.getByText("your solo assignment, not accepted yet"),
     ).toBeInTheDocument();
     expect(
       screen.getByText("This assignment is individual"),

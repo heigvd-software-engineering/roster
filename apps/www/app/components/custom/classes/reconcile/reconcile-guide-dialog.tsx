@@ -41,17 +41,17 @@ const GUIDE: {
   },
   {
     section: "Roster",
-    note: "roster keeps its own list of a class's members — a cache of GitHub's org membership, used to show who's in the class without calling GitHub every time. Access is always live from GitHub, so reconciling this list never grants or revokes anything; it just keeps the list honest.",
+    note: "roster keeps its own list of a class's members, a cache of GitHub's org membership, so the class page can show who's in it without calling GitHub every time. Access is always live from GitHub, so reconciling this list never grants or revokes anything; it only keeps the list honest.",
     items: [
       {
         what: "Someone joined the organization but isn't on the class list",
         handled:
-          "Added to the list — as a student, or as a teacher if they're an Owner.",
+          "Added to the list as a student, or as a teacher if they're an Owner.",
       },
       {
         what: "A member became an Owner, or an Owner is no longer one",
         handled:
-          "The list re-labels them teacher or student to match. Access is live from GitHub either way — an Owner can act as a teacher immediately, reconcile or not.",
+          "The list re-labels them teacher or student to match. Access is live from GitHub either way: an Owner can act as a teacher immediately, reconcile or not.",
       },
       {
         what: "A member changed their login or avatar",
@@ -74,12 +74,12 @@ const GUIDE: {
       {
         what: "A group's team roster was edited outside assignments, or never recorded",
         handled:
-          "Reconcile copies the GitHub team roster into the group. The team — the real membership and repo access — is never touched.",
+          "Reconcile copies the GitHub team roster into the group. It never touches the team itself, which holds the real membership and repository access.",
       },
       {
         what: "A work repository exists but was never linked to its group",
         handled:
-          "If accepting an assignment is interrupted after GitHub makes the repo but before roster records it. Re-accepting the assignment already self-heals; reconcile is the backstop — it links the repo and re-grants the team its push access.",
+          "This happens when accepting an assignment is interrupted after GitHub makes the repository but before roster records it. Re-accepting the assignment already repairs it; reconcile is the backstop, linking the repository and re-granting the team its push access.",
       },
     ],
   },
@@ -89,12 +89,12 @@ const GUIDE: {
       {
         what: "The organization's base permission is no longer No access",
         handled:
-          "Every member could then read every repository, including other groups' work. Reconcile sets it back to No access — leaving it unfixed is the real hazard.",
+          "Every member could then read every repository, including other groups' work. Reconcile sets it back to No access; leaving it broken is the real hazard.",
       },
       {
         what: "Members can create repositories in the organization",
         handled:
-          "Students could then create repos directly on GitHub, outside the roster workflow. Reconcile turns member repository creation back off — student repositories are born through roster only.",
+          "Students could then create repositories directly on GitHub, outside roster. Reconcile turns member repository creation back off, so every student repository is created through roster.",
       },
     ],
   },
@@ -121,8 +121,8 @@ export function ReconcileGuideDialog() {
           <DialogTitle>What reconcile covers</DialogTitle>
           <DialogDescription>
             Every kind of drift the audit can find, and what Apply does about
-            it. The audit only reads — nothing here is changed until you apply
-            it, and every fix is safe to run twice.
+            it. The audit only reads: nothing changes until you apply it, and
+            every fix is safe to run twice.
           </DialogDescription>
         </DialogHeader>
 
@@ -153,8 +153,8 @@ export function ReconcileGuideDialog() {
           {/* The one guarantee that isn't a per-row fix: a broken check
               reports itself instead of taking the page down with it. */}
           <Text variant="caption" className="border-t pt-3">
-            A check that can't run — say the App was removed from the
-            organization — is reported on its own and never blocks the others.
+            A check that can't run, say because the App was removed from the
+            organization, reports itself and never blocks the others.
           </Text>
         </Stack>
       </DialogContent>

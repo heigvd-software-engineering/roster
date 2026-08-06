@@ -17,19 +17,19 @@ const CAUSES: { key: string; title: string; detail: string }[] = [
     key: "member",
     title: "You're only a Member of the organization",
     detail:
-      'In GitHub\'s picker, organizations you own show "Install" — that\'s the button that creates the class. Where you\'re only a member it shows "Request", which files an approval with the owners and never creates a class. Ask an owner to promote you, or use an organization you own.',
+      'In GitHub\'s picker, organizations you own show "Install", the button that creates the class. Where you\'re only a member it shows "Request", which files an approval with the owners and never creates a class. Ask an owner to promote you, or use an organization you own.',
   },
   {
     key: "not_an_org",
     title: "The App was installed on a personal account",
     detail:
-      "A class is backed by a GitHub organization. Pick an organization in GitHub's picker — not your personal account.",
+      "A class is backed by a GitHub organization. Pick an organization in GitHub's picker, not your personal account.",
   },
   {
     key: "not_your_installation",
     title: "Installed with a different GitHub account",
     detail:
-      "The installation was made by a GitHub account other than the one linked to assignments. Redo it while signed in to GitHub as the account you linked.",
+      "A GitHub account other than the one you linked to roster made the installation. Redo it while signed in to GitHub as the account you linked.",
   },
   {
     key: "github_not_linked",
@@ -41,7 +41,7 @@ const CAUSES: { key: string; title: string; detail: string }[] = [
     key: "no_installation",
     title: "GitHub didn't report an installation",
     detail:
-      "The install flow ended without an installation id — usually a cancelled or interrupted install. Run it again from start to finish.",
+      "The install flow ended without an installation id, usually because the install was cancelled or interrupted. Run it again from start to finish.",
   },
   {
     key: "not_class_creator",

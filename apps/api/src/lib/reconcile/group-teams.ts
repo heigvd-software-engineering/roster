@@ -52,7 +52,7 @@ export const groupTeams: Reconciler = {
         severity: "broken",
         title: `"${group.name}" no longer exists on GitHub`,
         detail: group.ghRepoFullName
-          ? `Its team was deleted, so its members and their access to ${group.ghRepoFullName} are gone. The repository is kept — recreating a group with the same name re-attaches it.`
+          ? `Its team was deleted, so its members and their access to ${group.ghRepoFullName} are gone. The repository is kept: recreating a group with the same name re-attaches it.`
           : "Its team was deleted, so the group has no members and cannot be worked in.",
         fix: "Remove the group from this assignment",
         change: {

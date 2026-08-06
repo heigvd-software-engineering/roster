@@ -46,7 +46,7 @@ describe("ClassesPage", () => {
     // No button, and the empty-hub copy must not point at one either.
     expect(screen.queryByText("New class")).not.toBeInTheDocument();
     expect(screen.queryByText(/Use "New class" above/)).not.toBeInTheDocument();
-    expect(screen.getByText(/open the class link/)).toBeInTheDocument();
+    expect(screen.getByText(/Open the class link/)).toBeInTheDocument();
   });
 
   it("shows the connect action and lists classes under their semester", () => {
@@ -243,7 +243,7 @@ describe("ClassesPage", () => {
     render(<ClassesPage />);
 
     expect(
-      screen.getByText(/Couldn't load your classes — refresh to retry/),
+      screen.getByText(/Couldn't load your classes\. Refresh to retry/),
     ).toBeInTheDocument();
   });
 });

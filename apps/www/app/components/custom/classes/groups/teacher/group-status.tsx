@@ -51,7 +51,7 @@ function CommitByline({ commit }: { commit: LastCommitInfo }) {
   return (
     <span
       className="block max-w-48 truncate text-[11px] text-muted-foreground"
-      title={`Last commit on the default branch — ${who}: ${commit.message}`}
+      title={`Last commit on the default branch, by ${who}: ${commit.message}`}
     >
       {who} · {commit.message}
     </span>
@@ -90,7 +90,7 @@ export function LastPush({
     );
   }
   if (!pushedAt || status === "no_repo" || status === "under_min") {
-    return <span className="text-muted-foreground text-xs">—</span>;
+    return <span className="text-muted-foreground text-xs">–</span>;
   }
   const pushed = new Date(pushedAt);
   const diff = Date.parse(deadline) - pushed.getTime();

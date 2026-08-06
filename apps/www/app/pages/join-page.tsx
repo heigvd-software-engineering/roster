@@ -152,7 +152,7 @@ export function JoinPage() {
     return (
       <Shell title="Invalid link">
         <Text variant="subtitle" className="max-w-md">
-          This join link isn't valid — ask your teacher for a fresh one.
+          This join link is no longer valid. Ask your teacher for a new one.
         </Text>
       </Shell>
     );
@@ -163,7 +163,7 @@ export function JoinPage() {
       <Shell title="This class needs attention">
         <Text variant="subtitle" className="max-w-md">
           Your link is fine, but roster can't reach this class on GitHub right
-          now. Ask your teacher to open the class and reconcile it — then try
+          now. Ask your teacher to open the class and reconcile it, then try
           again.
         </Text>
         <Button
@@ -255,7 +255,7 @@ export function JoinPage() {
           <Button
             size="lg"
             disabled={submitting}
-            title="Request to join — you'll get a GitHub organization invitation"
+            title="Request to join: GitHub sends you an organization invitation"
             onClick={() => join(cls)}
           >
             Join class
@@ -264,8 +264,8 @@ export function JoinPage() {
       ) : membership === "pending" ? (
         <>
           <Text variant="subtitle" className="max-w-md">
-            Almost there — accept your invitation on GitHub, then come back and
-            check your enrollment.
+            Accept your invitation on GitHub, then come back and check your
+            enrollment.
           </Text>
           <Row gap="sm" wrap>
             <Button
@@ -295,8 +295,7 @@ export function JoinPage() {
       ) : isOwner ? (
         <>
           <Text variant="subtitle" className="max-w-md">
-            You're an owner of this organization — this join link is for
-            students.
+            You own this organization. The join link is for students.
           </Text>
           <Button
             size="lg"
@@ -314,7 +313,7 @@ export function JoinPage() {
           <Button
             size="lg"
             disabled={submitting}
-            title="Record your enrolment and open your class list"
+            title="Record your enrollment and open your class list"
             onClick={() => void finishJoining(() => navigate("/classes"))}
           >
             {submitting ? "Finishing…" : "Go to your classes"}

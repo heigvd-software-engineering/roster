@@ -23,7 +23,7 @@ const MAPPING = [
     // (or promotes an enrolled student on the spot), so the teacher never
     // touches GitHub's own invite UI.
     detail:
-      "Its Owners. Invite them by GitHub username from the class page — roster sends the Owner invitation.",
+      "Its Owners. Invite them by GitHub username from the class page, and roster sends the Owner invitation.",
   },
   {
     term: "Students",
@@ -113,15 +113,15 @@ export function NewClassDialog({
               Who can see and do what
             </Text>
             <Text variant="body2">
-              On connect, assignments sets the organization's base permission to{" "}
-              <strong>No access</strong> — membership grants nothing on its own.
-              Each student reaches only their own assignment repo, never another
-              student's, and never your private repositories. roster also turns
-              off <strong>member repository creation</strong>, so students can't
-              create repos in the organization themselves — every student
-              repository is born through assignments. Only{" "}
-              <strong>public</strong> repos stay visible, to anyone on the
-              internet, so keep confidential material private.
+              On connect, roster sets the organization's base permission to{" "}
+              <strong>No access</strong>, so membership grants nothing on its
+              own. Each student reaches only their own assignment repository,
+              never another student's and never your private ones. roster also
+              turns off <strong>member repository creation</strong>, so students
+              can't create repositories in the organization themselves: every
+              student repository is created through roster. Only{" "}
+              <strong>public</strong> repositories stay visible, to anyone on
+              the internet, so keep confidential material private.
             </Text>
           </Stack>
         </Stack>
@@ -129,9 +129,9 @@ export function NewClassDialog({
           {/* The one thing to get right in GitHub's picker, kept next to the
               button that sends them there, not buried in the list above. */}
           <Text variant="caption">
-            In GitHub's picker, choose an org showing <strong>Install</strong> —
-            that creates the class. <em>Request</em> only asks its owners for
-            approval.
+            In GitHub's picker, choose an organization showing{" "}
+            <strong>Install</strong>: that creates the class. <em>Request</em>{" "}
+            only asks its owners for approval.
           </Text>
           <Button
             title="Opens GitHub to pick the organization and install the roster App"

@@ -25,28 +25,28 @@ export function RulesPage() {
         <Stack gap="none">
           <Text variant="title">How roster works</Text>
           <Text variant="subtitle">
-            The rules of groups and repositories — one page, the same for
-            students and teachers.
+            The rules of groups and repositories, the same for students and
+            teachers.
           </Text>
         </Stack>
 
         <Axioms>
           <Axiom marker="A1" name="The repository is the point of no return">
-            A group without one is a plan; the moment it exists, the group is a
-            deliverable — and it freezes for students. The work itself is safe
-            either way: roster never deletes a repository.
+            A group without one is a plan. The moment it exists, the group is a
+            deliverable, and it freezes for students. The work is safe either
+            way: roster never deletes a repository.
           </Axiom>
           <Axiom marker="A2" name="Time binds students, never the teacher">
             Before the start and once a repository exists, students are
-            restricted — the teacher never is. Structural rules — sizes, one
-            group per assignment — bind everyone.
+            restricted. The teacher never is. Structural rules (sizes, one group
+            per assignment) bind everyone.
           </Axiom>
           <Axiom
             marker="A3"
             name="Exceptions change the assignment, not the group"
           >
-            Need a bigger group? The assignment's limit changes — for every
-            group, visibly. No group quietly becomes special.
+            Need a bigger group? The assignment's limit changes for every group,
+            visibly. No group quietly becomes special.
           </Axiom>
           <Axiom marker="A4" name="Deleting is confirmed, never refused">
             One rule for every deletion: read what it takes, type the thing's
@@ -54,10 +54,10 @@ export function RulesPage() {
             instead.
           </Axiom>
           <Axiom marker="A5" name="The rules are enforced, not suggested">
-            Every rule here that can be refused is checked by the server, so a
-            missing or disabled button is a rule at work — going around the
-            interface doesn't change the answer. A4 is the exception, and it has
-            to be: no server can check whether you meant it.
+            The server checks every rule here that can be refused, so a missing
+            or disabled button is a rule at work: going around the interface
+            doesn't change the answer. A4 is the exception, and it has to be. No
+            server can check whether you meant it.
           </Axiom>
         </Axioms>
 
@@ -65,11 +65,11 @@ export function RulesPage() {
           <RulePhase
             step="01"
             title="Before the start"
-            tagline="An assignment is visible from the moment it's created — but quiet until its start date."
+            tagline="An assignment is visible from the moment it's created, but quiet until its start date."
           >
             <RuleItem who="students">
-              You can see the assignment and its dates, but nothing can be done
-              yet — no groups, no repository.
+              You can see the assignment and its dates, but you can do nothing
+              yet: no groups, no repository.
             </RuleItem>
             <RuleItem who="teacher">
               The teacher can prepare at any time: create groups and place
@@ -77,9 +77,9 @@ export function RulesPage() {
             </RuleItem>
             <RuleItem who="teacher">
               The teacher can even create the repositories ahead of the start. A
-              group that begins with its repository is frozen from day one —
-              this is how an assignment with teacher-chosen groups is run:
-              students arrive, everything is already set.
+              group that begins with its repository is frozen from day one. This
+              is how an assignment with teacher-chosen groups runs: students
+              arrive and everything is already set.
             </RuleItem>
           </RulePhase>
 
@@ -89,12 +89,12 @@ export function RulesPage() {
             tagline="Between the start and the repository, groups are free to change."
           >
             <RuleItem who="students">
-              You organize yourselves: create a group, join one, leave one —
-              always for yourself, never for someone else.
+              You organize yourselves: create a group, join one, leave one,
+              always for yourself and never for someone else.
             </RuleItem>
             <RuleItem who="everyone">
-              One group per person per assignment. No exceptions — the rule
-              binds the teacher's placements too.
+              One group per person per assignment. No exceptions: the rule binds
+              the teacher's placements too.
             </RuleItem>
             <RuleItem who="everyone">
               Group size is the assignment's rule: nobody can overfill a group,
@@ -117,8 +117,8 @@ export function RulesPage() {
             tagline="The point of no return: the repository turns a group into a deliverable."
           >
             <RuleItem who="students">
-              The repository can be created once the group reaches the
-              assignment's minimum size. You confirm explicitly — creating it
+              You can create the repository once the group reaches the
+              assignment's minimum size. You confirm explicitly, and creating it
               freezes the group.
             </RuleItem>
             <RuleItem who="students">
@@ -126,14 +126,13 @@ export function RulesPage() {
               leaving, no deleting.
             </RuleItem>
             <RuleItem who="teacher">
-              The teacher can still reshape any group at any time — add, remove,
-              or move people — and can create a group's repository, or every
+              The teacher can still reshape any group at any time (add, remove,
+              or move people) and can create a group's repository, or every
               missing one at once.
             </RuleItem>
             <RuleItem who="everyone">
-              A repository is never deleted, by anyone, ever. Not when the group
-              goes, not when the assignment goes — the work stays in the
-              organization.
+              Nobody ever deletes a repository. Not when the group goes, not
+              when the assignment goes: the work stays in the organization.
             </RuleItem>
             <RuleItem who="teacher">
               The teacher can still delete the group, or its assignment, and the
@@ -143,18 +142,18 @@ export function RulesPage() {
             </RuleItem>
             <RuleItem who="teacher">
               If the repository was deleted on GitHub itself, the teacher can
-              unlink it — the group opens up and the forming rules apply again.
+              unlink it: the group opens up and the forming rules apply again.
             </RuleItem>
           </RulePhase>
 
           <RulePhase
             step="04"
             title="After the deadline"
-            tagline="The deadline judges the work — it doesn't cut access."
+            tagline="The deadline judges the work; it doesn't cut access."
           >
             <RuleItem who="everyone">
-              Nothing closes at the deadline: pushing still works, and the work
-              is marked late by its last push — visibly, for everyone.
+              Nothing closes at the deadline: pushing still works, and the last
+              push marks the work late, visibly, for everyone.
             </RuleItem>
           </RulePhase>
 

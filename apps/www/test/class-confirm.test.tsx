@@ -56,7 +56,7 @@ describe("ClassConfirmPage", () => {
 
     expect(
       await screen.findByText(
-        "Couldn't apply the organization settings — check the App has Administration access.",
+        "Couldn't apply the organization settings. Check that the App has Administration access.",
       ),
     ).toBeInTheDocument();
   });
@@ -69,7 +69,7 @@ describe("ClassConfirmPage", () => {
 
     expect(
       await screen.findByText(
-        "Something went wrong — check your connection and try again.",
+        "Something went wrong. Check your connection and try again.",
       ),
     ).toBeInTheDocument();
     expect(button).not.toBeDisabled();

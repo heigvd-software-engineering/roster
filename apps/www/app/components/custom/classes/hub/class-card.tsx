@@ -77,7 +77,7 @@ export function ClassCard({
           <PeopleChip
             label={peopleLabel(students.length, "student", pending.length)}
             title="Show the enrolled students and their GitHub accounts"
-            emptyText="No students yet — share the join link."
+            emptyText="No students yet. Share the join link."
             people={[
               ...students.map((p) => withUser(p)),
               ...pending.map((p) => withUser(p, true)),
@@ -101,11 +101,10 @@ export function ClassCard({
               <>
                 An invited teacher owes two separate steps, and neither happens
                 on its own. First they accept the GitHub invitation, which makes
-                them an owner of the organization — only they can do that, on
+                them an owner of the organization. Only they can do that, on
                 GitHub. Then they sign in here with SWITCH edu-ID and link the
-                same GitHub account they were invited as; linking a different
-                one leaves this class invisible to them even though the
-                invitation was accepted.
+                same GitHub account they were invited as. Linking a different
+                one leaves this class invisible to them, even after they accept.
               </>
             }
           />
@@ -131,7 +130,7 @@ export function ClassCard({
       <div className="w-full border-border border-t">
         {assignments.length === 0 ? (
           <Text variant="body2" className="px-5 py-3">
-            No assignments yet — use "New assignment" above.
+            No assignments yet. Use "New assignment" above.
           </Text>
         ) : (
           <AssignmentsTable
@@ -204,9 +203,9 @@ function JoinLinkAction({
             Invite students
           </Text>
           <Text variant="caption">
-            One link per class, not per assignment. Share it once — a student
-            who joins enrols in this whole class and gets every assignment in
-            it, now and later.
+            One link per class, not per assignment. Share it once: a student who
+            joins enrolls in this whole class and gets every assignment in it,
+            now and later.
           </Text>
           <Text variant="caption">
             Joining makes the student a member of the class's GitHub
@@ -244,7 +243,7 @@ function JoinLinkAction({
               </Button>
             }
             title="Reset the invitation link?"
-            description="The current link stops working immediately and a new one takes its place — share it with the class again. Students who already joined keep their access; the link only ever controlled getting in."
+            description="The current link stops working immediately and a new one takes its place, so share it with the class again. Students who already joined keep their access: the link only ever controlled getting in."
             confirmLabel="Reset link"
             onConfirm={() =>
               act(() =>
@@ -291,13 +290,13 @@ function ReconcileAction({ classId }: { classId: string }) {
             Sync with GitHub
           </Text>
           <Text variant="caption">
-            roster orchestrates this class on GitHub — day to day, everything is
-            managed from the app. But changes can still be made directly on
-            GitHub; sync is how you track and fix them.
+            roster runs this class on GitHub, and day to day you manage
+            everything from the app. Someone can still change things directly on
+            GitHub; sync is how you find and fix those changes.
           </Text>
           <Text variant="caption">
             Syncing starts with a read-only comparison. You choose which
-            differences to fix — nothing changes until you apply.
+            differences to fix, and nothing changes until you apply.
           </Text>
           <Button
             size="sm"

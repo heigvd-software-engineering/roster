@@ -26,7 +26,7 @@ describe("repoSkipMessages", () => {
     // name, so the remedy named first is the sync that links it back, never a
     // rename (which would abandon it).
     expect(messages[0]).toMatch(/a repository already exists under its name/);
-    expect(messages[0]).toMatch(/link it back from the class's GitHub sync/);
+    expect(messages[0]).toMatch(/Link it back from the class's GitHub sync/);
     expect(messages[1]).toMatch(/^Team Beta was skipped: /);
     expect(messages[1]).toMatch(/needs more members/);
   });
@@ -45,7 +45,7 @@ describe("repoSkipMessages", () => {
       groups,
     );
     expect(message).toBe(
-      "A group was skipped: That didn't go through — refresh and try again.",
+      "A group was skipped: That didn't go through. Refresh and try again.",
     );
   });
 

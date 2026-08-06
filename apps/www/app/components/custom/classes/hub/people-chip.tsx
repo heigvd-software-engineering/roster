@@ -53,10 +53,10 @@ export function PeopleChip({
   title = "Show the people list",
   pendingHint = (
     <>
-      They've been sent an invitation to this class's GitHub organisation and
-      stay listed here until they accept it. Only they can do that, on GitHub —
+      They have an invitation to this class's GitHub organization and stay
+      listed here until they accept it. Only they can do that, on GitHub;
       nothing here can confirm it for them. Once they accept, they become a full
-      member automatically.
+      member.
     </>
   ),
 }: PeopleChipProps) {

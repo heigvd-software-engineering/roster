@@ -94,13 +94,13 @@ export function useAction(
       if (res.status === 503) {
         // The API's honest "GitHub can't answer right now" (on-error.ts):
         // transient and retryable, not the user's fault.
-        push("GitHub is unreachable right now — try again in a minute.", {
+        push("GitHub is unreachable right now. Try again in a minute.", {
           variant: "warning",
         });
         return;
       }
       if (!res.ok) {
-        push("That didn't go through — refresh and try again.", {
+        push("That didn't go through. Refresh and try again.", {
           variant: "error",
         });
         return;
@@ -108,7 +108,7 @@ export function useAction(
       await revalidate();
       if (onOk) await onOk(res);
     } catch {
-      push("Something went wrong — check your connection.", {
+      push("Something went wrong. Check your connection.", {
         variant: "error",
       });
     } finally {

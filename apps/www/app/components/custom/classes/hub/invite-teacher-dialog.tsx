@@ -79,7 +79,7 @@ export function InviteTeacherDialog({
         setError(
           <>
             @{name} already has a pending invitation. Removing them from the
-            organization doesn't withdraw it — cancel the invitation on{" "}
+            organization doesn't withdraw it. Cancel the invitation on{" "}
             <a
               href={`https://github.com/orgs/${orgLogin}/people/pending_invitations`}
               target="_blank"
@@ -94,7 +94,7 @@ export function InviteTeacherDialog({
         return;
       }
       if (!res.ok) {
-        setError("Couldn't invite the teacher — try again.");
+        setError("Couldn't invite the teacher. Try again.");
         return;
       }
       const body = await res.json();
@@ -107,7 +107,7 @@ export function InviteTeacherDialog({
       }
       setOpen(false);
     } catch {
-      setError("Something went wrong — check your connection and try again.");
+      setError("Something went wrong. Check your connection and try again.");
     } finally {
       setSubmitting(false);
     }
@@ -121,7 +121,7 @@ export function InviteTeacherDialog({
             variant="ghost"
             size="sm"
             type="button"
-            title="Invite a teacher — a GitHub organization owner"
+            title="Invite a teacher as a GitHub organization owner"
           />
         }
       >
@@ -149,8 +149,8 @@ export function InviteTeacherDialog({
                     Accept the GitHub invitation.
                   </span>{" "}
                   That's what makes them an owner of the organization. GitHub
-                  emailed it, but the mail is easy to miss — the link below goes
-                  straight to it.
+                  emailed it, but the mail is easy to miss, so the link below
+                  goes straight to it.
                 </li>
                 <li>
                   <span className="text-foreground">
@@ -165,7 +165,7 @@ export function InviteTeacherDialog({
                 </li>
               </ol>
               <Text variant="caption">
-                Forward them this link — signed in as @{invited}, it opens the
+                Forward them this link. Signed in as @{invited}, it opens the
                 invitation directly:
               </Text>
               <CommandBlock
@@ -189,9 +189,9 @@ export function InviteTeacherDialog({
             <DialogHeader>
               <DialogTitle>Invite a teacher</DialogTitle>
               <DialogDescription>
-                Teachers are the organization's owners on GitHub. An owner has
-                full control of the organization — repositories, members,
-                settings — well beyond what roster itself manages.
+                Teachers are the organization's owners on GitHub. An owner
+                controls the whole organization (repositories, members,
+                settings), well beyond what roster manages.
               </DialogDescription>
             </DialogHeader>
             <Stack gap="md">

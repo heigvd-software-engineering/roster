@@ -54,7 +54,7 @@ export function StudentAssignmentGroups({
 
   if (g.error) {
     return (
-      <Text variant="error">Couldn't load the groups — refresh to retry.</Text>
+      <Text variant="error">Couldn't load the groups. Refresh to retry.</Text>
     );
   }
   if (g.isLoading) {
@@ -95,7 +95,7 @@ export function StudentAssignmentGroups({
               <MineNote active={mine !== undefined}>
                 {mine
                   ? "your solo assignment"
-                  : "your solo assignment — not accepted yet"}
+                  : "your solo assignment, not accepted yet"}
               </MineNote>
             }
           />
@@ -136,7 +136,7 @@ export function StudentAssignmentGroups({
                 <DisabledReason
                   reason={
                     locked
-                      ? "The group's work repository exists — ask your teacher to move you."
+                      ? "The group's work repository exists. Ask your teacher to move you."
                       : null
                   }
                 >
@@ -182,7 +182,7 @@ export function StudentAssignmentGroups({
         <Text variant="heading">Groups in this assignment</Text>
         {g.groups.length === 0 ? (
           <Text variant="body2">
-            No groups in this assignment yet — start one below.
+            No groups in this assignment yet. Start one below.
           </Text>
         ) : null}
         <div className={GROUP_WALL}>
@@ -259,7 +259,7 @@ function JoinSeat({
       title="Join this group for the assignment"
       {...props}
     >
-      {required ? "Join — needed to form" : "Join this group"}
+      {required ? "Join (required to form)" : "Join this group"}
     </SeatButton>
   );
 }
@@ -270,7 +270,7 @@ function VacantSeat({ required = false }: { required?: boolean }) {
   return (
     <SeatSlot
       required={required}
-      title="Classmates join from their own assignment page — tell them your group's name"
+      title="Classmates join from their own assignment page. Tell them your group's name."
     >
       {required ? "Needs a member to form" : "Open seat"}
     </SeatSlot>
@@ -281,8 +281,8 @@ function VacantSeat({ required = false }: { required?: boolean }) {
  *  people once the work repository exists. */
 function LockedSeat() {
   return (
-    <SeatSlot title="This group's repository exists — only your teacher can add members">
-      Locked seat — ask your professor
+    <SeatSlot title="This group's repository exists, so only your teacher can add members">
+      Locked seat: ask your teacher
     </SeatSlot>
   );
 }

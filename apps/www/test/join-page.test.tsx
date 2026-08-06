@@ -150,7 +150,7 @@ describe("JoinPage", () => {
     render(<JoinPage />);
     expect(
       await screen.findByText(
-        "You're an owner of this organization — this join link is for students.",
+        "You own this organization. The join link is for students.",
       ),
     ).toBeInTheDocument();
     expect(
@@ -177,7 +177,7 @@ describe("JoinPage", () => {
     render(<JoinPage />);
     expect(
       await screen.findByText(
-        "This join link isn't valid — ask your teacher for a fresh one.",
+        "This join link is no longer valid. Ask your teacher for a new one.",
       ),
     ).toBeInTheDocument();
   });

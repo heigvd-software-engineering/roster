@@ -138,9 +138,7 @@ describe("AssignmentDialog", () => {
     fireEvent.change(screen.getByLabelText("Start (optional)"), {
       target: { value: "2099-07-01T08:00" },
     });
-    expect(
-      screen.getByText(/no access to the starter code/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/no starter code/)).toBeInTheDocument();
     assignmentsPost.mockResolvedValue({ ok: true });
     fireEvent.click(screen.getByRole("button", { name: "Create assignment" }));
     await waitFor(() => expect(assignmentsPost).toHaveBeenCalled());
@@ -196,7 +194,7 @@ describe("AssignmentDialog", () => {
 
     expect(
       await screen.findByText(
-        "Couldn't create the assignment — check the fields and try again.",
+        "Couldn't create the assignment. Check the fields and try again.",
       ),
     ).toBeInTheDocument();
     expect(onSaved).not.toHaveBeenCalled();
