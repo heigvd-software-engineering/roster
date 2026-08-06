@@ -53,7 +53,6 @@ export function StudentAssignmentPage() {
           <AssignmentHeader
             className={g.className ?? "Class"}
             assignment={g.assignment}
-            kind="enrolled"
           />
           {pending ? (
             <Text variant="body2">

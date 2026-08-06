@@ -105,7 +105,6 @@ describe("StudentAssignmentPage — group assignment", () => {
     mockApi(groupsData({ groups: [grp({ members: [bob] })] }));
     render(<StudentAssignmentPage />);
 
-    expect(screen.getByText("enrolled")).toBeInTheDocument();
     // 1/3 with a min of 2: the first open seat is the one still needed to
     // form, the second is merely available. Both are the join verb.
     expect(

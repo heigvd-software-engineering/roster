@@ -62,7 +62,6 @@ export function TeacherAssignmentPage() {
           <AssignmentHeader
             className={g.className ?? ""}
             assignment={g.assignment}
-            kind="teaching"
             action={
               <DeleteAssignmentAction
                 classId={classId}

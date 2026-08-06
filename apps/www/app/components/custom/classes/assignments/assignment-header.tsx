@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { AssignmentStatusHover } from "~/components/custom/classes/assignments/assignment-status";
 import { DeadlineText } from "~/components/custom/classes/assignments/deadline-text";
-import { type Role, RoleChip } from "~/components/custom/classes/role-marker";
 import { Row } from "~/components/custom/layout/row";
 import { Stack } from "~/components/custom/layout/stack";
 import { Text } from "~/components/custom/typography/text";
@@ -12,22 +11,19 @@ import { assignmentModeLabel, formatDeadline } from "~/lib/format";
 
 /**
  * The assignment page header, shared by the teacher and student pages:
- * breadcrumb, title + mode badge + deadline, and the caller's role chip on the
- * right.
+ * breadcrumb, title + mode badge + deadline, and whatever the page can act on.
  */
 export function AssignmentHeader({
   className,
   assignment,
-  kind,
   action,
 }: {
   /** The class's display name for the breadcrumb. */
   className: string;
   assignment: AssignmentItem;
-  kind: Role;
-  /** Whole-assignment controls, alongside the role chip. The teacher page's delete
-   *  lives here: the page under it is the one surface that shows what the
-   *  deletion would take. */
+  /** Whole-assignment controls, on the right. The teacher page's delete lives
+   *  here: the page under it is the one surface that shows what the deletion
+   *  would take. The student page passes none, and the row stays bare. */
   action?: ReactNode;
 }) {
   return (
@@ -50,10 +46,7 @@ export function AssignmentHeader({
           </Text>
           <AssignmentStatusHover assignment={assignment} />
         </Row>
-        <Row gap="sm" align="center">
-          <RoleChip kind={kind} />
-          {action}
-        </Row>
+        {action}
       </Row>
     </Stack>
   );

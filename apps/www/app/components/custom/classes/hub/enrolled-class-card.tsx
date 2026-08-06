@@ -1,6 +1,5 @@
 import { AssignmentsTable } from "~/components/custom/classes/assignments/assignments-table";
 import { PeopleChip } from "~/components/custom/classes/hub/people-chip";
-import { RoleChip } from "~/components/custom/classes/role-marker";
 import { Hint } from "~/components/custom/hint";
 import { OrgIdentity } from "~/components/custom/identity/org-identity";
 import { Row } from "~/components/custom/layout/row";
@@ -105,7 +104,6 @@ export function EnrolledClassCard({ cls }: { cls: EnrolledClassItem }) {
           {cls.state === "pending" ? (
             <PendingInvitationWarning orgLogin={cls.login} />
           ) : null}
-          <RoleChip kind="enrolled" />
         </Row>
       </Row>
 

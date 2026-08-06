@@ -129,7 +129,6 @@ describe("ClassesPage", () => {
     render(<ClassesPage />);
 
     expect(screen.getByText("Beta")).toBeInTheDocument();
-    expect(screen.getByText("enrolled")).toBeInTheDocument();
     // The class's teachers ride the cache into the people popover chip.
     expect(screen.getByText("1 teacher")).toBeInTheDocument();
     expect(

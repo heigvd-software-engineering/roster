@@ -102,7 +102,6 @@ describe("TeacherAssignmentPage", () => {
     render(<TeacherAssignmentPage />);
 
     expect(screen.getByText("Assignment 1 — Sockets")).toBeInTheDocument();
-    expect(screen.getByText("teaching")).toBeInTheDocument();
     // alice is in NO group of this assignment → she's in the pool.
     expect(
       screen.getByText(/Students without a group for this assignment/),

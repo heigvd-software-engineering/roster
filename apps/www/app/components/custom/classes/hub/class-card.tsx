@@ -5,7 +5,6 @@ import { AssignmentDialog } from "~/components/custom/classes/assignments/assign
 import { AssignmentsTable } from "~/components/custom/classes/assignments/assignments-table";
 import { InviteTeacherDialog } from "~/components/custom/classes/hub/invite-teacher-dialog";
 import { PeopleChip } from "~/components/custom/classes/hub/people-chip";
-import { RoleChip } from "~/components/custom/classes/role-marker";
 import { ConfirmDialog } from "~/components/custom/confirm-dialog";
 import { OrgIdentity } from "~/components/custom/identity/org-identity";
 import { Row } from "~/components/custom/layout/row";
@@ -108,7 +107,6 @@ export function ClassCard({
               </>
             }
           />
-          <RoleChip kind="teaching" />
         </Row>
       </Row>
 
