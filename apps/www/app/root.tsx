@@ -17,6 +17,14 @@ import { ThemeProvider } from "~/contexts/theme-context";
 import type { Route } from "./+types/root";
 import "./app.css";
 
+/* The tab icon: the same lucide ClipboardList the header wears. The SVG carries
+   its own prefers-color-scheme rule so the glyph stays visible on light and dark
+   browser chrome; the .ico is the fallback for browsers that won't take an SVG. */
+export const links: Route.LinksFunction = () => [
+  { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
+  { rel: "icon", href: "/favicon.ico", sizes: "48x48" },
+];
+
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
