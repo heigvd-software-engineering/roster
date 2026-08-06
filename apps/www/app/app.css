@@ -6,15 +6,14 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* The shadcn neutral theme, unmodified apart from the two font families.
+   No app-specific hues: state is expressed with the stock tokens
+   (foreground / muted-foreground / destructive) and shadcn's own Badge and
+   Button variants, so nothing here has to be kept in sync with a component. */
 @theme inline {
   --font-heading: var(--font-sans);
   --font-sans: "Geist Variable", sans-serif;
   --font-mono: "Geist Mono Variable", ui-monospace, monospace;
-  --color-brand: var(--brand);
-  --color-warning: var(--warning);
-  --color-info: var(--info);
-  --color-role-teaching: var(--role-teaching);
-  --color-role-enrolled: var(--role-enrolled);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -46,13 +45,10 @@
   --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --radius-xl: calc(var(--radius) + 4px);
 }
 
 :root {
@@ -60,49 +56,30 @@
      by the OS and follow color-scheme, not our tokens, so declare it and
      they match the theme. The .dark block flips it. */
   color-scheme: light;
-  /* Grayed down from shadcn's pure-white default: soft gray paper instead of
-     a glowing screen. Cards sit just above the paper (lighter, not white),
-     mirroring the dark palette's card note below; fills (secondary/muted/
-     accent) step down from the paper so chips and hovers stay visible on
-     background and card alike. */
-  --background: oklch(0.965 0 0);
+  --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
-  --card: oklch(0.985 0 0);
+  --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(0.99 0 0);
+  --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
   --primary: oklch(0.205 0 0);
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.94 0 0);
+  --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.94 0 0);
+  --muted: oklch(0.97 0 0);
   --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.94 0 0);
+  --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.91 0 0);
-  --input: oklch(0.91 0 0);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  /* Lowered from shadcn's 0.625rem default: sharper corners, Swiss look. */
-  --radius: 0.375rem;
-  --brand: oklch(0.55 0.22 27);
-  /* Role identity hues (class cards: spine + chip). Never red, because
-     brand red stays reserved for urgency. */
-  --role-teaching: oklch(0.51 0.19 276);
-  --role-enrolled: oklch(0.6 0.12 185);
-  /* Message-variant amber (global messages: warning). Lightness 0.56, not
-     the usual ~0.67 amber: as text on the white card (seat labels, pool
-     overline, hints) 0.67 lands near 2.5:1 contrast, unreadable. The dark
-     themes keep their brighter ambers. */
-  --warning: oklch(0.56 0.14 60);
-  /* Message-variant blue (info): hue 240 stays clear of the violet
-     role-teaching (276). */
-  --info: oklch(0.58 0.14 240);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --radius: 0.625rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -114,15 +91,12 @@
 }
 
 /* Dark palette, applied by the inline script in root.tsx and then by
-   ThemeProvider, which toggle `.dark` on <html>. Keep this block in sync
-   with `:root` whenever tokens change. */
+   ThemeProvider, which toggle `.dark` on <html>. */
 .dark {
   color-scheme: dark;
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
-  /* Closer to the background than shadcn's 0.205 default: flat cards sit
-     just above the paper instead of glowing. */
-  --card: oklch(0.17 0 0);
+  --card: oklch(0.205 0 0);
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
@@ -135,22 +109,14 @@
   --accent: oklch(0.269 0 0);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
-  /* Brand red lifted for dark grounds: the :root value muddies on near-black. */
-  --brand: oklch(0.62 0.2 27);
-  /* Role hues lifted for dark grounds too. */
-  --role-teaching: oklch(0.67 0.18 277);
-  --role-enrolled: oklch(0.75 0.13 182);
-  --warning: oklch(0.8 0.14 75);
-  /* Info blue lifted for dark grounds, like the rest. */
-  --info: oklch(0.72 0.12 240);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.488 0.243 264.376);
@@ -159,59 +125,6 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
-}
-
-/* Terminal palette (the "hacker" theme), applied as `class="dark terminal"`
-   on top of .dark: the Tailwind `dark:` variant keys off .dark, so every
-   dark-mode override keeps working and this block only re-skins the tokens.
-   Phosphor green: every neutral carries a slight green cast (hue 150) so the
-   app reads as one tube, not gray-with-green-text. Semantic hues shift but
-   keep their meaning (destructive and brand stay red, warning amber, info
-   cyan, the role hues magenta and cyan). `--radius: 0` cascades sharp corners
-   through the radius chain; rounded-full elements (avatars, pills) stay round
-   on purpose. */
-.terminal {
-  color-scheme: dark;
-  /* Everything in the terminal's voice: mono type. Fonts live in
-     `@theme inline` (no runtime var to point at), hence the literal stack. */
-  font-family: "Geist Mono Variable", ui-monospace, monospace;
-  --radius: 0rem;
-  --background: oklch(0.13 0.012 150);
-  --foreground: oklch(0.86 0.14 150);
-  --card: oklch(0.155 0.014 150);
-  --card-foreground: oklch(0.86 0.14 150);
-  --popover: oklch(0.18 0.016 150);
-  --popover-foreground: oklch(0.86 0.14 150);
-  --primary: oklch(0.8 0.19 150);
-  --primary-foreground: oklch(0.13 0.02 150);
-  --secondary: oklch(0.21 0.02 150);
-  --secondary-foreground: oklch(0.86 0.14 150);
-  --muted: oklch(0.21 0.02 150);
-  --muted-foreground: oklch(0.6 0.07 150);
-  --accent: oklch(0.21 0.02 150);
-  --accent-foreground: oklch(0.86 0.14 150);
-  --destructive: oklch(0.68 0.21 25);
-  --brand: oklch(0.68 0.21 25);
-  --role-teaching: oklch(0.72 0.15 330);
-  --role-enrolled: oklch(0.8 0.11 195);
-  --warning: oklch(0.82 0.15 80);
-  --info: oklch(0.78 0.1 200);
-  --border: oklch(0.8 0.15 150 / 20%);
-  --input: oklch(0.8 0.15 150 / 26%);
-  --ring: oklch(0.68 0.12 150);
-  --chart-1: oklch(0.85 0.16 150);
-  --chart-2: oklch(0.7 0.12 150);
-  --chart-3: oklch(0.55 0.09 150);
-  --chart-4: oklch(0.42 0.06 150);
-  --chart-5: oklch(0.3 0.04 150);
-  --sidebar: oklch(0.155 0.014 150);
-  --sidebar-foreground: oklch(0.86 0.14 150);
-  --sidebar-primary: oklch(0.8 0.19 150);
-  --sidebar-primary-foreground: oklch(0.13 0.02 150);
-  --sidebar-accent: oklch(0.21 0.02 150);
-  --sidebar-accent-foreground: oklch(0.86 0.14 150);
-  --sidebar-border: oklch(0.8 0.15 150 / 20%);
-  --sidebar-ring: oklch(0.68 0.12 150);
 }
 
 @layer base {
@@ -224,31 +137,4 @@
   html {
     @apply font-sans;
   }
-}
-
-/* Loader: three staggered bars (Swiss equalizer pulse). */
-@keyframes loader-bar {
-  0%,
-  100% {
-    transform: scaleY(0.35);
-    opacity: 0.45;
-  }
-  50% {
-    transform: scaleY(1);
-    opacity: 1;
-  }
-}
-.loader-bar {
-  animation: loader-bar 0.9s ease-in-out infinite;
-}
-
-/* Signature: faint engineering graph-paper grid (Swiss grid + lab notebook).
-   The line color is the border token faded toward transparent; lower the
-   percentage for a fainter grid. */
-.graph-paper {
-  --grid-line: color-mix(in oklch, var(--border) 55%, transparent);
-  background-image:
-    linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
-  background-size: 28px 28px;
 }

@@ -59,9 +59,11 @@ pnpm run biome && pnpm -r typecheck && pnpm -r test
 - `apps/www/components.json`: shadcn config (style `base-nova`, base color
   `neutral`, `lucide` icons, `~/` aliases). Source of truth for the CLI.
 - `apps/www/app/app.css`: design tokens (`:root`/`.dark` CSS variables) that
-  every component reads. Edit colours/radius/fonts there, app-wide. A **third**
-  scheme, `.terminal`, carries its own literal token stack (and `--radius: 0`);
-  a change to `:root` does not reach it.
+  every component reads. Edit colours/radius/fonts there, app-wide. These are
+  shadcn's stock `neutral` tokens, unmodified apart from the two font
+  families: state is expressed with the stock tokens (`foreground`,
+  `muted-foreground`, `destructive`) and shadcn's own `Badge`/`Button`
+  variants, so no app-specific hue has to be kept in sync with a component.
 - `apps/www/app/lib/utils.ts`: the `cn()` class-merge helper.
 
 ## Editing / updating

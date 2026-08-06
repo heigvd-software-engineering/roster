@@ -18,7 +18,7 @@ export function RepoLink({ fullName }: { fullName: string }) {
       target="_blank"
       rel="noreferrer"
       title="Open the work repository on GitHub"
-      className="inline-flex min-w-0 items-center gap-1.5 self-start font-mono text-foreground text-xs hover:underline"
+      className="inline-flex min-w-0 items-center gap-1.5 self-start text-foreground text-xs hover:underline"
     >
       <GitBranch className="size-3.5 flex-none text-muted-foreground" />
       <span className="truncate">{fullName}</span>
@@ -53,9 +53,7 @@ export function MissingRepoBadge({
           />
         }
       >
-        <Badge variant="destructive" className="font-mono">
-          404
-        </Badge>
+        <Badge variant="destructive">404</Badge>
       </PopoverTrigger>
       <PopoverContent align="start">
         <PopoverHeader>

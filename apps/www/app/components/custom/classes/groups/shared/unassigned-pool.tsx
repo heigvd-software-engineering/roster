@@ -12,9 +12,8 @@ import { personIdentity } from "~/lib/identity";
 /**
  * The "students without a group for this lab" pool, shared by BOTH lab pages:
  * the teacher's radar, and the students' organizing aid (who still needs a
- * team). It IS a warning, so it wears the warning tint. Sourced from the
- * class_members display cache riding on the lab-groups response, and hidden
- * once everyone is placed.
+ * team). Sourced from the class_members display cache riding on the
+ * lab-groups response, and hidden once everyone is placed.
  *
  * It has to read the same at 1 student and at 30, so it is ALWAYS the summary
  * line, the label and the count and nothing else, with the names one chevron
@@ -50,10 +49,10 @@ export function UnassignedPool({
   return (
     <Stack
       gap="sm"
-      className="w-full rounded-md bg-warning/8 px-4 py-2.5 ring-1 ring-warning/40"
+      className="w-full rounded-md border border-border px-4 py-2.5"
     >
       <Row gap="sm" justify="between" className="w-full">
-        <Text variant="overline" as="span" className="text-warning">
+        <Text variant="label" as="span" className="font-medium">
           Students without a group for this lab · {sorted.length}
         </Text>
         <DisclosureToggle
@@ -79,7 +78,7 @@ export function UnassignedPool({
               key={githubId}
               gap="sm"
               align="center"
-              className="min-w-0 rounded-md bg-card px-3 py-2 ring-1 ring-foreground/10"
+              className="min-w-0 rounded-md border border-border px-3 py-2"
             >
               <UserIdentity {...identity} className="min-w-0 flex-1" />
               <EmailsMenu name={identity.name} email={email} />

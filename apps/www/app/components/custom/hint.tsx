@@ -20,12 +20,12 @@ import { cn } from "~/lib/utils";
 const VARIANT = {
   info: {
     icon: Info,
-    className: "text-info",
+    className: "text-muted-foreground",
     fallbackLabel: "More information",
   },
   warning: {
     icon: TriangleAlert,
-    className: "text-warning",
+    className: "text-muted-foreground",
     fallbackLabel: "Warning",
   },
   error: {

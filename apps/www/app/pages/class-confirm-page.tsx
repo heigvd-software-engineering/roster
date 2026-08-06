@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { Stack } from "~/components/custom/layout/stack";
 import { Loading } from "~/components/custom/loading";
-import { BrandHeader } from "~/components/custom/typography/brand-header";
 import { Text } from "~/components/custom/typography/text";
 import { Button } from "~/components/ui/button";
 import { api, useApi } from "~/lib/api";
@@ -55,7 +54,7 @@ export function ClassConfirmPage() {
         </Stack>
       ) : (
         <Stack gap="lg" align="start" justify="center" className="flex-1">
-          <BrandHeader title={`Connect ${orgName}`} />
+          <Text variant="title">{`Connect ${orgName}`}</Text>
           <Text variant="subtitle" className="max-w-md">
             roster will apply two settings to this organization: the base
             repository permission becomes <strong>No access</strong>, so

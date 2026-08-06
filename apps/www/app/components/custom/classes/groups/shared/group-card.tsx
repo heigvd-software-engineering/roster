@@ -39,7 +39,7 @@ function openSeatsFor(size: number, min: number, max: number): boolean[] {
   return Array.from({ length: total }, (_, i) => i < required);
 }
 
-/** The count beside the name: brand red whenever the SIZE is the problem
+/** The count beside the name: destructive whenever the SIZE is the problem
  *  (short of the min, past the max), muted otherwise. An uncapped lab has no
  *  denominator to show, since `max` is Infinity and renders literally. The
  *  needs-N-more / over-max wording lives in the seats and hints; here it's
@@ -58,8 +58,8 @@ function SizeCount({
       variant="caption"
       as="span"
       className={cn(
-        "flex-none font-mono",
-        (size < min || size > max) && "text-brand",
+        "flex-none tabular-nums",
+        (size < min || size > max) && "text-destructive",
       )}
       title={`${size}${Number.isFinite(max) ? ` of ${max}` : ""} members`}
     >
@@ -75,7 +75,7 @@ function SizeCount({
  * inline (the wall's whole point: no expanding to see who's where), open
  * seats after the members, and a bottom-pinned `footer` for the repo facts.
  * Everything role-specific arrives through the slots: the teacher composes
- * the status chip into `actions`, the add-picker into `renderOpenSeat`, and
+ * the status badge into `actions`, the add-picker into `renderOpenSeat`, and
  * its kebab into `footer` because the header's width belongs to the name;
  * the student composes join/leave. Seat natures build on seats.tsx's bases,
  * next to their role file.
@@ -92,7 +92,6 @@ export function GroupCard({
   memberClassName,
   renderOpenSeat,
   highlight = false,
-  spine,
   className,
 }: {
   group: GroupItem;
@@ -112,11 +111,8 @@ export function GroupCard({
   memberClassName?: string | undefined;
   /** Renders each open seat (required = still needed to reach the min). */
   renderOpenSeat?: (required: boolean) => ReactNode;
-  /** Marks the viewer's OWN group in their role color. */
+  /** Marks the viewer's OWN group with a stronger outline. */
   highlight?: boolean;
-  /** Status spine, a border-l color class. The card widens the left edge
-   *  only when a spine is worn (the teacher's status column). */
-  spine?: string;
   className?: string;
 }) {
   const seats = openSeatsFor(group.members.length, min, max);
@@ -124,8 +120,7 @@ export function GroupCard({
     <Card
       className={cn(
         "h-full gap-0 p-0",
-        spine !== undefined && cn("border-l-[3px]", spine),
-        highlight && "ring-role-enrolled/60",
+        highlight && "ring-foreground/40",
         className,
       )}
     >
@@ -199,11 +194,7 @@ export function GroupMembers({
 }) {
   const userByGithubId = usersByGithubId(users);
   if (members.length === 0) {
-    return (
-      <Text variant="caption" className="font-mono">
-        empty
-      </Text>
-    );
+    return <Text variant="caption">Empty</Text>;
   }
   return (
     <Stack gap="sm">

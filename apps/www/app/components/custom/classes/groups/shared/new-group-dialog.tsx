@@ -1,14 +1,13 @@
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { useState } from "react";
 import { GroupMembers } from "~/components/custom/classes/groups/shared/group-card";
-import { Pill } from "~/components/custom/classes/groups/shared/pill";
 import { DisclosureToggle } from "~/components/custom/disclosure-toggle";
 import { UserAvatar } from "~/components/custom/identity/user-avatar";
-import { GhostTile } from "~/components/custom/layout/ghost-tile";
 import { Row } from "~/components/custom/layout/row";
 import { Stack } from "~/components/custom/layout/stack";
-import { CAPS_LABEL, Text } from "~/components/custom/typography/text";
+import { Text } from "~/components/custom/typography/text";
 import { AvatarGroup, AvatarGroupCount } from "~/components/ui/avatar";
+import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import {
   Dialog,
@@ -77,10 +76,16 @@ export function NewGroupDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
         render={
-          trigger ?? <GhostTile title="Create a new group for this lab" />
+          trigger ?? (
+            <Button
+              variant="outline"
+              type="button"
+              title="Create a new group for this lab"
+            />
+          )
         }
       >
-        <span className="font-mono">+</span> {triggerLabel}
+        {triggerLabel}
       </DialogTrigger>
       <DialogContent className="gap-5 sm:max-w-2xl">
         {/* Mounted only while open → the reuse list is fetched on demand. */}
@@ -390,7 +395,7 @@ function StartFromCard({
       disabled={disabled}
       onClick={onPick}
       className={cn(
-        "flex flex-col gap-1 rounded-lg border p-3.5 text-left transition-colors hover:bg-muted",
+        "flex flex-col gap-1 rounded-lg border border-border p-3.5 text-left hover:bg-muted",
         "disabled:pointer-events-none disabled:opacity-55",
         selected && "border-foreground bg-muted",
       )}
@@ -413,9 +418,9 @@ function StartFromCard({
  *  NOW (0 = every candidate wears a blocker). */
 function AvailabilityChip({ copyable }: { copyable: number }) {
   return copyable > 0 ? (
-    <Pill tone="good">{count(copyable, "group")} available</Pill>
+    <Badge variant="secondary">{count(copyable, "group")} available</Badge>
   ) : (
-    <Pill tone="warn">none available right now</Pill>
+    <Badge variant="outline">none available right now</Badge>
   );
 }
 
@@ -543,13 +548,9 @@ function BlockedSources({
   return (
     <>
       <Row gap="sm" justify="between" className="pl-2">
-        <span
-          className={cn(CAPS_LABEL, "flex items-center gap-1.5 text-warning")}
-        >
-          <span className="size-1 rounded-full bg-current" />
-          Unavailable
-          <span className="opacity-70">{groups.length}</span>
-        </span>
+        <Text variant="caption" as="span">
+          Unavailable · {groups.length}
+        </Text>
         <DisclosureToggle
           expanded={show}
           onToggle={() => setShow(!show)}
@@ -613,7 +614,7 @@ function SourceRow({
       ? blocker.logins
       : [];
   return (
-    <div className={cn("rounded-md", selected && "bg-role-enrolled/10")}>
+    <div className={cn("rounded-md", selected && "bg-muted")}>
       <div className="flex items-center">
         <button
           type="button"
@@ -628,13 +629,13 @@ function SourceRow({
           <RadioMark selected={selected} />
           <span className="truncate font-medium text-sm">{group.name}</span>
           {showLab ? (
-            <span className="truncate font-mono text-muted-foreground text-xs">
+            <span className="truncate text-muted-foreground text-xs">
               {group.labTitle}
             </span>
           ) : null}
           <span className="ml-auto flex flex-none items-center gap-2">
             <AvatarStack members={group.members} users={users} />
-            <span className="font-mono text-muted-foreground text-xs">
+            <span className="text-muted-foreground text-xs tabular-nums">
               {group.members.length === 0 ? "empty" : group.members.length}
             </span>
           </span>
@@ -647,12 +648,11 @@ function SourceRow({
             onClick={onToggle}
             className="flex size-6 flex-none items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
           >
-            <ChevronDown
-              className={cn(
-                "size-3.5 transition-transform",
-                expanded && "rotate-180",
-              )}
-            />
+            {expanded ? (
+              <ChevronUp className="size-3.5" />
+            ) : (
+              <ChevronDown className="size-3.5" />
+            )}
           </button>
         ) : (
           <span className="size-6 flex-none" />
@@ -660,7 +660,7 @@ function SourceRow({
       </div>
       {blocker ? (
         // pl-8 tucks the reason under the row's label (past the radio column).
-        <p className="pr-2 pb-1.5 pl-8 font-mono text-[11px] text-warning">
+        <p className="pr-2 pb-1.5 pl-8 text-muted-foreground text-xs">
           {blockerReason(blocker, group.members.length)}
         </p>
       ) : null}
@@ -671,13 +671,11 @@ function SourceRow({
             users={users}
             memberAction={(member) =>
               blockedLogins.includes(member.login) ? (
-                <span
-                  className={cn(CAPS_LABEL, "whitespace-nowrap text-warning")}
-                >
+                <Badge variant="outline" className="whitespace-nowrap">
                   {blocker?.reason === "member_not_in_class"
                     ? "left the class"
                     : "already placed"}
-                </span>
+                </Badge>
               ) : null
             }
           />
@@ -716,11 +714,7 @@ function AvatarStack({
           />
         );
       })}
-      {extra > 0 ? (
-        <AvatarGroupCount className="font-mono text-[10px]">
-          +{extra}
-        </AvatarGroupCount>
-      ) : null}
+      {extra > 0 ? <AvatarGroupCount>+{extra}</AvatarGroupCount> : null}
     </AvatarGroup>
   );
 }

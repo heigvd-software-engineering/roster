@@ -18,7 +18,6 @@ import {
 import { CloneAllDialog } from "~/components/custom/classes/groups/teacher/clone-all-dialog";
 import {
   LastPush,
-  STATUS_SPINE,
   StatusChip,
 } from "~/components/custom/classes/groups/teacher/group-status";
 import { LabStats } from "~/components/custom/classes/groups/teacher/lab-stats";
@@ -67,7 +66,7 @@ type AddCandidate = LabGroups["unplaced"][number] & { login: string };
  * pool, then one CARD per group of THIS lab, with the full roster inline (~30
  * students in ~12 groups fit one screen; nothing hides behind a disclosure),
  * open seats for the remaining capacity, repo + last push pinned at the
- * bottom, status chip + colored spine. Management lives ON the card: an open
+ * bottom, status badge in the corner. Management lives ON the card: an open
  * seat is the add-from-pool picker, each member wears its remove ×, the kebab
  * holds the one rare verb (delete). The toolbar's search + status segments
  * DIM non-matching cards rather than hide them, so the wall keeps its shape
@@ -378,11 +377,7 @@ function TeacherGroupCard({
         users={g.users}
         min={g.min}
         max={g.max}
-        spine={STATUS_SPINE[status]}
-        className={cn(
-          "transition-[opacity,filter]",
-          dimmed && "opacity-25 grayscale",
-        )}
+        className={cn(dimmed && "opacity-40")}
         notes={
           <Row gap="xs" align="center">
             {repo !== null ? (
@@ -499,24 +494,14 @@ function TeacherGroupCard({
   );
 }
 
-/** The teacher's seat NATURE: placing a student here, the add-picker's anchor
- *  in the teaching accent. The required variant keeps the base's warning
- *  tint. */
+/** The teacher's seat NATURE: placing a student here, the add-picker's
+ *  anchor. */
 function AddMemberSeat({
   required = false,
-  className,
   ...props
 }: ComponentProps<typeof SeatButton>) {
   return (
-    <SeatButton
-      required={required}
-      className={cn(
-        !required &&
-          "hover:border-role-teaching hover:bg-role-teaching/5 hover:text-foreground",
-        className,
-      )}
-      {...props}
-    >
+    <SeatButton required={required} {...props}>
       {required ? "Add member — required to form" : "Add member"}
     </SeatButton>
   );
@@ -632,11 +617,7 @@ function CardFooter({
       />
     );
   }
-  return (
-    <Text variant="caption" className="font-mono">
-      repo forms when the group is complete
-    </Text>
-  );
+  return <Text variant="caption">Repo forms when the group is complete</Text>;
 }
 
 /** An open seat that IS the "add from the pool" picker: the seat anchors a
@@ -741,7 +722,7 @@ function PoolPicker({
                 type="button"
                 onClick={() => add(s.login)}
                 disabled={pending !== null}
-                className="w-full rounded-md px-2 py-1.5 text-left transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-60"
+                className="w-full rounded-md px-2 py-1.5 text-left hover:bg-muted disabled:pointer-events-none disabled:opacity-60"
               >
                 <Row gap="sm" align="center">
                   <UserIdentity {...identity} className="min-w-0 flex-1" />
@@ -751,7 +732,7 @@ function PoolPicker({
                     </Badge>
                   ) : null}
                   {pending === s.login ? (
-                    <Text variant="caption" as="span" className="font-mono">
+                    <Text variant="caption" as="span">
                       adding…
                     </Text>
                   ) : null}
@@ -765,11 +746,9 @@ function PoolPicker({
   );
 }
 
-/** The segmented filter's mono count. */
+/** The segmented filter's count. */
 function Count({ n }: { n: number }) {
   return (
-    <span className="font-mono text-[10px] text-muted-foreground tabular-nums">
-      {n}
-    </span>
+    <span className="text-muted-foreground text-xs tabular-nums">{n}</span>
   );
 }

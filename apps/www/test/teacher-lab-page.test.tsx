@@ -116,31 +116,30 @@ describe("TeacherLabPage", () => {
     expect(screen.getByText("under min")).toBeInTheDocument();
     // Toolbar: create a group for this lab (no attach: groups are per-lab).
     expect(
-      screen.getByRole("button", { name: "+ New group" }),
+      screen.getByRole("button", { name: "New group" }),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Attach a group" }),
     ).not.toBeInTheDocument();
-    // Management is one click deep: the row's drawer.
-    fireEvent.click(screen.getByRole("button", { name: "Manage Team Alpha" }));
+    // Management lives ON the card, nothing hidden behind a disclosure: the
+    // open seat adds, each member wears its remove ×, the kebab holds delete.
+    // 1/3 with a min of 2 → two open seats, each its own add-picker.
     expect(
-      screen.getByRole("button", { name: "Delete group" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /Add from the pool/ }),
-    ).toBeInTheDocument();
+      screen.getAllByRole("button", { name: "Add a member to Team Alpha" }),
+    ).toHaveLength(2);
     expect(
       screen.getByRole("button", { name: "Remove bob from Team Alpha" }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Actions for Team Alpha" }),
+    ).toBeInTheDocument();
     // Teachers never join/leave.
     expect(
-      screen.queryByRole("button", { name: "Join" }),
+      screen.queryByRole("button", { name: /^Join/ }),
     ).not.toBeInTheDocument();
     // No repo yet → roster edits carry no warning.
     expect(
-      screen.queryByRole("button", {
-        name: "repo exists",
-      }),
+      screen.queryByRole("button", { name: "repo exists" }),
     ).not.toBeInTheDocument();
   });
 
@@ -158,16 +157,16 @@ describe("TeacherLabPage", () => {
     expect(
       screen.getByRole("link", { name: /acme\/lab1-team-alpha/ }),
     ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Manage Team Alpha" }));
+    // Delete lives in the card's kebab, and is never disabled: the typed
+    // name in the dialog is the whole gate.
+    fireEvent.click(
+      screen.getByRole("button", { name: "Actions for Team Alpha" }),
+    );
     expect(
-      screen.getByRole("button", { name: "Delete group" }),
+      screen.getByRole("menuitem", { name: "Delete group" }),
     ).not.toBeDisabled();
     // Roster edits stay allowed; a warning hint explains the consequences.
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "repo exists",
-      }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "repo exists" }));
     expect(
       screen.getByText(/immediately sees everything the group has pushed/),
     ).toBeInTheDocument();
@@ -289,7 +288,6 @@ describe("TeacherLabPage", () => {
     });
     render(<TeacherLabPage />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Manage Team Alpha" }));
     // bob carries the info hint, alice doesn't.
     fireEvent.click(
       screen.getByRole("button", { name: "@bob hasn't signed in yet" }),
@@ -324,16 +322,14 @@ describe("TeacherLabPage", () => {
     expect(
       screen.getByRole("button", { name: "Show the student" }),
     ).toBeInTheDocument();
-    // But the picker can (re)place the teacher, tagged as one.
-    fireEvent.click(screen.getByRole("button", { name: "Manage Team Alpha" }));
-    fireEvent.click(
-      screen.getByRole("button", { name: /Add from the pool \(2\)/ }),
-    );
+    // But the picker can (re)place the teacher, tagged as one. Both open
+    // seats anchor the same picker; the required one names itself.
+    fireEvent.click(screen.getByText("Add member — required to form"));
     expect(screen.getByText("@teach")).toBeInTheDocument();
     expect(screen.getByText("teacher")).toBeInTheDocument();
   });
 
-  it("reveals a member's professional email from the drawer roster", () => {
+  it("reveals a member's professional email from the card roster", () => {
     mockApi({
       ...groupsData,
       groups: [grp({ members: [alice] })],
@@ -351,7 +347,6 @@ describe("TeacherLabPage", () => {
     });
     render(<TeacherLabPage />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Manage Team Alpha" }));
     expect(screen.queryByText("alice@heig-vd.ch")).not.toBeInTheDocument();
     fireEvent.click(
       screen.getByRole("button", { name: "Show Alice Ok's emails" }),
@@ -454,19 +449,19 @@ describe("TeacherLabPage", () => {
     });
     render(<TeacherLabPage />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Manage Team Alpha" }));
+    // A full group draws no open seat at all, so there is nowhere to add.
     expect(
-      screen.getByRole("button", { name: /Add from the pool/ }),
-    ).toBeDisabled();
+      screen.queryByRole("button", { name: "Add a member to Team Alpha" }),
+    ).not.toBeInTheDocument();
     // A full group is not an over-max group: no warning, only no room.
     expect(
-      screen.queryByRole("button", { name: "over the lab max" }),
+      screen.queryByRole("button", { name: "over max" }),
     ).not.toBeInTheDocument();
   });
 
-  it("flags an oversized group on the row itself, without opening the drawer", () => {
-    // 4 against maxMembers: 3. The row must say so, or a teacher who just
-    // shrank the lab has to open every drawer to find who is stranded.
+  it("flags an oversized group on the card itself", () => {
+    // 4 against maxMembers: 3. The card must say so, or the only trace of a
+    // lowered maximum is a "4/3" count that reads like a typo.
     mockApi({
       ...groupsData,
       groups: [
@@ -482,8 +477,9 @@ describe("TeacherLabPage", () => {
     });
     render(<TeacherLabPage />);
 
-    expect(screen.getByText(/4\/3 members/)).toBeInTheDocument();
-    expect(screen.getByText(/1 over max/)).toBeInTheDocument();
+    // The count reads "4/3" and spells itself out on hover.
+    expect(screen.getByTitle("4 of 3 members")).toHaveTextContent("4/3");
+    expect(screen.getByText("over max")).toBeInTheDocument();
     // It is not a STATUS: the lifecycle chip keeps its own meaning.
     expect(screen.getByText("no repo")).toBeInTheDocument();
   });
@@ -498,7 +494,8 @@ describe("TeacherLabPage", () => {
     });
     render(<TeacherLabPage />);
 
-    expect(screen.getByText(/2 members/)).toBeInTheDocument();
+    // No denominator anywhere: the count is a bare "2".
+    expect(screen.getByTitle("2 members")).toHaveTextContent(/^2$/);
     expect(screen.queryByText(/Infinity/)).not.toBeInTheDocument();
     expect(screen.queryByText(/over max/)).not.toBeInTheDocument();
   });
@@ -520,8 +517,7 @@ describe("TeacherLabPage", () => {
     });
     render(<TeacherLabPage />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Manage Team Alpha" }));
-    const warning = screen.getByRole("button", { name: "over the lab max" });
+    const warning = screen.getByRole("button", { name: "over max" });
     expect(warning).toBeInTheDocument();
     // The popover names the gap and the lever the teacher actually owns.
     fireEvent.click(warning);
@@ -542,7 +538,7 @@ describe("TeacherLabPage", () => {
     render(<TeacherLabPage />);
 
     // The header's status word: the timeline's vocabulary, not a banner.
-    expect(screen.getByText("not started")).toBeInTheDocument();
+    expect(screen.getByText("Not started")).toBeInTheDocument();
     // The per-row create stays enabled (the escape hatch) but its confirm
     // names the consequence.
     fireEvent.click(screen.getByRole("button", { name: "Create repository" }));
@@ -558,7 +554,7 @@ describe("TeacherLabPage", () => {
     render(<TeacherLabPage />);
 
     expect(screen.queryByText(/not started/i)).not.toBeInTheDocument();
-    expect(screen.getByText("in progress")).toBeInTheDocument();
+    expect(screen.getByText("In progress")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Create repository" }));
     expect(screen.queryByText(/before the start time/)).not.toBeInTheDocument();
   });

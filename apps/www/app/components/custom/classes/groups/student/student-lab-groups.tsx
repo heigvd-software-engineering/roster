@@ -27,9 +27,9 @@ import { cn } from "~/lib/utils";
  *
  * GROUP, BROWSE (not in a group yet): the same GROUP WALL the teacher sees,
  * without the management verbs. Every group's full roster, and an OPEN SEAT
- * is the join affordance, because taking a seat is what joining is. Amber
- * seats mark groups still short of the minimum. Plus "new group", a fresh
- * group for THIS lab that you auto-join.
+ * is the join affordance, because taking a seat is what joining is. A seat
+ * still needed to reach the minimum says so. Plus "new group", a fresh group
+ * for THIS lab that you auto-join.
  *
  * GROUP, YOURS: the others disappear, and your group card (1/3) sits beside
  * the same start-lab card (2/3) that owns the work repo. Your open seats are
@@ -80,7 +80,7 @@ export function StudentLabGroups({
     const repo = mine ? g.repoFor(mine.id) : null;
     return (
       <Stack gap="md" className="w-full">
-        <Text variant="overline">Your lab</Text>
+        <Text variant="heading">Your lab</Text>
         <div className="grid w-full grid-cols-1 gap-4 lg:grid-cols-3">
           <GroupCard
             group={solo}
@@ -119,7 +119,7 @@ export function StudentLabGroups({
       <>
         <UnassignedPool students={g.unassignedStudents} users={g.users} />
         <Stack gap="md" className="w-full">
-          <Text variant="overline">Your group</Text>
+          <Text variant="heading">Your group</Text>
           <div className="grid w-full grid-cols-1 gap-4 lg:grid-cols-3">
             <GroupCard
               group={mine}
@@ -175,7 +175,7 @@ export function StudentLabGroups({
     <>
       <UnassignedPool students={g.unassignedStudents} users={g.users} />
       <Stack gap="md" className="w-full">
-        <Text variant="overline">Groups in this lab</Text>
+        <Text variant="heading">Groups in this lab</Text>
         {g.groups.length === 0 ? (
           <Text variant="body2">
             No groups in this lab yet — start one below.
@@ -224,8 +224,8 @@ export function StudentLabGroups({
   );
 }
 
-/** The "this one is yours" line under the card's name: enrolled color while
- *  it's really yours, muted for the not-yet-accepted ghost. */
+/** The "this one is yours" line under the card's name: at full strength
+ *  while it's really yours, muted for the not-yet-accepted ghost. */
 function MineNote({
   active = true,
   children,
@@ -237,29 +237,22 @@ function MineNote({
     <Text
       variant="caption"
       as="span"
-      className={cn("font-mono", active && "text-role-enrolled")}
+      className={cn(active && "font-medium text-foreground")}
     >
       {children}
     </Text>
   );
 }
 
-/** The student's seat NATURE: taking it IS joining, in the enrolled accent.
- *  The required variant keeps the base's warning tint. */
+/** The student's seat NATURE: taking it IS joining. */
 function JoinSeat({
   required = false,
-  className,
   ...props
 }: ComponentProps<typeof SeatButton>) {
   return (
     <SeatButton
       required={required}
       title="Join this group for the lab"
-      className={cn(
-        !required &&
-          "hover:border-role-enrolled hover:bg-role-enrolled/5 hover:text-foreground",
-        className,
-      )}
       {...props}
     >
       {required ? "Join — needed to form" : "Join this group"}
@@ -281,14 +274,10 @@ function VacantSeat({ required = false }: { required?: boolean }) {
 }
 
 /** A seat behind the repo lock: capacity remains, but only the teacher moves
- *  people once the work repository exists. Brand red, because the lock is the
- *  seat's dominant fact whatever the group's size. */
+ *  people once the work repository exists. */
 function LockedSeat() {
   return (
-    <SeatSlot
-      className="border-brand/55 bg-brand/5 text-brand"
-      title="This group's repository exists — only your teacher can add members"
-    >
+    <SeatSlot title="This group's repository exists — only your teacher can add members">
       Locked seat — ask your professor
     </SeatSlot>
   );

@@ -11,16 +11,17 @@ function renderDeadline(offsetMs: number) {
 }
 
 describe("DeadlineText", () => {
-  it("counts minutes under an hour, urgent (brand)", () => {
+  it("counts minutes under an hour, urgent (full strength)", () => {
     renderDeadline(42 * MINUTE);
     const el = screen.getByText("in 42 min");
-    expect(el.className).toContain("text-brand");
+    expect(el.className).toContain("font-medium");
+    expect(el.className).toContain("text-foreground");
   });
 
   it("shows hours + minutes under a day", () => {
     renderDeadline(3 * HOUR + 30 * MINUTE);
     const el = screen.getByText("in 3h 30m");
-    expect(el.className).toContain("text-brand");
+    expect(el.className).toContain("font-medium");
   });
 
   it("drops the minutes at a whole hour", () => {
@@ -31,14 +32,14 @@ describe("DeadlineText", () => {
   it("is urgent at 2 days out (≤ 7d threshold)", () => {
     renderDeadline(2 * DAY);
     const el = screen.getByText("in 2 days");
-    expect(el.className).toContain("text-brand");
+    expect(el.className).toContain("font-medium");
   });
 
-  it("is neutral at 20 days out — color means urgency only", () => {
+  it("is muted at 20 days out — weight means urgency only", () => {
     renderDeadline(20 * DAY);
     const el = screen.getByText("in 20 days");
     expect(el.className).toContain("text-muted-foreground");
-    expect(el.className).not.toContain("text-brand");
+    expect(el.className).not.toContain("font-medium");
   });
 
   it("reads 'closed' the moment the deadline passes, calm", () => {
@@ -46,7 +47,7 @@ describe("DeadlineText", () => {
     renderDeadline(-1 * MINUTE);
     const el = screen.getByText("closed");
     expect(el.className).toContain("text-muted-foreground");
-    expect(el.className).not.toContain("text-brand");
+    expect(el.className).not.toContain("font-medium");
   });
 
   it("reads 'closed' at the exact boundary, no longer urgent", () => {
@@ -55,6 +56,6 @@ describe("DeadlineText", () => {
     renderDeadline(0);
     const el = screen.getByText("closed");
     expect(el.className).toContain("text-muted-foreground");
-    expect(el.className).not.toContain("text-brand");
+    expect(el.className).not.toContain("font-medium");
   });
 });

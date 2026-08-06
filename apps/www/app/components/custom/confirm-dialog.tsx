@@ -145,7 +145,7 @@ function ConfirmPhrase({
  *  than retyped (a title may hold an em dash nobody wants to hunt for). */
 function PhraseToCopy({ text }: { text: string }) {
   return (
-    <code className="select-all rounded bg-foreground/6 px-1 py-0.5 font-mono text-[0.85em]">
+    <code className="select-all rounded bg-muted px-1 py-0.5 font-mono text-[0.85em]">
       {text}
     </code>
   );

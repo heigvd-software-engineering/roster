@@ -1,40 +1,30 @@
 import {
-  Pill,
-  type PillTone,
-} from "~/components/custom/classes/groups/shared/pill";
-import {
   CREATION_PUSH_GRACE_MS,
   type GroupLabStatus,
 } from "~/components/custom/classes/groups/shared/use-lab-groups";
 import { Hint } from "~/components/custom/hint";
+import { Badge } from "~/components/ui/badge";
 import { formatDeadline } from "~/lib/format";
 
-/** The card's left spine: the same state as the chip, scannable as a color
- *  column without reading (the class cards' role-spine trick). */
-export const STATUS_SPINE: Record<GroupLabStatus, string> = {
-  on_track: "border-l-role-enrolled",
-  on_time: "border-l-role-enrolled",
-  ready: "border-l-role-enrolled",
-  late: "border-l-brand",
-  no_pushes: "border-l-warning",
-  no_repo: "border-l-warning",
-  under_min: "border-l-muted-foreground/40",
+/** The group's lab status as a shadcn Badge. "late" is the one state a
+ *  teacher must act on, so it is the only one that takes the destructive
+ *  variant; settled states are secondary, unsettled ones outline. */
+const CHIP: Record<
+  GroupLabStatus,
+  { label: string; variant: "secondary" | "destructive" | "outline" }
+> = {
+  on_track: { label: "on track", variant: "secondary" },
+  on_time: { label: "on time", variant: "secondary" },
+  ready: { label: "repo created", variant: "secondary" },
+  late: { label: "late", variant: "destructive" },
+  no_pushes: { label: "no pushes", variant: "outline" },
+  no_repo: { label: "no repo", variant: "outline" },
+  under_min: { label: "under min", variant: "outline" },
 };
 
-const CHIP: Record<GroupLabStatus, { label: string; tone: PillTone }> = {
-  on_track: { label: "on track", tone: "good" },
-  on_time: { label: "on time", tone: "good" },
-  ready: { label: "repo created", tone: "good" },
-  late: { label: "late", tone: "bad" },
-  no_pushes: { label: "no pushes", tone: "warn" },
-  no_repo: { label: "no repo", tone: "warn" },
-  under_min: { label: "under min", tone: "muted" },
-};
-
-/** The group's lab status as a Pill. */
 export function StatusChip({ status }: { status: GroupLabStatus }) {
   const chip = CHIP[status];
-  return <Pill tone={chip.tone}>{chip.label}</Pill>;
+  return <Badge variant={chip.variant}>{chip.label}</Badge>;
 }
 
 /** Coarse distance for the push-vs-deadline note: "42min" / "5h" / "3d". */
@@ -88,7 +78,7 @@ export function LastPush({
     // visibly: a Hint, not a hover tooltip nobody finds.
     const graceMin = Math.round(CREATION_PUSH_GRACE_MS / 60_000);
     return (
-      <span className="inline-flex items-center gap-0.5 font-mono text-muted-foreground text-xs">
+      <span className="inline-flex items-center gap-0.5 text-muted-foreground text-xs">
         no pushes yet
         <Hint label="How pushes are counted" title="How pushes are counted">
           The starter commit bumps the repo's push clock too, so only pushes
@@ -100,12 +90,12 @@ export function LastPush({
     );
   }
   if (!pushedAt || status === "no_repo" || status === "under_min") {
-    return <span className="font-mono text-muted-foreground text-xs">—</span>;
+    return <span className="text-muted-foreground text-xs">—</span>;
   }
   const pushed = new Date(pushedAt);
   const diff = Date.parse(deadline) - pushed.getTime();
   return (
-    <span className="whitespace-nowrap font-mono text-xs tabular-nums">
+    <span className="whitespace-nowrap text-xs tabular-nums">
       {formatDeadline(pushed)}
       <span className="block text-[11px] text-muted-foreground">
         {diff >= 0

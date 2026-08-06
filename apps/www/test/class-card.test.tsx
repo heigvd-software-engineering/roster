@@ -129,7 +129,7 @@ describe("ClassCard labs (F6)", () => {
     // The timeline's meta line (start → deadline) and the one status slot.
     const range = `${formatDay(new Date(lab.startAt))} → ${formatDay(new Date(lab.deadline))}`;
     expect(screen.getByText(new RegExp(range))).toBeInTheDocument();
-    expect(screen.getByText("not started")).toBeInTheDocument();
+    expect(screen.getByText("Not started")).toBeInTheDocument();
   });
 });
 

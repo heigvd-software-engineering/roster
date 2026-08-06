@@ -65,18 +65,14 @@ export function NewClassDialog({
       ) : (
         <DialogTrigger
           render={
-            <button
+            <Button
+              variant="outline"
               type="button"
-              className="group w-full cursor-pointer rounded-xl border-2 border-border border-dashed px-5 py-6 text-center transition-colors hover:border-muted-foreground/60"
+              title="Starts a new class from an organization you own"
             />
           }
         >
-          <span className="block font-medium text-muted-foreground text-sm transition-colors group-hover:text-foreground">
-            + Connect a GitHub organization
-          </span>
-          <span className="block text-muted-foreground/80 text-xs">
-            Starts a new class from an organization you own
-          </span>
+          Connect a GitHub organization
         </DialogTrigger>
       )}
       <DialogContent className="sm:max-w-2xl">
@@ -89,7 +85,9 @@ export function NewClassDialog({
         </DialogHeader>
         <Stack gap="lg">
           <Stack gap="sm">
-            <Text variant="overline">How it maps</Text>
+            <Text variant="label" className="font-medium">
+              How it maps
+            </Text>
             <dl className="grid grid-cols-[6.5rem_1fr] gap-x-5 gap-y-2.5 sm:grid-cols-[8rem_1fr]">
               {MAPPING.map((m) => (
                 <Fragment key={m.term}>
@@ -109,8 +107,10 @@ export function NewClassDialog({
               org on connect: base permission No access, no member repo
               creation, access by per-repo grant only, which is what makes
               student work private. */}
-          <Stack gap="sm" className="rounded-lg border bg-muted/40 p-4">
-            <Text variant="overline">Who can see and do what</Text>
+          <Stack gap="sm" className="rounded-lg border border-border p-4">
+            <Text variant="label" className="font-medium">
+              Who can see and do what
+            </Text>
             <Text variant="body2">
               On connect, labs sets the organization's base permission to{" "}
               <strong>No access</strong> — membership grants nothing on its own.

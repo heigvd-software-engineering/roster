@@ -4,19 +4,17 @@ import {
   Monitor,
   Moon,
   ShieldCheck,
-  SquareTerminal,
   Sun,
   Unlink,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { UserIdentity } from "~/components/custom/identity/user-identity";
-import { Stack } from "~/components/custom/layout/stack";
 import { Text } from "~/components/custom/typography/text";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
@@ -34,64 +32,29 @@ import type { Theme } from "~/lib/theme";
  * It is chrome, not an identity component: `UserIdentity` is what it renders.
  * The trigger passes no avatarUrl because edu-ID has no picture, so the app's
  * own user is initials, exactly like every linked student on a roster.
- *
- * Opens on hover. Base UI's Menu has no hover-open prop, so we drive `open`
- * ourselves, with a short close delay to bridge the trigger→popup gap, while
- * keeping click/keyboard/Escape working.
  */
 export function MainSwitchIdentity() {
   const { user, github, isSuperAdmin, signOut, unlinkGithub } = useAuth();
   const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
-  const [open, setOpen] = useState(false);
-  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const openNow = () => {
-    if (closeTimer.current) {
-      clearTimeout(closeTimer.current);
-      closeTimer.current = null;
-    }
-    setOpen(true);
-  };
-  const closeSoon = () => {
-    closeTimer.current = setTimeout(() => setOpen(false), 120);
-  };
-
-  // Clear a pending close on unmount, or it fires setOpen after the component
-  // and its state are gone.
-  useEffect(
-    () => () => {
-      if (closeTimer.current) {
-        clearTimeout(closeTimer.current);
-      }
-    },
-    [],
-  );
 
   if (!user) {
     return null;
   }
 
   return (
-    <DropdownMenu open={open} onOpenChange={setOpen} modal={false}>
+    <DropdownMenu>
       <DropdownMenuTrigger
         aria-label="Account menu"
         title="Account menu — GitHub link, theme, sign out"
         className="rounded-md px-2 py-1 text-left outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
-        onMouseEnter={openNow}
-        onMouseLeave={closeSoon}
       >
         {/* edu-ID identity: always initials (no avatarUrl passed). */}
         <UserIdentity name={user.name} subtitle={user.email} size="lg" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="end"
-        className="min-w-64"
-        onMouseEnter={openNow}
-        onMouseLeave={closeSoon}
-      >
-        <Stack gap="sm" className="px-1.5 py-1.5">
-          <Text variant="overline">Linked GitHub</Text>
+      <DropdownMenuContent align="end" className="min-w-64">
+        <DropdownMenuLabel>Linked GitHub</DropdownMenuLabel>
+        <div className="px-2 pb-1.5">
           {/* Named by GitHub → it keeps its photo, unlike the edu-ID above. */}
           {github ? (
             <UserIdentity
@@ -102,7 +65,7 @@ export function MainSwitchIdentity() {
           ) : (
             <Text variant="body2">Not linked</Text>
           )}
-        </Stack>
+        </div>
         {github && (
           <DropdownMenuItem
             variant="destructive"
@@ -113,9 +76,7 @@ export function MainSwitchIdentity() {
           </DropdownMenuItem>
         )}
         <DropdownMenuSeparator />
-        <Stack gap="none" className="px-1.5 pt-1.5">
-          <Text variant="overline">Theme</Text>
-        </Stack>
+        <DropdownMenuLabel>Theme</DropdownMenuLabel>
         <DropdownMenuRadioGroup
           value={theme}
           onValueChange={(value) => setTheme(value as Theme)}
@@ -127,10 +88,6 @@ export function MainSwitchIdentity() {
           <DropdownMenuRadioItem value="dark" closeOnClick={false}>
             <Moon />
             Dark
-          </DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value="terminal" closeOnClick={false}>
-            <SquareTerminal />
-            Terminal
           </DropdownMenuRadioItem>
           <DropdownMenuRadioItem value="system" closeOnClick={false}>
             <Monitor />

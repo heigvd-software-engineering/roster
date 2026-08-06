@@ -106,12 +106,12 @@ export function useMessages(): Pick<MessageActions, "push"> {
 
 const VARIANT = {
   info: { Icon: Info, tone: "text-muted-foreground" },
-  warning: { Icon: TriangleAlert, tone: "text-warning" },
+  warning: { Icon: TriangleAlert, tone: "text-muted-foreground" },
   error: { Icon: CircleX, tone: "text-destructive" },
 } as const;
 
 /** The message strip: an absolute overlay AppLayout renders right under the
- *  header's brand hairline, so nothing below it moves. */
+ *  header, so nothing below it moves. */
 export function MessageViewport() {
   const messages = useContext(MessageListContext);
   const { dismiss } = useMessageActions();
@@ -125,7 +125,7 @@ export function MessageViewport() {
           <div
             key={message.id}
             role={message.variant === "error" ? "alert" : "status"}
-            className="pointer-events-auto flex max-w-xl items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm shadow-sm"
+            className="pointer-events-auto flex max-w-xl items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm"
           >
             <Icon className={cn("size-4 shrink-0", tone)} />
             <span>{message.text}</span>
@@ -134,7 +134,7 @@ export function MessageViewport() {
               aria-label="Dismiss"
               title="Dismiss"
               onClick={() => dismiss(message.id)}
-              className="ml-1 cursor-pointer rounded p-0.5 text-muted-foreground transition-colors hover:text-foreground"
+              className="ml-1 cursor-pointer rounded p-0.5 text-muted-foreground hover:text-foreground"
             >
               <X className="size-3.5" />
             </button>

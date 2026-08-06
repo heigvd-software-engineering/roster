@@ -6,9 +6,8 @@ import { MessageViewport } from "~/contexts/message-context";
  * The frame shared by every page. Fills the viewport height and hosts the
  * shared top bar (AppHeader, shown once signed in) above the centered content
  * column (via Container). Global messages overlay the content right below the
- * header, with the wrapper as the positioning context, so nothing moves. The
- * graph-paper backdrop is app-wide in root.tsx; pages control their own
- * vertical arrangement with `flex-1`.
+ * header, with the wrapper as the positioning context, so nothing moves.
+ * Pages control their own vertical arrangement with `flex-1`.
  */
 type AppLayoutProps = {
   children: React.ReactNode;

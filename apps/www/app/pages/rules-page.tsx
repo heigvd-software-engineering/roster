@@ -1,4 +1,3 @@
-import { Anchor, CalendarClock, Flag, Lock, Users } from "lucide-react";
 import { Page } from "~/components/custom/layout/page";
 import { Stack } from "~/components/custom/layout/stack";
 import { Axiom, Axioms } from "~/components/custom/rules/axiom";
@@ -24,7 +23,7 @@ export function RulesPage() {
     <Page>
       <Stack gap="lg" className="w-full">
         <Stack gap="none">
-          <Text variant="heading">How roster works</Text>
+          <Text variant="title">How roster works</Text>
           <Text variant="subtitle">
             The rules of groups and repositories — one page, the same for
             students and teachers.
@@ -59,9 +58,8 @@ export function RulesPage() {
           </Axiom>
         </Axioms>
 
-        <Stack gap="none" className="w-full">
+        <Stack gap="lg" className="w-full">
           <RulePhase
-            icon={CalendarClock}
             step="01"
             title="Before the start"
             tagline="A lab is visible from the moment it's created — but quiet until its start date."
@@ -83,7 +81,6 @@ export function RulesPage() {
           </RulePhase>
 
           <RulePhase
-            icon={Users}
             step="02"
             title="Forming groups"
             tagline="Between the start and the repository, groups are free to change."
@@ -112,9 +109,7 @@ export function RulesPage() {
           </RulePhase>
 
           <RulePhase
-            icon={Lock}
             step="03"
-            pivotal
             title="Creating the repository"
             tagline="The point of no return: the repository turns a group into a deliverable."
           >
@@ -149,7 +144,6 @@ export function RulesPage() {
           </RulePhase>
 
           <RulePhase
-            icon={Flag}
             step="04"
             title="After the deadline"
             tagline="The deadline judges the work — it doesn't cut access."
@@ -161,7 +155,6 @@ export function RulesPage() {
           </RulePhase>
 
           <RulePhase
-            icon={Anchor}
             step="∞"
             title="At every moment"
             tagline="True through a lab's whole life."

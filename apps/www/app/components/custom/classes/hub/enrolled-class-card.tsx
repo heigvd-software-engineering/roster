@@ -1,6 +1,6 @@
 import { PeopleChip } from "~/components/custom/classes/hub/people-chip";
-import { LabsTimeline } from "~/components/custom/classes/labs/labs-timeline";
-import { RoleChip, roleSpine } from "~/components/custom/classes/role-marker";
+import { LabsTable } from "~/components/custom/classes/labs/labs-table";
+import { RoleChip } from "~/components/custom/classes/role-marker";
 import { Hint } from "~/components/custom/hint";
 import { OrgIdentity } from "~/components/custom/identity/org-identity";
 import { Row } from "~/components/custom/layout/row";
@@ -8,8 +8,6 @@ import { Stack } from "~/components/custom/layout/stack";
 import { Text } from "~/components/custom/typography/text";
 import { Card } from "~/components/ui/card";
 import type { EnrolledClassItem } from "~/lib/api";
-import { semesterOf, timelineSpan } from "~/lib/semester";
-import { cn } from "~/lib/utils";
 
 /**
  * "You joined, but you are not in the organisation yet."
@@ -74,19 +72,14 @@ export function EnrolledClassCard({ cls }: { cls: EnrolledClassItem }) {
     />
   );
   return (
-    <Card
-      className={cn(
-        "w-full gap-0 py-0 transition-shadow hover:ring-foreground/20",
-        roleSpine("enrolled"),
-      )}
-    >
+    <Card className="w-full gap-0 py-0">
       <Row justify="between" wrap className="px-5 py-4">
         {cls.login ? (
           <a
             href={`https://github.com/${cls.login}`}
             target="_blank"
             rel="noreferrer"
-            className="-m-2 rounded-md p-2 transition-colors hover:bg-muted/60"
+            className="-m-2 rounded-md p-2 hover:bg-muted"
           >
             {identity}
           </a>
@@ -116,19 +109,14 @@ export function EnrolledClassCard({ cls }: { cls: EnrolledClassItem }) {
         </Row>
       </Row>
 
-      <div className="w-full overflow-x-auto border-border border-t">
-        <div className="min-w-[760px]">
-          {cls.labs.length === 0 ? (
-            <Text variant="body2" className="px-5 py-3">
-              No labs yet.
-            </Text>
-          ) : (
-            <LabsTimeline
-              labs={cls.labs}
-              span={timelineSpan(cls.labs, semesterOf(new Date(cls.createdAt)))}
-            />
-          )}
-        </div>
+      <div className="w-full border-border border-t">
+        {cls.labs.length === 0 ? (
+          <Text variant="body2" className="px-5 py-3">
+            No labs yet.
+          </Text>
+        ) : (
+          <LabsTable labs={cls.labs} />
+        )}
       </div>
     </Card>
   );

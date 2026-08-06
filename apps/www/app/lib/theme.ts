@@ -1,14 +1,12 @@
 /**
- * Theme preference storage: an explicit "light"/"dark"/"terminal" choice
- * persisted in localStorage, or "system" (nothing stored) which follows the
- * OS setting. "terminal" is the phosphor CLI skin and rides on dark: html
- * gets both classes, so every `dark:` style keeps working and `.terminal`
- * only re-skins the tokens. These are read/write helpers; applying classes
- * to <html> is ThemeProvider's job (contexts/theme-context.tsx), and the
- * inline script in root.tsx reads the same key before first paint so a
- * stored choice never flashes.
+ * Theme preference storage: an explicit "light"/"dark" choice persisted in
+ * localStorage, or "system" (nothing stored) which follows the OS setting.
+ * These are read/write helpers; applying the class to <html> is
+ * ThemeProvider's job (contexts/theme-context.tsx), and the inline script in
+ * root.tsx reads the same key before first paint so a stored choice never
+ * flashes.
  */
-export type Theme = "light" | "dark" | "terminal" | "system";
+export type Theme = "light" | "dark" | "system";
 
 const STORAGE_KEY = "theme";
 
@@ -18,9 +16,7 @@ export function getTheme(): Theme {
     return "system";
   }
   const stored = localStorage.getItem(STORAGE_KEY);
-  return stored === "light" || stored === "dark" || stored === "terminal"
-    ? stored
-    : "system";
+  return stored === "light" || stored === "dark" ? stored : "system";
 }
 
 export function persistTheme(theme: Theme) {

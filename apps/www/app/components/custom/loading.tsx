@@ -11,24 +11,10 @@ type LoadingProps = {
   children?: React.ReactNode;
 };
 
-/** Three staggered black bars, a Swiss equalizer pulse. */
-function Bars() {
-  return (
-    <output aria-label="Loading" className="flex h-6 items-end gap-1">
-      {[0, 1, 2].map((i) => (
-        <span
-          key={i}
-          className="loader-bar h-6 w-1.5 origin-bottom bg-foreground"
-          style={{ animationDelay: `${i * 0.15}s` }}
-        />
-      ))}
-    </output>
-  );
-}
-
 /**
- * Wrap data-consuming components: shows a centered loading animation instead of
- * the children while their data is in flight.
+ * Wrap data-consuming components: shows a centered caption instead of the
+ * children while their data is in flight. Words, not an animation: the wait
+ * is short and a spinner says less than "Loading classes…" does.
  *
  *   <Loading loading={isLoading} label="Loading classes…">
  *     <ClassList … />
@@ -45,8 +31,11 @@ export function Loading({ loading, label, className, children }: LoadingProps) {
       justify="center"
       className={cn("w-full py-12", className)}
     >
-      <Bars />
-      {label ? <Text variant="body2">{label}</Text> : null}
+      <output aria-label="Loading">
+        <Text variant="body2" as="span">
+          {label ?? "Loading…"}
+        </Text>
+      </output>
     </Stack>
   );
 }

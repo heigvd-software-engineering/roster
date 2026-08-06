@@ -7,10 +7,18 @@ vi.mock("~/contexts/auth-context", () => ({
   useAuth: () => ({ linkGithub }),
 }));
 
-const params = vi.hoisted(() => ({ returnTo: null as string | null }));
+// The page reads `returnTo` with get() and the failure markers with getAll(),
+// so the stub has to answer both.
+const params = vi.hoisted(() => ({
+  returnTo: null as string | null,
+  errors: [] as string[],
+}));
 vi.mock("react-router", () => ({
   useSearchParams: () => [
-    { get: (k: string) => (k === "returnTo" ? params.returnTo : null) },
+    {
+      get: (k: string) => (k === "returnTo" ? params.returnTo : null),
+      getAll: (k: string) => (k === "error" ? params.errors : []),
+    },
   ],
 }));
 

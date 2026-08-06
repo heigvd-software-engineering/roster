@@ -106,9 +106,16 @@ describe("StudentLabPage — group lab", () => {
     render(<StudentLabPage />);
 
     expect(screen.getByText("enrolled")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Join" })).toBeInTheDocument();
+    // 1/3 with a min of 2: the first open seat is the one still needed to
+    // form, the second is merely available. Both are the join verb.
     expect(
-      screen.getByRole("button", { name: "+ New group" }),
+      screen.getByRole("button", { name: "Join — needed to form" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Join this group" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "New group" }),
     ).toBeInTheDocument();
     // The pool shows students not in any group of this lab (alice).
     expect(
@@ -142,7 +149,7 @@ describe("StudentLabPage — group lab", () => {
     mockApi(groupsData({ groups: [grp({ members: [alice] })] }));
     render(<StudentLabPage />);
 
-    expect(screen.getByText("needs 1 more member")).toBeInTheDocument();
+    expect(screen.getByText("Needs a member to form")).toBeInTheDocument();
     expect(screen.queryByText("Your group is ready")).not.toBeInTheDocument();
   });
 
@@ -270,7 +277,7 @@ describe("StudentLabPage — group lab", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("locks Join on a group whose repo exists", async () => {
+  it("locks Join on a group whose repo exists", () => {
     // Someone else's group: room left (1/3) but already locked by its repo.
     mockApi(
       groupsData({
@@ -281,14 +288,18 @@ describe("StudentLabPage — group lab", () => {
     );
     render(<StudentLabPage />);
 
-    const join = screen.getByRole("button", { name: "Join" });
-    expect(join).toBeDisabled();
-    fireEvent.focus(join.parentElement as HTMLElement);
+    // The seat survives the lock — hiding it would make a locked 1/3 group
+    // read as full — but the verb doesn't: it becomes a passive slot that
+    // names the teacher as the only way in.
     expect(
-      await screen.findByText(
-        "This group's repository exists — only your teacher can add members.",
-      ),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: /^Join/ }),
+    ).not.toBeInTheDocument();
+    const seats = screen.getAllByText("Locked seat — ask your professor");
+    expect(seats.length).toBeGreaterThan(0);
+    expect(seats[0]).toHaveAttribute(
+      "title",
+      "This group's repository exists — only your teacher can add members",
+    );
   });
 });
 

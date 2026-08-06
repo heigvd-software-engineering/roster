@@ -4,8 +4,8 @@ import { Link } from "react-router";
 import { InviteTeacherDialog } from "~/components/custom/classes/hub/invite-teacher-dialog";
 import { PeopleChip } from "~/components/custom/classes/hub/people-chip";
 import { LabDialog } from "~/components/custom/classes/labs/lab-dialog";
-import { LabsTimeline } from "~/components/custom/classes/labs/labs-timeline";
-import { RoleChip, roleSpine } from "~/components/custom/classes/role-marker";
+import { LabsTable } from "~/components/custom/classes/labs/labs-table";
+import { RoleChip } from "~/components/custom/classes/role-marker";
 import { ConfirmDialog } from "~/components/custom/confirm-dialog";
 import { OrgIdentity } from "~/components/custom/identity/org-identity";
 import { Row } from "~/components/custom/layout/row";
@@ -20,8 +20,6 @@ import {
 } from "~/components/ui/popover";
 import { api, type ClassItem, useAction } from "~/lib/api";
 import { count } from "~/lib/format";
-import { semesterOf, timelineSpan } from "~/lib/semester";
-import { cn } from "~/lib/utils";
 
 function peopleLabel(n: number, noun: string, pendingCount: number) {
   const base = count(n, noun);
@@ -32,14 +30,13 @@ function peopleLabel(n: number, noun: string, pendingCount: number) {
  * One connected class (GitHub org) as a single flat surface: identity + people
  * stats in the masthead (information only), then a toolbar with every class
  * action side by side (New lab, invite link (F4), GitHub sync), then the labs
- * table (F6), each sectioned off by a hairline. No nested boxes.
+ * table, each sectioned off by a hairline. No nested boxes.
  */
 export function ClassCard({
   id,
   login,
   name,
   avatarUrl,
-  createdAt,
   joinToken,
   teachers,
   students,
@@ -61,18 +58,13 @@ export function ClassCard({
     pending: pendingRow,
   });
   return (
-    <Card
-      className={cn(
-        "w-full gap-0 py-0 transition-shadow hover:ring-foreground/20",
-        roleSpine("teaching"),
-      )}
-    >
+    <Card className="w-full gap-0 py-0">
       <Row justify="between" wrap className="px-5 py-4">
         <a
           href={`https://github.com/${login}`}
           target="_blank"
           rel="noreferrer"
-          className="-m-2 rounded-md p-2 transition-colors hover:bg-muted/60"
+          className="-m-2 rounded-md p-2 hover:bg-muted"
         >
           <OrgIdentity
             name={name ?? login}
@@ -91,7 +83,6 @@ export function ClassCard({
               ...pending.map((p) => withUser(p, true)),
             ]}
           />
-          <span className="font-mono text-muted-foreground/60 text-xs">·</span>
           <PeopleChip
             label={peopleLabel(
               teachers.length,
@@ -125,47 +116,35 @@ export function ClassCard({
       {/* The class toolbar: create, invite and sync side by side, so one row
           answers "what can I do to this class". The masthead above carries
           information only. */}
-      <Row gap="sm" wrap className="border-border border-t px-3 py-1">
+      <Row gap="sm" wrap className="border-border border-t px-3 py-2">
         <LabDialog classId={id} onSaved={onChanged} />
-        <ToolbarDivider />
         <JoinLinkAction
           classId={id}
           joinToken={joinToken}
           onChanged={onChanged}
         />
-        <ToolbarDivider />
         <InviteTeacherDialog classId={id} orgLogin={login} onDone={onChanged} />
-        <ToolbarDivider />
         <ReconcileAction classId={id} />
       </Row>
 
       {/* Sectioned off by a hairline, not a nested box. */}
-      <div className="w-full overflow-x-auto border-border border-t">
-        <div className="min-w-[760px]">
-          {labs.length === 0 ? (
-            <Text variant="body2" className="px-5 py-3">
-              No labs yet — use "New lab" above.
-            </Text>
-          ) : (
-            <LabsTimeline
-              labs={labs}
-              span={timelineSpan(labs, semesterOf(new Date(createdAt)))}
-              manage
-              action={(lab) => (
-                <LabDialog classId={id} lab={lab} onSaved={onChanged} />
-              )}
-            />
-          )}
-        </div>
+      <div className="w-full border-border border-t">
+        {labs.length === 0 ? (
+          <Text variant="body2" className="px-5 py-3">
+            No labs yet — use "New lab" above.
+          </Text>
+        ) : (
+          <LabsTable
+            labs={labs}
+            manage
+            action={(lab) => (
+              <LabDialog classId={id} lab={lab} onSaved={onChanged} />
+            )}
+          />
+        )}
       </div>
     </Card>
   );
-}
-
-/** Hairline between toolbar actions, so the row reads as one toolbar rather
- *  than three stray buttons. */
-function ToolbarDivider() {
-  return <span aria-hidden className="h-4 w-px bg-border" />;
 }
 
 /**
@@ -216,7 +195,7 @@ function JoinLinkAction({
       </PopoverTrigger>
       <PopoverContent align="start" className="w-80">
         <Stack gap="sm">
-          <Text variant="body2" className="font-medium text-foreground">
+          <Text variant="label" className="font-medium">
             Invite students
           </Text>
           <Text variant="caption">
@@ -302,7 +281,7 @@ function ReconcileAction({ classId }: { classId: string }) {
       </PopoverTrigger>
       <PopoverContent align="start" className="w-80">
         <Stack gap="sm">
-          <Text variant="body2" className="font-medium text-foreground">
+          <Text variant="label" className="font-medium">
             Sync with GitHub
           </Text>
           <Text variant="caption">

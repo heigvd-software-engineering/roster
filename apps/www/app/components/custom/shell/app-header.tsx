@@ -6,9 +6,9 @@ import { useAuth } from "~/contexts/auth-context";
 
 /**
  * The app's top bar: the `roster` wordmark on the left, the account menu pinned
- * top-right, a brand-red hairline underneath. Full-bleed border; inner content
- * aligns to the page Container. Renders nothing until there's a signed-in user
- * (so the login screen stays chrome-free).
+ * top-right. Full-bleed border; inner content aligns to the page Container.
+ * Renders nothing until there's a signed-in user (so the login screen stays
+ * chrome-free).
  */
 export function AppHeader() {
   const { user } = useAuth();
@@ -20,13 +20,12 @@ export function AppHeader() {
     <header className="w-full border-b border-border bg-background">
       <Container className="py-3">
         <Row justify="between">
-          <Link to="/classes" className="font-bold tracking-tight">
+          <Link to="/classes" className="font-semibold tracking-tight">
             roster
           </Link>
           <MainSwitchIdentity />
         </Row>
       </Container>
-      <div className="h-0.5 w-full bg-brand" />
     </header>
   );
 }

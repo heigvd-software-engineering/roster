@@ -57,11 +57,9 @@ export function StartLabCard({
     <Card
       className={cn(
         "h-full gap-0 p-4",
-        // Colored ONLY once the repo exists, the same highlight as your group
-        // tile (the Card's outline is a RING, ring-1, not a border). Earlier
-        // states keep the neutral ring. A MISSING repo overrides the "all
-        // good" green: the ring is part of what must read as broken.
-        created && (missing ? "ring-destructive/60" : "ring-role-enrolled/60"),
+        // The one state the outline marks is the broken one: a repository
+        // that was deleted on GitHub. Everything else keeps the stock ring.
+        missing && "ring-destructive/60",
       )}
     >
       <Stack gap="md" className="w-full">
@@ -71,12 +69,8 @@ export function StartLabCard({
           </Text>
           <span
             className={cn(
-              "font-mono text-xs",
-              missing
-                ? "text-destructive"
-                : created
-                  ? "text-role-enrolled"
-                  : "text-muted-foreground",
+              "text-xs",
+              missing ? "text-destructive" : "text-muted-foreground",
             )}
           >
             {state === "accept"
@@ -160,9 +154,9 @@ export function StartLabCard({
                 <MissingRepoBadge />
               </Row>
               <Text variant="body2">
-                <span className="font-mono text-xs">{repoFullName}</span> was
-                deleted directly on GitHub — ask your teacher to unlink it so
-                the group can get a new one. Cloning won't work until then.
+                {repoFullName} was deleted directly on GitHub — ask your teacher
+                to unlink it so the group can get a new one. Cloning won't work
+                until then.
               </Text>
             </Stack>
           ) : (

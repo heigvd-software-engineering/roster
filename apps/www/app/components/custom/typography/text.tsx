@@ -7,41 +7,28 @@ import { cn } from "~/lib/utils";
  * when a variant's default doesn't fit the context, say because a <p> isn't
  * valid inside a <button>.
  *
- *   hero      landing wordmark              subtitle  muted intro paragraph
- *   title     in-app page/screen heading    overline  small mono uppercase label
- *   body1     primary body text             body2     secondary (smaller, muted)
- *   heading   section heading (h2)          label     small foreground label
+ *   title     page/screen heading (h1)      subtitle  muted intro paragraph
+ *   heading   section heading (h2)          body1     primary body text
+ *   label     small foreground label        body2     secondary (smaller, muted)
  *   caption   small muted caption           error     small destructive message
  */
 const VARIANT = {
-  hero: "text-7xl font-bold tracking-tight md:text-8xl",
-  title: "text-4xl font-bold tracking-tight md:text-5xl",
-  subtitle: "text-lg text-muted-foreground",
-  overline:
-    "font-mono text-xs uppercase tracking-[0.2em] text-muted-foreground",
+  title: "text-3xl font-semibold tracking-tight",
+  heading: "text-xl font-semibold tracking-tight",
+  subtitle: "text-base text-muted-foreground",
   body1: "text-base text-foreground",
   body2: "text-sm text-muted-foreground",
-  heading: "text-2xl font-bold tracking-tight",
   label: "text-sm text-foreground",
   caption: "text-xs text-muted-foreground",
   error: "text-sm text-destructive",
 } as const;
 
-/**
- * The DENSE caps-label token for table/stat headers where `overline` is too
- * airy: 10px, tighter tracking, no color (consumers pick it). One spelling
- * for what lab-row, lab-stats, and the roster head all share.
- */
-export const CAPS_LABEL = "font-mono text-[10px] uppercase tracking-[0.18em]";
-
 const ELEMENT = {
-  hero: "h1",
   title: "h1",
+  heading: "h2",
   subtitle: "p",
-  overline: "p",
   body1: "p",
   body2: "p",
-  heading: "h2",
   label: "p",
   caption: "p",
   error: "p",

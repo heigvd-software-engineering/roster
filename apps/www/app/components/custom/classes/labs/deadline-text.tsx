@@ -25,8 +25,7 @@ export function isDeadlineUrgent(deadline: Date) {
  *  under an hour ("in 42 min"), hours + minutes under a day ("in 3h 30m"),
  *  whole days beyond ("in 3 days"). Rounding minutes up keeps a future
  *  deadline from reading "in 0 min", so "closed" appears only once the time
- *  is genuinely reached. Exported for the locked lab row's "starts …"
- *  countdown, which shares the vocabulary. */
+ *  is genuinely reached. */
 export function relativeLabel(date: Date) {
   const ms = msUntil(date);
   if (ms <= 0) return "closed";
@@ -42,24 +41,21 @@ export function relativeLabel(date: Date) {
 }
 
 /**
- * A relative deadline label whose color means one thing only: urgency.
- * Brand red when due within 7 days, muted otherwise, "closed" included.
- * No traffic-light palette, so the one accent pops exactly when a teacher
- * must act.
+ * A relative deadline label. Weight, not color, marks urgency: due within
+ * 7 days reads at full strength, everything else (including "closed") stays
+ * muted.
  */
 export function DeadlineText({ deadline }: { deadline: Date }) {
-  const label = relativeLabel(deadline);
-
   return (
     <span
       className={cn(
-        "font-mono text-xs tabular-nums",
+        "text-sm tabular-nums",
         isDeadlineUrgent(deadline)
-          ? "font-medium text-brand"
+          ? "font-medium text-foreground"
           : "text-muted-foreground",
       )}
     >
-      {label}
+      {relativeLabel(deadline)}
     </span>
   );
 }

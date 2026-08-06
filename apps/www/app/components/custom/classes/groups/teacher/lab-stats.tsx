@@ -1,4 +1,3 @@
-import { CAPS_LABEL } from "~/components/custom/typography/text";
 import { Card } from "~/components/ui/card";
 import { cn } from "~/lib/utils";
 
@@ -7,14 +6,13 @@ type LabStat = {
   /** Renders as a smaller, muted "/total" behind the value. */
   total?: number;
   label: string;
-  /** Urgency: a non-zero value lights up brand red (e.g. late groups). */
+  /** Urgency: a non-zero value reads destructive (e.g. late groups). */
   alert?: boolean;
 };
 
 /**
  * The lab's summary strip: hairline-separated numbers answering "do I need
- * to look closer at all?" before the roster. A solid card surface, because
- * the page's graph-paper background must not show through the numbers.
+ * to look closer at all?" before the roster.
  */
 export function LabStats({ stats }: { stats: LabStat[] }) {
   return (
@@ -26,8 +24,8 @@ export function LabStats({ stats }: { stats: LabStat[] }) {
         >
           <div
             className={cn(
-              "font-mono text-xl tabular-nums",
-              stat.alert && stat.value > 0 && "text-brand",
+              "text-xl tabular-nums",
+              stat.alert && stat.value > 0 && "text-destructive",
             )}
           >
             {stat.value}
@@ -37,9 +35,7 @@ export function LabStats({ stats }: { stats: LabStat[] }) {
               </span>
             ) : null}
           </div>
-          <div className={cn(CAPS_LABEL, "text-muted-foreground")}>
-            {stat.label}
-          </div>
+          <div className="text-muted-foreground text-xs">{stat.label}</div>
         </div>
       ))}
     </Card>

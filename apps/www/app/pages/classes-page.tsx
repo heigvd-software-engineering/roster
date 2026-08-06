@@ -108,7 +108,7 @@ export function ClassesPage() {
   return (
     <Page>
       <Row justify="between" className="w-full">
-        <Text variant="heading">Classes</Text>
+        <Text variant="title">Classes</Text>
         {/* Creation is a granted capability (super-admin zone). Without it
             there is no button to explain, so it's hidden, not disabled. The
             setup callback re-checks server-side either way. */}
@@ -138,12 +138,15 @@ export function ClassesPage() {
               ) : null}
               {groupBySemester(entries).map(([label, group]) => (
                 <Stack key={label} gap="md" className="w-full">
-                  <Text variant="overline">
-                    {`${label} · ${semesterSpanLabel(group)} · ${count(group.length, "class", "classes")} · ${count(
-                      group.reduce((sum, e) => sum + e.cls.labs.length, 0),
-                      "lab",
-                      "labs",
-                    )}`}
+                  <Text variant="heading">
+                    {label}
+                    <span className="ml-2 font-normal text-base text-muted-foreground">
+                      {`${semesterSpanLabel(group)} · ${count(group.length, "class", "classes")} · ${count(
+                        group.reduce((sum, e) => sum + e.cls.labs.length, 0),
+                        "lab",
+                        "labs",
+                      )}`}
+                    </span>
                   </Text>
                   {/* Cards sit wider apart than the label sits from its
                       group: the heading belongs to the first card, while each
@@ -170,10 +173,7 @@ export function ClassesPage() {
                 <Button
                   variant="outline"
                   size="lg"
-                  // Ghost-family affordance: dashed like the app's other
-                  // "reveal more" surfaces (the GhostTile look, button-sized),
-                  // full width with breathing room from the lists.
-                  className="my-6 w-full border-2 border-dashed border-muted-foreground/40 text-muted-foreground hover:border-muted-foreground/70 hover:bg-transparent hover:text-foreground"
+                  className="w-full"
                   type="button"
                   disabled={isLoading || !data?.hasOlder}
                   title={

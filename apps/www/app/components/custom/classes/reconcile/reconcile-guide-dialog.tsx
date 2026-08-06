@@ -1,6 +1,7 @@
 import { Info } from "lucide-react";
 import { Stack } from "~/components/custom/layout/stack";
 import { Text } from "~/components/custom/typography/text";
+import { Button } from "~/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -110,12 +111,7 @@ export function ReconcileGuideDialog() {
   return (
     <Dialog>
       <DialogTrigger
-        render={
-          <button
-            type="button"
-            className="inline-flex w-fit cursor-pointer items-center gap-1.5 text-muted-foreground text-sm underline decoration-dotted underline-offset-4 transition-colors hover:text-foreground"
-          />
-        }
+        render={<Button variant="ghost" size="sm" type="button" />}
       >
         <Info className="size-3.5" />
         What does reconcile cover?
@@ -133,7 +129,9 @@ export function ReconcileGuideDialog() {
         <Stack gap="lg">
           {GUIDE.map((group) => (
             <Stack gap="sm" key={group.section}>
-              <Text variant="overline">{group.section}</Text>
+              <Text variant="label" className="font-medium">
+                {group.section}
+              </Text>
               {group.note ? (
                 <Text variant="caption" className="-mt-1">
                   {group.note}

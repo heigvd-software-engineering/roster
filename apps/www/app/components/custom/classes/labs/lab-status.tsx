@@ -1,18 +1,17 @@
-import { Check, Lock } from "lucide-react";
+import { Badge } from "~/components/ui/badge";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "~/components/ui/tooltip";
 import { formatDeadline, labStarted } from "~/lib/format";
-import { cn } from "~/lib/utils";
 
 /**
  * The lab's ONE lifecycle axis, derived from the clock alone. No stored state
  * to flip, so a lab opens and closes on time without anyone touching it. This
  * module is the single home of that vocabulary: the derivation, the three
- * status words, the glyph-and-word status line (shared by the hub timeline's
- * labels and the lab page header), and the hover detail.
+ * status words, the badge (shared by the hub table and the lab page header),
+ * and the hover detail.
  */
 export type LabState = "done" | "running" | "locked";
 
@@ -25,6 +24,12 @@ export const labState = (lab: LabDates): LabState =>
       ? "done"
       : "running";
 
+const LABEL: Record<LabState, string> = {
+  done: "Done",
+  running: "In progress",
+  locked: "Not started",
+};
+
 /** ONE status slot, one word per state, the same for every role: the lab is
  *  never "hidden", students see it locked. */
 export function LabStatus({
@@ -35,37 +40,12 @@ export function LabStatus({
   className?: string;
 }) {
   return (
-    <span
-      className={cn(
-        "flex items-center gap-1.5 font-mono text-[11px]",
-        state === "done" && "text-muted-foreground",
-        state === "running" && "font-semibold text-role-enrolled",
-        state === "locked" && "font-semibold text-warning",
-        className,
-      )}
+    <Badge
+      variant={state === "running" ? "secondary" : "outline"}
+      className={className}
     >
-      {state === "done" ? (
-        <>
-          <Check className="size-3" /> done
-        </>
-      ) : state === "running" ? (
-        <>
-          {/* The vocabulary's one animation: a calm ping on the dot, static
-              under prefers-reduced-motion. */}
-          <span className="relative size-[7px] rounded-full bg-role-enrolled">
-            <span
-              aria-hidden
-              className="absolute inset-[-1px] animate-ping rounded-full border border-role-enrolled [animation-duration:2.6s] motion-reduce:hidden"
-            />
-          </span>{" "}
-          in progress
-        </>
-      ) : (
-        <>
-          <Lock className="size-3" /> not started
-        </>
-      )}
-    </span>
+      {LABEL[state]}
+    </Badge>
   );
 }
 
@@ -84,8 +64,8 @@ function labStateDetail(lab: LabDates, state: LabState): string {
   );
 }
 
-/** The lab page's status, next to the title: the SAME status line the hub
- *  timeline shows, plus the detail on hover. */
+/** The lab page's status, next to the title: the SAME badge the hub table
+ *  shows, plus the detail on hover. */
 export function LabStatusHover({ lab }: { lab: LabDates }) {
   const state = labState(lab);
   return (

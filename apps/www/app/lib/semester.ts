@@ -92,27 +92,3 @@ export function semesterEnd(
   if (!first) throw new Error("SEMESTER_CONFIG.terms must not be empty");
   return new Date(semester.year + 1, first.startMonth - 1, 1);
 }
-
-/**
- * The labs timeline's date span, a caller-side rule the chart stays ignorant
- * of (it draws whatever span it gets): always the labs' own dates, earliest
- * effective start (startAt, else createdAt) to the latest deadline. The axis
- * hugs the work, not the term, so a class whose labs run five weeks reads as
- * five weeks instead of a semester of mostly-empty months. The semester
- * window remains only as the no-labs fallback (hub cards render an empty
- * state instead of the chart, so it's a type-level safety net, not a path
- * users see).
- */
-export function timelineSpan(
-  labs: { startAt: string | null; createdAt: string; deadline: string }[],
-  semester: Semester,
-): { start: Date; end: Date } {
-  if (labs.length === 0) {
-    return { start: semesterStart(semester), end: semesterEnd(semester) };
-  }
-  const start = Math.min(
-    ...labs.map((l) => Date.parse(l.startAt ?? l.createdAt)),
-  );
-  const end = Math.max(...labs.map((l) => Date.parse(l.deadline)));
-  return { start: new Date(start), end: new Date(end) };
-}

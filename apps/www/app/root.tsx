@@ -10,7 +10,6 @@ import {
 import { Container } from "~/components/custom/layout/container";
 import { Stack } from "~/components/custom/layout/stack";
 import { AppLayout } from "~/components/custom/shell/app-layout";
-import { BrandHeader } from "~/components/custom/typography/brand-header";
 import { Text } from "~/components/custom/typography/text";
 import { AuthProvider } from "~/contexts/auth-context";
 import { MessageProvider } from "~/contexts/message-context";
@@ -34,11 +33,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <script
           // biome-ignore lint/security/noDangerouslySetInnerHtml: static scheme snippet, no user input
           dangerouslySetInnerHTML={{
-            __html: `(function(){var s=localStorage.getItem("theme");var t=s==="terminal";var dark=t||s==="dark"||(s!=="light"&&matchMedia("(prefers-color-scheme: dark)").matches);var c=document.documentElement.classList;c.toggle("dark",dark);c.toggle("terminal",t)})();`,
+            __html: `(function(){var s=localStorage.getItem("theme");var dark=s==="dark"||(s!=="light"&&matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.classList.toggle("dark",dark)})();`,
           }}
         />
       </head>
-      <body className="graph-paper min-h-screen">
+      <body className="min-h-screen">
         {children}
         <ScrollRestoration />
         <Scripts />
@@ -81,7 +80,7 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
     <main className="pt-16">
       <Container>
         <Stack gap="lg" align="start">
-          <BrandHeader title={message} />
+          <Text variant="title">{message}</Text>
           <Text variant="subtitle">{details}</Text>
           {stack && (
             <pre className="w-full overflow-x-auto rounded-lg border border-border p-4">

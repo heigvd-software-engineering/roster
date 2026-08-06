@@ -8,8 +8,8 @@ import { Row } from "~/components/custom/layout/row";
 import { Stack } from "~/components/custom/layout/stack";
 import { Loading } from "~/components/custom/loading";
 import { StateChange } from "~/components/custom/state-change";
-import { BrandHeader } from "~/components/custom/typography/brand-header";
 import { Text } from "~/components/custom/typography/text";
+import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
 import { api, useApi } from "~/lib/api";
@@ -36,12 +36,15 @@ const SECTIONS: { name: string; reconcilers: string[] }[] = [
   { name: "Security", reconcilers: ["base-permission"] },
 ];
 
-/** A finding's severity, as a left spine. Scanning the column, a teacher must
- *  tell "this is broken" from "this merely drifted" without reading a word. */
-const SPINE: Record<Severity, string> = {
-  broken: "border-l-destructive",
-  drift: "border-l-warning",
-  info: "border-l-border",
+/** A finding's severity as a badge: "this is broken" must read differently
+ *  from "this merely drifted". */
+const SEVERITY: Record<
+  Severity,
+  { label: string; variant: "destructive" | "secondary" | "outline" }
+> = {
+  broken: { label: "broken", variant: "destructive" },
+  drift: { label: "drifted", variant: "secondary" },
+  info: { label: "info", variant: "outline" },
 };
 
 /**
@@ -152,9 +155,9 @@ export function ReconcilePage() {
       <Link to="/classes" className="text-sm underline">
         ‹ Back to classes
       </Link>
-      <BrandHeader
-        title={`Reconcile ${cls?.name ?? cls?.login ?? "this class"}`}
-      />
+      <Text variant="title">
+        {`Reconcile ${cls?.name ?? cls?.login ?? "this class"}`}
+      </Text>
       <Text variant="subtitle" className="max-w-2xl">
         GitHub is the authority. Anything below has drifted from it. Nothing is
         repaired until you apply it.
@@ -221,7 +224,7 @@ export function ReconcilePage() {
           <Row
             gap="md"
             align="center"
-            className="sticky bottom-4 w-full rounded-lg border bg-background/95 px-4 py-3 shadow-lg backdrop-blur"
+            className="sticky bottom-4 w-full rounded-lg border border-border bg-background px-4 py-3"
           >
             {result ? (
               <Text variant="body2" className="min-w-0">
@@ -256,16 +259,19 @@ function FindingRow({
   onToggle: () => void;
 }) {
   const { title, detail, fix, change, severity } = finding;
-  const spine = cn("border-l-2 px-4 py-3", SPINE[severity]);
+  const tone = SEVERITY[severity];
 
   if (!fix) {
     return (
-      <Row gap="sm" align="start" className={cn(spine, "w-full")}>
-        <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" />
+      <Row gap="sm" align="start" className="w-full px-4 py-3">
+        <AlertTriangle className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
         <Stack gap="none" className="min-w-0">
-          <Text variant="caption" className="font-medium text-foreground">
-            {title}
-          </Text>
+          <Row gap="sm" align="center">
+            <Text variant="caption" className="font-medium text-foreground">
+              {title}
+            </Text>
+            <Badge variant={tone.variant}>{tone.label}</Badge>
+          </Row>
           <Text variant="caption">{detail}</Text>
           <Text variant="caption" className="mt-1 text-muted-foreground italic">
             Nothing to apply — this one needs you.
@@ -278,9 +284,8 @@ function FindingRow({
   return (
     <label
       className={cn(
-        spine,
-        "flex w-full cursor-pointer items-start gap-3 transition-colors hover:bg-muted/40",
-        checked && "bg-muted/25",
+        "flex w-full cursor-pointer items-start gap-3 px-4 py-3 hover:bg-muted",
+        checked && "bg-muted",
       )}
     >
       <input
@@ -288,12 +293,15 @@ function FindingRow({
         checked={checked}
         onChange={onToggle}
         aria-label={title}
-        className="mt-0.5 size-4 shrink-0 accent-brand"
+        className="mt-0.5 size-4 shrink-0"
       />
       <Stack gap="none" className="min-w-0 flex-1">
-        <Text variant="caption" className="font-medium text-foreground">
-          {title}
-        </Text>
+        <Row gap="sm" align="center">
+          <Text variant="caption" className="font-medium text-foreground">
+            {title}
+          </Text>
+          <Badge variant={tone.variant}>{tone.label}</Badge>
+        </Row>
         <Text variant="caption">{detail}</Text>
         {/* What Apply will do, visually distinct from what we observed above:
             the state that stands → the state Apply produces. Findings without

@@ -5,6 +5,7 @@ import { UserIdentity } from "~/components/custom/identity/user-identity";
 import { Row } from "~/components/custom/layout/row";
 import { Stack } from "~/components/custom/layout/stack";
 import { Text } from "~/components/custom/typography/text";
+import { Button } from "~/components/ui/button";
 import {
   Popover,
   PopoverContent,
@@ -36,10 +37,10 @@ type PeopleChipProps = {
 };
 
 /**
- * A quiet mono stat in the class-card header (people as data, not buttons)
- * that opens the live people list. Each person is the SAME hybrid identity
- * row used everywhere else: `personIdentity` resolves the linked / GitHub-
- * only / edu-ID-only state, and the emails chevron sits beside it.
+ * A quiet count in the class-card header that opens the live people list.
+ * Each person is the SAME hybrid identity row used everywhere else:
+ * `personIdentity` resolves the linked / GitHub-only / edu-ID-only state, and
+ * the emails chevron sits beside it.
  *
  * A pending invite gets an explaining `Hint` rather than a dimmed row: the
  * state is not the person being less important, it's the app waiting on
@@ -62,8 +63,8 @@ export function PeopleChip({
   return (
     <Popover>
       <PopoverTrigger
+        render={<Button variant="ghost" size="sm" type="button" />}
         title={title}
-        className="cursor-pointer font-mono text-muted-foreground text-xs tabular-nums transition-colors hover:text-foreground"
       >
         {label}
       </PopoverTrigger>

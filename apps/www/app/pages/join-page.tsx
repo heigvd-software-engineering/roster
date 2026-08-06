@@ -9,7 +9,6 @@ import { UserIdentity } from "~/components/custom/identity/user-identity";
 import { Row } from "~/components/custom/layout/row";
 import { Stack } from "~/components/custom/layout/stack";
 import { Loading } from "~/components/custom/loading";
-import { BrandHeader } from "~/components/custom/typography/brand-header";
 import { Text } from "~/components/custom/typography/text";
 import { Button } from "~/components/ui/button";
 import { useAuth } from "~/contexts/auth-context";
@@ -235,7 +234,7 @@ export function JoinPage() {
           href={`https://github.com/${cls.login}`}
           target="_blank"
           rel="noreferrer"
-          className="-m-2 rounded-md p-2 transition-colors hover:bg-muted"
+          className="-m-2 rounded-md p-2 hover:bg-muted"
         >
           <OrgIdentity
             name={className}
@@ -328,7 +327,7 @@ export function JoinPage() {
 function Shell({ title, children }: { title: string; children: ReactNode }) {
   return (
     <Stack gap="lg" align="start" justify="center" className="flex-1">
-      <BrandHeader title={title} />
+      <Text variant="title">{title}</Text>
       {children}
     </Stack>
   );

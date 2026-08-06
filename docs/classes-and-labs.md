@@ -121,8 +121,8 @@ idempotent repo return, so a pre-created repo stays shut.
 What the gate hides matters as much as what it blocks. A pre-start student calling
 `listLabGroups` gets the lab and class identity with empty `groups`, `users` and
 `students`, so pre-formed rosters stay invisible and a direct URL renders a "starts on
-..." page, not a 404. The class timeline hides the starter-code chip from students on
-a locked lab (`apps/www/app/components/custom/classes/labs/labs-timeline.tsx`),
+..." page, not a 404. The class card's labs table hides the starter-code note from
+students on a locked lab (`apps/www/app/components/custom/classes/labs/labs-table.tsx`),
 because the template repository's name, something like `lab1-solution`, is itself the
 leak. `GET /api/classes/:id/templates` lists the org repos flagged `is_template`, the
 only ones `/generate` accepts. Lab lists run in course order, by `coalesce(startAt,

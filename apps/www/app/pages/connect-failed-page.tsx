@@ -2,10 +2,10 @@ import { Link, useSearchParams } from "react-router";
 import { Page } from "~/components/custom/layout/page";
 import { Stack } from "~/components/custom/layout/stack";
 import { Text } from "~/components/custom/typography/text";
+import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
 import { useAuth } from "~/contexts/auth-context";
-import { cn } from "~/lib/utils";
 
 /** Every way the connect flow dies, in user words. `key` matches the setup
  *  callback's `/?error=…` codes. `member` has no code: GitHub bounces a
@@ -74,7 +74,7 @@ export function ConnectFailedPage() {
     <Page>
       <Stack gap="lg" className="w-full max-w-2xl">
         <Stack gap="none">
-          <Text variant="heading">The organization didn't connect</Text>
+          <Text variant="title">The organization didn't connect</Text>
           <Text variant="subtitle">
             The GitHub step finished, but no class was created. The usual
             causes,{" "}
@@ -86,19 +86,13 @@ export function ConnectFailedPage() {
           {causes.map((cause, i) => {
             const matched = known && i === 0;
             return (
-              <Card
-                key={cause.key}
-                className={cn(
-                  "w-full gap-1 border-l-2 p-4",
-                  matched ? "border-l-warning" : "border-l-transparent",
-                )}
-              >
+              <Card key={cause.key} className="w-full gap-1 p-4">
                 <Text variant="label" className="font-medium">
                   {cause.title}
                   {matched ? (
-                    <span className="ml-2 font-mono text-warning text-xs">
+                    <Badge variant="secondary" className="ml-2">
                       this is what happened
-                    </span>
+                    </Badge>
                   ) : null}
                 </Text>
                 <Text variant="body2">{cause.detail}</Text>

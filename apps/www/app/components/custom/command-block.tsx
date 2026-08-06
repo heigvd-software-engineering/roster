@@ -43,7 +43,7 @@ export function CommandBlock({
     <div
       className={cn("relative w-full min-w-0 rounded-md bg-muted", className)}
     >
-      <pre className="max-h-80 overflow-auto p-3 pr-10 font-mono text-foreground text-xs leading-relaxed">
+      <pre className="max-h-80 overflow-auto p-3 pr-10 font-mono text-foreground text-xs">
         {commands}
       </pre>
       <Button
@@ -56,7 +56,7 @@ export function CommandBlock({
         onClick={copy}
       >
         {copied ? (
-          <Check className="size-4 text-brand" />
+          <Check className="size-4" />
         ) : (
           <Copy className="size-4 text-muted-foreground" />
         )}
