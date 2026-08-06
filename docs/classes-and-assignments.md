@@ -133,10 +133,10 @@ createdAt)`.
 
 A group belongs to exactly one assignment and owns its GitHub Team; "reuse a group" copies a
 roster forward into a fresh one rather than sharing. The invariant is therefore local:
-at most one group per student within an assignment, none across assignments. Of the three identifiers
-only `name` ("Team Alpha") is human-facing, unique per assignment; `slug` is
-`slugify(assignmentTitle)-slugify(name)`, org-unique and handed to GitHub as the team's name;
-`ghTeamSlug` is what GitHub returned.
+at most one group per student within an assignment, none across assignments. Of its four
+identifiers only `name` ("Team Alpha") is human-facing, unique per assignment; the rest
+name the team and the repo on GitHub
+([nomenclature](./nomenclature.md#a-groups-four-names)).
 
 Any active member may create a group, `POST /api/classes/:id/assignments/:assignmentId/groups`
 (`createGroupInAssignment`, `apps/api/src/lib/groups.ts`); a duplicate display name is

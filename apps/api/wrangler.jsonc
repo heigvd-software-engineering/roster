@@ -35,7 +35,7 @@
     "BETTER_AUTH_URL": "https://roster.y-software.ch",
     "EDUID_ISSUER": "https://login.eduid.ch",
     // The GitHub App's public slug (install URL path segment) — delivered to
-    // the SPA via /api/me. Fill in after creating the App (GITHUB_APP_SETUP.md).
+    // the SPA via /api/me. Fill in after creating the App (DEPLOY.md phase 3).
     "GITHUB_APP_SLUG": "heigvdroster",
     // Super admins: comma-separated edu-ID emails (public config, not
     // secrets). Empty = NOBODY can create classes (fail closed).

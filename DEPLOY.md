@@ -25,24 +25,6 @@ belongs to HES-SO administration, request it FIRST: everything else proceeds in
 parallel, but no one signs in until this lands. The same client also needs
 `https://localhost:3000/api/auth/oauth2/callback/switch` for local dev.
 
-## The GitHub App
-
-One GitHub App backs the deployment. It accepts up to 10 **Callback URLs**, so
-production and `localhost:3000` share one App for *linking*. The **Setup URL is
-single-valued**, and the "connect a class" flow hangs on it: after an org
-installs or reconfigures the App, GitHub sends the browser there and the class
-row is born (`/api/github/setup`). Point it at production
-(`<ORIGIN>/api/github/setup`).
-
-To exercise the install/connect flow locally, either temporarily repoint the
-Setup URL at `https://localhost:3000/api/github/setup`, or create a separate
-dev App and put its slug + OAuth pair in `apps/api/.dev.vars`. Everyday local
-work (sign-in, GitHub linking) does not need this.
-
-The D1 knows only the classes born through that setup callback: an org visible
-in `/user/installations` without a class row shows no class. That's the data
-model ("GitHub proposes, the DB disposes"), not a bug.
-
 ## Phase 0: prerequisites
 
 - Cloudflare account (free plan is enough: Workers + D1 free tiers cover this).
@@ -50,7 +32,8 @@ model ("GitHub proposes, the DB disposes"), not a bug.
   custom domain from `wrangler.jsonc`'s `routes`, which requires the zone
   active on the deploying account.
 - `wrangler login` (opens the browser; grants the CLI your account).
-- A GitHub account for the App.
+- A GitHub account for the App, and a GitHub **organization you own** to test
+  the connect-a-class flow against.
 
 ```bash
 cd apps/api
@@ -103,10 +86,15 @@ ships as a literal string), so the config file is the only place these live:
 }
 ```
 
-### Super admins: bootstrap and exact scope
+Local dev overrides `BETTER_AUTH_URL` and `GITHUB_APP_SLUG` in
+`apps/api/.dev.vars` (git-ignored); a value there wins over `vars` during
+`wrangler dev`. That file also holds the phase-5 **secrets**. Copy
+`apps/api/.dev.vars.example` to start.
+
+### Super admins: the bootstrap
 
 Class creation is a **granted capability**: signing in is not enough. The
-bootstrap chain, from nothing to the first class:
+chain, from nothing to the first class:
 
 1. Put the admins' **edu-ID emails** in `SUPER_ADMIN_EMAILS` (comma-
    separated; matched case-insensitively against the account's PRIMARY
@@ -124,50 +112,177 @@ bootstrap chain, from nothing to the first class:
    classes, *including themselves*: that toggle is the one condition the
    setup callback checks.
 
-Exact scope of the role, as of 2026-07-27. A super admin can:
-
-- open `/admin` (everyone else: menu item absent, page bounces, API 403);
-- see all signed-in users (name, primary email, admin badge, grant state)
-  and grant or revoke **"Can create classes"** per user.
-
-And deliberately can NOT:
-
-- make anyone a super admin. The role lives ONLY in this config var, is
-  never stored in the database, and no UI grants it;
-- see or touch anyone's classes, assignments, groups, or repos. Class-scoped
-  teacher rights come from GitHub org ownership, exactly as before;
-- change anything retroactively: revoking stops FUTURE class creation
-  only; existing classes, and the repair path of an already-connected
-  org (reinstall/reconfigure), keep working for their owners.
-
 Empty or unset `SUPER_ADMIN_EMAILS` fails **closed**: no admin zone for anyone,
-and with no grants ever made, no class creation at all.
-
-Local dev overrides `BETTER_AUTH_URL` and `GITHUB_APP_SLUG` in
-`apps/api/.dev.vars` (git-ignored); a value there wins over `vars` during
-`wrangler dev`. That file also holds the phase-5 **secrets**. Copy
-`apps/api/.dev.vars.example` to start.
+and with no grants ever made, no class creation at all. What the role does and
+does not reach is in [`docs/identity.md`](docs/identity.md); adding or removing
+an admin later is a `vars` edit plus a redeploy, never a migration.
 
 ## Phase 3: the GitHub App
 
-**Follow `GITHUB_APP_SETUP.md`**, the creation guide (field-by-field form
-values, permissions, private-key conversion), with these values:
+One GitHub App backs the deployment, in two modes:
 
-| Placeholder in the guide | Value |
+| Mode | Token | Used for | In roster |
+|---|---|---|---|
+| **User-to-server** (OAuth) | short-lived **user** token (~8 h, refreshable) | identify a person, read what *they* can access | Linking a student/teacher's GitHub identity to their edu-ID account (onboarding). |
+| **Server-to-server** (installation) | short-lived **installation** token | act on an org the App is *installed* on, with least privilege | Connecting a class: reading org members, setting the org base permission, creating repos and teams. |
+
+An OAuth App only does the first. The installation model keeps **org write
+powers out of user tokens**, and each org owner consents by installing the App.
+The flow each mode drives is in
+[`docs/classes-and-assignments.md`](docs/classes-and-assignments.md).
+
+### ⚠ The single-valued Setup URL and local dev
+
+The App accepts up to 10 **Callback URLs**, so OAuth *linking* works from both
+production and `https://localhost:3000` on one App. But the **Setup URL is
+single-valued**, and the connect-a-class flow hangs on it: after an org installs
+or reconfigures the App, GitHub redirects the browser to that ONE URL, which
+creates the class row (`/api/github/setup`). Point it at production
+(`<ORIGIN>/api/github/setup`).
+
+To exercise the install/connect flow **locally**, either temporarily repoint the
+Setup URL at `https://localhost:3000/api/github/setup`, or create a separate dev
+App and put its slug and OAuth pair in `apps/api/.dev.vars`. Everyday local work
+(sign-in, GitHub linking) needs neither.
+
+The D1 knows only the classes born through that setup callback: an org visible
+in `/user/installations` without a class row shows no class. That's the data
+model ("GitHub proposes, the DB disposes"), not a bug.
+
+> **⚠ "Owner" means GitHub org Owner, literally.** On the install picker, an org
+> where you're a plain Member shows **Request** (or "Cancel request") instead of
+> **Install**. Clicking it files an approval request with the org's owners and
+> bounces you back WITHOUT installing, so no class is created and no confirm page
+> appears. Check your role under `github.com/orgs/<org>/people`; only Install
+> completes the connect flow.
+
+### Create the App
+
+Go to **https://github.com/settings/apps** → **New GitHub App** (for an
+org-owned App: `https://github.com/organizations/<org>/settings/apps`).
+
+**1. Basic information**
+
+| Field | Value |
 |---|---|
-| App name | e.g. `heigvdroster` (its derived **slug** goes in `GITHUB_APP_SLUG`) |
-| Callback URL | `<ORIGIN>/api/auth/callback/github` (add `https://localhost:3000/...` too for local linking) |
-| Setup URL | `<ORIGIN>/api/github/setup` |
+| **GitHub App name** | e.g. `HeigVdRoster` (any unique name; the lowercased, hyphenated name becomes the **slug** that goes in `GITHUB_APP_SLUG`) |
+| **Homepage URL** | your project/repo URL, e.g. `https://github.com/heigvd-software-engineering/roster` |
+| **Description** | e.g. "Connecting your GitHub organisation with Roster" |
 
-Its gotchas all apply verbatim: "Request user authorization during
-installation" stays **unchecked**, the Setup URL must not be blank, the App
-must be **public** (Advanced → Make public) to be installable on orgs, and the
-private key must be converted to **PKCS#8**.
+**2. Identifying and authorizing users** (OAuth, for user login/linking)
 
-Collect on the App's General page: **App ID**, **slug**, **Client ID**, a
-generated **client secret**, and the converted **private key**. They feed
-`wrangler.jsonc` (`GITHUB_APP_SLUG`) and the four `GITHUB_*` secrets in
-phase 5, then redeploy (phase 6).
+| Field | Value |
+|---|---|
+| **Callback URL** | `<ORIGIN>/api/auth/callback/github` (add `https://localhost:3000/api/auth/callback/github` for local linking) |
+| **Request user authorization (OAuth) during installation** | **unchecked**: we attribute an install to the signed-in user via our own first-party session cookie, not an install-time OAuth |
+| **Enable Device Flow** | unchecked |
+
+**3. Post installation** (Setup URL, the connect-a-class callback)
+
+| Field | Value |
+|---|---|
+| **Setup URL** | `<ORIGIN>/api/github/setup` |
+| **Redirect on update** | **checked** |
+
+After a user installs (or updates) the App on an org, GitHub redirects here with
+`installation_id` + `setup_action`; the server creates or updates the class.
+
+> **⚠️ Don't leave this blank, and click Save.** An empty Setup URL lets the
+> install *silently succeed on GitHub without ever calling back*, so no class is
+> created and the connect flow appears to do nothing. Check that the field shows
+> the value after saving (a blank field is the #1 setup mistake).
+
+**4. Webhook**
+
+**Not required.** Uncheck **Active** (or leave the URL empty). roster reconciles
+installation state on read (via `GET /user/installations`) instead of consuming
+the `installation` webhook. Set the Webhook URL + secret later if real-time
+uninstall/reinstall handling is added.
+
+**5. Permissions**
+
+Only the minimum. Under **Permissions & events → Organization permissions**:
+
+| Permission | Access | Why |
+|---|---|---|
+| **Administration** | **Read & write** | set the org's **base repository permission** to "No access" (`PATCH /orgs/{org}`) |
+| **Members** | **Read & write** | enrollment: invite students as org members; teams = groups |
+
+And under **Repository permissions** (work repo distribution):
+
+| Permission | Access | Why |
+|---|---|---|
+| **Administration** | **Read & write** | create the work repos (`POST /orgs/{org}/repos`, `/generate`), grant the group's team push |
+| **Contents** | **Read & write** | `auto_init` the empty repos / generate from a template |
+
+Leave **Account** permissions at their defaults (Metadata: Read is implied). Add
+more only when a feature needs it. Which operation spends which permission is
+listed in
+[`apps/api/src/lib/github/README.md`](apps/api/src/lib/github/README.md).
+
+> Changing permissions on an **already-installed** App requires each installation
+> to approve the new permissions (org Settings → GitHub Apps → review request).
+> Until approved, repo creation answers `403 Resource not accessible by
+> integration`, which roster surfaces as an "App needs updated permissions"
+> message. A fresh install includes them.
+
+**6. Where can this App be installed?**
+
+**Any account.** A personal-account App set to "Only on this account" **cannot be
+installed on an organization** (orgs are separate accounts), so it must be public
+to connect org-classes. (An org-owned App can stay "Only on this account" if all
+target orgs are under that account.)
+
+> **Where this setting lives:** a personal-account App has no radio on the
+> General page. It's under the **Advanced** tab as **"Make public"**. Click that.
+> Until you do, the install page only offers your personal account (no org
+> selector), and the Organization permissions never come into play (the personal
+> view just says "read access to public resources").
+
+**7. Generate the credentials** (after Create)
+
+The App's General page shows the **App ID** (top) and **Client ID**; note both,
+along with the **slug**. Generate the other two, which no fresh App has:
+
+1. **Client secret**: General → *Client secrets* → **Generate a new client
+   secret**. Shown **once**, so copy it immediately (this is the OAuth pair for
+   user linking, `GITHUB_CLIENT_SECRET`).
+2. **Private key**: General → *Private keys* → **Generate a private key**,
+   which downloads a `.pem`. It signs the App JWT used to mint installation
+   tokens.
+
+> **⚠️ Convert the key to PKCS#8.** GitHub issues the key as **PKCS#1**
+> (`-----BEGIN RSA PRIVATE KEY-----`), but the App JWT is signed with **Web
+> Crypto** (both on Node and on Cloudflare Workers), which only accepts
+> **PKCS#8** (`-----BEGIN PRIVATE KEY-----`). The raw PKCS#1 key fails with
+> `error:1E08010C:DECODER routines::unsupported`. Convert it once:
+>
+> ```bash
+> openssl pkcs8 -topk8 -inform PEM -outform PEM -nocrypt \
+>   -in downloaded.pem -out app-key-pkcs8.pem
+> ```
+>
+> Store the **PKCS#8** output. `createAppClient`
+> (`apps/api/src/lib/github/clients.ts`) normalizes the `\n`, so store it
+> single-line: turn the PEM into one with
+> `awk 'NF{printf "%s\\n",$0}' app-key-pkcs8.pem`.
+
+Those five values feed `GITHUB_APP_SLUG` in `wrangler.jsonc` (phase 2) and the
+four `GITHUB_*` secrets in phase 5. Locally they go in `apps/api/.dev.vars`:
+
+```dotenv
+# User OAuth (linking GitHub identity)
+GITHUB_CLIENT_ID=Iv23li...
+GITHUB_CLIENT_SECRET=...
+
+# App / installation auth (connect a class)
+GITHUB_APP_ID=4194411
+# PKCS#8 key, single line; \n replaces the real newlines
+GITHUB_APP_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"
+```
+
+The slug is not a secret: it builds the install link the SPA opens,
+`https://github.com/apps/<slug>/installations/new`, delivered through `/api/me`.
 
 ## Phase 4: SWITCH edu-ID redirect URI
 
@@ -236,6 +351,12 @@ A deploy always ships whatever is in `apps/www/build/client`. Rebuild from an
 up-to-date tree before deploying, and verify the served `index.html` references
 the `assets/manifest-*.js` hash you just built.
 
+A second target, `apps/api/wrangler.demo.jsonc`, ships the `roster` Worker to
+its workers.dev URL against the older `labs` D1, so existing demo data survives:
+`pnpm --filter @roster/api run deploy:demo`. That name is the product's own
+former one, not the assignment concept, and the binding is by `database_id`
+anyway, so leave it alone.
+
 ## Operating the deployment
 
 Everything below runs from `apps/api` (`pnpm exec wrangler …`). No `--env`.
@@ -294,28 +415,21 @@ app's *designed* response to a GitHub outage, and `wrangler tail` shows
 
 ## What the deploy hardens on its own
 
-Three things ship with the Worker and need no setup. Each stays invisible until
-it refuses something.
+Three defenses ship with the Worker and need no setup, each invisible until it
+refuses something. The mechanism is in
+[`docs/architecture.md`](docs/architecture.md); what matters when operating:
 
-- **Rate limits.** Two `ratelimits` bindings in `wrangler.jsonc`:
-  `AUTH_LIMITER` (60/min per IP, on `/api/auth/*` and `/api/join/*`) and
-  `SETUP_LIMITER` (10/min, on the unauthenticated `/api/github/setup`, which
-  spends several GitHub calls per request). Each route module declares its own
-  limiter (`src/routes/auth.ts`, `join.ts`, `setup.ts`); no central list
-  exists. Over the limit: `429 {"error":"rate_limited"}`. `namespace_id` is
-  just a counter name, provisioned nowhere, and the binding is optional in
-  code, so `wrangler dev` runs without it. Better Auth's own limiter is off on
-  purpose (`src/lib/auth/config.ts`): its counters live in per-isolate memory,
-  no ceiling at all on Workers.
+- **Rate limits.** Over the limit answers `429 {"error":"rate_limited"}`. The
+  two `ratelimits` bindings in `wrangler.jsonc` are declared per route module,
+  not in a central list, and `namespace_id` is just a counter name, provisioned
+  nowhere. The binding is optional in code, so `wrangler dev` runs without it.
 - **Response headers.** The SPA's come from `apps/www/build/client/_headers`,
-  GENERATED at build time by `apps/www/scripts/security-headers.mjs` (the CSP
-  hashes the built page's inline scripts, so hand-writing it fails). The
-  Worker sets the API's (`src/lib/http/security-headers.ts`). Both sit on one
-  origin, and neither covers the other.
-- **Same-origin writes.** `POST`/`PUT`/`PATCH`/`DELETE` under `/api` get
-  `403 {"error":"cross_origin"}` when the browser reports a different origin.
-  A future deploy serving the SPA from a SECOND origin will trip that check
-  (`src/lib/http/same-origin.ts`, keyed on `BETTER_AUTH_URL`).
+  GENERATED at build time (the CSP hashes the built page's inline scripts, so
+  hand-writing it fails). The Worker sets the API's. Neither covers the other.
+- **Same-origin writes.** Writes under `/api` get
+  `403 {"error":"cross_origin"}` from a different origin. A future deploy
+  serving the SPA from a SECOND origin will trip that check, which is keyed on
+  `BETTER_AUTH_URL`.
 
 ## Not in scope (revisit for real use)
 

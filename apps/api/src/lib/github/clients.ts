@@ -20,8 +20,8 @@ export const WorkersOctokit = Octokit.defaults({
 /**
  * The GitHub App (server-to-server). Web Crypto signs the App JWT and needs the
  * key in **PKCS#8** (`BEGIN PRIVATE KEY`), not GitHub's default PKCS#1 (`BEGIN
- * RSA PRIVATE KEY`). Convert once when setting the secret (see
- * GITHUB_APP_SETUP.md). The secret is stored single-line with `\n`, so
+ * RSA PRIVATE KEY`). Convert once when setting the secret (see DEPLOY.md,
+ * phase 3). The secret is stored single-line with `\n`, so
  * normalize to real newlines here.
  */
 function createAppClient(env: AuthEnv): App {

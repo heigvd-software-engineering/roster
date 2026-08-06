@@ -23,8 +23,7 @@ the routes/handlers/lib split.
 `not_found_handling: "single-page-application"` and `run_worker_first: ["/api/*"]`.
 The Assets layer serves the SPA; anything under `/api/*` reaches Hono first, browser
 navigations included, so the OAuth callback lands on Better Auth, not the SPA
-fallback. Deploy steps live in [`DEPLOY.md`](../DEPLOY.md), GitHub App setup in
-[`GITHUB_APP_SETUP.md`](../GITHUB_APP_SETUP.md).
+fallback. Deploy steps and GitHub App setup live in [`DEPLOY.md`](../DEPLOY.md).
 
 One origin keeps the session cookie first-party: Better Auth sets a `SameSite=Lax`
 cookie on `BETTER_AUTH_URL`, the origin serving the SPA, so no CORS layer, no
@@ -87,7 +86,8 @@ no query-helper layer: the database is already the abstraction.
 
 React Router 8 with `ssr: false` (`apps/www/react-router.config.ts`).
 `app/entry.server.tsx` runs once at build time to prerender the `index.html` shell,
-never per request, and only `build/client/` ships. `app/routes.ts` is the route table,
+never per request: SPA mode still emits a `build/server/`, but it is a build-time
+artifact, not a deployable server, and only `build/client/` ships. `app/routes.ts` is the route table,
 `app/routes/` thin glue that gates a screen with `<Auth>`, and `app/pages/` one
 component per screen, fetching its own data and taking no props. Tailwind 4 comes
 through `@tailwindcss/vite`, tokens in `app/app.css`; shadcn components over Base UI

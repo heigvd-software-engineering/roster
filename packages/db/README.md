@@ -1,39 +1,23 @@
 # @roster/db
 
-The **schema layer**, and nothing more.
-
-## What lives here
+The **schema layer**, and nothing more: no query helpers, no tests. Endpoints
+write their Drizzle queries inline, so the models here stay the single source of
+truth and their types reach the SPA by inference. Query behavior is tested in
+`apps/api` against a real local D1.
 
 | File | Ownership | Contents |
 |---|---|---|
 | `src/auth-schema.ts` | **CLI-generated**, never edit | Better Auth tables (`user`, `session`, `account`, `verification`). Regenerate: `pnpm --filter @roster/api run auth:schema` |
-| `src/app-schema.ts` | hand-owned | App-domain tables (`classes`, `assignments`, `groups`, `group_members`, `class_members`) |
+| `src/app-schema.ts` | hand-owned | App-domain tables (`classes`, `assignments`, `groups`, `group_members`, `class_members`, `class_creators`) |
 | `src/schema.ts` | hand-owned | Barrel combining both (what `getDb` registers and drizzle-kit reads) |
-| `src/index.ts` | hand-owned | `getDb(d1)` + inferred entity types (`User`, `Account`, `Class`, `Assignment`, `Group`) |
+| `src/index.ts` | hand-owned | `getDb(d1)` + inferred entity types (`User`, `Account`, `Class`, `Assignment`, `Group`, `ClassCreator`) |
 | `migrations/` | drizzle-kit generated (hand-adjusted when SQLite limits require it) | Applied via `wrangler d1 migrations apply roster-db --local` (or `--remote`) |
 
-## What does NOT live here
+Changing a table means editing `app-schema.ts` (or regenerating
+`auth-schema.ts` after an auth config change), then
+`pnpm --filter @roster/db db:generate --name <what_it_does>`, then applying.
+Always pass `--name`, and read the generated SQL before it ships:
+[`AGENTS.md`](../../AGENTS.md) rules 8 and 9 say what drizzle-kit gets wrong.
 
-**No query helpers.** Decided 2026-07-03: a function-per-query layer made
-endpoints harder to follow for no gain, since the database is the abstraction.
-**Endpoints write their Drizzle queries inline** and return the results
-directly; response types flow to the SPA through Hono's `hc<AppType>`
-inference, so the Drizzle models stay the single source of truth.
-
-That rule covers *this package*, which stays pure schema. Shared domain logic
-that queries lives in `apps/api/src/lib/`: `class-scope.ts`, `group-members.ts`,
-`enrollment.ts`, and the `reconcile/` modules. A helper earns its place by
-owning a class-scoped rule several handlers must agree on, not by wrapping a
-query.
-
-**No tests.** The package is CLI-generated schema + `getDb`, no logic of our
-own. Endpoint behavior, every query included, is tested in `apps/api` against a
-real local D1 (Workers pool).
-
-## Workflow
-
-- New app table/column → edit `app-schema.ts` →
-  `pnpm --filter @roster/db db:generate --name <what_it_does>` (ALWAYS pass
-  `--name`; never ship drizzle-kit's random `flaky_cerebro` names) → apply
-  migrations.
-- Auth config change (e.g. `user.additionalFields`) → regenerate `auth-schema.ts` via the CLI → `db:generate` → apply.
+What each table holds and why, plus the invariants SQLite can't express, is in
+[`docs/data-model.md`](../../docs/data-model.md).

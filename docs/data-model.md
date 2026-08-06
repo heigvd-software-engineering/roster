@@ -49,11 +49,10 @@ on `ghTeamId` and `ghRepoId`, because a rename changes a team's slug and a
 transfer changes a repo's full name. Login, name and avatar are cache: correct
 enough to render, never load-bearing.
 
-Groups carry three identifiers on purpose: `name` ("Team Alpha") is the display
-label, unique per `(assignmentId, name)` and never sent to GitHub; `slug` is
-`slugify(assignment.title)-slugify(name)`, org-unique by construction, and names both
-the team and the work repo; `ghTeamSlug` is what GitHub returned, the truth for
-API paths, equal to `slug` unless GitHub deduped.
+That is why a group carries four names at once, one per job: `name` displays,
+`slug` is what roster asks GitHub for, `ghTeamSlug` is what GitHub granted, and
+`ghTeamId` is the key. [nomenclature.md](./nomenclature.md#a-groups-four-names)
+tables them.
 
 ## The display caches never authorize
 
