@@ -132,7 +132,10 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    /* The page sits back on the muted gray; the header and the cards are the
+       white surfaces on top of it. Dark mode keeps the darkest token at the
+       back, otherwise the page would read as raised above its own cards. */
+    @apply bg-muted text-foreground dark:bg-background;
   }
   html {
     @apply font-sans;

@@ -8,7 +8,8 @@ import { useAuth } from "~/contexts/auth-context";
  * The app's top bar: the `roster` wordmark on the left, the account menu pinned
  * top-right. Full-bleed border; inner content aligns to the page Container.
  * Renders nothing until there's a signed-in user (so the login screen stays
- * chrome-free).
+ * chrome-free). Wears the card surface, so it stays white above the muted page
+ * in light and stays a step lighter than it in dark.
  */
 export function AppHeader() {
   const { user } = useAuth();
@@ -17,7 +18,7 @@ export function AppHeader() {
   }
 
   return (
-    <header className="w-full border-b border-border bg-background">
+    <header className="w-full border-b border-border bg-card">
       <Container className="py-3">
         <Row justify="between">
           <Link to="/classes" className="font-semibold tracking-tight">
