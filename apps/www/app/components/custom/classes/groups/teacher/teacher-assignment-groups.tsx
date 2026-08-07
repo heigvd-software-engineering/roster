@@ -250,7 +250,9 @@ function RosterToolbar({
           onChange={(e) => onQuery(e.target.value)}
           placeholder="Filter groups or students…"
           aria-label="Filter groups or students"
-          className="h-8 w-56 pl-8"
+          // bg-card: this toolbar sits straight on the page, and a
+          // transparent field there reads as a hole rather than a surface.
+          className="h-8 w-56 bg-card pl-8"
         />
       </div>
       <ToggleGroup

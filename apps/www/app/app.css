@@ -6,11 +6,14 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* The shadcn neutral theme, unmodified apart from the two font families.
-   No app-specific hues: state is expressed with the stock tokens
+/* The shadcn neutral theme, kept stock apart from the two font families and
+   ONE structural change: the page is its own surface (--page), a step behind
+   the cards on it, so the quiet fills can be separated from it. No
+   app-specific hues: state is still expressed with the stock tokens
    (foreground / muted-foreground / destructive) and shadcn's own Badge and
    Button variants, so nothing here has to be kept in sync with a component. */
 @theme inline {
+  --color-page: var(--page);
   --font-heading: var(--font-sans);
   --font-sans: "Geist Variable", sans-serif;
   --font-mono: "Geist Mono Variable", ui-monospace, monospace;
@@ -56,6 +59,15 @@
      by the OS and follow color-scheme, not our tokens, so declare it and
      they match the theme. The .dark block flips it. */
   color-scheme: light;
+  /* THREE lightness steps, not stock shadcn's two. The page (0.968) sits
+     behind the surfaces that float on it (background / card / popover, all
+     white), and the quiet FILLS (muted / secondary / accent, 0.929) sit a
+     step darker than BOTH, so they read wherever they land. Stock gives the
+     fills and this page the same 0.97, which is why a secondary Badge, a
+     ghost button's hover and a code block used to vanish the moment they sat
+     outside a card. Nothing but the numbers changed: every shadcn variant
+     still means what it means. */
+  --page: oklch(0.968 0 0);
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -64,15 +76,19 @@
   --popover-foreground: oklch(0.145 0 0);
   --primary: oklch(0.205 0 0);
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
+  --secondary: oklch(0.929 0 0);
   --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
+  --muted: oklch(0.929 0 0);
+  /* Darker than stock's 0.556: most of this app's secondary text now sits on
+     the page's gray, not on white, and 0.556 landed under 4.5:1 there. */
+  --muted-foreground: oklch(0.505 0 0);
+  --accent: oklch(0.929 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
+  /* A step darker than the fills, so a bordered box still reads when it is
+     also filled, and a hairline survives the gray page. */
+  --border: oklch(0.897 0 0);
+  --input: oklch(0.897 0 0);
   --ring: oklch(0.708 0 0);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
@@ -94,6 +110,9 @@
    ThemeProvider, which toggle `.dark` on <html>. */
 .dark {
   color-scheme: dark;
+  /* Dark already had the three steps: the page IS the darkest value, cards
+     (0.205) and fills (0.269) rise off it. Only the name is new. */
+  --page: oklch(0.145 0 0);
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
@@ -132,10 +151,10 @@
     @apply border-border outline-ring/50;
   }
   body {
-    /* The page sits back on the muted gray; the header and the cards are the
-       white surfaces on top of it. Dark mode keeps the darkest token at the
-       back, otherwise the page would read as raised above its own cards. */
-    @apply bg-muted text-foreground dark:bg-background;
+    /* One token, one class, both themes: --page is the gray the header and
+       the cards sit on in light, and the darkest value in dark, where the
+       page has to stay behind its own cards. */
+    @apply bg-page text-foreground;
   }
   html {
     @apply font-sans;

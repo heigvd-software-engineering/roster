@@ -222,11 +222,14 @@ export function ReconcilePage() {
           ))}
 
           {/* The bar follows the teacher down a long audit: Apply must never
-              be a scroll away from the boxes it acts on. */}
+              be a scroll away from the boxes it acts on. The card surface, not
+              `background`: findings scroll UNDER this bar, so it has to be the
+              raised value in both themes, and in dark `background` is the page
+              the cards sit on. */}
           <Row
             gap="md"
             align="center"
-            className="sticky bottom-4 w-full rounded-lg border border-border bg-background px-4 py-3"
+            className="sticky bottom-4 w-full rounded-lg border border-border bg-card px-4 py-3"
           >
             {result ? (
               <Text variant="body2" className="min-w-0">

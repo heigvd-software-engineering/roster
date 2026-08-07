@@ -3,8 +3,8 @@ import { DisclosureToggle } from "~/components/custom/disclosure-toggle";
 import { EmailsMenu } from "~/components/custom/identity/emails-menu";
 import { UserIdentity } from "~/components/custom/identity/user-identity";
 import { Row } from "~/components/custom/layout/row";
-import { Stack } from "~/components/custom/layout/stack";
 import { Text } from "~/components/custom/typography/text";
+import { Card } from "~/components/ui/card";
 import type { AssignmentStudent, ClassItem } from "~/lib/api";
 import { usersByGithubId } from "~/lib/format";
 import { personIdentity } from "~/lib/identity";
@@ -47,10 +47,10 @@ export function UnassignedPool({
       : `Show all ${sorted.length} students`;
 
   return (
-    <Stack
-      gap="sm"
-      className="w-full rounded-md border border-border px-4 py-2.5"
-    >
+    // A Card, like the group cards it sits above: the pool is one of the
+    // page's objects, and a bare outline on the page's gray read as a dropped
+    // border rather than a surface.
+    <Card className="w-full gap-2 px-4 py-2.5">
       <Row gap="sm" justify="between" className="w-full">
         <Text variant="label" as="span" className="font-medium">
           Students without a group for this assignment · {sorted.length}
@@ -86,6 +86,6 @@ export function UnassignedPool({
           ))}
         </div>
       ) : null}
-    </Stack>
+    </Card>
   );
 }

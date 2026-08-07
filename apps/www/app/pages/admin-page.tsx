@@ -8,6 +8,7 @@ import { Stack } from "~/components/custom/layout/stack";
 import { Loading } from "~/components/custom/loading";
 import { Text } from "~/components/custom/typography/text";
 import { Badge } from "~/components/ui/badge";
+import { Card } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Switch } from "~/components/ui/switch";
 import { useAuth } from "~/contexts/auth-context";
@@ -54,12 +55,17 @@ export function AdminPage() {
         <Input
           placeholder="Filter by name or email…"
           value={query}
+          // A field is a surface you type on. Left transparent it takes the
+          // page's gray and reads as a hole, so it wears the card's white.
+          className="bg-card"
           onChange={(e) => setQuery(e.target.value)}
         />
         <Loading loading={isLoading && !data} label="Loading users…">
-          <Stack gap="sm" className="w-full">
+          {/* The grant list is one object: a card with hairline-divided rows,
+              rather than rows floating on the page with nothing under them. */}
+          <Card className="w-full gap-0 divide-y py-0">
             {users.map((u) => (
-              <Row key={u.id} justify="between" className="w-full">
+              <Row key={u.id} justify="between" className="w-full px-4 py-3">
                 <Row gap="sm">
                   <UserIdentity name={u.name} subtitle={u.email} />
                   {/* Config status, display only: the app never grants
@@ -90,9 +96,11 @@ export function AdminPage() {
               </Row>
             ))}
             {users.length === 0 ? (
-              <Text variant="body2">No users match.</Text>
+              <Text variant="body2" className="px-4 py-3">
+                No users match.
+              </Text>
             ) : null}
-          </Stack>
+          </Card>
         </Loading>
       </Stack>
     </Page>

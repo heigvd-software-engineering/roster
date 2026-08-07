@@ -231,13 +231,11 @@ export function JoinPage() {
             />
           </>
         ) : null}
-        {/* This link sits straight on the muted page, so hovering lifts it to
-            the card surface; the usual muted hover would be invisible. */}
         <a
           href={`https://github.com/${cls.login}`}
           target="_blank"
           rel="noreferrer"
-          className="-m-2 rounded-md p-2 hover:bg-card"
+          className="-m-2 rounded-md p-2 hover:bg-muted"
         >
           <OrgIdentity
             name={className}
