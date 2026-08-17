@@ -43,7 +43,7 @@ and research note in it — the chat is transient, the board is the record. Stru
 decisions table (status: agreed / proposed / open / deferred), context being built on,
 design sections, diagrams, research notes.
 
-Render it with **aiview** (`.claude/tools/aiview/README.md`) so the user sees
+Render it with **aiview** (contract: the `aiview` skill) so the user sees
 diagrams and edits live. Register it the moment you create it — kind `brainstorm` (from
 the `.brainstorm.md` suffix, mandatory), tags for project and topic, and the start
 date-time (registration time, or `--started` if the discussion began earlier) — then serve:

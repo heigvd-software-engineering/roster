@@ -83,7 +83,7 @@ a new screen that looks native. Register it: `aiview add docs/design/design-lang
 - **States:** default, empty, loading, error, and any permission/role state the screen
   has — as separate sections or a small state switcher in the mockup. Responsive at the
   aiview presets (mobile 390 · tablet 820 · laptop 1280).
-- **Register + serve** (see `.claude/tools/aiview/README.md`):
+- **Register + serve** (contract: the `aiview` skill):
 
 ```sh
 node .claude/tools/aiview/aiview.mjs add   docs/design/mockups/YYYY-MM-DD-<screen>.mockup.html --tag <project> --tag <feature>
