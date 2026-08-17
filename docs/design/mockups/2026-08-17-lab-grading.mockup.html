@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Lab grading — teacher page mockup</title>
+<style>
+  /* ---- tokens: docs/design/design-language.md (stock shadcn neutral). Geist isn't bundled here; system sans stands in. ---- */
+  :root {
+    color-scheme: light;
+    --background: oklch(1 0 0); --foreground: oklch(0.145 0 0);
+    --card: oklch(1 0 0); --card-foreground: oklch(0.145 0 0);
+    --primary: oklch(0.205 0 0); --primary-foreground: oklch(0.985 0 0);
+    --secondary: oklch(0.97 0 0); --secondary-foreground: oklch(0.205 0 0);
+    --muted: oklch(0.97 0 0); --muted-foreground: oklch(0.556 0 0);
+    --accent: oklch(0.97 0 0); --accent-foreground: oklch(0.205 0 0);
+    --destructive: oklch(0.577 0.245 27.325);
+    --border: oklch(0.922 0 0); --input: oklch(0.922 0 0); --ring: oklch(0.708 0 0);
+    --radius: 0.625rem; --radius-sm: calc(var(--radius) - 4px); --radius-md: calc(var(--radius) - 2px); --radius-lg: var(--radius);
+    --font-sans: "Geist Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-mono: "Geist Mono Variable", ui-monospace, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) { :root:not(.light) {
+    color-scheme: dark;
+    --background: oklch(0.145 0 0); --foreground: oklch(0.985 0 0);
+    --card: oklch(0.205 0 0); --card-foreground: oklch(0.985 0 0);
+    --primary: oklch(0.922 0 0); --primary-foreground: oklch(0.205 0 0);
+    --secondary: oklch(0.269 0 0); --secondary-foreground: oklch(0.985 0 0);
+    --muted: oklch(0.269 0 0); --muted-foreground: oklch(0.708 0 0);
+    --accent: oklch(0.269 0 0); --accent-foreground: oklch(0.985 0 0);
+    --destructive: oklch(0.704 0.191 22.216);
+    --border: oklch(1 0 0 / 10%); --input: oklch(1 0 0 / 15%); --ring: oklch(0.556 0 0);
+  } }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: var(--font-sans); font-size: 16px; color: var(--foreground); background: var(--background); }
+  a { color: inherit; }
+  .num { font-variant-numeric: tabular-nums; }
+  .muted { color: var(--muted-foreground); }
+  .destructive { color: var(--destructive); }
+
+  /* ---- shell: AppHeader + Container + Page ---- */
+  [data-component="AppHeader"] { border-bottom: 1px solid var(--border); }
+  [data-component="AppHeader"] .in { max-width: 64rem; margin: 0 auto; padding: 12px 24px; display: flex; justify-content: space-between; align-items: center; }
+  .wordmark { font-weight: 600; letter-spacing: -0.01em; text-decoration: none; }
+  .avatar { width: 28px; height: 28px; border-radius: 999px; background: var(--muted); display: inline-block; }
+  [data-component="Container"] { max-width: 64rem; margin: 0 auto; padding: 0 24px; }
+  @media (min-width: 768px) { [data-component="Container"] { padding: 0 40px; } [data-component="AppHeader"] .in { padding-left: 40px; padding-right: 40px; } }
+  [data-component="Page"] { display: flex; flex-direction: column; gap: 24px; padding-top: 28px; padding-bottom: 64px; align-items: flex-start; }
+
+  /* ---- Text ---- */
+  .t-heading { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; margin: 0; }
+  .t-body2 { font-size: 14px; color: var(--muted-foreground); }
+  .t-caption { font-size: 12px; color: var(--muted-foreground); }
+  .t-label { font-size: 14px; }
+  .t-error { font-size: 14px; color: var(--destructive); }
+
+  /* ---- Badge (shadcn variants) ---- */
+  .badge { display: inline-flex; align-items: center; gap: 4px; border-radius: 6px; padding: 1px 8px; font-size: 12px; font-weight: 500; line-height: 18px; border: 1px solid transparent; white-space: nowrap; }
+  .badge.secondary { background: var(--secondary); color: var(--secondary-foreground); }
+  .badge.outline { border-color: var(--border); color: var(--foreground); }
+  .badge.destructive { background: var(--destructive); color: #fff; }
+  .badge.normal { font-weight: 400; }
+
+  /* ---- Button (shadcn) ---- */
+  .btn { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 8px; border: 1px solid transparent; font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; background: transparent; color: var(--foreground); white-space: nowrap; }
+  .btn.sm { height: 28px; padding: 0 10px; font-size: 12.8px; border-radius: 7px; }
+  .btn.xs { height: 24px; padding: 0 8px; font-size: 12px; border-radius: 6px; }
+  .btn.default { background: var(--primary); color: var(--primary-foreground); }
+  .btn.secondary { background: var(--secondary); color: var(--secondary-foreground); }
+  .btn.outline { border-color: var(--border); background: var(--background); }
+  .btn.ghost:hover, .btn.outline:hover { background: var(--accent); }
+  .btn.default:hover { opacity: .9; }
+  .btn:disabled { opacity: .5; pointer-events: none; }
+  .btn:focus-visible { outline: none; border-color: var(--ring); box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 50%, transparent); }
+  .icon { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  .btn.default .icon, .badge.destructive .icon { stroke: currentColor; }
+
+  /* ---- Card / Input / ToggleGroup / Table ---- */
+  .card { background: var(--card); color: var(--card-foreground); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+  .input { height: 32px; border: 1px solid var(--input); border-radius: 8px; padding: 0 10px 0 30px; font: inherit; font-size: 14px; background: transparent; color: var(--foreground); min-width: 200px; }
+  .input-wrap { position: relative; }
+  .input-wrap .icon { position: absolute; left: 10px; top: 9px; color: var(--muted-foreground); }
+  .toggle-group { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .toggle-group button { font: inherit; font-size: 13px; padding: 0 12px; height: 30px; background: transparent; border: 0; border-left: 1px solid var(--border); color: var(--muted-foreground); cursor: pointer; }
+  .toggle-group button:first-child { border-left: 0; }
+  .toggle-group button[aria-pressed="true"] { background: var(--accent); color: var(--accent-foreground); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; font-weight: 500; color: var(--muted-foreground); font-size: 13px; padding: 8px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tr:last-child td { border-bottom: 0; }
+  tbody tr:hover { background: var(--accent); }
+  tr.dim { opacity: .35; }
+  .cell-score { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .cell-score .max { color: var(--muted-foreground); font-size: 12px; }
+  .row-actions { text-align: right; white-space: nowrap; }
+
+  /* ---- roster components ---- */
+  [data-component="LabHeader"] { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+  [data-component="LabHeader"] .crumb { font-size: 14px; color: var(--muted-foreground); text-decoration: none; }
+  [data-component="LabHeader"] .crumb:hover { text-decoration: underline; }
+  .row-between { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; width: 100%; }
+  .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  [data-component="LabTabs"] { display: inline-flex; gap: 2px; border-bottom: 1px solid var(--border); width: 100%; }
+  [data-component="LabTabs"] a { padding: 8px 12px 10px; font-size: 14px; color: var(--muted-foreground); text-decoration: none; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  [data-component="LabTabs"] a[aria-current="page"] { color: var(--foreground); border-bottom-color: var(--foreground); font-weight: 500; }
+  [data-component="LabStats"] { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; width: 100%; padding: 0; overflow: hidden; }
+  [data-component="LabStats"] > div { padding: 12px 20px; border-left: 1px solid var(--border); }
+  [data-component="LabStats"] > div:first-child { border-left: 0; }
+  [data-component="LabStats"] .v { font-size: 20px; font-variant-numeric: tabular-nums; }
+  [data-component="LabStats"] .v .total { font-size: 14px; color: var(--muted-foreground); }
+  [data-component="LabStats"] .l { font-size: 12px; color: var(--muted-foreground); }
+  @media (max-width: 640px) { [data-component="LabStats"] { grid-auto-flow: row; grid-template-columns: 1fr 1fr; } [data-component="LabStats"] > div:nth-child(3) { border-left: 0; } [data-component="LabStats"] > div:nth-child(n+3) { border-top: 1px solid var(--border); } }
+
+  .grader-row { display: grid; grid-template-columns: 120px 1fr auto auto; gap: 12px; align-items: center; padding: 10px 14px; border-top: 1px solid var(--border); }
+  .grader-row:first-child { border-top: 0; }
+  .grader-row .name { font-weight: 600; }
+  @media (max-width: 720px) { .grader-row { grid-template-columns: 1fr auto; } .grader-row .kv, .grader-row .t-caption { grid-column: 1 / -1; } }
+  [data-component="GraderWall"] { display: grid; width: 100%; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(max(260px, calc((100% - 12px) / 2)), 1fr)); }
+  [data-component="GraderCard"] { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; }
+  [data-component="GraderCard"] .head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  [data-component="GraderCard"] .name { font-weight: 600; font-size: 15px; }
+  [data-component="GraderCard"] .foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: auto; padding-top: 6px; }
+  .kv { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 13px; color: var(--muted-foreground); }
+  .kv b { color: var(--foreground); font-weight: 500; }
+  .grader-add { border-style: dashed; display: flex; align-items: center; justify-content: center; min-height: 120px; color: var(--muted-foreground); }
+
+  [data-component="GradingToolbar"] { width: 100%; }
+  [data-component="ScoreTable"] { width: 100%; overflow-x: auto; }
+  .repo { font-family: var(--font-mono); font-size: 12px; color: var(--muted-foreground); text-decoration: none; }
+  .repo:hover { text-decoration: underline; }
+  .hint { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 6px; background: transparent; border: 0; color: var(--muted-foreground); cursor: pointer; }
+  .hint:hover { background: var(--accent); }
+  .empty { width: 100%; padding: 32px; text-align: center; }
+  .spinner { width: 12px; height: 12px; border: 2px solid var(--border); border-top-color: var(--foreground); border-radius: 50%; display: inline-block; animation: spin .8s linear infinite; vertical-align: -2px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+
+  /* ---- mockup-only state switcher (not part of the design) ---- */
+  .mock-bar { position: fixed; left: 12px; top: 12px; display: flex; gap: 4px; background: var(--card); border: 1px solid var(--border); border-radius: 999px; padding: 4px; font-size: 12px; z-index: 9; }
+  .mock-bar button { border: 0; background: transparent; padding: 4px 10px; border-radius: 999px; cursor: pointer; color: var(--muted-foreground); font: inherit; font-size: 12px; }
+  .mock-bar button.on { background: var(--primary); color: var(--primary-foreground); }
+  [data-state] { display: none; } [data-state].show { display: contents; }
+</style>
+</head>
+<body>
+
+<header data-component="AppHeader"><div class="in"><a class="wordmark" href="#">roster</a><span class="row"><span class="t-body2">stefan.teofanovic@heig-vd.ch</span><span class="avatar"></span></span></div></header>
+
+<div data-component="Container">
+<main data-component="Page">
+
+  <div data-component="LabHeader">
+    <a class="crumb" href="#">‹ Classes / TWeb 2026</a>
+    <div class="row-between">
+      <div class="row">
+        <h1 class="t-heading">Lab 2 — Primitives</h1>
+        <span class="badge secondary normal">group · 2–3</span>
+        <span class="t-body2 num">due Mon 22 Sep, 23:59</span>
+        <span class="badge secondary">running</span>
+      </div>
+      <div class="row">
+        <span class="badge outline">teacher</span>
+        <button class="btn ghost sm"><svg class="icon" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>Delete lab</button>
+      </div>
+    </div>
+    <nav data-component="LabTabs" aria-label="Lab sections">
+      <a href="#">Groups</a>
+      <a href="#" aria-current="page">Grading</a>
+    </nav>
+  </div>
+
+  <!-- ===================== STATE: default ===================== -->
+  <div data-state="default" class="show">
+
+  <div data-component="LabStats" class="card">
+    <div><div class="v">12<span class="total">/14</span></div><div class="l">groups graded</div></div>
+    <div><div class="v">10<span class="total">/12</span></div><div class="l">all tests passing</div></div>
+    <div><div class="v destructive">2</div><div class="l">failed runs</div></div>
+  </div>
+
+  <div class="row-between">
+    <h2 class="t-heading" style="font-size:16px">Graders</h2>
+  </div>
+  <div data-component="GraderList" class="card" style="width:100%">
+    <div class="grader-row">
+      <span class="name">Tests</span>
+      <span class="kv"><span><b style="font-family:var(--font-mono);font-weight:400">npm run test</b> from <b style="font-family:var(--font-mono);font-weight:400">roster.yml</b></span><span>Node 22</span></span>
+      <span class="t-caption num">last run 17 Aug 14:20 · 19 tests · <span class="destructive">1 error</span></span>
+      <span class="row" style="justify-content:flex-end"><button class="btn ghost sm">Configure</button><button class="btn secondary sm"><svg class="icon" viewBox="0 0 24 24"><path d="m6 4 14 8-14 8z"/></svg>Run</button></span>
+    </div>
+    <div class="grader-row">
+      <span class="name">Contributions</span>
+      <span class="kv"><span>4 dimensions</span><span>gpt-oss-120b</span></span>
+      <span class="t-caption num">last run 17 Aug 14:20 · 12/12 ok</span>
+      <span class="row" style="justify-content:flex-end"><button class="btn ghost sm">Configure</button><button class="btn secondary sm"><svg class="icon" viewBox="0 0 24 24"><path d="m6 4 14 8-14 8z"/></svg>Run</button></span>
+    </div>
+  </div>
+
+  <div data-component="GradingToolbar" class="row-between">
+    <div class="row">
+      <span class="input-wrap"><svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input class="input" placeholder="Search groups" aria-label="Search groups"></span>
+      <span class="toggle-group" role="group" aria-label="Filter"><button aria-pressed="true">all</button><button aria-pressed="false">failed only</button></span>
+    </div>
+    <div class="row">
+      <span class="t-caption">graded from <b style="color:var(--foreground);font-weight:500">main</b> at the deadline</span>
+      <button class="btn default sm"><svg class="icon" viewBox="0 0 24 24"><path d="m6 4 14 8-14 8z"/></svg>Run everything</button>
+    </div>
+  </div>
+
+  <div data-component="ScoreTable" class="card">
+    <table>
+      <thead><tr><th>Group</th><th>main @ deadline</th><th>Tests <span class="muted num">/19</span></th><th>Contributions <span class="muted num">/8</span></th><th>Last run</th><th></th></tr></thead>
+      <tbody>
+        <tr><td>Team Alpha</td><td><a class="repo" href="#">a1b2c3d ↗</a></td><td class="cell-score">19</td><td class="cell-score">7</td><td class="t-caption num">14:20</td><td class="row-actions"><button class="btn ghost xs">Re-run</button><button class="btn ghost xs">Report ›</button></td></tr>
+        <tr><td>Team Beta</td><td><a class="repo" href="#">9f8e7d6 ↗</a></td><td class="cell-score">17</td><td class="cell-score">6</td><td class="t-caption num">14:21</td><td class="row-actions"><button class="btn ghost xs">Re-run</button><button class="btn ghost xs">Report ›</button></td></tr>
+        <tr><td>Team Gamma</td><td><span class="badge outline">no repo</span></td><td class="muted">—</td><td class="muted">—</td><td class="t-caption">never</td><td class="row-actions"><button class="btn ghost xs" disabled>Re-run</button></td></tr>
+        <tr><td>Team Delta</td><td><a class="repo" href="#">44c0ffe ↗</a></td><td class="cell-score">19</td><td class="cell-score">8</td><td class="t-caption num">14:22</td><td class="row-actions"><button class="btn ghost xs">Re-run</button><button class="btn ghost xs">Report ›</button></td></tr>
+        <tr><td>Team Epsilon</td><td><a class="repo" href="#">7e11ab0 ↗</a></td><td><span class="badge destructive">error</span> <button class="hint" aria-label="npm install failed"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg></button></td><td class="cell-score">4 <button class="hint" aria-label="Low confidence"><svg class="icon" viewBox="0 0 24 24"><path d="M12 3 2 21h20L12 3zM12 10v4M12 18h.01"/></svg></button></td><td class="t-caption num">14:22</td><td class="row-actions"><button class="btn ghost xs">Re-run</button><button class="btn ghost xs">Report ›</button></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="t-caption">Advisory: tests = passing tests out of the starter code's suite (pass / fail when the runner's summary can't be read), contributions = a 0–8 reading of the git history. Neither is a grade — reports show the evidence.</p>
+  </div>
+
+  <!-- ===================== STATE: empty (no graders yet) ===================== -->
+  <div data-state="empty">
+    <div data-component="LabStats" class="card">
+      <div><div class="v">14</div><div class="l">groups with a repo</div></div>
+      <div><div class="v">0</div><div class="l">graders</div></div>
+      <div><div class="v muted">—</div><div class="l">last run</div></div>
+    </div>
+    <div class="card empty">
+      <p class="t-label" style="margin:0 0 6px">No graders yet.</p>
+      <p class="t-body2" style="margin:0 0 14px">Tests runs the starter code's test command on each group's <code>main</code> at the deadline; Contributions reads how the work was done. Add one to start.</p>
+      <div class="row" style="justify-content:center">
+        <button class="btn default sm"><svg class="icon" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add tests grader</button>
+        <button class="btn outline sm"><svg class="icon" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add contributions grader</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== STATE: running ===================== -->
+  <div data-state="running">
+    <div data-component="LabStats" class="card">
+      <div><div class="v">5<span class="total">/14</span></div><div class="l">groups graded</div></div>
+      <div><div class="v">4<span class="total">/5</span></div><div class="l">all tests passing</div></div>
+      <div><div class="v"><span class="spinner"></span> 9</div><div class="l">running</div></div>
+    </div>
+    <div class="row-between" style="width:100%">
+      <span class="t-body2"><span class="spinner"></span>&nbsp; Running everything on <b>main</b> at the deadline — 5 of 14 done</span>
+      <button class="btn outline sm">Stop</button>
+    </div>
+    <div data-component="ScoreTable" class="card">
+      <table>
+        <thead><tr><th>Group</th><th>main @ deadline</th><th>Tests <span class="muted num">/19</span></th><th>Contributions <span class="muted num">/8</span></th><th>Last run</th><th></th></tr></thead>
+        <tbody>
+          <tr><td>Team Alpha</td><td><a class="repo" href="#">a1b2c3d ↗</a></td><td class="cell-score">19</td><td class="cell-score">7</td><td class="t-caption num">just now</td><td class="row-actions"><button class="btn ghost xs">Re-run</button><button class="btn ghost xs">Report ›</button></td></tr>
+          <tr><td>Team Beta</td><td><a class="repo" href="#">9f8e7d6 ↗</a></td><td><span class="badge outline"><span class="spinner"></span> running</span></td><td><span class="badge outline">queued</span></td><td class="t-caption">—</td><td class="row-actions"><button class="btn ghost xs" disabled>Re-run</button></td></tr>
+          <tr><td>Team Gamma</td><td><span class="badge outline">no repo</span></td><td class="muted">—</td><td class="muted">—</td><td class="t-caption">skipped</td><td class="row-actions"><button class="btn ghost xs" disabled>Re-run</button></td></tr>
+          <tr><td>Team Delta</td><td><a class="repo" href="#">44c0ffe ↗</a></td><td><span class="badge outline">queued</span></td><td><span class="badge outline">queued</span></td><td class="t-caption">—</td><td class="row-actions"><button class="btn ghost xs" disabled>Re-run</button></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ===================== STATE: error (loading failed) ===================== -->
+  <div data-state="error">
+    <p class="t-error">Couldn't load grading for this lab — refresh to retry.</p>
+    <a href="#" class="t-body2" style="text-decoration:underline">‹ Back to groups</a>
+  </div>
+
+</main>
+</div>
+
+<div class="mock-bar" aria-label="Mockup state (not part of the design)">
+  <button class="on" data-set="default">default</button><button data-set="empty">empty</button><button data-set="running">running</button><button data-set="error">error</button>
+</div>
+<script>
+  document.querySelectorAll(".mock-bar button").forEach((b) => b.onclick = () => {
+    document.querySelectorAll(".mock-bar button").forEach((x) => x.classList.toggle("on", x === b));
+    document.querySelectorAll("[data-state]").forEach((s) => s.classList.toggle("show", s.dataset.state === b.dataset.set));
+  });
+  document.querySelectorAll(".toggle-group button").forEach((b) => b.onclick = () => {
+    b.parentElement.querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+    const f = b.textContent.trim();
+    document.querySelectorAll('[data-state="default"] tbody tr').forEach((tr) => {
+      const failed = !!tr.querySelector(".badge.destructive");
+      tr.classList.toggle("dim", f === "failed only" ? !failed : false);
+    });
+  });
+</script>
+
+<!--
+HANDOFF NOTE (frontend-design skill) — maps regions to existing components; nothing here prescribes classes.
+
+Route: /classes/:classId/labs/:labId/manage/grading (sibling of …/manage). Teacher-only; students are redirected like TeacherLabPage does.
+
+Regions → components
+- AppHeader / Container / Page                 existing shell + layout primitives (Page gap lg rules the vertical rhythm).
+- LabHeader                                    existing, unchanged; gains ONE new child below it:
+- LabTabs (NEW, custom/classes/labs/lab-tabs.tsx)   two links "Groups" | "Grading", aria-current on the active one; underline = foreground 2px. Built on react-router NavLink; not ToggleGroup (these are routes, not a filter). Shown on both teacher pages so they read as siblings.
+- LabStats                                     existing; stats = graded/total · tests passing · failed runs (alert). Empty state: groups-with-repo · graders · last run.
+- GraderList (NEW, custom/classes/grading/grader-list.tsx)  one Card, one row per grader: name · summary (plugin-provided kv) · last run · Configure (opens the plugin dialog) · Run (secondary sm). Fixed order: Tests then Contributions. "Add <kind> grader" buttons appear only for a kind not yet attached (empty state), driven by the plugin registry.
+- GradingToolbar                               Input search + ToggleGroup (all / failed only) that DIMS rows (existing convention) + a caption "graded from main at the deadline" (no picker: main only, decision #5) + primary "Run everything" (default sm).
+- ScoreTable (NEW, custom/classes/grading/score-table.tsx)  shadcn Table in a Card; one row per group; columns: Group · main @ deadline (SHA link) · Tests (passing / total, tabular, when the runner summary parses; else Badge secondary "pass" / destructive "fail"; destructive "error" + Hint when setup/command could not run) · Contributions (n/8, tabular; Hint on low confidence) · Last run · actions. No points, no total: tests are pass/fail (Classroom's own model), contributions is a fixed 0-8 reading. Queued/running/no repo = outline Badges. Row actions ghost xs, always both: Re-run (disabled while running / no repo) and Report › (opens ReportDialog, plugin-rendered; absent until a run exists).
+- Advisory footnote                            Text caption under the table (copy as in the mockup).
+- Running state                                progress line + Stop (outline sm) above the table; rows flip to queued/running badges; UI polls run status.
+- Error state                                  Text error + back link, same sentences as TeacherLabPage.
+
+New tokens: none. New status colours: none — fail = destructive, pass = secondary, queued/running/no repo = outline.
+Copy: "Graders", "Add tests grader" / "Add contributions grader", "Run", "Run everything", "Report ›", "Re-run", "Stop", the advisory footnote; chips lowercase (pass / fail / queued / running / no repo).
+
+Acceptance: states default · empty · running · error at mobile 390 (stats 2×2, table scrolls inside its card), tablet 820, laptop 1280; keyboard focus visible on buttons/links; reduced-motion stops the spinner.
+Open for the user: (1) does the tab strip belong ABOVE LabStats on the Groups page too (yes in this design)? (2) per-cell confidence hint (Team Epsilon) — keep or drop?
+-->
+</body>
+</html>

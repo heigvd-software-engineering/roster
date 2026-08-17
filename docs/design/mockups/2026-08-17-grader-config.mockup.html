@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Grader configuration dialogs mockup</title>
+<style>
+  /* ---- tokens: docs/design/design-language.md (stock shadcn neutral). Geist isn't bundled here; system sans stands in. ---- */
+  :root {
+    color-scheme: light;
+    --background: oklch(1 0 0); --foreground: oklch(0.145 0 0);
+    --card: oklch(1 0 0); --card-foreground: oklch(0.145 0 0);
+    --primary: oklch(0.205 0 0); --primary-foreground: oklch(0.985 0 0);
+    --secondary: oklch(0.97 0 0); --secondary-foreground: oklch(0.205 0 0);
+    --muted: oklch(0.97 0 0); --muted-foreground: oklch(0.556 0 0);
+    --accent: oklch(0.97 0 0); --accent-foreground: oklch(0.205 0 0);
+    --destructive: oklch(0.577 0.245 27.325);
+    --border: oklch(0.922 0 0); --input: oklch(0.922 0 0); --ring: oklch(0.708 0 0);
+    --radius: 0.625rem; --radius-sm: calc(var(--radius) - 4px); --radius-md: calc(var(--radius) - 2px); --radius-lg: var(--radius);
+    --font-sans: "Geist Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-mono: "Geist Mono Variable", ui-monospace, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) { :root:not(.light) {
+    color-scheme: dark;
+    --background: oklch(0.145 0 0); --foreground: oklch(0.985 0 0);
+    --card: oklch(0.205 0 0); --card-foreground: oklch(0.985 0 0);
+    --primary: oklch(0.922 0 0); --primary-foreground: oklch(0.205 0 0);
+    --secondary: oklch(0.269 0 0); --secondary-foreground: oklch(0.985 0 0);
+    --muted: oklch(0.269 0 0); --muted-foreground: oklch(0.708 0 0);
+    --accent: oklch(0.269 0 0); --accent-foreground: oklch(0.985 0 0);
+    --destructive: oklch(0.704 0.191 22.216);
+    --border: oklch(1 0 0 / 10%); --input: oklch(1 0 0 / 15%); --ring: oklch(0.556 0 0);
+  } }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: var(--font-sans); font-size: 16px; color: var(--foreground); background: var(--background); }
+  a { color: inherit; }
+  .num { font-variant-numeric: tabular-nums; }
+  .muted { color: var(--muted-foreground); }
+  .destructive { color: var(--destructive); }
+
+  /* ---- shell: AppHeader + Container + Page ---- */
+  [data-component="AppHeader"] { border-bottom: 1px solid var(--border); }
+  [data-component="AppHeader"] .in { max-width: 64rem; margin: 0 auto; padding: 12px 24px; display: flex; justify-content: space-between; align-items: center; }
+  .wordmark { font-weight: 600; letter-spacing: -0.01em; text-decoration: none; }
+  .avatar { width: 28px; height: 28px; border-radius: 999px; background: var(--muted); display: inline-block; }
+  [data-component="Container"] { max-width: 64rem; margin: 0 auto; padding: 0 24px; }
+  @media (min-width: 768px) { [data-component="Container"] { padding: 0 40px; } [data-component="AppHeader"] .in { padding-left: 40px; padding-right: 40px; } }
+  [data-component="Page"] { display: flex; flex-direction: column; gap: 24px; padding-top: 28px; padding-bottom: 64px; align-items: flex-start; }
+
+  /* ---- Text ---- */
+  .t-heading { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; margin: 0; }
+  .t-body2 { font-size: 14px; color: var(--muted-foreground); }
+  .t-caption { font-size: 12px; color: var(--muted-foreground); }
+  .t-label { font-size: 14px; }
+  .t-error { font-size: 14px; color: var(--destructive); }
+
+  /* ---- Badge (shadcn variants) ---- */
+  .badge { display: inline-flex; align-items: center; gap: 4px; border-radius: 6px; padding: 1px 8px; font-size: 12px; font-weight: 500; line-height: 18px; border: 1px solid transparent; white-space: nowrap; }
+  .badge.secondary { background: var(--secondary); color: var(--secondary-foreground); }
+  .badge.outline { border-color: var(--border); color: var(--foreground); }
+  .badge.destructive { background: var(--destructive); color: #fff; }
+  .badge.normal { font-weight: 400; }
+
+  /* ---- Button (shadcn) ---- */
+  .btn { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 8px; border: 1px solid transparent; font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; background: transparent; color: var(--foreground); white-space: nowrap; }
+  .btn.sm { height: 28px; padding: 0 10px; font-size: 12.8px; border-radius: 7px; }
+  .btn.xs { height: 24px; padding: 0 8px; font-size: 12px; border-radius: 6px; }
+  .btn.default { background: var(--primary); color: var(--primary-foreground); }
+  .btn.secondary { background: var(--secondary); color: var(--secondary-foreground); }
+  .btn.outline { border-color: var(--border); background: var(--background); }
+  .btn.ghost:hover, .btn.outline:hover { background: var(--accent); }
+  .btn.default:hover { opacity: .9; }
+  .btn:disabled { opacity: .5; pointer-events: none; }
+  .btn:focus-visible { outline: none; border-color: var(--ring); box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 50%, transparent); }
+  .icon { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  .btn.default .icon, .badge.destructive .icon { stroke: currentColor; }
+
+  /* ---- Card / Input / ToggleGroup / Table ---- */
+  .card { background: var(--card); color: var(--card-foreground); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+  .input { height: 32px; border: 1px solid var(--input); border-radius: 8px; padding: 0 10px 0 30px; font: inherit; font-size: 14px; background: transparent; color: var(--foreground); min-width: 200px; }
+  .input-wrap { position: relative; }
+  .input-wrap .icon { position: absolute; left: 10px; top: 9px; color: var(--muted-foreground); }
+  .toggle-group { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .toggle-group button { font: inherit; font-size: 13px; padding: 0 12px; height: 30px; background: transparent; border: 0; border-left: 1px solid var(--border); color: var(--muted-foreground); cursor: pointer; }
+  .toggle-group button:first-child { border-left: 0; }
+  .toggle-group button[aria-pressed="true"] { background: var(--accent); color: var(--accent-foreground); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; font-weight: 500; color: var(--muted-foreground); font-size: 13px; padding: 8px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tr:last-child td { border-bottom: 0; }
+  tbody tr:hover { background: var(--accent); }
+  tr.dim { opacity: .35; }
+  .cell-score { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .cell-score .max { color: var(--muted-foreground); font-size: 12px; }
+  .row-actions { text-align: right; white-space: nowrap; }
+
+  /* ---- roster components ---- */
+  [data-component="LabHeader"] { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+  [data-component="LabHeader"] .crumb { font-size: 14px; color: var(--muted-foreground); text-decoration: none; }
+  [data-component="LabHeader"] .crumb:hover { text-decoration: underline; }
+  .row-between { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; width: 100%; }
+  .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  [data-component="LabTabs"] { display: inline-flex; gap: 2px; border-bottom: 1px solid var(--border); width: 100%; }
+  [data-component="LabTabs"] a { padding: 8px 12px 10px; font-size: 14px; color: var(--muted-foreground); text-decoration: none; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  [data-component="LabTabs"] a[aria-current="page"] { color: var(--foreground); border-bottom-color: var(--foreground); font-weight: 500; }
+  [data-component="LabStats"] { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; width: 100%; padding: 0; overflow: hidden; }
+  [data-component="LabStats"] > div { padding: 12px 20px; border-left: 1px solid var(--border); }
+  [data-component="LabStats"] > div:first-child { border-left: 0; }
+  [data-component="LabStats"] .v { font-size: 20px; font-variant-numeric: tabular-nums; }
+  [data-component="LabStats"] .v .total { font-size: 14px; color: var(--muted-foreground); }
+  [data-component="LabStats"] .l { font-size: 12px; color: var(--muted-foreground); }
+  @media (max-width: 640px) { [data-component="LabStats"] { grid-auto-flow: row; grid-template-columns: 1fr 1fr; } [data-component="LabStats"] > div:nth-child(3) { border-left: 0; } [data-component="LabStats"] > div:nth-child(n+3) { border-top: 1px solid var(--border); } }
+
+  .grader-row { display: grid; grid-template-columns: 120px 1fr auto auto; gap: 12px; align-items: center; padding: 10px 14px; border-top: 1px solid var(--border); }
+  .grader-row:first-child { border-top: 0; }
+  .grader-row .name { font-weight: 600; }
+  @media (max-width: 720px) { .grader-row { grid-template-columns: 1fr auto; } .grader-row .kv, .grader-row .t-caption { grid-column: 1 / -1; } }
+  [data-component="GraderWall"] { display: grid; width: 100%; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(max(260px, calc((100% - 12px) / 2)), 1fr)); }
+  [data-component="GraderCard"] { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; }
+  [data-component="GraderCard"] .head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  [data-component="GraderCard"] .name { font-weight: 600; font-size: 15px; }
+  [data-component="GraderCard"] .foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: auto; padding-top: 6px; }
+  .kv { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 13px; color: var(--muted-foreground); }
+  .kv b { color: var(--foreground); font-weight: 500; }
+  .grader-add { border-style: dashed; display: flex; align-items: center; justify-content: center; min-height: 120px; color: var(--muted-foreground); }
+
+  [data-component="GradingToolbar"] { width: 100%; }
+  [data-component="ScoreTable"] { width: 100%; overflow-x: auto; }
+  .repo { font-family: var(--font-mono); font-size: 12px; color: var(--muted-foreground); text-decoration: none; }
+  .repo:hover { text-decoration: underline; }
+  .hint { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 6px; background: transparent; border: 0; color: var(--muted-foreground); cursor: pointer; }
+  .hint:hover { background: var(--accent); }
+  .empty { width: 100%; padding: 32px; text-align: center; }
+  .spinner { width: 12px; height: 12px; border: 2px solid var(--border); border-top-color: var(--foreground); border-radius: 50%; display: inline-block; animation: spin .8s linear infinite; vertical-align: -2px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+
+  /* ---- mockup-only state switcher (not part of the design) ---- */
+  .mock-bar { position: fixed; left: 12px; top: 12px; display: flex; gap: 4px; background: var(--card); border: 1px solid var(--border); border-radius: 999px; padding: 4px; font-size: 12px; z-index: 9; }
+  .mock-bar button { border: 0; background: transparent; padding: 4px 10px; border-radius: 999px; cursor: pointer; color: var(--muted-foreground); font: inherit; font-size: 12px; }
+  .mock-bar button.on { background: var(--primary); color: var(--primary-foreground); }
+  [data-state] { display: none; } [data-state].show { display: contents; }
+</style>
+
+<style>
+  /* Dialog (shadcn): overlay + centered panel; the grading page sits behind, dimmed */
+  .overlay { position: fixed; inset: 0; background: rgb(0 0 0 / .5); display: flex; align-items: flex-start; justify-content: center; padding: 6vh 16px; overflow: auto; z-index: 5; }
+  .dialog { width: 100%; max-width: 640px; background: var(--background); color: var(--foreground); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: 0 10px 40px rgb(0 0 0 / .2); display: flex; flex-direction: column; }
+  .dialog.wide { max-width: 760px; }
+  .dlg-head { padding: 20px 24px 0; display: flex; flex-direction: column; gap: 4px; }
+  .dlg-title { font-size: 18px; font-weight: 600; letter-spacing: -0.01em; margin: 0; }
+  .dlg-desc { font-size: 14px; color: var(--muted-foreground); margin: 0; }
+  .dlg-body { padding: 20px 24px; display: flex; flex-direction: column; gap: 20px; }
+  .dlg-foot { padding: 0 24px 20px; display: flex; justify-content: flex-end; gap: 8px; align-items: center; }
+  .dlg-foot .left { margin-right: auto; }
+  .close { position: absolute; right: 12px; top: 12px; }
+  .dialog { position: relative; }
+
+  /* form primitives (Label, Input, Select, Switch) */
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label, .lbl { font-size: 14px; font-weight: 500; }
+  .field .help { font-size: 12px; color: var(--muted-foreground); }
+  .field .input, .field select, .field textarea { min-width: 0; width: 100%; }
+  .input.plain { padding-left: 10px; }
+  select { height: 32px; border: 1px solid var(--input); border-radius: 8px; padding: 0 10px; font: inherit; font-size: 14px; background: transparent; color: var(--foreground); }
+  textarea { border: 1px solid var(--input); border-radius: 8px; padding: 8px 10px; font: inherit; font-size: 13px; background: transparent; color: var(--foreground); resize: vertical; min-height: 60px; }
+  textarea.mono, .input.mono { font-family: var(--font-mono); font-size: 12.5px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
+  .grid3 { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px 16px; }
+  @media (max-width: 560px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
+  .switch { width: 32px; height: 18px; border-radius: 999px; background: var(--input); position: relative; display: inline-block; flex: none; }
+  .switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--background); transition: left .15s; }
+  .switch.on { background: var(--primary); } .switch.on::after { left: 16px; }
+  .section-title { font-size: 12px; font-weight: 500; color: var(--muted-foreground); text-transform: uppercase; letter-spacing: .06em; }
+  .divider { border-top: 1px solid var(--border); }
+  .pts { width: 64px; text-align: right; }
+  .kbd { font-family: var(--font-mono); font-size: 12px; background: var(--muted); padding: 1px 6px; border-radius: 4px; }
+  .out { border: 1px solid var(--border); border-radius: var(--radius-md); background: color-mix(in oklch, var(--muted) 40%, transparent); font-family: var(--font-mono); font-size: 12px; padding: 10px 12px; white-space: pre-wrap; overflow-x: auto; }
+  .out .exp { color: var(--muted-foreground); }
+
+  /* dimensions list (contributions) */
+  .dims { border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
+  .dim-row { display: grid; grid-template-columns: 32px 1fr auto 72px; gap: 10px; align-items: center; padding: 10px 12px; border-top: 1px solid var(--border); }
+  .dim-row:first-child { border-top: 0; }
+  .dim-row.group-only { background: color-mix(in oklch, var(--muted) 60%, transparent); }
+  .dim-row .n { font-size: 14px; }
+  .dim-row .d { font-size: 12px; color: var(--muted-foreground); }
+  .dim-row.off { opacity: .5; }
+  /* InputGroup (shadcn): number Input + "pts" addon, compact */
+  .weight { display: inline-flex; align-items: stretch; height: 28px; border: 1px solid var(--input); border-radius: 7px; overflow: hidden; font-size: 12px; }
+  .weight input { width: 40px; min-width: 0; border: 0; padding: 0 6px; text-align: right; font: inherit; font-size: 13px; font-variant-numeric: tabular-nums; background: transparent; color: var(--foreground); -moz-appearance: textfield; }
+  .weight input::-webkit-inner-spin-button, .weight input::-webkit-outer-spin-button { -webkit-appearance: none; }
+  .weight .addon { display: flex; align-items: center; padding: 0 8px; background: var(--muted); color: var(--muted-foreground); border-left: 1px solid var(--input); }
+  .dims-head { display: grid; grid-template-columns: 32px 1fr auto 72px; gap: 10px; padding: 6px 12px; font-size: 11px; color: var(--muted-foreground); text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--border); background: color-mix(in oklch, var(--muted) 40%, transparent); }
+
+  /* cases list (tests) */
+  .cases { display: flex; flex-direction: column; gap: 8px; }
+  .case { border: 1px solid var(--border); border-radius: var(--radius-md); }
+  .case-head { display: grid; grid-template-columns: 24px 1fr auto auto auto 28px; gap: 10px; align-items: center; padding: 8px 10px; }
+  .case-head .name { font-size: 14px; font-weight: 500; }
+  .case-head .cmd { font-family: var(--font-mono); font-size: 12px; color: var(--muted-foreground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .case-body { border-top: 1px solid var(--border); padding: 12px; display: flex; flex-direction: column; gap: 12px; background: color-mix(in oklch, var(--muted) 40%, transparent); }
+  .drag { color: var(--muted-foreground); cursor: grab; text-align: center; }
+  .chev { color: var(--muted-foreground); }
+</style>
+<style>[data-state] { display: none; } [data-state].show { display: block; }</style>
+</head>
+<body>
+<header data-component="AppHeader"><div class="in"><a class="wordmark" href="#">roster</a><span class="row"><span class="t-body2">stefan.teofanovic@heig-vd.ch</span><span class="avatar"></span></span></div></header>
+
+<div data-component="Container">
+<main data-component="Page">
+
+  <div data-component="LabHeader">
+    <a class="crumb" href="#">‹ Classes / TWeb 2026</a>
+    <div class="row-between">
+      <div class="row">
+        <h1 class="t-heading">Lab 2 — Primitives</h1>
+        <span class="badge secondary normal">group · 2–3</span>
+        <span class="t-body2 num">due Mon 22 Sep, 23:59</span>
+        <span class="badge secondary">running</span>
+      </div>
+      <div class="row">
+        <span class="badge outline">teacher</span>
+        <button class="btn ghost sm"><svg class="icon" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>Delete lab</button>
+      </div>
+    </div>
+    <nav data-component="LabTabs" aria-label="Lab sections">
+      <a href="#">Groups</a>
+      <a href="#" aria-current="page">Grading</a>
+    </nav>
+  </div>
+
+  <div data-component="LabStats" class="card"><div><div class="v">12<span class="total">/14</span></div><div class="l">groups graded</div></div><div><div class="v destructive">2</div><div class="l">failed runs</div></div><div><div class="v">71<span class="total"> %</span></div><div class="l">average score</div></div><div><div class="v">1</div><div class="l">never run</div></div></div>
+<div class="row-between"><h2 class="t-heading" style="font-size:16px">Graders</h2></div>
+</main></div>
+<div data-state="contributions" class="show">
+<div class="overlay">
+  <div class="dialog" role="dialog" aria-labelledby="c-title">
+    <button class="btn ghost xs close" aria-label="Close"><svg class="icon" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    <div class="dlg-head"><h2 class="dlg-title" id="c-title">Contributions grader</h2><p class="dlg-desc">Reads each group's <span class="kbd">main</span> history up to the deadline and scores how the work was done. Advisory: the report shows the evidence behind every number.</p></div>
+    <div class="dlg-body">
+      <div class="field"><span class="lbl">Dimensions</span><span class="help">Each dimension is read 0–2 from the git history and a rubric; the score is the sum (0–8 with four on). Group-only dimensions apply automatically when a repo has more than one author.</span></div>
+      <div class="dims">
+        <div class="dim-row "><span class="switch on" role="switch" aria-checked="true" aria-label="Work spread over time"></span><span><div class="n">Work spread over time</div><div class="d">not all committed in the last hours before the deadline</div></span><span></span><span class="t-caption num">0–2</span></div>
+        <div class="dim-row "><span class="switch on" role="switch" aria-checked="true" aria-label="Descriptive commit messages"></span><span><div class="n">Descriptive commit messages</div><div class="d">messages say what and why, in the course language</div></span><span></span><span class="t-caption num">0–2</span></div>
+        <div class="dim-row group-only "><span class="switch on" role="switch" aria-checked="true" aria-label="Balanced contribution"></span><span><div class="n">Balanced contribution <span class="badge outline normal" style="margin-left:6px">groups only</span></div><div class="d">commits and lines per member are not one-sided</div></span><span></span><span class="t-caption num">0–2</span></div>
+        <div class="dim-row group-only "><span class="switch on" role="switch" aria-checked="true" aria-label="Branches and pull requests"></span><span><div class="n">Branches and pull requests <span class="badge outline normal" style="margin-left:6px">groups only</span></div><div class="d">work goes through branches and PRs, not only main</div></span><span></span><span class="t-caption num">0–2</span></div>
+        <div class="dim-row group-only off"><span class="switch " role="switch" aria-checked="false" aria-label="DevOps practices"></span><span><div class="n">DevOps practices <span class="badge outline normal" style="margin-left:6px">groups only</span></div><div class="d">CI, protected main, PR reviews — only what was taught</div></span><span></span><span class="t-caption num">0–2</span></div>
+      </div>
+      <div class="divider"></div>
+      <div class="field"><label>Extra guidance <span class="t-caption" style="font-weight:400">optional</span></label><textarea placeholder="e.g. Commit messages in French are fine. Ignore the starter commit.">Ignore commits authored by github-classroom[bot] and dependabot.</textarea><span class="help">Appended to the rubric for this lab only.</span></div>
+      <details><summary class="t-body2">Advanced</summary><div class="field" style="margin-top:8px"><label>Model</label><select><option>gpt-oss-120b (Workers AI)</option><option>nemotron-3-120b (Workers AI)</option><option>qwen3-30b-a3b (Workers AI)</option></select><span class="help">Open-weight, runs on Cloudflare. Recorded on every run with the prompt version (<span class="kbd">contributions v3</span>).</span></div></details>
+    </div>
+    <div class="dlg-foot"><button class="btn ghost sm left destructive"><svg class="icon" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>Remove grader</button><button class="btn outline sm">Cancel</button><button class="btn default sm">Save</button></div>
+  </div>
+</div></div>
+<div data-state="tests">
+<div class="overlay">
+  <div class="dialog" role="dialog" aria-labelledby="t-title">
+    <button class="btn ghost xs close" aria-label="Close"><svg class="icon" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    <div class="dlg-head"><h2 class="dlg-title" id="t-title">Tests grader</h2><p class="dlg-desc">Runs the starter code's test command against each group's <span class="kbd">main</span> at the deadline, in an isolated sandbox. The result is passing / total tests when the runner prints a summary, else pass / fail. Configured by a <span class="kbd">roster.yml</span> in the starter code, so it is versioned with the lab.</p></div>
+    <div class="dlg-body">
+      <div class="field"><span class="lbl">Read from starter code</span><span class="help">heigvd-web-26/2-tetris-i-starter &middot; <span class="kbd">roster.yml</span> on <span class="kbd">main</span> &middot; 3 min ago</span>
+        <div class="out" style="margin-top:6px"><span class="exp"># roster.yml</span>
+tests:
+  setup: npm install
+  command: npm run test
+  timeout: 10          <span class="exp"># minutes</span></div>
+      </div>
+      <div class="row-between"><span class="help"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg> No <span class="kbd">roster.yml</span>? roster falls back to <span class="kbd">.github/workflows/classroom.yml</span> (setup-command, command, timeout).</span><button class="btn outline sm">Reload from starter code</button></div>
+      <div class="divider"></div>
+      <div class="field"><label>Environment</label><select><option>Node 22 + Python 3.12 (default image)</option><option>Java 21 + Maven</option><option>.NET 9</option></select><span class="help">What the sandbox has installed. Not in the file: it is roster's, not the lab's.</span></div>
+      <div class="field"><span class="help"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg> Try it against your solution repo before running it on the class: <button class="btn ghost xs">Dry run on a repo&hellip;</button></span></div>
+    </div>
+    <div class="dlg-foot"><button class="btn ghost sm left destructive"><svg class="icon" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>Remove grader</button><button class="btn outline sm">Cancel</button><button class="btn default sm">Save</button></div>
+  </div>
+</div></div>
+<div class="mock-bar" aria-label="Mockup state (not part of the design)"><button class="on" data-set="contributions">contributions</button><button data-set="tests">tests</button></div>
+<script>
+  document.querySelectorAll(".mock-bar button").forEach((b) => b.onclick = () => {
+    document.querySelectorAll(".mock-bar button").forEach((x) => x.classList.toggle("on", x === b));
+    document.querySelectorAll("[data-state]").forEach((s) => s.classList.toggle("show", s.dataset.state === b.dataset.set));
+  });
+  document.querySelectorAll(".switch").forEach((s) => s.onclick = () => { s.classList.toggle("on"); s.closest(".dim-row")?.classList.toggle("off"); });
+</script>
+
+<!--
+HANDOFF NOTE - grader configuration dialogs (plugin-owned forms inside one shared GraderDialog shell)
+
+GraderDialog (NEW, custom/classes/grading/grader-dialog.tsx)  shadcn Dialog; header = plugin title + one-sentence description; body = the plugin's own form (no common fields: no name, no points, no position - one grader per kind, fixed order Tests then Contributions); footer = Remove grader (ghost, destructive text, left) - Cancel - Save.
+
+Contributions form (plugin `contributions`)
+- Dimensions list: rows = Switch + name + description + fixed "0-2" caption (no weights; score = sum, /8 with four on). Group-only rows carry a Badge(outline) "groups only" and apply automatically when the repo has >1 author.
+- Extra guidance: Textarea appended to the rubric for this lab. Advanced <details>: Model Select over the Workers AI catalogue exposed by lib/llm; prompt version shown, not editable.
+Tests form (plugin `tests`) - CONFIG LIVES IN THE STARTER CODE (roster.yml), not in the UI (decision 2026-08-17)
+- Read-only block showing the parsed roster.yml (setup, command, timeout) from the TEMPLATE repo's main (never the student's copy), with source + freshness; "Reload from starter code" (outline sm) re-reads.
+- Fallback when roster.yml is absent: parse .github/workflows/classroom.yml (setup-command / command / timeout) so existing TWeb templates work as-is; the help line says so.
+- The only UI-owned field: Environment (Select of sandbox images) - roster's concern, not the lab's. "Dry run on a repo" validates against the solution repo. No points: pass/fail.
+
+Copy: "Contributions grader" / "Tests grader", "Remove grader", "Save", "Add case", "Dry run on a repo", chips lowercase (exact / contains / regex / exit 0 / groups only).
+Acceptance: both dialogs at 390 (fields stack, cases list scrolls inside the dialog), 820, 1280; keyboard: Esc closes, focus trapped, switches operable; derived Points updates as weights/case points change.
+-->
+
+</body>
+</html>

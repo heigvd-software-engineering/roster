@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Group grading report mockup</title>
+<style>
+  /* ---- tokens: docs/design/design-language.md (stock shadcn neutral). Geist isn't bundled here; system sans stands in. ---- */
+  :root {
+    color-scheme: light;
+    --background: oklch(1 0 0); --foreground: oklch(0.145 0 0);
+    --card: oklch(1 0 0); --card-foreground: oklch(0.145 0 0);
+    --primary: oklch(0.205 0 0); --primary-foreground: oklch(0.985 0 0);
+    --secondary: oklch(0.97 0 0); --secondary-foreground: oklch(0.205 0 0);
+    --muted: oklch(0.97 0 0); --muted-foreground: oklch(0.556 0 0);
+    --accent: oklch(0.97 0 0); --accent-foreground: oklch(0.205 0 0);
+    --destructive: oklch(0.577 0.245 27.325);
+    --border: oklch(0.922 0 0); --input: oklch(0.922 0 0); --ring: oklch(0.708 0 0);
+    --radius: 0.625rem; --radius-sm: calc(var(--radius) - 4px); --radius-md: calc(var(--radius) - 2px); --radius-lg: var(--radius);
+    --font-sans: "Geist Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-mono: "Geist Mono Variable", ui-monospace, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) { :root:not(.light) {
+    color-scheme: dark;
+    --background: oklch(0.145 0 0); --foreground: oklch(0.985 0 0);
+    --card: oklch(0.205 0 0); --card-foreground: oklch(0.985 0 0);
+    --primary: oklch(0.922 0 0); --primary-foreground: oklch(0.205 0 0);
+    --secondary: oklch(0.269 0 0); --secondary-foreground: oklch(0.985 0 0);
+    --muted: oklch(0.269 0 0); --muted-foreground: oklch(0.708 0 0);
+    --accent: oklch(0.269 0 0); --accent-foreground: oklch(0.985 0 0);
+    --destructive: oklch(0.704 0.191 22.216);
+    --border: oklch(1 0 0 / 10%); --input: oklch(1 0 0 / 15%); --ring: oklch(0.556 0 0);
+  } }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: var(--font-sans); font-size: 16px; color: var(--foreground); background: var(--background); }
+  a { color: inherit; }
+  .num { font-variant-numeric: tabular-nums; }
+  .muted { color: var(--muted-foreground); }
+  .destructive { color: var(--destructive); }
+
+  /* ---- shell: AppHeader + Container + Page ---- */
+  [data-component="AppHeader"] { border-bottom: 1px solid var(--border); }
+  [data-component="AppHeader"] .in { max-width: 64rem; margin: 0 auto; padding: 12px 24px; display: flex; justify-content: space-between; align-items: center; }
+  .wordmark { font-weight: 600; letter-spacing: -0.01em; text-decoration: none; }
+  .avatar { width: 28px; height: 28px; border-radius: 999px; background: var(--muted); display: inline-block; }
+  [data-component="Container"] { max-width: 64rem; margin: 0 auto; padding: 0 24px; }
+  @media (min-width: 768px) { [data-component="Container"] { padding: 0 40px; } [data-component="AppHeader"] .in { padding-left: 40px; padding-right: 40px; } }
+  [data-component="Page"] { display: flex; flex-direction: column; gap: 24px; padding-top: 28px; padding-bottom: 64px; align-items: flex-start; }
+
+  /* ---- Text ---- */
+  .t-heading { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; margin: 0; }
+  .t-body2 { font-size: 14px; color: var(--muted-foreground); }
+  .t-caption { font-size: 12px; color: var(--muted-foreground); }
+  .t-label { font-size: 14px; }
+  .t-error { font-size: 14px; color: var(--destructive); }
+
+  /* ---- Badge (shadcn variants) ---- */
+  .badge { display: inline-flex; align-items: center; gap: 4px; border-radius: 6px; padding: 1px 8px; font-size: 12px; font-weight: 500; line-height: 18px; border: 1px solid transparent; white-space: nowrap; }
+  .badge.secondary { background: var(--secondary); color: var(--secondary-foreground); }
+  .badge.outline { border-color: var(--border); color: var(--foreground); }
+  .badge.destructive { background: var(--destructive); color: #fff; }
+  .badge.normal { font-weight: 400; }
+
+  /* ---- Button (shadcn) ---- */
+  .btn { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 8px; border: 1px solid transparent; font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; background: transparent; color: var(--foreground); white-space: nowrap; }
+  .btn.sm { height: 28px; padding: 0 10px; font-size: 12.8px; border-radius: 7px; }
+  .btn.xs { height: 24px; padding: 0 8px; font-size: 12px; border-radius: 6px; }
+  .btn.default { background: var(--primary); color: var(--primary-foreground); }
+  .btn.secondary { background: var(--secondary); color: var(--secondary-foreground); }
+  .btn.outline { border-color: var(--border); background: var(--background); }
+  .btn.ghost:hover, .btn.outline:hover { background: var(--accent); }
+  .btn.default:hover { opacity: .9; }
+  .btn:disabled { opacity: .5; pointer-events: none; }
+  .btn:focus-visible { outline: none; border-color: var(--ring); box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 50%, transparent); }
+  .icon { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  .btn.default .icon, .badge.destructive .icon { stroke: currentColor; }
+
+  /* ---- Card / Input / ToggleGroup / Table ---- */
+  .card { background: var(--card); color: var(--card-foreground); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+  .input { height: 32px; border: 1px solid var(--input); border-radius: 8px; padding: 0 10px 0 30px; font: inherit; font-size: 14px; background: transparent; color: var(--foreground); min-width: 200px; }
+  .input-wrap { position: relative; }
+  .input-wrap .icon { position: absolute; left: 10px; top: 9px; color: var(--muted-foreground); }
+  .toggle-group { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .toggle-group button { font: inherit; font-size: 13px; padding: 0 12px; height: 30px; background: transparent; border: 0; border-left: 1px solid var(--border); color: var(--muted-foreground); cursor: pointer; }
+  .toggle-group button:first-child { border-left: 0; }
+  .toggle-group button[aria-pressed="true"] { background: var(--accent); color: var(--accent-foreground); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; font-weight: 500; color: var(--muted-foreground); font-size: 13px; padding: 8px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tr:last-child td { border-bottom: 0; }
+  tbody tr:hover { background: var(--accent); }
+  tr.dim { opacity: .35; }
+  .cell-score { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .cell-score .max { color: var(--muted-foreground); font-size: 12px; }
+  .row-actions { text-align: right; white-space: nowrap; }
+
+  /* ---- roster components ---- */
+  [data-component="LabHeader"] { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+  [data-component="LabHeader"] .crumb { font-size: 14px; color: var(--muted-foreground); text-decoration: none; }
+  [data-component="LabHeader"] .crumb:hover { text-decoration: underline; }
+  .row-between { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; width: 100%; }
+  .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  [data-component="LabTabs"] { display: inline-flex; gap: 2px; border-bottom: 1px solid var(--border); width: 100%; }
+  [data-component="LabTabs"] a { padding: 8px 12px 10px; font-size: 14px; color: var(--muted-foreground); text-decoration: none; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  [data-component="LabTabs"] a[aria-current="page"] { color: var(--foreground); border-bottom-color: var(--foreground); font-weight: 500; }
+  [data-component="LabStats"] { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; width: 100%; padding: 0; overflow: hidden; }
+  [data-component="LabStats"] > div { padding: 12px 20px; border-left: 1px solid var(--border); }
+  [data-component="LabStats"] > div:first-child { border-left: 0; }
+  [data-component="LabStats"] .v { font-size: 20px; font-variant-numeric: tabular-nums; }
+  [data-component="LabStats"] .v .total { font-size: 14px; color: var(--muted-foreground); }
+  [data-component="LabStats"] .l { font-size: 12px; color: var(--muted-foreground); }
+  @media (max-width: 640px) { [data-component="LabStats"] { grid-auto-flow: row; grid-template-columns: 1fr 1fr; } [data-component="LabStats"] > div:nth-child(3) { border-left: 0; } [data-component="LabStats"] > div:nth-child(n+3) { border-top: 1px solid var(--border); } }
+
+  .grader-row { display: grid; grid-template-columns: 120px 1fr auto auto; gap: 12px; align-items: center; padding: 10px 14px; border-top: 1px solid var(--border); }
+  .grader-row:first-child { border-top: 0; }
+  .grader-row .name { font-weight: 600; }
+  @media (max-width: 720px) { .grader-row { grid-template-columns: 1fr auto; } .grader-row .kv, .grader-row .t-caption { grid-column: 1 / -1; } }
+  [data-component="GraderWall"] { display: grid; width: 100%; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(max(260px, calc((100% - 12px) / 2)), 1fr)); }
+  [data-component="GraderCard"] { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; }
+  [data-component="GraderCard"] .head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  [data-component="GraderCard"] .name { font-weight: 600; font-size: 15px; }
+  [data-component="GraderCard"] .foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: auto; padding-top: 6px; }
+  .kv { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 13px; color: var(--muted-foreground); }
+  .kv b { color: var(--foreground); font-weight: 500; }
+  .grader-add { border-style: dashed; display: flex; align-items: center; justify-content: center; min-height: 120px; color: var(--muted-foreground); }
+
+  [data-component="GradingToolbar"] { width: 100%; }
+  [data-component="ScoreTable"] { width: 100%; overflow-x: auto; }
+  .repo { font-family: var(--font-mono); font-size: 12px; color: var(--muted-foreground); text-decoration: none; }
+  .repo:hover { text-decoration: underline; }
+  .hint { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 6px; background: transparent; border: 0; color: var(--muted-foreground); cursor: pointer; }
+  .hint:hover { background: var(--accent); }
+  .empty { width: 100%; padding: 32px; text-align: center; }
+  .spinner { width: 12px; height: 12px; border: 2px solid var(--border); border-top-color: var(--foreground); border-radius: 50%; display: inline-block; animation: spin .8s linear infinite; vertical-align: -2px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+
+  /* ---- mockup-only state switcher (not part of the design) ---- */
+  .mock-bar { position: fixed; left: 12px; top: 12px; display: flex; gap: 4px; background: var(--card); border: 1px solid var(--border); border-radius: 999px; padding: 4px; font-size: 12px; z-index: 9; }
+  .mock-bar button { border: 0; background: transparent; padding: 4px 10px; border-radius: 999px; cursor: pointer; color: var(--muted-foreground); font: inherit; font-size: 12px; }
+  .mock-bar button.on { background: var(--primary); color: var(--primary-foreground); }
+  [data-state] { display: none; } [data-state].show { display: contents; }
+</style>
+<style>
+  /* Dialog (shadcn): overlay + centered panel; the grading page sits behind, dimmed */
+  .overlay { position: fixed; inset: 0; background: rgb(0 0 0 / .5); display: flex; align-items: flex-start; justify-content: center; padding: 6vh 16px; overflow: auto; z-index: 5; }
+  .dialog { width: 100%; max-width: 640px; background: var(--background); color: var(--foreground); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: 0 10px 40px rgb(0 0 0 / .2); display: flex; flex-direction: column; }
+  .dialog.wide { max-width: 760px; }
+  .dlg-head { padding: 20px 24px 0; display: flex; flex-direction: column; gap: 4px; }
+  .dlg-title { font-size: 18px; font-weight: 600; letter-spacing: -0.01em; margin: 0; }
+  .dlg-desc { font-size: 14px; color: var(--muted-foreground); margin: 0; }
+  .dlg-body { padding: 20px 24px; display: flex; flex-direction: column; gap: 20px; }
+  .dlg-foot { padding: 0 24px 20px; display: flex; justify-content: flex-end; gap: 8px; align-items: center; }
+  .dlg-foot .left { margin-right: auto; }
+  .close { position: absolute; right: 12px; top: 12px; }
+  .dialog { position: relative; }
+
+  /* form primitives (Label, Input, Select, Switch) */
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label, .lbl { font-size: 14px; font-weight: 500; }
+  .field .help { font-size: 12px; color: var(--muted-foreground); }
+  .field .input, .field select, .field textarea { min-width: 0; width: 100%; }
+  .input.plain { padding-left: 10px; }
+  select { height: 32px; border: 1px solid var(--input); border-radius: 8px; padding: 0 10px; font: inherit; font-size: 14px; background: transparent; color: var(--foreground); }
+  textarea { border: 1px solid var(--input); border-radius: 8px; padding: 8px 10px; font: inherit; font-size: 13px; background: transparent; color: var(--foreground); resize: vertical; min-height: 60px; }
+  textarea.mono, .input.mono { font-family: var(--font-mono); font-size: 12.5px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
+  .grid3 { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px 16px; }
+  @media (max-width: 560px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
+  .switch { width: 32px; height: 18px; border-radius: 999px; background: var(--input); position: relative; display: inline-block; flex: none; }
+  .switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--background); transition: left .15s; }
+  .switch.on { background: var(--primary); } .switch.on::after { left: 16px; }
+  .section-title { font-size: 12px; font-weight: 500; color: var(--muted-foreground); text-transform: uppercase; letter-spacing: .06em; }
+  .divider { border-top: 1px solid var(--border); }
+  .pts { width: 64px; text-align: right; }
+  .kbd { font-family: var(--font-mono); font-size: 12px; background: var(--muted); padding: 1px 6px; border-radius: 4px; }
+  .out { border: 1px solid var(--border); border-radius: var(--radius-md); background: color-mix(in oklch, var(--muted) 40%, transparent); font-family: var(--font-mono); font-size: 12px; padding: 10px 12px; white-space: pre-wrap; overflow-x: auto; }
+  .out .exp { color: var(--muted-foreground); }
+
+  /* dimensions list (contributions) */
+  .dims { border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
+  .dim-row { display: grid; grid-template-columns: 32px 1fr auto 72px; gap: 10px; align-items: center; padding: 10px 12px; border-top: 1px solid var(--border); }
+  .dim-row:first-child { border-top: 0; }
+  .dim-row.group-only { background: color-mix(in oklch, var(--muted) 60%, transparent); }
+  .dim-row .n { font-size: 14px; }
+  .dim-row .d { font-size: 12px; color: var(--muted-foreground); }
+  .dim-row.off { opacity: .5; }
+  /* InputGroup (shadcn): number Input + "pts" addon, compact */
+  .weight { display: inline-flex; align-items: stretch; height: 28px; border: 1px solid var(--input); border-radius: 7px; overflow: hidden; font-size: 12px; }
+  .weight input { width: 40px; min-width: 0; border: 0; padding: 0 6px; text-align: right; font: inherit; font-size: 13px; font-variant-numeric: tabular-nums; background: transparent; color: var(--foreground); -moz-appearance: textfield; }
+  .weight input::-webkit-inner-spin-button, .weight input::-webkit-outer-spin-button { -webkit-appearance: none; }
+  .weight .addon { display: flex; align-items: center; padding: 0 8px; background: var(--muted); color: var(--muted-foreground); border-left: 1px solid var(--input); }
+  .dims-head { display: grid; grid-template-columns: 32px 1fr auto 72px; gap: 10px; padding: 6px 12px; font-size: 11px; color: var(--muted-foreground); text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--border); background: color-mix(in oklch, var(--muted) 40%, transparent); }
+
+  /* cases list (tests) */
+  .cases { display: flex; flex-direction: column; gap: 8px; }
+  .case { border: 1px solid var(--border); border-radius: var(--radius-md); }
+  .case-head { display: grid; grid-template-columns: 24px 1fr auto auto auto 28px; gap: 10px; align-items: center; padding: 8px 10px; }
+  .case-head .name { font-size: 14px; font-weight: 500; }
+  .case-head .cmd { font-family: var(--font-mono); font-size: 12px; color: var(--muted-foreground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .case-body { border-top: 1px solid var(--border); padding: 12px; display: flex; flex-direction: column; gap: 12px; background: color-mix(in oklch, var(--muted) 40%, transparent); }
+  .drag { color: var(--muted-foreground); cursor: grab; text-align: center; }
+  .chev { color: var(--muted-foreground); }
+</style>
+
+<style>
+  .dialog.report { max-width: 860px; }
+  .rep-head { display: flex; flex-direction: column; gap: 10px; }
+  .rep-total { display: flex; align-items: baseline; gap: 6px; font-variant-numeric: tabular-nums; }
+  .rep-total .n { font-size: 28px; font-weight: 600; letter-spacing: -0.01em; }
+  .rep-total .m { color: var(--muted-foreground); }
+  .rep-parts { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
+  .rep-parts b { color: var(--foreground); font-weight: 500; }
+  .sec { border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
+  .sec-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 14px; background: color-mix(in oklch, var(--muted) 50%, transparent); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .sec-head .t { font-weight: 600; font-size: 15px; }
+  .sec-body { padding: 14px; display: flex; flex-direction: column; gap: 14px; }
+  .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0; border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
+  .metric { padding: 10px 12px; border-left: 1px solid var(--border); border-top: 1px solid var(--border); margin-top: -1px; }
+  .metric:first-child { border-left: 0; }
+  .metric .v { font-size: 18px; font-variant-numeric: tabular-nums; }
+  .metric .l { font-size: 12px; color: var(--muted-foreground); }
+  .authors { width: 100%; font-size: 13px; }
+  .authors th { padding: 6px 10px; } .authors td { padding: 6px 10px; }
+  .bar { height: 6px; background: var(--muted); border-radius: 3px; overflow: hidden; min-width: 90px; }
+  .bar > span { display: block; height: 100%; background: var(--foreground); }
+  .timeline { display: grid; grid-template-columns: repeat(14, 1fr); gap: 3px; align-items: end; height: 48px; }
+  .timeline span { background: var(--muted-foreground); border-radius: 2px 2px 0 0; min-height: 2px; opacity: .8; }
+  .timeline span.deadline { background: var(--destructive); opacity: 1; }
+  .tl-cap { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted-foreground); }
+  .dimr { display: grid; grid-template-columns: 1fr 100px; gap: 12px; padding: 12px 0; border-top: 1px solid var(--border); }
+  .dimr:first-child { border-top: 0; padding-top: 0; }
+  .dimr .h { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .dimr .h b { font-size: 14px; }
+  .dimr .why { font-size: 13px; color: var(--foreground); margin: 6px 0 0; line-height: 1.5; }
+  .dimr .ev { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .ev a { font-family: var(--font-mono); font-size: 11.5px; text-decoration: none; border: 1px solid var(--border); border-radius: 6px; padding: 2px 6px; color: var(--muted-foreground); }
+  .ev a:hover { background: var(--accent); }
+  .dimr .score { text-align: right; font-variant-numeric: tabular-nums; }
+  .dimr .score .n { font-size: 18px; font-weight: 600; }
+  .dimr .score .m { color: var(--muted-foreground); font-size: 12px; }
+  .cases-t { width: 100%; font-size: 13px; }
+  .cases-t td, .cases-t th { padding: 8px 10px; }
+  .cases-t td.st { width: 90px; }
+  .out { border: 1px solid var(--border); border-radius: var(--radius-md); background: color-mix(in oklch, var(--muted) 40%, transparent); font-family: var(--font-mono); font-size: 12px; padding: 10px 12px; white-space: pre-wrap; overflow-x: auto; }
+  .out .exp { color: var(--muted-foreground); }
+  .out .got { color: var(--destructive); }
+  details summary { cursor: pointer; font-size: 13px; color: var(--muted-foreground); list-style: none; display: flex; align-items: center; gap: 6px; }
+  details summary::before { content: "▸"; font-size: 11px; } details[open] summary::before { content: "▾"; }
+  .foot-meta { font-size: 12px; color: var(--muted-foreground); display: flex; gap: 12px; flex-wrap: wrap; }
+  .kbd { font-family: var(--font-mono); font-size: 12px; background: var(--muted); padding: 1px 6px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<header data-component="AppHeader"><div class="in"><a class="wordmark" href="#">roster</a><span class="row"><span class="t-body2">stefan.teofanovic@heig-vd.ch</span><span class="avatar"></span></span></div></header>
+
+<div data-component="Container">
+<main data-component="Page">
+
+  <div data-component="LabHeader">
+    <a class="crumb" href="#">‹ Classes / TWeb 2026</a>
+    <div class="row-between">
+      <div class="row">
+        <h1 class="t-heading">Lab 2 — Primitives</h1>
+        <span class="badge secondary normal">group · 2–3</span>
+        <span class="t-body2 num">due Mon 22 Sep, 23:59</span>
+        <span class="badge secondary">running</span>
+      </div>
+      <div class="row">
+        <span class="badge outline">teacher</span>
+        <button class="btn ghost sm"><svg class="icon" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>Delete lab</button>
+      </div>
+    </div>
+    <nav data-component="LabTabs" aria-label="Lab sections">
+      <a href="#">Groups</a>
+      <a href="#" aria-current="page">Grading</a>
+    </nav>
+  </div>
+
+  <div data-component="LabStats" class="card"><div><div class="v">12<span class="total">/14</span></div><div class="l">groups graded</div></div><div><div class="v destructive">2</div><div class="l">failed runs</div></div><div><div class="v">71<span class="total"> %</span></div><div class="l">average score</div></div><div><div class="v">1</div><div class="l">never run</div></div></div>
+</main></div>
+
+<div class="overlay">
+  <div class="dialog report" role="dialog" aria-labelledby="r-title">
+    <button class="btn ghost xs close" aria-label="Close"><svg class="icon" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    <div class="dlg-head rep-head">
+      <div class="row-between" style="padding-right:32px">
+        <div>
+          <h2 class="dlg-title" id="r-title">Team Beta — grading report</h2>
+          <p class="dlg-desc">Lab 2 — Primitives · graded from <span class="kbd">main</span> at the deadline · <a class="repo" href="#">9f8e7d6 ↗</a> · run 17 Aug 14:21</p>
+        </div>
+        <button class="btn outline sm"><svg class="icon" viewBox="0 0 24 24"><path d="m6 4 14 8-14 8z"/></svg>Re-run this group</button>
+      </div>
+      <div class="rep-parts" style="font-size:14px"><span>tests <b>17 / 19</b></span><span>contributions <b>6 / 8</b></span></div>
+    </div>
+    <div class="dlg-body">
+
+      <section class="sec">
+        <div class="sec-head"><span class="row"><span class="t">Contributions</span><span class="badge outline num">6 / 8</span></span><span class="t-caption num">2 authors · 30 commits on main · gpt-oss-120b · prompt v3</span></div>
+        <div class="sec-body">
+          <div class="metrics">
+            <div class="metric"><div class="v">30</div><div class="l">commits on main</div></div>
+            <div class="metric"><div class="v">+2 148 / −402</div><div class="l">lines added / removed</div></div>
+            <div class="metric"><div class="v destructive">77 %</div><div class="l">of work in the last 48 h</div></div>
+            <div class="metric"><div class="v">3</div><div class="l">pull requests · 1 reviewed</div></div>
+            <div class="metric"><div class="v">1</div><div class="l">bus factor</div></div>
+          </div>
+          <table class="authors">
+            <thead><tr><th>Author</th><th>Commits</th><th>Lines</th><th></th></tr></thead>
+            <tbody>
+              <tr><td>@nora · Nora Vuille</td><td class="num">26</td><td class="num">+1 990 / −380</td><td><span class="bar"><span style="width:87%"></span></span></td></tr>
+              <tr><td>@luca · Luca Piras</td><td class="num">4</td><td class="num">+158 / −22</td><td><span class="bar"><span style="width:13%"></span></span></td></tr>
+            </tbody>
+          </table>
+          <div>
+            <div class="dimr"><div><div class="h"><b>Work spread over time</b><span class="badge outline normal">confidence high</span></div><p class="why">23 of 30 commits land in the final two days, 14 of them in the last six hours; the first ten days hold four commits. The history reads as a final push rather than sustained work.</p><div class="ev"><a href="#">a91c0f2 · 21 Sep 23:12</a><a href="#">b77e13d · 21 Sep 22:40</a><a href="#">+12 more</a></div></div><div class="score"><div class="n">0<span class="m">/2</span></div></div></div>
+            <div class="dimr"><div><div class="h"><b>Descriptive commit messages</b><span class="badge outline normal">confidence high</span></div><p class="why">Messages name the change and the reason in French or English (&ldquo;corrige la division par zéro&rdquo;, &ldquo;add CLI help text&rdquo;); only two are placeholders (&ldquo;fix&rdquo;, &ldquo;wip&rdquo;).</p><div class="ev"><a href="#">3c2a4e1 · corrige la division par zéro</a><a href="#">d81f9a0 · add CLI help text</a><a href="#">e5522b1 · fix</a></div></div><div class="score"><div class="n">2<span class="m">/2</span></div></div></div>
+            <div class="dimr"><div><div class="h"><b>Balanced contribution</b><span class="badge outline normal">confidence medium</span> <button class="hint" aria-label="Low confidence"><svg class="icon" viewBox="0 0 24 24"><path d="M12 3 2 21h20L12 3zM12 10v4M12 18h.01"/></svg></button></div><p class="why">Nora authored 87 % of the lines and 26 of 30 commits. Luca's four commits touch the README and one test file. Some of Nora's commits carry Co-authored-by trailers for Luca (pair work is possible), which is why this is not scored 0.</p><div class="ev"><a href="#">7f0b2c9 · Co-authored-by: Luca</a><a href="#">README.md · 2 commits by @luca</a></div></div><div class="score"><div class="n">1<span class="m">/2</span></div></div></div>
+            <div class="dimr"><div><div class="h"><b>Branches and pull requests</b><span class="badge outline normal">confidence high</span></div><p class="why">Three feature branches were merged through pull requests; one PR carries a review comment thread. Direct pushes to main are limited to the initial setup.</p><div class="ev"><a href="#">PR #1 · add-cli</a><a href="#">PR #2 · division</a><a href="#">PR #3 · docs (reviewed)</a></div></div><div class="score"><div class="n">2<span class="m">/2</span></div></div></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="sec">
+        <div class="sec-head"><span class="row"><span class="t">Tests</span><span class="badge outline num">17 / 19</span></span><span class="t-caption num">npm install 41 s · npm run test 1.9 s · Node 22 image</span></div>
+        <div class="sec-body">
+          <p class="t-body2" style="margin:0"><span class="kbd">npm run test</span> exited with code 2 after 1.9 s &mdash; mocha: 17 passing, 2 failing. Output below.</p>
+          <div class="metrics">
+            <div class="metric"><div class="v">2</div><div class="l">exit code</div></div>
+            <div class="metric"><div class="v">17 / 19</div><div class="l">tests passing (mocha summary)</div></div>
+            <div class="metric"><div class="v">1.9 s</div><div class="l">command duration</div></div>
+          </div>
+          <details open>
+            <summary>npm run test &mdash; output (last 200 lines)</summary>
+            <div class="out" style="margin-top:8px">&gt; 07-websocket@1.0.0 test
+&gt; mocha --experimental-modules
+
+  Shapes
+    ✔ Rotating a shape should be consistent.
+    ✔ All shapes should be returned by getRandomShape
+
+  Game stepping
+    ✔ All shapes should move down by 1
+    <span class="got">1) Should ask grid to place shape when touching the ground upon step, and clear full rows.</span>
+    ✔ If multiple shapes touch the ground upon stepping, they should be placed and be replaced, the others unaffected.
+    ✔ If two shapes overlap when touching the ground, only one should be placed
+
+  Slamming a shape
+    ✔ Shape is touching bottom of grid.
+    ✔ Shape is hovering over bottom of grid.
+    ✔ Shape is touching already placed blocks.
+    ✔ Shape is hovering already placed blocks.
+
+  Detecting shape collisions
+    ✔ Shape overlaps placed shape at non-origin coordinates, if not rotated.
+    ✔ Shape does not overlap placed shape if rotated.
+    ✔ Shape overlaps placed shape at its origin.
+    ✔ Shape out of bounds at non-origin coordinates, if not rotated.
+    ✔ Shape not out of bounds iff rotated.
+    ✔ Shape out of bounds at its origin.
+
+  Clearing full rows
+    ✔ Exactly one row to clear.
+    <span class="got">2) Multiple rows to clear.</span>
+    ✔ No rows to clear.
+
+  <span class="got">17 passing (12ms)
+  2 failing</span>
+
+  1) Game stepping
+       Should ask grid to place shape when touching the ground upon step, and clear full rows.:
+     <span class="got">AssertionError: expected placeShape to have been called once</span>
+      at Context.&lt;anonymous&gt; (test/game.js:41:7)
+
+  2) Clearing full rows
+       Multiple rows to clear.:
+     <span class="got">AssertionError: expected [ 0, 0, 0, 0 ] to deeply equal [ 0, 0 ]</span>
+      at Context.&lt;anonymous&gt; (test/placedShapesGrid.js:58:5)
+</div>
+          </details>
+          <details>
+            <summary>setup log (npm install, 41 s)</summary>
+          </details>
+        </div>
+      </section>
+
+      <div class="foot-meta"><span>graders ran on <span class="kbd">main@9f8e7d6</span> (mirror grading/lab-2-primitives-team-beta)</span><span>·</span><span>scores are advisory; the grade is yours</span></div>
+    </div>
+    <div class="dlg-foot"><button class="btn ghost sm left">Copy summary</button><button class="btn outline sm">Close</button></div>
+  </div>
+</div>
+
+<!--
+HANDOFF NOTE - group grading report (opened by "Report >" on a score-table row)
+
+ReportDialog (NEW, custom/classes/grading/report-dialog.tsx)  shadcn Dialog, wide. Header: "<group> - grading report", lab / snapshot SHA link / run time, "Re-run this group" (outline sm) top-right; the two verdicts on one line: tests pass/fail Badge, contributions n / 8. No total. Body: one ReportSection per grader in position order, each rendered by the plugin's own report view from the run's report JSON. Footer meta: mirror ref + advisory sentence; "Copy summary" (ghost) copies a plain-text summary for the prof's notes.
+
+contributions report view
+- Metrics strip (LabStats-shaped, plain numbers; destructive text only when a number IS the problem, e.g. 77 % in the last 48 h).
+- Authors table with a proportion bar (foreground on muted, no colour).
+- Per dimension: name, confidence Badge(outline) (+ Hint when low), the model's rationale as one paragraph, evidence chips = commit SHAs / PRs / files linking to GitHub, score n/weight on the right.
+tests report view (one command; example output is real mocha output from a TWeb tetris repo)
+- Header: pass/fail Badge; caption with setup/command durations + image.
+- One Text(error) sentence when it failed (exit code, duration, "N passing, M failing" when the runner summary is recognisable - best effort, never required).
+- Metrics strip: exit code, tests passing (parsed), duration.
+- <details open> with the command's captured output (tail, mono; the runner's failure lines in destructive); setup log collapsed.
+
+New tokens: none. Colours: pass = secondary (not green), fail = destructive, not run = outline. Copy: "grading report", "Re-run this group", "Copy summary", "partial - one grader failed", "not run", "scores are advisory; the grade is yours".
+Acceptance: 390 (metrics wrap 2-per-row, tables scroll inside), 820, 1280; Esc closes; details keyboard-toggleable.
+-->
+
+</body>
+</html>
