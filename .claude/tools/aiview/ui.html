@@ -149,7 +149,7 @@ function renderSidebar() {
       <span class="meta">${d.tags.map((t) => `<span class="chip static">${esc(t)}</span>`).join("")}<span>${esc(projectName(d.project))}</span><span class="updated">updated ${fmt(d.last_seen_at)}</span></span>
     </li>`).join("") || `<li class="empty">no documents</li>`;
   $("#docs").querySelectorAll("li.doc").forEach((el) => el.onclick = () => open(Number(el.dataset.id)));
-  $("#status").textContent = `${state.docs.length} documents · ~/.aiview/aiview.sqlite`;
+  $("#status").textContent = `${state.docs.length} documents · index: aiview.sqlite next to the tool (versioned)`;
 }
 
 async function loadIndex() {
@@ -167,7 +167,7 @@ async function open(id, push = true) {
   const d = data.document;
   $("#doctitle").textContent = d.title || "(untitled)";
   $("#dochead").innerHTML = `<span class="started">started ${fmtStart(d.created_at)}</span>${d.tags.map((t) => `<span class="chip static">${esc(t)}</span>`).join("")}<span class="updated">${esc(projectName(d.project))} · updated ${fmt(d.last_seen_at)}</span><span class="spacer"></span>${kindChip(d.kind, true, "static")}`;
-  if (data.content == null) $("#doc").innerHTML = `<p class="empty">File is missing on disk: <code>${esc(data.document.file_path)}</code></p>`;
+  if (data.content == null) $("#doc").innerHTML = `<p class="empty">File is missing on disk: <code>${esc(data.document.abs_path || data.document.file_path)}</code></p>`;
   else if (data.format === "html") renderHtml(data.content);
   else await renderMarkdown(data.content);
   renderSidebar();

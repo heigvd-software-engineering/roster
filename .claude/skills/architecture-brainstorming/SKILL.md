@@ -54,8 +54,9 @@ node .claude/tools/aiview/aiview.mjs serve docs/specs/YYYY-MM-DD-<topic>.brainst
 ```
 
 Start it once in the background, tell the user the URL, and keep editing the same file —
-it reloads on save. Resuming later: `aiview list --kind brainstorm` shows every board
-across projects with its start date-time; read the relevant one before asking the user anything again.
+it reloads on save. The index (`aiview.sqlite` next to the tool) is versioned with the repo,
+so resuming on another machine needs no re-registration: `aiview list --kind brainstorm`
+shows every board with its start date-time; read the relevant one before asking the user anything again.
 
 ## Diagrams
 

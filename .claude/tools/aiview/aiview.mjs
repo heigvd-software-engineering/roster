@@ -8,13 +8,14 @@
 //
 // Every document has one mandatory KIND (brainstorm, mockup, pr-analysis, ...) — from the filename
 // `<name>.<kind>.md` or --kind — plus free tags, and a start date-time (created_at, first
-// registration). Pure Node >= 22.5 (node:sqlite), no npm install, Windows + macOS. Files are
-// the truth; SQLite (~/.aiview/aiview.sqlite) only indexes.
+// registration). Pure Node >= 22.5 (node:sqlite), no npm install, Windows + macOS.
+// The index is `aiview.sqlite` NEXT TO THIS FILE, versioned with the repo that vendors the tool;
+// document paths are stored relative to the repo root (nearest .git above the tool), so the same
+// index works on every machine that checks the repo out. Files are the truth; the index only points.
 
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import http from "node:http";
-import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -29,11 +30,20 @@ process.on("warning", (w) => { if (w.name !== "ExperimentalWarning") console.war
 const { DatabaseSync } = await import("node:sqlite");
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const dataDir = path.join(os.homedir(), ".aiview");
-fs.mkdirSync(dataDir, { recursive: true });
-const db = new DatabaseSync(path.join(dataDir, "aiview.sqlite"));
+/** Nearest ancestor holding a .git (the repo that vendors the tool), else the tool folder. */
+function repoRootOf(start) {
+  let dir = start;
+  for (;;) {
+    if (fs.existsSync(path.join(dir, ".git"))) return dir;
+    const parent = path.dirname(dir);
+    if (parent === dir) return start;
+    dir = parent;
+  }
+}
+const ROOT = repoRootOf(here);
+const db = new DatabaseSync(path.join(here, "aiview.sqlite"));
 db.exec(`
-  PRAGMA journal_mode = WAL;
+  PRAGMA journal_mode = DELETE;
   CREATE TABLE IF NOT EXISTS documents (
     id INTEGER PRIMARY KEY,
     file_path TEXT NOT NULL UNIQUE,
@@ -53,6 +63,13 @@ db.exec("DROP TABLE IF EXISTS revisions");
 
 // ---------- helpers ----------
 const now = () => new Date().toISOString();
+/** Stored form of a path: posix-relative to ROOT when inside it, absolute otherwise. */
+const toStored = (abs) => {
+  const rel = path.relative(ROOT, abs);
+  return rel && !rel.startsWith("..") && !path.isAbsolute(rel) ? rel.split(path.sep).join("/") : abs;
+};
+/** Absolute path for a stored one, on this machine. */
+const toAbs = (stored) => (path.isAbsolute(stored) ? stored : path.resolve(ROOT, ...stored.split("/")));
 const readDoc = (p) => fs.readFileSync(p, "utf8").replace(/\r\n/g, "\n");
 const isHtml = (file) => /\.html?$/i.test(file);
 const titleOf = (text, file) => {
@@ -62,25 +79,18 @@ const titleOf = (text, file) => {
   return (m ?? path.basename(file)).trim();
 };
 
-function projectRoot(file) {
-  let dir = path.dirname(file);
-  for (;;) {
-    if (fs.existsSync(path.join(dir, ".git"))) return dir;
-    const parent = path.dirname(dir);
-    if (parent === dir) return path.dirname(file);
-    dir = parent;
-  }
-}
+const projectRoot = (file) => path.basename(repoRootOf(path.dirname(file)));
 /** `<name>.<kind>.md` / `<name>.<kind>.html` -> "kind"; anything else -> "" */
 function kindFromName(file) {
   const parts = path.basename(file).split(".");
   return parts.length >= 3 ? parts[parts.length - 2].toLowerCase() : "";
 }
-const parseTags = (row) => (row ? { ...row, tags: JSON.parse(row.tags) } : row);
+const parseTags = (row) => (row ? { ...row, tags: JSON.parse(row.tags), abs_path: toAbs(row.file_path) } : row);
 
-function registerDocument(file, { kind = "", tags: extraTags = [], started = "" } = {}) {
-  if (!fs.existsSync(file)) throw new Error(`no such file: ${file}`);
-  const content = readDoc(file);
+function registerDocument(absFile, { kind = "", tags: extraTags = [], started = "" } = {}) {
+  if (!fs.existsSync(absFile)) throw new Error(`no such file: ${absFile}`);
+  const file = toStored(absFile);
+  const content = readDoc(absFile);
   const existing = db.prepare("SELECT * FROM documents WHERE file_path = ?").get(file);
   const finalKind = (kind || existing?.kind || kindFromName(file)).toLowerCase();
   if (!finalKind)
@@ -93,13 +103,13 @@ function registerDocument(file, { kind = "", tags: extraTags = [], started = "" 
     `INSERT INTO documents (file_path, project, title, kind, tags, created_at, last_seen_at)
      VALUES (?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(file_path) DO UPDATE SET last_seen_at = excluded.last_seen_at, title = excluded.title, kind = excluded.kind, tags = excluded.tags, created_at = excluded.created_at`,
-  ).run(file, projectRoot(file), titleOf(content, file), finalKind, JSON.stringify(tags), startedAt, t);
+  ).run(file, projectRoot(absFile), titleOf(content, absFile), finalKind, JSON.stringify(tags), startedAt, t);
   return parseTags(db.prepare("SELECT * FROM documents WHERE file_path = ?").get(file));
 }
 const getDoc = (id) => parseTags(db.prepare("SELECT * FROM documents WHERE id = ?").get(Number(id)));
 const allDocs = () =>
   db.prepare("SELECT * FROM documents ORDER BY created_at DESC, id DESC").all().map(parseTags)
-    .map((d) => ({ ...d, exists: fs.existsSync(d.file_path), format: isHtml(d.file_path) ? "html" : "markdown" }));
+    .map((d) => ({ ...d, exists: fs.existsSync(d.abs_path), format: isHtml(d.file_path) ? "html" : "markdown" }));
 const touch = (id) => db.prepare("UPDATE documents SET last_seen_at = ? WHERE id = ?").run(now(), id);
 
 // ---------- CLI ----------
@@ -130,7 +140,7 @@ if (cmd === "remove") {
   for (const ref of positional) {
     const row = /^#?\d+$/.test(ref)
       ? db.prepare("SELECT * FROM documents WHERE id = ?").get(Number(ref.replace("#", "")))
-      : db.prepare("SELECT * FROM documents WHERE file_path = ?").get(path.resolve(ref));
+      : db.prepare("SELECT * FROM documents WHERE file_path = ?").get(toStored(path.resolve(ref)));
     if (!row) { console.error(`not in index: ${ref}`); continue; }
     db.prepare("DELETE FROM documents WHERE id = ?").run(row.id);
     console.log(`removed #${row.id}  ${row.title}  (file untouched)`);
@@ -153,12 +163,12 @@ const broadcast = (event) => { for (const res of clients) res.write(`data: ${JSO
 const watched = new Map(); // dir → fs.FSWatcher
 const timers = new Map();
 function ensureWatch(doc) {
-  const dir = path.dirname(doc.file_path);
+  const dir = path.dirname(doc.abs_path);
   if (watched.has(dir)) return;
   try {
     const w = fs.watch(dir, (_e, name) => {
       if (!name) return;
-      const hit = allDocs().find((d) => path.dirname(d.file_path) === dir && path.basename(d.file_path) === String(name));
+      const hit = allDocs().find((d) => path.dirname(d.abs_path) === dir && path.basename(d.abs_path) === String(name));
       if (!hit) return;
       clearTimeout(timers.get(hit.id));
       timers.set(hit.id, setTimeout(() => { touch(hit.id); broadcast({ type: "changed", id: hit.id }); }, 150));
@@ -216,9 +226,9 @@ const server = http.createServer(async (req, res) => {
   if (m) {
     const doc = getDoc(m[1]);
     if (!doc) return json(res, { error: "not found" }, 404);
-    if (!fs.existsSync(doc.file_path)) return json(res, { document: doc, content: null });
+    if (!fs.existsSync(doc.abs_path)) return json(res, { document: doc, content: null });
     ensureWatch(doc);
-    return json(res, { document: doc, format: isHtml(doc.file_path) ? "html" : "markdown", content: readDoc(doc.file_path) });
+    return json(res, { document: doc, format: isHtml(doc.file_path) ? "html" : "markdown", content: readDoc(doc.abs_path) });
   }
   send(res, 404, "not found", "text/plain");
 });

@@ -22,17 +22,10 @@ Working board for the autograding design discussion (2026-08-17). **Spec written
 
 ## Resume on another device
 
-Branch `brainstorm/autograding`. Everything needed is in the repo: this board, the spec, the design language, the mockups, the two skills (`.claude/skills/architecture-brainstorming`, `.claude/skills/frontend-design`) and the viewer (`.claude/tools/aiview`, Node ≥ 22.5, no install; vendor libs are fetched on first run). The viewer's index is per machine, so re-register once from the repo root:
+Branch `brainstorm/autograding`. Everything is in the repo: this board, the spec, the design language, the mockups, the two skills (`.claude/skills/architecture-brainstorming`, `.claude/skills/frontend-design`) and the viewer **with its index** (`.claude/tools/aiview/aiview.sqlite`, paths relative to the repo root — versioned, so nothing to re-register). Node ≥ 22.5, no install; the viewer fetches its two libs on first run.
 
 ```sh
-A="node .claude/tools/aiview/aiview.mjs"
-$A add docs/specs/2026-08-17-autograding.brainstorm.md --tag roster --tag autograding --started 2026-08-17T14:15:00+02:00
-$A add docs/specs/2026-08-17-autograding.md --kind spec --tag roster --tag autograding --started 2026-08-17T16:15:00+02:00
-$A add docs/design/design-language.md --kind reference --tag roster --tag design --started 2026-08-17T15:16:00+02:00
-$A add docs/design/mockups/2026-08-17-lab-grading.mockup.html --tag roster --tag autograding --started 2026-08-17T15:21:00+02:00
-$A add docs/design/mockups/2026-08-17-grader-config.mockup.html --tag roster --tag autograding --started 2026-08-17T15:31:00+02:00
-$A add docs/design/mockups/2026-08-17-grading-report.mockup.html --tag roster --tag autograding --started 2026-08-17T15:43:00+02:00
-$A serve docs/specs/2026-08-17-autograding.md --open
+node .claude/tools/aiview/aiview.mjs serve docs/specs/2026-08-17-autograding.md --open
 ```
 
 Where we stopped (2026-08-17 evening): spec written and under review; next step = the phased plan (riskiest first: sandbox clone + `npm run test` on a TWeb repo), then implementation. Team lead review of the mockups pending (tomorrow).

@@ -1,8 +1,8 @@
 # aiview
 
 Local Markdown viewer with a document index. Renders `.md` files (GFM + mermaid) at
-`http://localhost:4321`, live-reloads on save, and keeps a central index of every document
-it has been given (path, project, title, tags) so earlier work is one click away.
+`http://localhost:4321`, live-reloads on save, and keeps an index of every document it has been given (path,
+project, title, kind, tags, start time) so earlier work is one click away.
 
 Made for skills that produce living documents — a brainstorm board, a PR analysis, a
 review report. The viewer knows nothing about those use cases: each document carries one
@@ -45,8 +45,10 @@ and the rendered document; reloads when the file changes. `#doc=<id>` selects a 
 
 ## Storage
 
-`~/.aiview/aiview.sqlite`, one table `documents`. Files are the truth; the DB is only an
-index — deleting it loses the list, never a document.
+`aiview.sqlite` **next to `aiview.mjs`**, one table `documents`, single-file journal — so a repo
+that vendors the tool versions its index too and the same list appears on every machine
+after a checkout. Document paths are stored relative to the repo root (nearest `.git`
+above the tool), absolute only for files outside it. Files are the truth; the index only points.
 
 ## Layout
 
