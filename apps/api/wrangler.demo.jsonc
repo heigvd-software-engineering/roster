@@ -20,7 +20,9 @@
     "directory": "../www/build/client",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/*"]
+    // Same list as the production config: /mcp and the discovery documents sit
+    // outside /api/*, and the assets layer would answer them with index.html.
+    "run_worker_first": ["/api/*", "/mcp", "/mcp/*", "/.well-known/*"]
   },
 
   // Secrets are set once per Worker with
