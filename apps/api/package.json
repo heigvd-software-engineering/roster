@@ -19,8 +19,10 @@
   },
   "dependencies": {
     "@hono/zod-validator": "^0.8.0",
+    "@modelcontextprotocol/hono": "^2.0.0",
+    "@modelcontextprotocol/server": "^2.0.0",
     "@roster/db": "workspace:*",
-    "better-auth": "^1.6.23",
+    "better-auth": "^1.7.2",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.12.27",
     "octokit": "^5.0.5",

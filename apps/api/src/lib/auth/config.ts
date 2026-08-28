@@ -116,7 +116,22 @@ export function createAuth(env: AuthEnv) {
         config: [
           {
             providerId: "switch",
-            discoveryUrl: `${env.EDUID_ISSUER}/.well-known/openid-configuration`,
+            // Endpoints explicitly, not `discoveryUrl`. Better Auth 1.7 moved
+            // discovery from the provider's methods (1.6: fetched during a
+            // sign-in) into plugin `init`, which runs on every auth context —
+            // and roster builds one per request. Left on discovery, every
+            // authenticated request would fetch SWITCH's well-known document
+            // first, and an unreachable SWITCH would throw at init and 500 the
+            // whole API, not just sign-in. These four URLs are what that
+            // document returns; they belong to the issuer and move with it.
+            authorizationUrl: `${env.EDUID_ISSUER}/idp/profile/oidc/authorize`,
+            tokenUrl: `${env.EDUID_ISSUER}/idp/profile/oidc/token`,
+            userInfoUrl: `${env.EDUID_ISSUER}/idp/profile/oidc/userinfo`,
+            // The account namespace 1.7 pairs with the subject claim. Without
+            // discovery there is nothing to infer it from, and it must stay
+            // byte-stable: SWITCH publishes the issuer with a trailing slash,
+            // so match that exactly rather than reusing EDUID_ISSUER as-is.
+            accountIssuer: `${env.EDUID_ISSUER}/`,
             clientId: env.EDUID_CLIENT_ID,
             clientSecret: env.EDUID_CLIENT_SECRET,
             // The registry's contract: `openid` plus SWITCH's userinfo scope.

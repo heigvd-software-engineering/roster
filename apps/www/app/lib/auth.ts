@@ -1,8 +1,5 @@
 import type { Auth } from "@roster/api";
-import {
-  customSessionClient,
-  genericOAuthClient,
-} from "better-auth/client/plugins";
+import { customSessionClient } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 
 // No explicit baseURL: Better Auth defaults to the current origin (resolved
@@ -10,7 +7,7 @@ import { createAuthClient } from "better-auth/react";
 // prerender when this module is pulled into the eagerly-evaluated root.
 const authClient = createAuthClient({
   // customSessionClient<Auth> infers the extra session fields (githubLinked).
-  plugins: [genericOAuthClient(), customSessionClient<Auth>()],
+  plugins: [customSessionClient<Auth>()],
 });
 
 export const { signIn, signOut, linkSocial, unlinkAccount } = authClient;

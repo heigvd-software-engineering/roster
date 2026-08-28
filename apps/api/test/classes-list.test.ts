@@ -204,6 +204,7 @@ beforeEach(async () => {
   await db.insert(account).values({
     id: "a1",
     userId: "u1",
+    issuer: "local:oauth:github",
     providerId: "github",
     accountId: "111",
     accessToken: "tok",
@@ -218,6 +219,7 @@ test("lists classes with people + linked users, from live installation data", as
   await db.insert(account).values({
     id: "a-switch",
     userId: "u1",
+    issuer: "https://login.eduid.ch/",
     providerId: "switch",
     accountId: "edu-1",
     createdAt: now,
@@ -690,6 +692,7 @@ test("an enrolled class's teachers carry their professional identity email", asy
     {
       id: "a-teach-gh",
       userId: "u-teach",
+      issuer: "local:oauth:github",
       providerId: "github",
       accountId: "500",
       createdAt: now,
@@ -698,6 +701,7 @@ test("an enrolled class's teachers carry their professional identity email", asy
     {
       id: "a-teach-switch",
       userId: "u-teach",
+      issuer: "https://login.eduid.ch/",
       providerId: "switch",
       accountId: "edu-t",
       createdAt: now,
