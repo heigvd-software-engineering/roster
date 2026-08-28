@@ -12,6 +12,8 @@ export default [
     "routes/assignment-manage.tsx",
   ),
   route("onboarding/github", "routes/onboarding.tsx"),
+  // Must equal `consentPage` in the API auth config (apps/api/src/lib/auth/config.ts).
+  route("oauth/consent", "routes/oauth-consent.tsx"),
   route("classes/:id/confirm", "routes/class-confirm.tsx"),
   route("classes/:id/reconcile", "routes/reconcile.tsx"),
   route("join/:token", "routes/join.tsx"),
