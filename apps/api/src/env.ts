@@ -20,6 +20,11 @@ export type RateLimitBindings = {
   AUTH_LIMITER?: RateLimit;
   /** The App-install callback: unauthenticated, and expensive. */
   SETUP_LIMITER?: RateLimit;
+  /** Dynamic client registration: unauthenticated by design, since a CLI has
+   *  no session to present. A registration grants nothing on its own — no
+   *  access exists until a teacher signs in and consents — so what spam buys
+   *  is rows, not authority. This is the ceiling on the rows. */
+  MCP_REGISTER_LIMITER?: RateLimit;
 };
 
 /** Everything a request may reach: Better Auth's surface plus the rest. */

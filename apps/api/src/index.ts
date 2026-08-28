@@ -11,6 +11,7 @@ import { assignmentGroupsRoutes } from "./routes/assignment-groups";
 import { assignmentsRoutes } from "./routes/assignments";
 import { authRoutes } from "./routes/auth";
 import { classesRoutes } from "./routes/classes";
+import { discoveryRoutes } from "./routes/discovery";
 import { groupsRoutes } from "./routes/groups";
 import { healthRoutes } from "./routes/health";
 import { joinRoutes } from "./routes/join";
@@ -30,6 +31,8 @@ const app = new Hono<Env>()
   // (apps/www/scripts/security-headers.mjs).
   .use("/api/*", apiSecurityHeaders, requireSameOrigin)
   .route("/api/auth", authRoutes)
+  // Origin-root discovery, mounted before the /api tree (see the module).
+  .route("/", discoveryRoutes)
   .route("/api", healthRoutes)
   .route("/api", meRoutes)
   .route("/api", adminRoutes)

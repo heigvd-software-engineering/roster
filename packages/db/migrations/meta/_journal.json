@@ -134,6 +134,13 @@
       "when": 1787938063024,
       "tag": "0018_better_auth_1_7_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1787941450193,
+      "tag": "0019_oauth_provider_tables",
+      "breakpoints": true
     }
   ]
 }

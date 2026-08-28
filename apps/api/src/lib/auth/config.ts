@@ -1,9 +1,12 @@
+import { mcp } from "@better-auth/mcp";
 import type { D1Database } from "@cloudflare/workers-types";
 import { getDb } from "@roster/db";
+import type { BetterAuthOptions, BetterAuthPlugin } from "better-auth";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { customSession } from "better-auth/plugins";
 import { genericOAuth } from "better-auth/plugins/generic-oauth";
+import { jwt } from "better-auth/plugins/jwt";
 import { buildSessionPayload } from "./session-payload";
 import { requireEduIdSignIn } from "./sign-in-guard";
 
@@ -44,11 +47,20 @@ export type AuthEnv = {
  * it, including `customSession`'s `githubLinked` field. */
 export type Auth = ReturnType<typeof createAuth>;
 
-export function createAuth(env: AuthEnv) {
+/** The adapter is overridable for one caller only: `better-auth.config.ts`,
+ *  where the schema CLI builds this config to enumerate tables. The Drizzle
+ *  adapter validates every model against the schema object as it constructs, so
+ *  a plugin that adds tables cannot be generated through it — the tables do not
+ *  exist until the generator writes them. Runtime always uses the default. */
+type AuthOverrides = { database?: BetterAuthOptions["database"] };
+
+export function createAuth(env: AuthEnv, overrides: AuthOverrides = {}) {
   return betterAuth({
     baseURL: env.BETTER_AUTH_URL,
     secret: env.BETTER_AUTH_SECRET,
-    database: drizzleAdapter(getDb(env.DB), { provider: "sqlite" }),
+    database:
+      overrides.database ??
+      drizzleAdapter(getDb(env.DB), { provider: "sqlite" }),
     session: {
       // Better Auth gates sensitive ops (unlink-account, delete-user,
       // list-sessions) behind a fresh session: with the default 24h freshAge,
@@ -112,6 +124,52 @@ export function createAuth(env: AuthEnv) {
     // /api/auth" instead of two that refuse with different bodies.
     rateLimit: { enabled: false },
     plugins: [
+      // Signing keys and /jwks for the tokens `mcp()` issues. Required by the
+      // MCP plugin, and unrelated to the edu-ID sign-in below: it signs OUR
+      // tokens, it does not verify SWITCH's.
+      jwt(),
+      // roster as an OAuth 2.1 authorization server, so a teacher's assistant
+      // can hold a credential of its own instead of borrowing their cookie.
+      // This IS the provider — authorize, token, userinfo, jwks, registration
+      // and the two discovery documents all arrive with it.
+      // The cast is `exactOptionalPropertyTypes` (from @tsconfig/strictest)
+      // meeting an upstream inference, not a shape mismatch. The provider's
+      // endpoint metadata is a union of object literals where only some carry
+      // `schema.items`, so TypeScript infers `items?: undefined` on the rest —
+      // assignable to `items?: {…}` under normal strictness, refused under
+      // exact-optional. Everything else about the plugin checks, and the runtime
+      // shape is what better-call expects. Remove when upstream stops inferring
+      // the undefined, or the day this file needs a second cast — that would
+      // mean the mismatch is real.
+      mcp({
+        // The audience every issued token is bound to (RFC 8707/9728), and what
+        // the protected resource metadata publishes. A token minted here is for
+        // this and refused elsewhere, which is decision #8 written into the
+        // token rather than left to routing alone.
+        resource: `${env.BETTER_AUTH_URL}/mcp`,
+        // The SPA renders its login in place at any URL (see the Auth guard),
+        // so the provider's "you are not signed in" redirect goes to the root
+        // and the plugin resumes the authorization once a session appears.
+        loginPage: "/",
+        consentPage: "/oauth/consent",
+        // Decision #13: two scopes, mirroring the phase boundary. Phase 1 tools
+        // read; the write scope exists so phase 2 must ask for it on a fresh
+        // consent screen rather than riding a grant a teacher already gave.
+        scopes: ["roster:read", "roster:write"],
+        clientRegistrationDefaultScopes: ["roster:read"],
+        clientRegistrationAllowedScopes: ["roster:read", "roster:write"],
+        // Decision #6: clients register themselves, unauthenticated — a CLI has
+        // no session to present. A registration grants nothing on its own: no
+        // access exists until a teacher signs in with edu-ID and consents.
+        allowDynamicClientRegistration: true,
+        allowUnauthenticatedClientRegistration: true,
+        clientRegistrationRequirePKCE: true,
+        // Decision #12: the token lasts as long as a browser session (7 days)
+        // and nothing renews it. `authorization_code` alone means no refresh
+        // token is ever issued, so nothing acts between sessions.
+        accessTokenExpiresIn: 60 * 60 * 24 * 7,
+        grantTypes: ["authorization_code"],
+      }) as BetterAuthPlugin,
       genericOAuth({
         config: [
           {

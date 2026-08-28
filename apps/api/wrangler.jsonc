@@ -63,6 +63,14 @@
       "name": "SETUP_LIMITER",
       "namespace_id": "1002",
       "simple": { "limit": 10, "period": 60 }
+    },
+    {
+      // Client registration is open by design (a CLI has no session to
+      // present), so this is what bounds it. Generous enough that a teacher
+      // reconnecting an assistant a few times never notices.
+      "name": "MCP_REGISTER_LIMITER",
+      "namespace_id": "1003",
+      "simple": { "limit": 20, "period": 60 }
     }
   ],
 

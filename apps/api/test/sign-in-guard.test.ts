@@ -31,7 +31,9 @@ test("refuses the shared endpoint with no provider, or an unknown one", async ()
   // A missing body must not read as "allowed": the guard opens for one id only.
   await expect(run("/sign-in/social")).rejects.toThrow();
   await expect(run("/sign-in/social", {})).rejects.toThrow();
-  await expect(run("/sign-in/social", { provider: "google" })).rejects.toThrow();
+  await expect(
+    run("/sign-in/social", { provider: "google" }),
+  ).rejects.toThrow();
 });
 
 test("refuses sign-in routes we don't ship today — the allowlist's whole point", async () => {
@@ -40,7 +42,9 @@ test("refuses sign-in routes we don't ship today — the allowlist's whole point
   await expect(run("/sign-in/magic-link")).rejects.toThrow();
   await expect(run("/sign-in/username")).rejects.toThrow();
   // Gone in 1.7. If a future version brings it back, it is not the way in.
-  await expect(run("/sign-in/oauth2", { provider: "switch" })).rejects.toThrow();
+  await expect(
+    run("/sign-in/oauth2", { provider: "switch" }),
+  ).rejects.toThrow();
 });
 
 test("lets the edu-ID sign-in through", async () => {

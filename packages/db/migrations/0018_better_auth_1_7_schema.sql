@@ -5,6 +5,18 @@
 -- the table is rebuilt with the backfill computed inside the copy: one pass, no
 -- interval where the column exists but is empty.
 --
+-- PROVENANCE. Column and index from `pnpm --filter @roster/api auth:schema`
+-- (auth@1.7.2, which emits `issuer` and the unique index; the abandoned
+-- @better-auth/cli@1.4.21 does not, and regenerating with it drops them). The
+-- rebuild and the CASE below are hand-written, because no tool chooses issuer
+-- values. They follow the table in "Account identity is scoped by issuer":
+--   https://better-auth.com/docs/guides/1-7-upgrade-guide
+-- which gives `local:oauth:<providerId>` for an OAuth provider with no issuer
+-- of its own, the provider's real issuer where it has one, and
+-- `local:credential` for password accounts. The switch value is confirmed
+-- against the stored id_token, whose `iss` claim is "https://login.eduid.ch/".
+-- Rehearsed on a local copy of demo's rows before running anywhere real.
+--
 -- The values are what Better Auth computes at runtime, not conventions we
 -- invented: `local:oauth:<providerId>` for an OAuth provider with no issuer of
 -- its own (github), and the provider's real issuer where it has one — for

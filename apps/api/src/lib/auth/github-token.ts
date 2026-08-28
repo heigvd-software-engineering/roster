@@ -26,9 +26,7 @@ export async function githubAccessToken(
     const [linked] = await getDb(env.DB)
       .select({ id: account.id })
       .from(account)
-      .where(
-        and(eq(account.userId, userId), eq(account.providerId, "github")),
-      )
+      .where(and(eq(account.userId, userId), eq(account.providerId, "github")))
       .limit(1);
     if (!linked) return null;
 
