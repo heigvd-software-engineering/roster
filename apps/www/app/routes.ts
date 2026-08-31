@@ -4,6 +4,7 @@ export default [
   index("routes/home.tsx"),
   route("classes", "routes/classes.tsx"),
   route("rules", "routes/rules.tsx"),
+  route("connect-assistant", "routes/connect-assistant.tsx"),
   route("classes/connect-failed", "routes/connect-failed.tsx"),
   route("admin", "routes/admin.tsx"),
   route("classes/:classId/assignments/:assignmentId", "routes/assignment.tsx"),

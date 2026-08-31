@@ -69,11 +69,11 @@ export function ConnectedAssistants({
               can revoke each one here at any time.
             </span>
             <span>
-              To connect one (Claude Code, for example), see{" "}
-              <a href="/rules" className="underline">
-                How roster works
-              </a>{" "}
-              → Connect an AI assistant.
+              To connect one (Claude Code, for example), follow{" "}
+              <a href="/connect-assistant" className="underline">
+                the setup guide
+              </a>
+              .
             </span>
           </Stack>
         </Hint>
