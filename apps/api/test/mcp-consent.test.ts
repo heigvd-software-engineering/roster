@@ -21,7 +21,6 @@ vi.mock("../src/lib/mcp/verify", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../src/lib/mcp/verify")>()),
   protectMcp:
     (
-      _app: unknown,
       _env: unknown,
       handler: (req: Request, claims: unknown) => Promise<Response>,
     ) =>

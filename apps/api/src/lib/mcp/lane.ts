@@ -145,7 +145,7 @@ export function handleMcp(app: Hono<Env>, c: Context<Env>): Promise<Response> {
   } catch {
     ctx = undefined;
   }
-  const run = protectMcp(app, env, async (request, claims) => {
+  const run = protectMcp(env, async (request, claims) => {
     // The custom claims, through one typed view: JWTPayload only carries
     // them in its index signature, and strictest TS forbids dotting into
     // that while biome dislikes bracket access. Named here once.
