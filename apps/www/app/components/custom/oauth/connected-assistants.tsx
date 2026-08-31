@@ -2,7 +2,13 @@ import { ShieldOff } from "lucide-react";
 import { Fragment } from "react";
 import { useSWRConfig } from "swr";
 import { ConfirmDialog } from "~/components/custom/confirm-dialog";
-import { scopeSummary } from "~/components/custom/oauth/consent-scope";
+import { Hint } from "~/components/custom/hint";
+import { Row } from "~/components/custom/layout/row";
+import { Stack } from "~/components/custom/layout/stack";
+import {
+  ConsentScope,
+  scopeSummary,
+} from "~/components/custom/oauth/consent-scope";
 import { Text } from "~/components/custom/typography/text";
 import {
   DropdownMenuGroup,
@@ -60,21 +66,37 @@ export function ConnectedAssistants({
         <Note>None connected</Note>
       ) : (
         data.assistants.map((assistant, index) => {
-          const { sentence, unknown } = scopeSummary(assistant.scopes);
+          const { unknown } = scopeSummary(assistant.scopes);
+          const known = assistant.scopes.filter(
+            (scope) => !unknown.includes(scope),
+          );
+          const name = assistant.name ?? "An assistant";
           return (
             <Fragment key={assistant.id}>
               {index > 0 && <DropdownMenuSeparator className="mx-1.5" />}
               <div className="px-2 pb-1.5">
-                <Text variant="label" className="font-medium">
-                  {assistant.name ?? "An assistant"}
-                </Text>
+                <Row gap="xs" align="center">
+                  <Text variant="label" className="font-medium">
+                    {name}
+                  </Text>
+                  {/* The grant, one sentence per scope — the consent screen's
+                      own vocabulary, in a popover because the list must stay
+                      one line however many actions phase 2 and beyond add. */}
+                  {known.length > 0 && (
+                    <Hint
+                      label={`What ${name} may do`}
+                      title="It may currently:"
+                    >
+                      <Stack gap="md">
+                        {known.map((scope) => (
+                          <ConsentScope key={scope} scope={scope} />
+                        ))}
+                      </Stack>
+                    </Hint>
+                  )}
+                </Row>
                 <Text variant="caption">
-                  {[
-                    sentence,
-                    `since ${formatDate(new Date(assistant.createdAt))}`,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
+                  since {formatDate(new Date(assistant.createdAt))}
                 </Text>
                 {unknown.length > 0 && (
                   // Shown, never dropped — understating a standing grant is

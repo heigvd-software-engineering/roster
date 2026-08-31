@@ -65,7 +65,7 @@ function openMenu() {
 }
 
 describe("ConnectedAssistants", () => {
-  it("renders a grant as name, what it may do, and since when", () => {
+  it("renders a grant as name, since-when, and a popover for what it may do", () => {
     apiState.response = {
       data: { assistants: [grant()] },
       error: undefined,
@@ -75,9 +75,15 @@ describe("ConnectedAssistants", () => {
 
     expect(screen.getByText("Connected assistants")).toBeInTheDocument();
     expect(screen.getByText("Claude Code")).toBeInTheDocument();
-    expect(
-      screen.getByText("Reads your classes · since 28 Aug 2026"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("since 28 Aug 2026")).toBeInTheDocument();
+    // The actions live behind the Hint — the row stays one line however many
+    // scopes the grant carries. The popover speaks the consent screen's own
+    // vocabulary (ConsentScope, one source).
+    fireEvent.click(
+      screen.getByRole("button", { name: "What Claude Code may do" }),
+    );
+    expect(screen.getByText("Read your classes")).toBeInTheDocument();
+    expect(screen.getByText(/Nothing is changed/)).toBeInTheDocument();
   });
 
   it("a nameless client is 'An assistant', never a blank", () => {
