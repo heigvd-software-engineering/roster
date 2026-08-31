@@ -33,6 +33,7 @@ export const getMe = factory.createHandlers(async (c) => {
       github: null,
       githubState: "unlinked" as GithubState,
       githubAppInstallUrl,
+      githubAccountId: null,
       isSuperAdmin: false,
       canCreateClasses: false,
     });
@@ -70,11 +71,21 @@ export const getMe = factory.createHandlers(async (c) => {
   const superAdmin = isSuperAdmin(c.env, user?.email);
   const canCreateClasses = user ? await userCanCreateClasses(db, user) : false;
 
+  // Better Auth 1.7 unlinks by account row id, not by provider, and that row
+  // is server-side only — so the boot fetch is where the SPA gets it. It is the
+  // caller's own account and reaches nobody else's session.
+  const githubAccount = await db.query.account.findFirst({
+    where: (a, { and, eq }) =>
+      and(eq(a.userId, session.user.id), eq(a.providerId, "github")),
+    columns: { id: true },
+  });
+
   return c.json({
     user: user ?? null,
     github,
     githubState,
     githubAppInstallUrl,
+    githubAccountId: githubAccount?.id ?? null,
     isSuperAdmin: superAdmin,
     canCreateClasses,
   });

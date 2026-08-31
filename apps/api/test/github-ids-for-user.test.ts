@@ -16,6 +16,7 @@ const link = (accountId: string) =>
   db.insert(account).values({
     id: `a-${accountId}`,
     userId: "u1",
+    issuer: "local:oauth:github",
     providerId: "github",
     accountId,
     createdAt: now,

@@ -83,8 +83,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // (Auth guard), so deep links survive (e.g. a class join link, which
         // carries query params).
         try {
-          const { error } = await authSignIn.oauth2({
-            providerId: "switch",
+          const { error } = await authSignIn.social({
+            provider: "switch",
             callbackURL:
               window.location.pathname +
               window.location.search +
@@ -116,7 +116,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
       },
       unlinkGithub: async () => {
-        await unlinkAccount({ providerId: "github" });
+        // 1.7 unlinks by account row id, carried on the session payload.
+        if (!data?.githubAccountId) return;
+        await unlinkAccount({ accountId: data.githubAccountId });
         await mutate();
       },
     }),

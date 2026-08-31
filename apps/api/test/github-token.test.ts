@@ -66,6 +66,7 @@ function seedGithubAccount(overrides: Partial<typeof account.$inferInsert>) {
   return db.insert(account).values({
     id: "a1",
     userId: "u1",
+    issuer: "local:oauth:github",
     providerId: "github",
     accountId: "111",
     createdAt: new Date(0),

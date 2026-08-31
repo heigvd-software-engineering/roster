@@ -39,6 +39,7 @@ test("githubLinked is true once a github account exists", async () => {
   await db.insert(account).values({
     id: "a1",
     userId: "u1",
+    issuer: "local:oauth:github",
     providerId: "github",
     accountId: "111",
     createdAt: now,
@@ -60,6 +61,7 @@ test("githubLinked is false with only a SWITCH account — the onboarding gate",
   await db.insert(account).values({
     id: "a-switch",
     userId: "u1",
+    issuer: "https://login.eduid.ch/",
     providerId: "switch",
     accountId: "edu-1",
     createdAt: now,
@@ -80,6 +82,7 @@ test("another user's github account does not link this one", async () => {
   await db.insert(account).values({
     id: "a2",
     userId: "u2",
+    issuer: "local:oauth:github",
     providerId: "github",
     accountId: "222",
     createdAt: now,

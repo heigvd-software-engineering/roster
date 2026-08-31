@@ -97,6 +97,7 @@ beforeEach(async () => {
   await db.insert(account).values({
     id: "a1",
     userId: "u1",
+    issuer: "local:oauth:github",
     providerId: "github",
     accountId: "7",
     accessToken: "tok",

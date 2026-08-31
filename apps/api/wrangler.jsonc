@@ -24,7 +24,12 @@
     // Browser *navigations* to /api/* (Sec-Fetch-Mode: navigate) must reach
     // the Worker first, not the SPA fallback — otherwise the OAuth callback
     // never hits Hono/Better Auth.
-    "run_worker_first": ["/api/*"]
+    //
+    // /mcp and the root /.well-known/* are here for the same reason and a
+    // worse symptom: an MCP client asking where to authenticate would be
+    // answered with index.html and no error, because not_found_handling
+    // returns the SPA for anything the assets layer does not recognise.
+    "run_worker_first": ["/api/*", "/mcp", "/mcp/*", "/.well-known/*"]
   },
 
   // Public, non-secret config. Secrets are set once per deploy with
@@ -58,6 +63,14 @@
       "name": "SETUP_LIMITER",
       "namespace_id": "1002",
       "simple": { "limit": 10, "period": 60 }
+    },
+    {
+      // Client registration is open by design (a CLI has no session to
+      // present), so this is what bounds it. Generous enough that a teacher
+      // reconnecting an assistant a few times never notices.
+      "name": "MCP_REGISTER_LIMITER",
+      "namespace_id": "1003",
+      "simple": { "limit": 20, "period": 60 }
     }
   ],
 

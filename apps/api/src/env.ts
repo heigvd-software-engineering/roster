@@ -1,4 +1,5 @@
 import type { RateLimit } from "@cloudflare/workers-types";
+import type { User } from "@roster/db";
 import type { AuthEnv } from "./lib/auth/config";
 
 /**
@@ -20,10 +21,29 @@ export type RateLimitBindings = {
   AUTH_LIMITER?: RateLimit;
   /** The App-install callback: unauthenticated, and expensive. */
   SETUP_LIMITER?: RateLimit;
+  /** Dynamic client registration: unauthenticated by design, since a CLI has
+   *  no session to present. A registration grants nothing on its own — no
+   *  access exists until a teacher signs in and consents — so what spam buys
+   *  is rows, not authority. This is the ceiling on the rows. */
+  MCP_REGISTER_LIMITER?: RateLimit;
+};
+
+/**
+ * Not a Cloudflare binding: no wrangler.jsonc entry ever declares it, so on an
+ * external request it is always absent. The MCP lane authenticates a tool call
+ * itself, resolves the teacher, and re-enters the API through
+ * `app.request(path, init, { ...env, MCP_ACTOR: user }, ctx)` — the env of an
+ * internal call is the ONE channel a request cannot write to, which is what
+ * makes the injection safe (decision #8; test 9.1 proves the negative space).
+ * Typed like the optional rate limiters above: absent means "a browser
+ * session decides", exactly as before the MCP lane existed.
+ */
+export type McpBindings = {
+  MCP_ACTOR?: User;
 };
 
 /** Everything a request may reach: Better Auth's surface plus the rest. */
-export type AppBindings = AuthEnv & RateLimitBindings;
+export type AppBindings = AuthEnv & RateLimitBindings & McpBindings;
 
 /** The Hono env for our Worker: `new Hono<Env>()` → `c.env` is AppBindings. */
 export type Env = { Bindings: AppBindings };
