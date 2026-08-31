@@ -16,10 +16,17 @@ const state = vi.hoisted(() => ({
 }));
 
 vi.mock("../src/lib/mcp/verify", async (importOriginal) => ({
-  // READ_SCOPE and the challenge stay real; only token verification is
-  // replaced, handing the lane the claims a verified JWT would carry.
+  // READ_SCOPE stays real; only token verification is replaced, handing the
+  // lane's handler the claims a verified JWT would carry.
   ...(await importOriginal<typeof import("../src/lib/mcp/verify")>()),
-  verifyMcpBearer: async () => ({ claims: state.claims }),
+  protectMcp:
+    (
+      _app: unknown,
+      _env: unknown,
+      handler: (req: Request, claims: unknown) => Promise<Response>,
+    ) =>
+    (req: Request) =>
+      handler(req, state.claims),
 }));
 
 const { default: app } = await import("../src/index");

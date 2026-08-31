@@ -8,17 +8,18 @@ import type { AppBindings, Env } from "../../env";
 import type { McpToolSpec } from "../../mcp/tools";
 import { mcpTools } from "../../mcp/tools";
 import { consentScopes } from "../auth/consent-scopes";
-import { READ_SCOPE, verifyMcpBearer } from "./verify";
+import { protectMcp, READ_SCOPE } from "./verify";
 
 /**
  * The lane behind `/mcp` — a named unit (AGENTS 11). Order of the checks is
  * the design:
  *
- * 1. `verifyMcpBearer` (./verify.ts — in-process JWKS, since a Worker may
- *    not fetch its own hostname) verifies the bearer token: signature,
- *    issuer, audience (`<origin>/mcp`, decision #8), expiry and scope — and
- *    answers unauthenticated requests with the RFC 9728 `WWW-Authenticate`
- *    challenge an MCP client starts its authorization from.
+ * 1. `protectMcp` (./verify.ts — the toolkit's standard pipeline over an
+ *    in-process JWKS, since a Worker may not fetch its own hostname)
+ *    verifies the bearer token: signature, issuer, audience (`<origin>/mcp`,
+ *    decision #8), expiry and scope — and answers unauthenticated requests
+ *    with the RFC 9728 `WWW-Authenticate` challenge an MCP client starts
+ *    its authorization from.
  * 2. The consent row is re-read on EVERY call (decision #12). The token may
  *    verify for its whole seven days; the row is the teacher's standing
  *    grant, and deleting it stops the next call, not the next token.
@@ -38,11 +39,11 @@ export { READ_SCOPE } from "./verify";
  * `requireMcpAuth` uses for a bad token, so a client reacts the same way to a
  * withdrawn consent as to an expired token — it starts a fresh authorization.
  *
- * Hand-built for the same single-Worker reason as ./verify.ts: the toolkit's
- * challenge builders live inside `requireMcpAuth` (the JSON-RPC wrapper is
- * module-private, and the exported half wants better-auth's own error
- * classes as input). Two RFC 6750/9728 header shapes, pinned by the wire
- * tests, were smaller than bending that — and they retire with verify.ts.
+ * Still hand-built even now that verification runs the standard pipeline:
+ * the toolkit challenges only its OWN failures (verification, scope). A
+ * refusal decided inside the handler — consent withdrawn, account gone —
+ * has no toolkit hook, and its JSON-RPC challenge wrapper is
+ * module-private. One RFC 6750/9728 header shape, pinned by the wire tests.
  */
 const staleGrant = (env: AppBindings, description: string) =>
   new Response(
@@ -144,12 +145,7 @@ export function handleMcp(app: Hono<Env>, c: Context<Env>): Promise<Response> {
   } catch {
     ctx = undefined;
   }
-  const run = async (request: Request): Promise<Response> => {
-    const verified = await verifyMcpBearer(app, env, request);
-    if (verified instanceof Response) {
-      return verified;
-    }
-    const { claims } = verified;
+  const run = protectMcp(app, env, async (request, claims) => {
     // The custom claims, through one typed view: JWTPayload only carries
     // them in its index signature, and strictest TS forbids dotting into
     // that while biome dislikes bracket access. Named here once.
@@ -205,6 +201,6 @@ export function handleMcp(app: Hono<Env>, c: Context<Env>): Promise<Response> {
         ...(typeof claims.exp === "number" ? { expiresAt: claims.exp } : {}),
       },
     });
-  };
+  });
   return run(c.req.raw);
 }
