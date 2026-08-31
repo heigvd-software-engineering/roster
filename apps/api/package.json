@@ -19,7 +19,6 @@
   },
   "dependencies": {
     "@better-auth/mcp": "^1.7.2",
-    "@better-auth/oauth-provider": "1.7.2",
     "@better-auth/utils": "0.4.2",
     "@hono/zod-validator": "^0.8.0",
     "@modelcontextprotocol/hono": "^2.0.0",

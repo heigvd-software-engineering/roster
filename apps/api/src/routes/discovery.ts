@@ -1,8 +1,6 @@
-import { oauthProviderAuthServerMetadata } from "@better-auth/oauth-provider";
 import { Hono } from "hono";
 import type { Env } from "../env";
 import { betterAuthHandler } from "../handlers/auth";
-import { createAuth } from "../lib/auth/config";
 
 /**
  * RFC 9728 protected resource metadata, at the origin root.
@@ -14,18 +12,16 @@ import { createAuth } from "../lib/auth/config";
  * Better Auth is mounted at `/api/auth` — so at the root nothing ever reaches
  * it. These routes hand the untouched request over, which is all the hook needs.
  *
- * The authorization server document needs routes here too, and 9.10's first
- * real client proved it (Claude Code, 2026-08-31, "DCR rejected: HTTP 405"):
- * RFC 8414 §3.1 says a path-bearing issuer publishes its metadata
- * path-INSERTED — `/.well-known/oauth-authorization-server/api/auth` — which
- * is the first URL the MCP SDK tries, while the provider's own route lives
- * path-appended under its mount. The provider ships exportable handlers for
- * exactly this ("useful when basePath prevents the endpoint from being
- * located at the root"): `oauthProviderAuthServerMetadata`, served below —
- * the toolkit's own document, nothing here builds or rewrites metadata. Its
- * OIDC twin is deliberately not mounted: this provider runs pure OAuth (no
- * OIDC mode), `getOpenIdConfig` throws, and the SDK tries the OAuth form
- * first anyway.
+ * The authorization server document is the same story, and it took 9.10's
+ * real client plus three of the user's "isn't this in the toolkit?" pushes
+ * to land on the honest minimum: the provider's hook ALSO matches the
+ * RFC 8414 path-INSERTED form (`/.well-known/oauth-authorization-server` +
+ * the issuer's path) by raw pathname — the exact URL the MCP SDK tries
+ * first. It answered 404 only because nothing routed origin-root traffic
+ * into the mounted handler. So: one more plain forward, and Better Auth
+ * serves its own document. (Its OIDC twin answers only when the `openid`
+ * scope is configured; roster's provider is pure OAuth, and the SDK tries
+ * the OAuth form first anyway.)
  *
  * Outside `/api/*` deliberately, so `requireSameOrigin` does not apply — it is
  * browser-shaped, and a client fetching discovery sends no `Origin`.
@@ -43,15 +39,6 @@ export const discoveryRoutes = new Hono<Env>()
   )
   .on(
     ["GET", "HEAD"],
-    "/.well-known/oauth-authorization-server/api/auth",
-    // The cast is collateral of config.ts's documented `as BetterAuthPlugin`
-    // cast on the mcp plugin, which erases its endpoint inference — the
-    // runtime serves getOAuthServerConfig/getOpenIdConfig regardless (the
-    // mounted routes prove it). Both casts fall together.
-    (c) =>
-      oauthProviderAuthServerMetadata(
-        createAuth(c.env) as unknown as Parameters<
-          typeof oauthProviderAuthServerMetadata
-        >[0],
-      )(c.req.raw),
+    "/.well-known/oauth-authorization-server/*",
+    ...betterAuthHandler,
   );
