@@ -16,6 +16,12 @@ import type { AppBindings, Env } from "../../env";
  * the JWKS the way it reads everything else about itself: through
  * `app.request`, in-process, no network.
  *
+ * Revisited and kept 2026-08-31: splitting /mcp into its own Worker — where
+ * `requireMcpAuth` works today — was rejected as a deploy unit bought only
+ * to delete this file. If that ever changes (R9 keeps the move cheap), or
+ * upstream accepts a local-JWKS/fetch option, this file collapses back into
+ * `requireMcpAuth`.
+ *
  * What is checked matches what `requireMcpAuth` checked: signature against
  * our JWKS, issuer, audience `<origin>/mcp` (decision #8), expiry (jose),
  * and the required scope. DPoP is not implemented: roster issues Bearer

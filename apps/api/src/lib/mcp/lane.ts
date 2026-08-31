@@ -37,6 +37,12 @@ export { READ_SCOPE } from "./verify";
  * The grant is gone or was never whole: the JSON-RPC 401 + challenge shape
  * `requireMcpAuth` uses for a bad token, so a client reacts the same way to a
  * withdrawn consent as to an expired token — it starts a fresh authorization.
+ *
+ * Hand-built for the same single-Worker reason as ./verify.ts: the toolkit's
+ * challenge builders live inside `requireMcpAuth` (the JSON-RPC wrapper is
+ * module-private, and the exported half wants better-auth's own error
+ * classes as input). Two RFC 6750/9728 header shapes, pinned by the wire
+ * tests, were smaller than bending that — and they retire with verify.ts.
  */
 const staleGrant = (env: AppBindings, description: string) =>
   new Response(
@@ -100,7 +106,9 @@ export async function runTool(
  * — "ZodLazy is not a constructor", and the whole Worker fails to start,
  * every route included. Deferred to request time, every top-level init has
  * long finished. The 0.1 spike never saw this: without better-auth in the
- * graph, nothing forced zod into a wrapped module.
+ * graph, nothing forced zod into a wrapped module — this too is a cost of
+ * the lane sharing its Worker with the authorization server (kept knowingly,
+ * 2026-08-31).
  */
 const sdk = () => import("@modelcontextprotocol/server");
 
