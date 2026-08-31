@@ -9,6 +9,7 @@ export type { Auth } from "./lib/auth/config";
 import { adminRoutes } from "./routes/admin";
 import { assignmentGroupsRoutes } from "./routes/assignment-groups";
 import { assignmentsRoutes } from "./routes/assignments";
+import { assistantsRoutes } from "./routes/assistants";
 import { authRoutes } from "./routes/auth";
 import { classesRoutes } from "./routes/classes";
 import { discoveryRoutes } from "./routes/discovery";
@@ -36,6 +37,7 @@ const app = new Hono<Env>()
   .route("/api", healthRoutes)
   .route("/api", meRoutes)
   .route("/api", adminRoutes)
+  .route("/api", assistantsRoutes)
   .route("/api", setupRoutes)
   .route("/api", classesRoutes)
   .route("/api", groupsRoutes)
