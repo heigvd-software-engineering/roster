@@ -6,25 +6,20 @@ import type { AuthEnv } from "../src/lib/auth/config";
 
 // Board row R10 (decision #12): withdrawing consent stops the NEXT tool call —
 // the token may verify for its whole seven days, the consent row is the
-// standing grant. The token layer is mocked to hand the lane verified claims
-// (better-auth's own verification is its concern, and board 9.10 checks it
-// live); the consent re-read and actor resolution under test are real, against
-// real D1.
+// standing grant. Token verification (lib/mcp/verify) is mocked to hand the
+// lane the claims a verified JWT would carry — its own checks are covered at
+// the wire and live by 9.10; the consent re-read and actor resolution under
+// test are real, against real D1.
 
 const state = vi.hoisted(() => ({
   claims: {} as Record<string, unknown>,
 }));
 
-vi.mock("@better-auth/mcp", async (importOriginal) => ({
-  // The real `mcp` plugin: the auth config registers it and it must stay real.
-  ...(await importOriginal<typeof import("@better-auth/mcp")>()),
-  requireMcpAuth:
-    (
-      _auth: unknown,
-      handler: (req: Request, claims: unknown) => Promise<Response>,
-    ) =>
-    (req: Request) =>
-      handler(req, state.claims),
+vi.mock("../src/lib/mcp/verify", async (importOriginal) => ({
+  // READ_SCOPE and the challenge stay real; only token verification is
+  // replaced, handing the lane the claims a verified JWT would carry.
+  ...(await importOriginal<typeof import("../src/lib/mcp/verify")>()),
+  verifyMcpBearer: async () => ({ claims: state.claims }),
 }));
 
 const { default: app } = await import("../src/index");

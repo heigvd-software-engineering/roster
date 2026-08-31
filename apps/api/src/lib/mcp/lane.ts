@@ -1,4 +1,3 @@
-import { requireMcpAuth } from "@better-auth/mcp";
 import type { ExecutionContext } from "@cloudflare/workers-types";
 import type { McpServer } from "@modelcontextprotocol/server";
 import { getDb, oauthConsent, user } from "@roster/db";
@@ -8,16 +7,17 @@ import { z } from "zod";
 import type { AppBindings, Env } from "../../env";
 import type { McpToolSpec } from "../../mcp/tools";
 import { mcpTools } from "../../mcp/tools";
-import { createAuth } from "../auth/config";
+import { READ_SCOPE, verifyMcpBearer } from "./verify";
 
 /**
  * The lane behind `/mcp` — a named unit (AGENTS 11). Order of the checks is
  * the design:
  *
- * 1. `requireMcpAuth` verifies the bearer token against our own JWKS —
- *    signature, issuer, audience (`<origin>/mcp`, decision #8), expiry and
- *    scope — and answers unauthenticated requests with the RFC 9728
- *    `WWW-Authenticate` challenge an MCP client starts its authorization from.
+ * 1. `verifyMcpBearer` (./verify.ts — in-process JWKS, since a Worker may
+ *    not fetch its own hostname) verifies the bearer token: signature,
+ *    issuer, audience (`<origin>/mcp`, decision #8), expiry and scope — and
+ *    answers unauthenticated requests with the RFC 9728 `WWW-Authenticate`
+ *    challenge an MCP client starts its authorization from.
  * 2. The consent row is re-read on EVERY call (decision #12). The token may
  *    verify for its whole seven days; the row is the teacher's standing
  *    grant, and deleting it stops the next call, not the next token.
@@ -30,7 +30,7 @@ import { createAuth } from "../auth/config";
  * imports it from `index.ts` — that would be a circular import.
  */
 
-export const READ_SCOPE = "roster:read";
+export { READ_SCOPE } from "./verify";
 
 /**
  * The grant is gone or was never whole: the JSON-RPC 401 + challenge shape
@@ -135,73 +135,69 @@ export function handleMcp(app: Hono<Env>, c: Context<Env>): Promise<Response> {
   } catch {
     ctx = undefined;
   }
-  return requireMcpAuth(
-    createAuth(env),
-    async (request, claims) => {
-      // The custom claims, through one typed view: JWTPayload only carries
-      // them in its index signature, and strictest TS forbids dotting into
-      // that while biome dislikes bracket access. Named here once.
-      const {
-        client_id: clientIdClaim,
-        azp,
-        scope,
-      } = claims as { client_id?: unknown; azp?: unknown; scope?: unknown };
-      const sub = typeof claims.sub === "string" ? claims.sub : undefined;
-      const clientId =
-        typeof clientIdClaim === "string"
-          ? clientIdClaim
-          : typeof azp === "string"
-            ? azp
-            : undefined;
-      if (!sub || !clientId) {
-        return staleGrant(env, "token carries no subject or client");
-      }
+  const run = async (request: Request): Promise<Response> => {
+    const verified = await verifyMcpBearer(app, env, request);
+    if (verified instanceof Response) {
+      return verified;
+    }
+    const { claims } = verified;
+    // The custom claims, through one typed view: JWTPayload only carries
+    // them in its index signature, and strictest TS forbids dotting into
+    // that while biome dislikes bracket access. Named here once.
+    const {
+      client_id: clientIdClaim,
+      azp,
+      scope,
+    } = claims as { client_id?: unknown; azp?: unknown; scope?: unknown };
+    const sub = typeof claims.sub === "string" ? claims.sub : undefined;
+    const clientId =
+      typeof clientIdClaim === "string"
+        ? clientIdClaim
+        : typeof azp === "string"
+          ? azp
+          : undefined;
+    if (!sub || !clientId) {
+      return staleGrant(env, "token carries no subject or client");
+    }
 
-      const db = getDb(env.DB);
-      const consent = await db
-        .select({ scopes: oauthConsent.scopes })
-        .from(oauthConsent)
-        .where(
-          and(
-            eq(oauthConsent.clientId, clientId),
-            eq(oauthConsent.userId, sub),
-          ),
-        )
-        .limit(1);
-      const consentScopes = Array.isArray(consent[0]?.scopes)
-        ? (consent[0].scopes as string[])
-        : [];
-      if (!consentScopes.includes(READ_SCOPE)) {
-        return staleGrant(env, "consent was withdrawn");
-      }
+    const db = getDb(env.DB);
+    const consent = await db
+      .select({ scopes: oauthConsent.scopes })
+      .from(oauthConsent)
+      .where(
+        and(eq(oauthConsent.clientId, clientId), eq(oauthConsent.userId, sub)),
+      )
+      .limit(1);
+    const consentScopes = Array.isArray(consent[0]?.scopes)
+      ? (consent[0].scopes as string[])
+      : [];
+    if (!consentScopes.includes(READ_SCOPE)) {
+      return staleGrant(env, "consent was withdrawn");
+    }
 
-      const actorRows = await db
-        .select()
-        .from(user)
-        .where(eq(user.id, sub))
-        .limit(1);
-      const actor = actorRows[0];
-      if (!actor) {
-        return staleGrant(env, "the granting account no longer exists");
-      }
+    const actorRows = await db
+      .select()
+      .from(user)
+      .where(eq(user.id, sub))
+      .limit(1);
+    const actor = actorRows[0];
+    if (!actor) {
+      return staleGrant(env, "the granting account no longer exists");
+    }
 
-      const { createMcpHandler } = await sdk();
-      const handler = createMcpHandler(() =>
-        buildServer(app, { ...env, MCP_ACTOR: actor }, ctx),
-      );
-      const authorization = request.headers.get("authorization") ?? "";
-      return handler.fetch(request, {
-        authInfo: {
-          token: authorization.replace(/^Bearer\s+/i, ""),
-          clientId,
-          scopes: typeof scope === "string" ? scope.split(" ") : [],
-          ...(typeof claims.exp === "number" ? { expiresAt: claims.exp } : {}),
-        },
-      });
-    },
-    {
-      resource: `${env.BETTER_AUTH_URL}/mcp`,
-      requiredScopes: [READ_SCOPE],
-    },
-  )(c.req.raw);
+    const { createMcpHandler } = await sdk();
+    const handler = createMcpHandler(() =>
+      buildServer(app, { ...env, MCP_ACTOR: actor }, ctx),
+    );
+    const authorization = request.headers.get("authorization") ?? "";
+    return handler.fetch(request, {
+      authInfo: {
+        token: authorization.replace(/^Bearer\s+/i, ""),
+        clientId,
+        scopes: typeof scope === "string" ? scope.split(" ") : [],
+        ...(typeof claims.exp === "number" ? { expiresAt: claims.exp } : {}),
+      },
+    });
+  };
+  return run(c.req.raw);
 }
