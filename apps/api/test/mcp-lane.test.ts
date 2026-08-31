@@ -120,3 +120,41 @@ test("the RFC 8414 path-insertion metadata answers, and names the endpoints", as
   expect(metadata.registration_endpoint).toContain("/api/auth/oauth2/register");
   expect(metadata.token_endpoint).toContain("/api/auth/oauth2/token");
 });
+
+// The SDK registers every client with ["authorization_code","refresh_token"]
+// and cannot send anything else; refusing the pair refuses every client
+// (9.10's second finding). The registration must pass — while offline_access
+// stays out of the advertised scopes, which is the gate that actually keeps
+// refresh tokens nonexistent (decision #12).
+test("SDK-shaped registration passes, and offline_access is not on offer", async () => {
+  const res = await app.request(
+    "http://localhost/api/auth/oauth2/register",
+    {
+      method: "POST",
+      headers: { "content-type": "application/json", host: "localhost" },
+      body: JSON.stringify({
+        client_name: "sdk-shaped probe",
+        redirect_uris: ["http://127.0.0.1:33418/callback"],
+        grant_types: ["authorization_code", "refresh_token"],
+        response_types: ["code"],
+        token_endpoint_auth_method: "none",
+      }),
+    },
+    authEnv,
+  );
+  expect(res.status).toBe(201);
+  const client = (await res.json()) as {
+    application_type?: string;
+    grant_types?: string[];
+  };
+  expect(client.application_type).toBe("native"); // 1.2c, at the wire
+  const metadata = await app.request(
+    "http://localhost/.well-known/oauth-authorization-server/api/auth",
+    { headers: { host: "localhost" } },
+    authEnv,
+  );
+  const { scopes_supported } = (await metadata.json()) as {
+    scopes_supported?: string[];
+  };
+  expect(scopes_supported).not.toContain("offline_access");
+});

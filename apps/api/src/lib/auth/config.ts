@@ -165,10 +165,17 @@ export function createAuth(env: AuthEnv, overrides: AuthOverrides = {}) {
         allowUnauthenticatedClientRegistration: true,
         clientRegistrationRequirePKCE: true,
         // Decision #12: the token lasts as long as a browser session (7 days)
-        // and nothing renews it. `authorization_code` alone means no refresh
-        // token is ever issued, so nothing acts between sessions.
+        // and nothing renews it. `refresh_token` is LISTED yet inert, and the
+        // distinction matters: the MCP SDK registers every client with
+        // grant_types ["authorization_code","refresh_token"], and refusing
+        // the pair refuses every client built on it ("unsupported grant_type
+        // refresh_token", found by 9.10's first real client). What actually
+        // forbids refresh tokens is the provider's own issuance gate — a
+        // refresh token exists only when the granted scopes include
+        // `offline_access` — and offline_access is not in `scopes` below, so
+        // it can never be granted. The grant is a door with no key behind it.
         accessTokenExpiresIn: 60 * 60 * 24 * 7,
-        grantTypes: ["authorization_code"],
+        grantTypes: ["authorization_code", "refresh_token"],
       }) as BetterAuthPlugin,
       genericOAuth({
         config: [

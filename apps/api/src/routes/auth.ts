@@ -15,11 +15,18 @@ import { rateLimit } from "../lib/http/rate-limit";
 const registrationHousekeeping = createMiddleware<{ Bindings: AppBindings }>(
   async (c, next) => {
     await next();
-    c.executionCtx.waitUntil(
-      pruneUnclaimedClients(c.env).catch(() => {
-        // Swept next time. Nothing here is load-bearing.
-      }),
-    );
+    try {
+      c.executionCtx.waitUntil(
+        pruneUnclaimedClients(c.env).catch(() => {
+          // Swept next time. Nothing here is load-bearing.
+        }),
+      );
+    } catch {
+      // No ExecutionContext — `app.request`-driven tests; Hono throws on the
+      // ACCESSOR, which would turn a successful registration into a 500 and
+      // make the doc comment above a lie. Swept next time, same as a failed
+      // prune.
+    }
   },
 );
 
