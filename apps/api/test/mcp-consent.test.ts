@@ -131,3 +131,20 @@ test("a deleted account stops its assistant with it", async () => {
   });
   expect((await call()).status).toBe(401);
 });
+
+test("a consent the PROVIDER wrote — double-encoded scopes — still counts", async () => {
+  // Better Auth's adapter stringifies, the json-mode column stringifies
+  // again: passing a STRING here reproduces the production cell exactly
+  // ('"[\\"roster:read\\"]"' — what 9.10 found on demo, where a fresh
+  // grant answered "consent was withdrawn").
+  await db.delete(oauthConsent);
+  await db.insert(oauthConsent).values({
+    id: "consent-doubled",
+    clientId: "client-abc",
+    userId: "u-teacher",
+    scopes: JSON.stringify(["roster:read"]) as unknown as string[],
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+  expect((await call()).status).toBe(200);
+});

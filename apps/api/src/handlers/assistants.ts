@@ -1,6 +1,7 @@
 import { getDb, oauthClient, oauthConsent } from "@roster/db";
 import { asc, eq } from "drizzle-orm";
 import { authedFactory } from "../factory";
+import { consentScopes } from "../lib/auth/consent-scopes";
 
 /**
  * The teacher's standing grants, shaped for the Connected assistants group in
@@ -34,10 +35,9 @@ export const listAssistants = authedFactory.createHandlers(async (c) => {
   return c.json({
     assistants: rows.map((row) => ({
       ...row,
-      // The column is JSON-typed, so Drizzle infers `unknown`. A consent row
-      // the provider wrote always holds a string array; anything else would
-      // be corruption, and an empty list is the honest rendering of it.
-      scopes: Array.isArray(row.scopes) ? (row.scopes as string[]) : [],
+      // Production rows are double-encoded (see consent-scopes.ts); the
+      // normalizer is what makes the sentence in the menu true.
+      scopes: consentScopes(row.scopes),
     })),
   });
 });

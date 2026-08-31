@@ -126,3 +126,24 @@ test("no grants is an empty list, not an error", async () => {
   expect(res.status).toBe(200);
   expect(await res.json()).toEqual({ assistants: [] });
 });
+
+test("provider-written (double-encoded) scopes still read as scopes", async () => {
+  await db.delete(oauthConsent);
+  await db.insert(oauthConsent).values({
+    id: "consent-doubled",
+    clientId: "client-named",
+    userId: "u1",
+    // A string value: json-mode stringifies it again — the production shape.
+    scopes: JSON.stringify([
+      "roster:read",
+      "roster:write",
+    ]) as unknown as string[],
+    createdAt: now,
+    updatedAt: now,
+  });
+  const res = await call();
+  const { assistants } = (await res.json()) as {
+    assistants: { scopes: string[] }[];
+  };
+  expect(assistants[0]?.scopes).toEqual(["roster:read", "roster:write"]);
+});

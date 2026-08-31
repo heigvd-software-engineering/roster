@@ -7,6 +7,7 @@ import { z } from "zod";
 import type { AppBindings, Env } from "../../env";
 import type { McpToolSpec } from "../../mcp/tools";
 import { mcpTools } from "../../mcp/tools";
+import { consentScopes } from "../auth/consent-scopes";
 import { READ_SCOPE, verifyMcpBearer } from "./verify";
 
 /**
@@ -37,7 +38,11 @@ export { READ_SCOPE } from "./verify";
  * `requireMcpAuth` uses for a bad token, so a client reacts the same way to a
  * withdrawn consent as to an expired token — it starts a fresh authorization.
  */
-const staleGrant = (env: AppBindings, description: string) =>
+const staleGrant = (env: AppBindings, description: string) => {
+  console.warn("mcp stale grant:", description); // 9.10 diagnostics
+  return staleGrantResponse(env, description);
+};
+const staleGrantResponse = (env: AppBindings, description: string) =>
   new Response(
     JSON.stringify({
       jsonrpc: "2.0",
@@ -168,10 +173,8 @@ export function handleMcp(app: Hono<Env>, c: Context<Env>): Promise<Response> {
         and(eq(oauthConsent.clientId, clientId), eq(oauthConsent.userId, sub)),
       )
       .limit(1);
-    const consentScopes = Array.isArray(consent[0]?.scopes)
-      ? (consent[0].scopes as string[])
-      : [];
-    if (!consentScopes.includes(READ_SCOPE)) {
+    const grantedScopes = consentScopes(consent[0]?.scopes);
+    if (!grantedScopes.includes(READ_SCOPE)) {
       return staleGrant(env, "consent was withdrawn");
     }
 

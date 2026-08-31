@@ -58,6 +58,8 @@ const challenge = (
   status: 401 | 403,
   detail: string | null,
 ) => {
+  // Every refusal says why in the tail: 9.10 diagnostics.
+  console.warn(`mcp challenge ${status}:`, detail ?? "no bearer presented");
   const metadata = `resource_metadata="${new URL(env.BETTER_AUTH_URL).origin}/.well-known/oauth-protected-resource/mcp"`;
   const error =
     status === 403
@@ -103,9 +105,15 @@ export async function verifyMcpBearer(
       issuer: issuerOf(env),
       audience: `${env.BETTER_AUTH_URL}/mcp`,
     }));
-  } catch {
+  } catch (error) {
     // Malformed, mis-signed, wrong issuer or audience, expired: to a client
-    // they are all one thing — this token buys nothing, get a new grant.
+    // they are all one thing — this token buys nothing, get a new grant. The
+    // log carries the reason (never the token): a refused REAL token is
+    // otherwise indistinguishable from noise in the tail.
+    console.warn(
+      "mcp token refused:",
+      error instanceof Error ? `${error.name}: ${error.message}` : "unknown",
+    );
     return challenge(env, 401, "invalid or expired token");
   }
 
@@ -116,5 +124,6 @@ export async function verifyMcpBearer(
   if (!scopes.includes(READ_SCOPE)) {
     return challenge(env, 403, `missing scope ${READ_SCOPE}`);
   }
+  console.warn("mcp token verified, sub:", claims.sub);
   return { claims };
 }
