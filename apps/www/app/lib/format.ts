@@ -36,6 +36,19 @@ const DAY_MONTH = new Intl.DateTimeFormat("en-GB", {
   month: "short",
 });
 
+const DAY_MONTH_YEAR = new Intl.DateTimeFormat("en-GB", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+});
+
+/** "28 Aug 2026": a date that is a day, not a moment (a grant, not a
+ *  deadline), so no time — and always the year, because a standing grant
+ *  outlives the semester it was given in. */
+export function formatDate(d: Date): string {
+  return DAY_MONTH_YEAR.format(d);
+}
+
 /** "1 Jun": the timeline's compact day. No time, no year, because the axis
  *  and the relative label beside it carry the rest. */
 export function formatDay(d: Date): string {

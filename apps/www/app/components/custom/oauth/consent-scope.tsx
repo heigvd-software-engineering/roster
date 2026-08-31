@@ -18,6 +18,9 @@ const SCOPES = {
   "roster:read": {
     icon: Eye,
     title: "Read your classes",
+    // The standing-grant list's compressed form of `title` (third person,
+    // lowercase so summaries join into one sentence).
+    summary: "reads your classes",
     detail:
       "Class and assignment names, the groups in them and who's in each one, their work repositories, and recent pushes. Nothing is changed.",
     changes: false,
@@ -25,11 +28,31 @@ const SCOPES = {
   "roster:write": {
     icon: PenLine,
     title: "Create missing work repositories",
+    summary: "creates missing work repositories",
     detail:
       "For an assignment you name, create the work repositories its groups don't have yet. It creates nothing else, and deletes nothing.",
     changes: true,
   },
 } as const;
+
+/**
+ * A granted scope set compressed to one sentence for the Connected assistants
+ * list: "Reads your classes · creates missing work repositories". The same
+ * rule as the consent screen, in miniature: a scope this map doesn't know is
+ * returned in `unknown` to be SHOWN in destructive form, never dropped —
+ * omitting it would understate a standing grant.
+ */
+export function scopeSummary(scopes: string[]): {
+  sentence: string | null;
+  unknown: string[];
+} {
+  const known = scopes.filter(isKnown).map((scope) => SCOPES[scope].summary);
+  const joined = known.join(" · ");
+  return {
+    sentence: joined ? joined.charAt(0).toUpperCase() + joined.slice(1) : null,
+    unknown: scopes.filter((scope) => !isKnown(scope)),
+  };
+}
 
 type KnownScope = keyof typeof SCOPES;
 
