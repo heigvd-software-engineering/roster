@@ -38,11 +38,7 @@ export { READ_SCOPE } from "./verify";
  * `requireMcpAuth` uses for a bad token, so a client reacts the same way to a
  * withdrawn consent as to an expired token — it starts a fresh authorization.
  */
-const staleGrant = (env: AppBindings, description: string) => {
-  console.warn("mcp stale grant:", description); // 9.10 diagnostics
-  return staleGrantResponse(env, description);
-};
-const staleGrantResponse = (env: AppBindings, description: string) =>
+const staleGrant = (env: AppBindings, description: string) =>
   new Response(
     JSON.stringify({
       jsonrpc: "2.0",
