@@ -99,3 +99,24 @@ test("a bearer token against /api/* is answered 401", async () => {
   );
   expect(res.status).toBe(401);
 });
+
+// Found by 9.10's first real client (Claude Code): RFC 8414 puts a
+// path-bearing issuer's metadata at the path-INSERTED well-known, the only
+// OAuth URL the MCP SDK tries. Without it, discovery fails and the SDK's
+// fallback registration POST lands in the assets layer as a 405.
+test("the RFC 8414 path-insertion metadata answers, and names the endpoints", async () => {
+  const res = await app.request(
+    "http://localhost/.well-known/oauth-authorization-server/api/auth",
+    { headers: { host: "localhost" } },
+    authEnv,
+  );
+  expect(res.status).toBe(200);
+  const metadata = (await res.json()) as {
+    issuer: string;
+    registration_endpoint: string;
+    token_endpoint: string;
+  };
+  expect(metadata.issuer).toBe("http://localhost:8787/api/auth");
+  expect(metadata.registration_endpoint).toContain("/api/auth/oauth2/register");
+  expect(metadata.token_endpoint).toContain("/api/auth/oauth2/token");
+});
