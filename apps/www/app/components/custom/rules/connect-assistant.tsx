@@ -1,6 +1,5 @@
 import { CommandBlock } from "~/components/custom/command-block";
 import { Stack } from "~/components/custom/layout/stack";
-import { Axiom, Axioms } from "~/components/custom/rules/axiom";
 import { Text } from "~/components/custom/typography/text";
 
 /**
@@ -62,28 +61,6 @@ export function ConnectAssistant() {
           you could read yourself, as you, and nothing more.
         </Text>
       </Stack>
-
-      <Axioms title="What it can and can't do">
-        <Axiom name="You control it">
-          Account menu → Connected assistants lists every grant with what it may
-          do. Revoke access at any time: the assistant is refused from its very
-          next request.
-        </Axiom>
-        <Axiom name="It can read">
-          Class and assignment names, groups and their members, work
-          repositories and recent pushes. It changes nothing.
-        </Axiom>
-        <Axiom name="It can't">
-          Act as a student, see another teacher's classes, delete anything, or
-          keep working after you revoke. A program's name is self-reported —
-          trust the grant you made, not the name it shows.
-        </Axiom>
-        <Axiom name="Any client">
-          Claude Code is just the example: any MCP-compatible assistant connects
-          the same way with the address{" "}
-          <code className="break-all">{mcpUrl}</code>.
-        </Axiom>
-      </Axioms>
     </Stack>
   );
 }

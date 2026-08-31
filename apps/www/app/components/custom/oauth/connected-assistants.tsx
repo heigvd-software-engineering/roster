@@ -55,7 +55,29 @@ export function ConnectedAssistants({
 
   return (
     <DropdownMenuGroup>
-      <DropdownMenuLabel>Connected assistants</DropdownMenuLabel>
+      <Row gap="xs" align="center">
+        <DropdownMenuLabel className="pr-0">
+          Connected assistants
+        </DropdownMenuLabel>
+        {/* The section explains itself where it is; the full setup guide
+            lives on the rules page, one link away. */}
+        <Hint label="About connected assistants" title="AI assistants">
+          <Stack gap="sm">
+            <span>
+              Programs you've allowed to read your classes with a limited key of
+              their own — they never see your password or your session, and you
+              can revoke each one here at any time.
+            </span>
+            <span>
+              To connect one (Claude Code, for example), see{" "}
+              <a href="/rules" className="underline">
+                How roster works
+              </a>{" "}
+              → Connect an AI assistant.
+            </span>
+          </Stack>
+        </Hint>
+      </Row>
       {isLoading ? (
         // The house loading pattern in miniature: words, not an animation.
         <Note>Loading assistants…</Note>
