@@ -1,6 +1,7 @@
 import { Page } from "~/components/custom/layout/page";
 import { Stack } from "~/components/custom/layout/stack";
 import { Axiom, Axioms } from "~/components/custom/rules/axiom";
+import { ConnectAssistant } from "~/components/custom/rules/connect-assistant";
 import { RuleItem } from "~/components/custom/rules/rule-item";
 import { RulePhase } from "~/components/custom/rules/rule-phase";
 import { Text } from "~/components/custom/typography/text";
@@ -168,6 +169,8 @@ export function RulesPage() {
             </RuleItem>
           </RulePhase>
         </Stack>
+
+        <ConnectAssistant />
       </Stack>
     </Page>
   );
