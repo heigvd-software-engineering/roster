@@ -19,7 +19,10 @@ import { createAuth } from "../lib/auth/config";
  * `/api/auth/.well-known/oauth-authorization-server` — but RFC 8414 §3.1
  * says a path-bearing issuer publishes it path-INSERTED:
  * `/.well-known/oauth-authorization-server/api/auth`, and that is the first
- * (and for OAuth, only) URL the MCP SDK tries. All three of its candidates
+ * (and for OAuth, only) URL the MCP SDK tries. Stands in for: RFC 8414 §3.1
+ * serving, which the plugin does not do at the insertion path for any issuer
+ * with a path (checked 1.7.2, 2026-08-31 audit) — delete the rewrite when it
+ * does. All three of its candidates
  * 404ed here, so it fell back to a default `/register` at the origin, where
  * the assets layer answers POST with 405. The route below rewrites the
  * RFC 8414 form onto the one the provider serves; the two OIDC-shaped

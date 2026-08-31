@@ -22,6 +22,12 @@ function isHttpLoopback(uri: unknown): boolean {
 /**
  * Declare a registering client `native` when its redirect URIs say it is one.
  *
+ * Stands in for: RFC 7591's server-side metadata defaulting ("the server MAY
+ * replace any of the client's requested metadata values") — a defaulting rule
+ * the provider applies internally with no option to influence it (checked
+ * 1.7.2; 2026-08-31 audit re-confirmed no `application_type` default exists
+ * in the public options).
+ *
  * OIDC registration defaults `application_type` to `web`, and a web client may
  * not use a loopback redirect: `@better-auth/oauth-provider` refuses one with
  * `400 invalid_redirect_uri`. Every MCP client is in exactly that position. The

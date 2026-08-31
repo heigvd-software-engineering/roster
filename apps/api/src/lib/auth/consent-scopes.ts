@@ -7,6 +7,12 @@
  * type promises an array. The provider shrugs the double wrap off when
  * reading its own rows; every direct drizzle read must do the same. This is
  * the one place that knows.
+ *
+ * Stands in for: nothing standard — it bridges a disagreement between the
+ * toolkit's own two layers (the CLI-generated `mode: "json"` column and the
+ * adapter's stringify-before-write; both theirs, checked 2026-08-31). Delete
+ * when upstream fixes either side; the regression tests seeding the
+ * double-encoded shape will say so by failing.
  */
 export function consentScopes(value: unknown): string[] {
   if (Array.isArray(value)) {

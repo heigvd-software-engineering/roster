@@ -10,6 +10,12 @@ const UNCLAIMED_AFTER_MS = 24 * 60 * 60 * 1000;
 /**
  * Delete client registrations that never became an actual grant.
  *
+ * Stands in for: registration-lifecycle housekeeping a DCR server needs when
+ * registration is open. Checked against @better-auth/{mcp,oauth-provider}
+ * 1.7.2: the plugin exposes no TTL, expiry or cleanup option for
+ * self-registered clients (2026-08-31 audit). Delete this file the day it
+ * grows one.
+ *
  * Registration is open — a CLI has no session to present — so anyone can create
  * rows here. What they cannot create is access: nothing works until a teacher
  * signs in with edu-ID and consents. So the exposure is junk rows, and this is
