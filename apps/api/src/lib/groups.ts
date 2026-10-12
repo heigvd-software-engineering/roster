@@ -5,7 +5,7 @@ import {
   type getDb,
   groups,
 } from "@roster/db";
-import { and, eq, inArray, ne } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import type { AuthEnv } from "./auth/config";
 import type { ClassScope } from "./class-scope";
 import {
@@ -19,6 +19,7 @@ import {
 } from "./github/repo";
 import { addTeamMember, createTeam } from "./github/team";
 import { cachedRosters, syncGroupMembers } from "./group-members";
+import { inList } from "./in-list";
 
 type Db = ReturnType<typeof getDb>;
 
@@ -205,7 +206,7 @@ export async function deleteGroupsWithTeams(
     }
   }
   await scope.db.delete(groups).where(
-    inArray(
+    inList(
       groups.id,
       rows.map((g) => g.id),
     ),

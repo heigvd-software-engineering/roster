@@ -823,3 +823,79 @@ test("hasOlder also sees older ENROLLED classes; bad from is a 400", async () =>
     (await app.request("/api/classes?from=not-a-date", {}, env)).status,
   ).toBe(400);
 });
+
+test("a widened window whose classes hold over 100 members together still loads", async () => {
+  // D1 refuses a statement with more than 100 bound parameters. Each class
+  // here is under that on its own (the current semester loads), and the two
+  // together are over it (paging back one semester used to answer 500).
+  state.installations = [
+    { id: 200, account: { id: 42, login: "acme" } },
+    { id: 201, account: { id: 43, login: "oldies" } },
+  ];
+  await seedClass({
+    id: "c-new",
+    orgId: 42,
+    createdAt: new Date("2026-03-01"),
+  });
+  await seedClass({
+    id: "c-old",
+    orgId: 43,
+    installationId: 201,
+    createdAt: new Date("2025-10-01"),
+  });
+  const cohort = (firstId: number) =>
+    Array.from({ length: 60 }, (_, i) => ({
+      id: firstId + i,
+      login: `student-${firstId + i}`,
+      avatarUrl: null,
+    }));
+  // Seeded a few rows at a time: the insert is bound by the same limit.
+  for (const [classId, students] of [
+    ["c-new", cohort(1000)],
+    ["c-old", cohort(2000)],
+  ] as const) {
+    for (let i = 0; i < students.length; i += 10) {
+      await seedMembers(classId, {
+        teachers: [],
+        students: students.slice(i, i + 10),
+        pending: [],
+      });
+    }
+  }
+  // One linked roster user in the older cohort, to see the lookup still finds
+  // them.
+  await db.insert(account).values({
+    id: "a-old-student",
+    userId: "someone-else",
+    providerId: "github",
+    accountId: "2059",
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  const current = await app.request(
+    "/api/classes?from=2026-02-01T00:00:00Z",
+    {},
+    env,
+  );
+  expect(current.status).toBe(200);
+
+  const widened = await app.request(
+    "/api/classes?from=2025-09-01T00:00:00Z",
+    {},
+    env,
+  );
+  expect(widened.status).toBe(200);
+  const body = (await widened.json()) as {
+    classes: Array<{
+      id: string;
+      students: unknown[];
+      users: Array<{ githubId: string }>;
+    }>;
+  };
+  expect(body.classes.map((c) => [c.id, c.students.length])).toEqual([
+    ["c-new", 60],
+    ["c-old", 60],
+  ]);
+  expect(body.classes[1]?.users.map((u) => u.githubId)).toEqual(["2059"]);
+});

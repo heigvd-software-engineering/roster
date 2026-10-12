@@ -32,6 +32,7 @@ import {
   userOrgMemberships,
 } from "../lib/github/user";
 import { githubIdsForUser, profilesByGithubId } from "../lib/identity";
+import { inList } from "../lib/in-list";
 import { mintJoinToken } from "../lib/join-token";
 
 /** A cached member in the shape the client expects. `class_members` is a
@@ -229,7 +230,7 @@ async function visibleTeachingClasses(
           .from(classes)
           .where(
             and(
-              inArray(classes.orgId, orgIds),
+              inList(classes.orgId, orgIds),
               ...(from ? [gte(classes.createdAt, from)] : []),
             ),
           )
@@ -266,7 +267,7 @@ async function visibleTeachingClasses(
             .select({ id: classes.id })
             .from(classes)
             .where(
-              and(inArray(classes.orgId, orgIds), lt(classes.createdAt, from)),
+              and(inList(classes.orgId, orgIds), lt(classes.createdAt, from)),
             )
             .limit(1)
         ).length > 0;
@@ -289,7 +290,7 @@ async function teachingClasses(db: Db, token: string, from: Date | null) {
       : await db
           .select()
           .from(assignments)
-          .where(inArray(assignments.classId, visibleIds))
+          .where(inList(assignments.classId, visibleIds))
           // Course order: effective start (startAt, else createdAt)
           // ascending, the same order the timeline draws. Deadline breaks
           // same-instant ties. The per-class filter below keeps this order.
@@ -310,7 +311,7 @@ async function teachingClasses(db: Db, token: string, from: Date | null) {
       : await db
           .select()
           .from(classMembers)
-          .where(inArray(classMembers.classId, visibleIds));
+          .where(inList(classMembers.classId, visibleIds));
 
   // SWITCH users linked to the members' GitHub accounts: one query for all
   // classes, raw rows, and the client correlates by github id. `githubId`
@@ -385,7 +386,7 @@ async function enrolledClasses(
       : await db
           .select()
           .from(assignments)
-          .where(inArray(assignments.classId, enrolledIds))
+          .where(inList(assignments.classId, enrolledIds))
           // Same course order as the teaching hub above.
           .orderBy(
             asc(
@@ -424,7 +425,7 @@ async function enrolledClasses(
           .leftJoin(user, eq(account.userId, user.id))
           .where(
             and(
-              inArray(classMembers.classId, enrolledIds),
+              inList(classMembers.classId, enrolledIds),
               eq(classMembers.state, "teacher"),
             ),
           );

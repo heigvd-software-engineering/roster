@@ -10,10 +10,10 @@
 // and a diff against nothing would propose emptying a group whose team we
 // merely failed to read.
 import { assignments } from "@roster/db";
-import { inArray } from "drizzle-orm";
 import type { OrgPerson } from "../github/org";
 import { teamMembers } from "../github/team";
 import { cachedRosters, syncGroupMembers } from "../group-members";
+import { inList } from "../in-list";
 import type {
   AppliedOp,
   FailedOp,
@@ -40,7 +40,7 @@ async function assignmentTitles(
   const rows = await ctx.db
     .select({ id: assignments.id, title: assignments.title })
     .from(assignments)
-    .where(inArray(assignments.id, assignmentIds));
+    .where(inList(assignments.id, assignmentIds));
   return new Map(rows.map((r) => [r.id, r.title]));
 }
 

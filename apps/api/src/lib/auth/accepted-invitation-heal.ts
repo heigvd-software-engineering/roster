@@ -1,6 +1,7 @@
 import { account, classes, classMembers, getDb } from "@roster/db";
 import { and, eq, inArray } from "drizzle-orm";
 import { forgetMember, observeMember } from "../enrollment";
+import { inList } from "../in-list";
 import type { AuthEnv } from "./config";
 
 /**
@@ -83,7 +84,7 @@ export async function healAcceptedInvitations(
       .select({ id: classes.id, login: classes.login })
       .from(classes)
       .where(
-        inArray(
+        inList(
           classes.id,
           stale.map((s) => s.classId),
         ),
