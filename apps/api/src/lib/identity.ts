@@ -1,5 +1,5 @@
-import { account, type getDb, user } from "@roster/db";
-import { and, eq } from "drizzle-orm";
+import { account, classMembers, type getDb, user } from "@roster/db";
+import { and, eq, inArray } from "drizzle-orm";
 import { inList } from "./in-list";
 
 /**
@@ -44,6 +44,16 @@ export async function githubIdsForUser(
   return Number.isFinite(ghId) ? { ghId, githubId: row.accountId } : null;
 }
 
+/** The columns of a linked roster user: the one set allowed to leave the
+ *  server for other class members. Both lookups below select exactly these. */
+const linkedProfileColumns = {
+  githubId: account.accountId,
+  firstName: user.firstName,
+  lastName: user.lastName,
+  name: user.name,
+  email: user.email,
+};
+
 /**
  * The roster users behind a set of GitHub ids, in the one shape allowed to
  * leave the server for other class members: display-name fields plus the
@@ -57,13 +67,7 @@ export async function githubIdsForUser(
 export async function profilesByGithubId(db: Db, githubIds: string[]) {
   if (githubIds.length === 0) return [];
   const rows = await db
-    .select({
-      githubId: account.accountId,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      name: user.name,
-      email: user.email,
-    })
+    .select(linkedProfileColumns)
     .from(account)
     .innerJoin(user, eq(account.userId, user.id))
     .where(
@@ -73,4 +77,45 @@ export async function profilesByGithubId(db: Db, githubIds: string[]) {
       ),
     );
   return rows.map(({ githubId, ...profile }) => ({ githubId, user: profile }));
+}
+
+/**
+ * The roster users behind the joined members of a set of classes, each tagged
+ * with its class id: the same shape as `profilesByGithubId`, answered by a join for a
+ * caller that holds class ids rather than GitHub ids.
+ *
+ * The hub used to read every member row and send its GitHub ids back for the
+ * lookup. That is a round trip through application code for something the
+ * database relates on its own (`class_members.githubId` is
+ * `account.accountId`), and it made the list grow with the number of students.
+ *
+ * Joined members only: an open invitation is not yet anyone's membership, so an
+ * invited person's roster identity stays out even when the invitation names
+ * them. A person in two of the classes appears once for each.
+ */
+export async function profilesOfClassMembers(db: Db, classIds: string[]) {
+  const rows =
+    classIds.length === 0
+      ? []
+      : await db
+          .select({ classId: classMembers.classId, ...linkedProfileColumns })
+          .from(classMembers)
+          .innerJoin(
+            account,
+            and(
+              eq(account.providerId, "github"),
+              eq(account.accountId, classMembers.githubId),
+            ),
+          )
+          .innerJoin(user, eq(account.userId, user.id))
+          .where(
+            and(
+              inList(classMembers.classId, classIds),
+              inArray(classMembers.state, ["active", "teacher"]),
+            ),
+          );
+  return rows.map(({ classId, githubId, ...profile }) => ({
+    classId,
+    linked: { githubId, user: profile },
+  }));
 }

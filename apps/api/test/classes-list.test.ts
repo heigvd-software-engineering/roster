@@ -899,3 +899,139 @@ test("a widened window whose classes hold over 100 members together still loads"
   ]);
   expect(body.classes[1]?.users.map((u) => u.githubId)).toEqual(["2059"]);
 });
+
+test("linked users are resolved per class, for joined members only", async () => {
+  // Three classes the caller owns and one they only reach (not an Owner).
+  state.installations = [
+    { id: 200, account: { id: 42, login: "acme" } },
+    { id: 201, account: { id: 43, login: "oldies" } },
+    { id: 202, account: { id: 44, login: "empty" } },
+    { id: 203, account: { id: 45, login: "notmine" } },
+  ];
+  state.orgMemberships = {
+    acme: { role: "admin", state: "active" },
+    oldies: { role: "admin", state: "active" },
+    empty: { role: "admin", state: "active" },
+    notmine: { role: "member", state: "active" },
+  };
+  await seedClass({ id: "c-a", orgId: 42, createdAt: new Date("2026-03-01") });
+  await seedClass({ id: "c-b", orgId: 43, createdAt: new Date("2025-10-01") });
+  await seedClass({ id: "c-c", orgId: 44, createdAt: new Date("2025-03-01") });
+  await seedClass({ id: "c-x", orgId: 45, createdAt: new Date("2026-03-02") });
+
+  const member = (
+    classId: string,
+    githubId: string | null,
+    memberState: "pending" | "pending_teacher" | "active" | "teacher",
+    invitationId: string | null = null,
+  ) => ({
+    id: `cm-${classId}-${githubId ?? invitationId}`,
+    classId,
+    githubId,
+    invitationId,
+    login: `login-${githubId ?? invitationId}`,
+    avatarUrl: null,
+    state: memberState,
+    createdAt: now,
+    updatedAt: now,
+  });
+  const rows = [
+    // c-a: the caller teaches it. 501 is linked, 502 is not, 503 is linked to
+    // two roster users, 504 is linked but only invited, 505 is an invited
+    // teacher who is linked, and one invitation carries no user id at all.
+    member("c-a", "111", "teacher"),
+    member("c-a", "501", "active"),
+    member("c-a", "502", "active"),
+    member("c-a", "503", "active"),
+    member("c-a", "504", "pending", "inv-504"),
+    member("c-a", "505", "pending_teacher", "inv-505"),
+    member("c-a", null, "pending", "inv-anon"),
+    // c-b: 501 again (same person, second class), and 506 who joined here but
+    // is only invited in c-a's sibling below.
+    member("c-b", "111", "teacher"),
+    member("c-b", "501", "active"),
+    member("c-b", "506", "active"),
+    // c-c has no members at all.
+    // c-x is not the caller's: its linked member must never surface.
+    member("c-x", "507", "active"),
+  ];
+  for (const row of rows) await db.insert(classMembers).values(row);
+
+  const linked = (githubId: string, n = "") => ({
+    id: `u-${githubId}${n}`,
+    name: `Name ${githubId}${n}`,
+    firstName: `First${githubId}${n}`,
+    lastName: `Last${githubId}${n}`,
+    email: `p${githubId}${n}@heig-vd.ch`,
+  });
+  const githubAccount = (githubId: string, n = "") => ({
+    id: `acc-${githubId}${n}`,
+    userId: `u-${githubId}${n}`,
+    providerId: "github",
+    accountId: githubId,
+    createdAt: now,
+    updatedAt: now,
+  });
+  for (const [githubId, n] of [
+    ["501", ""],
+    ["503", ""],
+    ["503", "-bis"],
+    ["504", ""],
+    ["505", ""],
+    ["506", ""],
+    ["507", ""],
+  ] as const) {
+    await db.insert(user).values(linked(githubId, n));
+    await db.insert(account).values(githubAccount(githubId, n));
+  }
+  // Same account id under another provider: a different id space, no match.
+  await db.insert(account).values({
+    id: "acc-502-switch",
+    userId: "someone-else",
+    providerId: "switch",
+    accountId: "502",
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  const res = await app.request("/api/classes", {}, env);
+  expect(res.status).toBe(200);
+  const body = (await res.json()) as {
+    classes: Array<{
+      id: string;
+      users: Array<{ githubId: string; user: { email: string } }>;
+    }>;
+  };
+  const linkedEmails = Object.fromEntries(
+    body.classes.map((c) => [
+      c.id,
+      c.users.map((u) => `${u.githubId}:${u.user.email}`).sort(),
+    ]),
+  );
+  expect(linkedEmails).toEqual({
+    "c-a": [
+      "111:prof@heig-vd.ch",
+      "501:p501@heig-vd.ch",
+      "503:p503-bis@heig-vd.ch",
+      "503:p503@heig-vd.ch",
+    ],
+    "c-b": [
+      "111:prof@heig-vd.ch",
+      "501:p501@heig-vd.ch",
+      "506:p506@heig-vd.ch",
+    ],
+    "c-c": [],
+  });
+  // Exactly the fields allowed to leave the server, nothing more.
+  for (const cls of body.classes) {
+    for (const u of cls.users) {
+      expect(Object.keys(u).sort()).toEqual(["githubId", "user"]);
+      expect(Object.keys(u.user).sort()).toEqual([
+        "email",
+        "firstName",
+        "lastName",
+        "name",
+      ]);
+    }
+  }
+});

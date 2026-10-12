@@ -12,12 +12,7 @@ import { z } from "zod";
 import { authedFactory } from "../factory";
 import { githubAccessToken } from "../lib/auth/github-token";
 import { resolveClassAsTeacher } from "../lib/class-scope";
-import {
-  forgetMember,
-  isInvited,
-  memberUserIds,
-  observeMember,
-} from "../lib/enrollment";
+import { forgetMember, observeMember } from "../lib/enrollment";
 import {
   enforceOrgPolicy,
   inviteOrgAdmin,
@@ -31,7 +26,7 @@ import {
   userInstallationsByOrgId,
   userOrgMemberships,
 } from "../lib/github/user";
-import { githubIdsForUser, profilesByGithubId } from "../lib/identity";
+import { githubIdsForUser, profilesOfClassMembers } from "../lib/identity";
 import { inList } from "../lib/in-list";
 import { mintJoinToken } from "../lib/join-token";
 
@@ -313,18 +308,14 @@ async function teachingClasses(db: Db, token: string, from: Date | null) {
           .from(classMembers)
           .where(inList(classMembers.classId, visibleIds));
 
-  // SWITCH users linked to the members' GitHub accounts: one query for all
-  // classes, raw rows, and the client correlates by github id. `githubId`
-  // means exactly one thing, so matching it against `account.accountId` is
-  // always sound; no id-space guard, only the state filter the display wants.
-  const activeMembers = memberRows.filter((m) => !isInvited(m.state));
-  const allLinked = await profilesByGithubId(db, memberUserIds(activeMembers));
+  // SWITCH users linked to the joined members' GitHub accounts: one join for
+  // all visible classes, raw rows, and the client correlates by github id.
+  // `githubId` means exactly one thing, so matching it against
+  // `account.accountId` is always sound; no id-space guard.
+  const memberProfiles = await profilesOfClassMembers(db, visibleIds);
 
   const teaching = visible.map(({ cls, live }) => {
     const members = memberRows.filter((m) => m.classId === cls.id);
-    const memberIds = new Set(
-      members.filter((m) => !isInvited(m.state)).map((m) => m.githubId),
-    );
     return {
       id: cls.id,
       orgId: cls.orgId,
@@ -344,7 +335,9 @@ async function teachingClasses(db: Db, token: string, from: Date | null) {
       pendingTeachers: members
         .filter((m) => m.state === "pending_teacher")
         .map(person),
-      users: allLinked.filter((u) => memberIds.has(u.githubId)),
+      users: memberProfiles.flatMap((p) =>
+        p.classId === cls.id ? [p.linked] : [],
+      ),
       assignments: assignmentRows.filter((l) => l.classId === cls.id),
     };
   });
