@@ -112,6 +112,11 @@ index on `class_members.github_id` answers "which classes has this person been
 invited to?", asked at every sign-in; the unique index leads with `classId` and
 cannot serve it.
 
+`account (account_id, provider_id)` has a plain index too, answering "which
+roster user is behind this GitHub account?" for the hub and for OAuth sign-in.
+`account` belongs to the CLI-generated auth schema, so the index has no Drizzle
+declaration: it exists only in migration `0018_account_account_id_index.sql`.
+
 ## Why there is no participations table
 
 An earlier model had reusable class-scoped groups joined to assignments through a

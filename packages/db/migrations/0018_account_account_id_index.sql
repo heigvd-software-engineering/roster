@@ -1,0 +1,13 @@
+-- Hand-written (drizzle-kit generate --custom): `account` belongs to the
+-- CLI-generated auth schema, which is never edited, so this index has no
+-- Drizzle declaration and lives only here.
+--
+-- "Which roster user is behind this GitHub account?" is asked for every member
+-- of every class on the hub, and by Better Auth at every OAuth sign-in. Without
+-- this, each of those scans the whole `account` table.
+--
+-- `account_id` leads on purpose. Measured on D1 with the columns the other way
+-- round, the planner starts the hub's join from every GitHub account in the
+-- system (matching on `provider_id` alone) instead of from the class's members,
+-- and reads eight times the rows.
+CREATE INDEX `account_account_id_provider_id_idx` ON `account` (`account_id`, `provider_id`);
