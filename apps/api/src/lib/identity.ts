@@ -1,5 +1,6 @@
 import { account, type getDb, user } from "@roster/db";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
+import { inList } from "./in-list";
 
 /**
  * Who people are, across the three identity systems this app straddles:
@@ -68,7 +69,7 @@ export async function profilesByGithubId(db: Db, githubIds: string[]) {
     .where(
       and(
         eq(account.providerId, "github"),
-        inArray(account.accountId, githubIds),
+        inList(account.accountId, githubIds),
       ),
     );
   return rows.map(({ githubId, ...profile }) => ({ githubId, user: profile }));

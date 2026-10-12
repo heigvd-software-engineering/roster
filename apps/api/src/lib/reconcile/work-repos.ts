@@ -16,9 +16,10 @@
 //                  here — clicking "create repository" on that group instead
 //                  fails `name_taken`, since `createWorkRepo` never adopts.
 import { type Assignment, assignments, groups } from "@roster/db";
-import { eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { getOrgRepo, grantTeamRepo } from "../github/repo";
 import { isSameRepo } from "../groups";
+import { inList } from "../in-list";
 import type {
   AppliedOp,
   FailedOp,
@@ -38,7 +39,7 @@ async function templatesByAssignmentId(
   const rows = await ctx.db
     .select({ id: assignments.id, template: assignments.templateRepoFullName })
     .from(assignments)
-    .where(inArray(assignments.id, assignmentIds));
+    .where(inList(assignments.id, assignmentIds));
   return new Map(rows.map((r) => [r.id, r.template]));
 }
 

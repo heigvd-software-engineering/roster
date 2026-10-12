@@ -1,8 +1,9 @@
 import { type Group, type getDb, groupMembers } from "@roster/db";
-import { eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import type { AuthEnv } from "./auth/config";
 import type { OrgPerson } from "./github/org";
 import { teamMembers } from "./github/team";
+import { inList } from "./in-list";
 
 type Db = ReturnType<typeof getDb>;
 
@@ -88,7 +89,7 @@ export async function cachedRosters(
   const rows = await db
     .select()
     .from(groupMembers)
-    .where(inArray(groupMembers.groupId, groupIds));
+    .where(inList(groupMembers.groupId, groupIds));
   for (const row of rows) {
     out.get(row.groupId)?.push({
       id: Number(row.githubId),
